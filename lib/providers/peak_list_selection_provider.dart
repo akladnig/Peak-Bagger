@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -11,6 +13,7 @@ import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/fab_colour_resolver.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
+import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 
 const _tasmaniaPeakOwnershipPriority = <String, int>{
   'abels': 0,
@@ -37,110 +40,78 @@ final peakListsLoadFailedProvider = Provider<bool>((ref) {
   return ref.watch(peakListsLoadProvider).failed;
 });
 
+typedef PeakListSelectionRefreshScheduler =
+    Future<void> Function(FutureOr<void> Function() task);
+
+final peakListSelectionRefreshSchedulerProvider =
+    Provider<PeakListSelectionRefreshScheduler>((ref) {
+      return (task) {
+        return Future<void>(() async {
+          await task();
+        });
+      };
+    });
+
+typedef _PeakListSelectionRefreshInputs = ({
+  PeakListSelectionMode peakListSelectionMode,
+  Set<int> selectedPeakListIds,
+  Map<String, Set<int>> pinnedPeakListIdsByRegion,
+  LatLngBounds? visibleBounds,
+  List<Peak> peaks,
+  List<PeakList> peakLists,
+  int revision,
+});
+
+final _peakListSelectionRefreshInputsProvider =
+    Provider<_PeakListSelectionRefreshInputs>((ref) {
+      final peakLists = ref.watch(peakListsProvider);
+      final revision = ref.watch(peakListRevisionProvider);
+      final (
+        :peakListSelectionMode,
+        :selectedPeakListIds,
+        :pinnedPeakListIdsByRegion,
+        :visibleBounds,
+        :peaks,
+      ) = ref.watch(
+        mapProvider.select(
+          (state) => (
+            peakListSelectionMode: state.peakListSelectionMode,
+            selectedPeakListIds: state.selectedPeakListIds,
+            pinnedPeakListIdsByRegion: state.pinnedPeakListIdsByRegion,
+            visibleBounds: state.visibleBounds,
+            peaks: state.peaks,
+          ),
+        ),
+      );
+
+      return (
+        peakListSelectionMode: peakListSelectionMode,
+        selectedPeakListIds: selectedPeakListIds,
+        pinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion,
+        visibleBounds: visibleBounds,
+        peaks: peaks,
+        peakLists: peakLists,
+        revision: revision,
+      );
+    });
+
+final _peakListSelectionDerivedStateProvider =
+    NotifierProvider<
+      _PeakListSelectionDerivedStateNotifier,
+      _PeakListSelectionDerivedState
+    >(_PeakListSelectionDerivedStateNotifier.new);
+
 final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
   ref,
 ) {
-  final (
-    :peakListSelectionMode,
-    :selectedPeakListIds,
-    :pinnedPeakListIdsByRegion,
-    :visibleBounds,
-  ) = ref.watch(
-    mapProvider.select(
-      (state) => (
-        peakListSelectionMode: state.peakListSelectionMode,
-        selectedPeakListIds: state.selectedPeakListIds,
-        pinnedPeakListIdsByRegion: state.pinnedPeakListIdsByRegion,
-        visibleBounds: state.visibleBounds,
-      ),
-    ),
-  );
-  final peakLists = ref.watch(peakListsProvider);
-  final peaks = ref.watch(mapProvider.select((state) => state.peaks));
-  final visibleRegionKeys = visibleRegionKeysForBounds(visibleBounds);
-  final hasResolvedVisibleBounds = visibleBounds != null;
-  if (hasResolvedVisibleBounds && visibleRegionKeys.isEmpty) {
-    return const PeakListSelectionSummary(chips: []);
-  }
-  final labelsById = {
-    for (final peakList in peakLists) peakList.peakListId: peakList.name,
-  };
-  final repo = ref.watch(peakListRepositoryProvider);
-  List<PeakListItem> loadItems(PeakList peakList) {
-    return repo.getPeakListItemsForList(peakList.peakListId);
-  }
-  final peakListsById = {
-    for (final peakList in peakLists) peakList.peakListId: peakList,
-  };
-  final regionKeysById = {
-    for (final peakList in peakLists)
-      peakList.peakListId: canonicalRegionKey(
-        normalizePeakListRegionKey(peakList.region),
-      ),
-  };
-  final visiblePinnedPeakListIds = {
-    for (final peakList in peakLists)
-      if ((!hasResolvedVisibleBounds ||
-              peakListAppliesToVisibleRegions(
-                peakList,
-                visibleRegionKeys,
-                visibleBounds: visibleBounds,
-                peaks: peaks,
-                itemsLoader: loadItems,
-              )) &&
-           peakListIsPinned(
-             peakList: peakList,
-             pinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion,
-             peaks: peaks,
-             itemsLoader: loadItems,
-           ))
-          peakList.peakListId,
-  };
-  final visibleSelectedPeakListIds = hasResolvedVisibleBounds
-      ? {
-          for (final peakListId in selectedPeakListIds)
-            if (() {
-              final peakList = peakListsById[peakListId];
-              return peakList != null &&
-                  peakListAppliesToVisibleRegions(
-                    peakList,
-                    visibleRegionKeys,
-                    visibleBounds: visibleBounds,
-                    peaks: peaks,
-                    itemsLoader: loadItems,
-                  );
-            }())
-              peakListId,
-        }
-      : selectedPeakListIds.toSet();
-  final visibleSpecificPeakListIds =
-      {...visiblePinnedPeakListIds, ...visibleSelectedPeakListIds}.toList()
-        ..sort((left, right) {
-          return (labelsById[left] ?? 'List #$left').toLowerCase().compareTo(
-            (labelsById[right] ?? 'List #$right').toLowerCase(),
-          );
-        });
-  final chips = <PeakListSelectionChip>[
-    if (peakListSelectionMode == PeakListSelectionMode.allPeaks)
-      const PeakListSelectionChip.allPeaks(),
-    if (peakListSelectionMode == PeakListSelectionMode.none)
-      const PeakListSelectionChip.none(),
-    for (final peakListId in visibleSpecificPeakListIds)
-      () {
-        final peakList = peakListsById[peakListId];
-        return PeakListSelectionChip.list(
-          peakListId: peakListId,
-          label: labelsById[peakListId] ?? 'List #$peakListId',
-          regionKey: regionKeysById[peakListId],
-          isSelected: visibleSelectedPeakListIds.contains(peakListId),
-          isPinned: visiblePinnedPeakListIds.contains(peakListId),
-          colourValue: peakList == null ? null : resolvePeakListColour(peakList),
-        );
-      }(),
-  ];
-
-  return PeakListSelectionSummary(chips: chips);
+  return ref.watch(_peakListSelectionDerivedStateProvider).summary;
 });
+
+final mapPeakListDrawerEntriesProvider = Provider<List<MapPeakListDrawerEntry>>(
+  (ref) {
+    return ref.watch(_peakListSelectionDerivedStateProvider).drawerEntries;
+  },
+);
 
 final filteredPeaksProvider = Provider<List<Peak>>((ref) {
   final peaks = ref.watch(mapMetadataFilterScopePeaksProvider);
@@ -164,25 +135,9 @@ final filteredPeaksProvider = Provider<List<Peak>>((ref) {
 });
 
 final mapMetadataFilterScopePeaksProvider = Provider<List<Peak>>((ref) {
-  ref.watch(peakListRevisionProvider);
-  final peaks = ref.watch(mapProvider.select((state) => state.peaks));
-  final peakListSelectionMode = ref.watch(
-    mapProvider.select((state) => state.peakListSelectionMode),
-  );
-  final selectedPeakListIds = ref.watch(
-    mapProvider.select((state) => state.selectedPeakListIds),
-  );
-  final repo = ref.watch(peakListRepositoryProvider);
-
-  return switch (peakListSelectionMode) {
-    PeakListSelectionMode.none => const [],
-    PeakListSelectionMode.allPeaks => peaks,
-    PeakListSelectionMode.specificList => _filterSpecificListPeaks(
-      repo: repo,
-      peaks: peaks,
-      peakListIds: selectedPeakListIds,
-    ),
-  };
+  return ref
+      .watch(_peakListSelectionDerivedStateProvider)
+      .metadataFilterScopePeaks;
 });
 
 final mapDifficultyFilterOptionsProvider =
@@ -191,114 +146,11 @@ final mapDifficultyFilterOptionsProvider =
       return buildPeakDifficultyFilterOptions(peaks);
     });
 
-final _activePeakListOwnersByPeakIdProvider =
-    Provider<Map<int, List<_ActivePeakListOwner>>>((ref) {
-      ref.watch(peakListRevisionProvider);
-      final peakListSelectionMode = ref.watch(
-        mapProvider.select((state) => state.peakListSelectionMode),
-      );
-      if (peakListSelectionMode != PeakListSelectionMode.specificList) {
-        return const <int, List<_ActivePeakListOwner>>{};
-      }
-      final (:selectedPeakListIds, :visibleBounds) = ref.watch(
-        mapProvider.select(
-          (state) => (
-            selectedPeakListIds: state.selectedPeakListIds,
-            visibleBounds: state.visibleBounds,
-          ),
-        ),
-      );
-      final repo = ref.watch(peakListRepositoryProvider);
-      final peakLists = ref.watch(peakListsProvider);
-      final peaks = ref.watch(mapProvider.select((state) => state.peaks));
-      List<PeakListItem> loadItems(PeakList peakList) {
-        return repo.getPeakListItemsForList(peakList.peakListId);
-      }
-      final visibleRegionKeys = visibleBounds == null
-          ? const <String>{}
-          : visibleRegionKeysForBounds(visibleBounds);
-      final activeSelectedPeakListIds = visibleRegionKeys.isNotEmpty
-          ? renderablePeakListIdsForVisibleRegions(
-              peakLists: peakLists,
-              selectedPeakListIds: selectedPeakListIds,
-              visibleRegionKeys: visibleRegionKeys,
-              visibleBounds: visibleBounds,
-              peaks: peaks,
-              itemsLoader: loadItems,
-            )
-          : selectedPeakListIds.toSet();
-      if (activeSelectedPeakListIds.isEmpty) {
-        return const <int, List<_ActivePeakListOwner>>{};
-      }
-
-      final ownersByPeakId = <int, List<_ActivePeakListOwner>>{};
-      final sortedPeakListIds = activeSelectedPeakListIds.toList()..sort();
-      for (final peakListId in sortedPeakListIds) {
-        PeakList? peakList;
-        for (final candidate in peakLists) {
-          if (candidate.peakListId == peakListId) {
-            peakList = candidate;
-            break;
-          }
-        }
-        if (peakList == null) {
-          continue;
-        }
-
-        final owner = _ActivePeakListOwner(
-          peakListId: peakList.peakListId,
-          name: peakList.name,
-          colourValue: resolvePeakListColour(peakList),
-        );
-        try {
-          for (final item in repo.getPeakListItemsForList(peakList.peakListId)) {
-            ownersByPeakId.putIfAbsent(item.peakOsmId, () => []).add(owner);
-          }
-        } catch (error, stackTrace) {
-          developer.log(
-            'Failed to load ownership members for ${peakList.peakListId}.',
-            error: error,
-            stackTrace: stackTrace,
-            name: 'peak_list_selection_provider',
-          );
-        }
-      }
-
-      return Map<int, List<_ActivePeakListOwner>>.unmodifiable({
-        for (final entry in ownersByPeakId.entries)
-          entry.key: List<_ActivePeakListOwner>.unmodifiable(entry.value),
-      });
-    });
-
 final peakActiveOwnershipSegmentsProvider =
     Provider<Map<int, List<PeakOwnershipRingSegment>>>((ref) {
-      final peaks = ref.watch(mapProvider.select((state) => state.peaks));
-      final peaksById = {for (final peak in peaks) peak.osmId: peak};
-      final ownersByPeakId = ref.watch(_activePeakListOwnersByPeakIdProvider);
-      final segmentsByPeakId = <int, List<PeakOwnershipRingSegment>>{};
-
-      for (final entry in ownersByPeakId.entries) {
-        final orderedOwners = _orderedActivePeakListOwners(
-          peak: peaksById[entry.key],
-          owners: entry.value,
-        );
-        if (orderedOwners.isEmpty) {
-          continue;
-        }
-
-        segmentsByPeakId[entry.key] =
-            List<PeakOwnershipRingSegment>.unmodifiable([
-              for (final owner in orderedOwners)
-                PeakOwnershipRingSegment(
-                  peakListId: owner.peakListId,
-                  colourValue: owner.colourValue,
-                ),
-            ]);
-      }
-
-      return Map<int, List<PeakOwnershipRingSegment>>.unmodifiable(
-        segmentsByPeakId,
-      );
+      return ref
+          .watch(_peakListSelectionDerivedStateProvider)
+          .activeOwnershipSegments;
     });
 
 final peakOwnershipRingSegmentsProvider =
@@ -329,26 +181,383 @@ final peakOwnershipRingSegmentsProvider =
     });
 
 final peakMarkerColourAssignmentsProvider = Provider<Map<int, int>>((ref) {
-  final peaks = ref.watch(mapProvider.select((state) => state.peaks));
-  final peaksById = {for (final peak in peaks) peak.osmId: peak};
-  final ownersByPeakId = ref.watch(_activePeakListOwnersByPeakIdProvider);
-  final coloursByPeakId = <int, int>{};
+  return ref.watch(_peakListSelectionDerivedStateProvider).peakMarkerColours;
+});
 
+class MapPeakListDrawerEntry {
+  const MapPeakListDrawerEntry({
+    required this.peakList,
+    required this.renderableCount,
+    required this.isPinned,
+  });
+
+  final PeakList peakList;
+  final int renderableCount;
+  final bool isPinned;
+}
+
+class _PeakListSelectionDerivedState {
+  const _PeakListSelectionDerivedState({
+    required this.summary,
+    required this.drawerEntries,
+    required this.metadataFilterScopePeaks,
+    required this.activeOwnershipSegments,
+    required this.peakMarkerColours,
+  });
+
+  final PeakListSelectionSummary summary;
+  final List<MapPeakListDrawerEntry> drawerEntries;
+  final List<Peak> metadataFilterScopePeaks;
+  final Map<int, List<PeakOwnershipRingSegment>> activeOwnershipSegments;
+  final Map<int, int> peakMarkerColours;
+}
+
+class _PeakListSelectionDerivedStateNotifier
+    extends Notifier<_PeakListSelectionDerivedState> {
+  int _refreshSerial = 0;
+
+  @override
+  _PeakListSelectionDerivedState build() {
+    ref.listen<_PeakListSelectionRefreshInputs>(
+      _peakListSelectionRefreshInputsProvider,
+      (previous, next) {
+        _scheduleRefresh(next);
+      },
+    );
+
+    return _buildDerivedState(
+      inputs: ref.read(_peakListSelectionRefreshInputsProvider),
+      repo: ref.read(peakListRepositoryProvider),
+    );
+  }
+
+  void _scheduleRefresh(_PeakListSelectionRefreshInputs inputs) {
+    final refreshSerial = ++_refreshSerial;
+    final scheduleRefresh = ref.read(peakListSelectionRefreshSchedulerProvider);
+    unawaited(
+      scheduleRefresh(() {
+        if (!ref.mounted) {
+          return;
+        }
+
+        try {
+          final nextState = _buildDerivedState(
+            inputs: inputs,
+            repo: ref.read(peakListRepositoryProvider),
+          );
+          if (!ref.mounted || refreshSerial != _refreshSerial) {
+            return;
+          }
+          state = nextState;
+        } catch (error, stackTrace) {
+          developer.log(
+            'Failed to refresh map peak-list derived state.',
+            error: error,
+            stackTrace: stackTrace,
+            name: 'peak_list_selection_provider',
+          );
+        }
+      }),
+    );
+  }
+}
+
+_PeakListSelectionDerivedState _buildDerivedState({
+  required _PeakListSelectionRefreshInputs inputs,
+  required PeakListRepository repo,
+}) {
+  MapRebuildDebugCounters.recordPeakListDerivedRefresh();
+  final peakListsById = {
+    for (final peakList in inputs.peakLists) peakList.peakListId: peakList,
+  };
+  final peaksById = {for (final peak in inputs.peaks) peak.osmId: peak};
+  final visibilityLookup = _PeakListMembershipLookup(repo: repo);
+  final visibleRegionKeys = visibleRegionKeysForBounds(inputs.visibleBounds);
+  final hasResolvedVisibleBounds = inputs.visibleBounds != null;
+
+  final summary = _buildPeakListSelectionSummary(
+    inputs: inputs,
+    peakListsById: peakListsById,
+    visibleRegionKeys: visibleRegionKeys,
+    hasResolvedVisibleBounds: hasResolvedVisibleBounds,
+    visibilityLookup: visibilityLookup,
+  );
+  final drawerEntries = _buildMapPeakListDrawerEntries(
+    inputs: inputs,
+    visibleRegionKeys: visibleRegionKeys,
+    visibilityLookup: visibilityLookup,
+  );
+  final metadataFilterScopePeaks = switch (inputs.peakListSelectionMode) {
+    PeakListSelectionMode.none => const <Peak>[],
+    PeakListSelectionMode.allPeaks => inputs.peaks,
+    PeakListSelectionMode.specificList => _filterSpecificListPeaks(
+      repo: repo,
+      peaks: inputs.peaks,
+      peakListIds: inputs.selectedPeakListIds,
+    ),
+  };
+  final (
+    activeOwnershipSegments: activeOwnershipSegments,
+    peakMarkerColours: peakMarkerColours,
+  ) = _buildActiveOwnershipOutputs(
+    inputs: inputs,
+    peakListsById: peakListsById,
+    peaksById: peaksById,
+    visibleRegionKeys: visibleRegionKeys,
+    visibilityLookup: visibilityLookup,
+  );
+
+  return _PeakListSelectionDerivedState(
+    summary: summary,
+    drawerEntries: drawerEntries,
+    metadataFilterScopePeaks: metadataFilterScopePeaks,
+    activeOwnershipSegments: activeOwnershipSegments,
+    peakMarkerColours: peakMarkerColours,
+  );
+}
+
+PeakListSelectionSummary _buildPeakListSelectionSummary({
+  required _PeakListSelectionRefreshInputs inputs,
+  required Map<int, PeakList> peakListsById,
+  required Set<String> visibleRegionKeys,
+  required bool hasResolvedVisibleBounds,
+  required _PeakListMembershipLookup visibilityLookup,
+}) {
+  if (hasResolvedVisibleBounds && visibleRegionKeys.isEmpty) {
+    return const PeakListSelectionSummary(chips: []);
+  }
+
+  final labelsById = {
+    for (final peakList in inputs.peakLists) peakList.peakListId: peakList.name,
+  };
+  final regionKeysById = {
+    for (final peakList in inputs.peakLists)
+      peakList.peakListId: canonicalRegionKey(
+        normalizePeakListRegionKey(peakList.region),
+      ),
+  };
+  final visiblePinnedPeakListIds = {
+    for (final peakList in inputs.peakLists)
+      if ((!hasResolvedVisibleBounds ||
+              peakListAppliesToVisibleRegions(
+                peakList,
+                visibleRegionKeys,
+                visibleBounds: inputs.visibleBounds,
+                peaks: inputs.peaks,
+                itemsLoader: visibilityLookup.itemsOrEmpty,
+              )) &&
+          peakListIsPinned(
+            peakList: peakList,
+            pinnedPeakListIdsByRegion: inputs.pinnedPeakListIdsByRegion,
+            peaks: inputs.peaks,
+            itemsLoader: visibilityLookup.itemsOrEmpty,
+          ))
+        peakList.peakListId,
+  };
+  final visibleSelectedPeakListIds = hasResolvedVisibleBounds
+      ? {
+          for (final peakListId in inputs.selectedPeakListIds)
+            if (() {
+              final peakList = peakListsById[peakListId];
+              return peakList != null &&
+                  peakListAppliesToVisibleRegions(
+                    peakList,
+                    visibleRegionKeys,
+                    visibleBounds: inputs.visibleBounds,
+                    peaks: inputs.peaks,
+                    itemsLoader: visibilityLookup.itemsOrEmpty,
+                  );
+            }())
+              peakListId,
+        }
+      : inputs.selectedPeakListIds.toSet();
+  final visibleSpecificPeakListIds =
+      {...visiblePinnedPeakListIds, ...visibleSelectedPeakListIds}.toList()
+        ..sort((left, right) {
+          return (labelsById[left] ?? 'List #$left').toLowerCase().compareTo(
+            (labelsById[right] ?? 'List #$right').toLowerCase(),
+          );
+        });
+  final chips = <PeakListSelectionChip>[
+    if (inputs.peakListSelectionMode == PeakListSelectionMode.allPeaks)
+      const PeakListSelectionChip.allPeaks(),
+    if (inputs.peakListSelectionMode == PeakListSelectionMode.none)
+      const PeakListSelectionChip.none(),
+    for (final peakListId in visibleSpecificPeakListIds)
+      () {
+        final peakList = peakListsById[peakListId];
+        return PeakListSelectionChip.list(
+          peakListId: peakListId,
+          label: labelsById[peakListId] ?? 'List #$peakListId',
+          regionKey: regionKeysById[peakListId],
+          isSelected: visibleSelectedPeakListIds.contains(peakListId),
+          isPinned: visiblePinnedPeakListIds.contains(peakListId),
+          colourValue: peakList == null
+              ? null
+              : resolvePeakListColour(peakList),
+        );
+      }(),
+  ];
+
+  return PeakListSelectionSummary(chips: chips);
+}
+
+List<MapPeakListDrawerEntry> _buildMapPeakListDrawerEntries({
+  required _PeakListSelectionRefreshInputs inputs,
+  required Set<String> visibleRegionKeys,
+  required _PeakListMembershipLookup visibilityLookup,
+}) {
+  final visiblePeakLists = <MapPeakListDrawerEntry>[];
+
+  for (final peakList in inputs.peakLists) {
+    if (!peakListAppliesToVisibleRegions(
+      peakList,
+      visibleRegionKeys,
+      visibleBounds: inputs.visibleBounds,
+      peaks: inputs.peaks,
+      itemsLoader: visibilityLookup.itemsOrEmpty,
+    )) {
+      continue;
+    }
+
+    final items = visibilityLookup.itemsFor(peakList);
+    if (items == null || items.isEmpty) {
+      continue;
+    }
+
+    visiblePeakLists.add(
+      MapPeakListDrawerEntry(
+        peakList: peakList,
+        renderableCount: items.length,
+        isPinned: peakListIsPinned(
+          peakList: peakList,
+          pinnedPeakListIdsByRegion: inputs.pinnedPeakListIdsByRegion,
+          peaks: inputs.peaks,
+          itemsLoader: visibilityLookup.itemsOrEmpty,
+        ),
+      ),
+    );
+  }
+
+  visiblePeakLists.sort(
+    (left, right) => left.peakList.name.toLowerCase().compareTo(
+      right.peakList.name.toLowerCase(),
+    ),
+  );
+  return List<MapPeakListDrawerEntry>.unmodifiable(visiblePeakLists);
+}
+
+({
+  Map<int, List<PeakOwnershipRingSegment>> activeOwnershipSegments,
+  Map<int, int> peakMarkerColours,
+})
+_buildActiveOwnershipOutputs({
+  required _PeakListSelectionRefreshInputs inputs,
+  required Map<int, PeakList> peakListsById,
+  required Map<int, Peak> peaksById,
+  required Set<String> visibleRegionKeys,
+  required _PeakListMembershipLookup visibilityLookup,
+}) {
+  if (inputs.peakListSelectionMode != PeakListSelectionMode.specificList) {
+    return (
+      activeOwnershipSegments: const <int, List<PeakOwnershipRingSegment>>{},
+      peakMarkerColours: const <int, int>{},
+    );
+  }
+
+  final activeSelectedPeakListIds = visibleRegionKeys.isNotEmpty
+      ? renderablePeakListIdsForVisibleRegions(
+          peakLists: inputs.peakLists,
+          selectedPeakListIds: inputs.selectedPeakListIds,
+          visibleRegionKeys: visibleRegionKeys,
+          visibleBounds: inputs.visibleBounds,
+          peaks: inputs.peaks,
+          itemsLoader: visibilityLookup.itemsOrEmpty,
+        )
+      : inputs.selectedPeakListIds.toSet();
+  if (activeSelectedPeakListIds.isEmpty) {
+    return (
+      activeOwnershipSegments: const <int, List<PeakOwnershipRingSegment>>{},
+      peakMarkerColours: const <int, int>{},
+    );
+  }
+
+  final ownersByPeakId = <int, List<_ActivePeakListOwner>>{};
+  final sortedPeakListIds = activeSelectedPeakListIds.toList()..sort();
+  for (final peakListId in sortedPeakListIds) {
+    final peakList = peakListsById[peakListId];
+    final items = peakList == null ? null : visibilityLookup.itemsFor(peakList);
+    if (peakList == null || items == null) {
+      continue;
+    }
+
+    final owner = _ActivePeakListOwner(
+      peakListId: peakList.peakListId,
+      name: peakList.name,
+      colourValue: resolvePeakListColour(peakList),
+    );
+    for (final item in items) {
+      ownersByPeakId.putIfAbsent(item.peakOsmId, () => []).add(owner);
+    }
+  }
+
+  final activeOwnershipSegments = <int, List<PeakOwnershipRingSegment>>{};
+  final peakMarkerColours = <int, int>{};
   for (final entry in ownersByPeakId.entries) {
-    final peak = peaksById[entry.key];
     final orderedOwners = _orderedActivePeakListOwners(
-      peak: peak,
+      peak: peaksById[entry.key],
       owners: entry.value,
     );
     if (orderedOwners.isEmpty) {
       continue;
     }
 
-    coloursByPeakId[entry.key] = orderedOwners.first.colourValue;
+    activeOwnershipSegments[entry.key] =
+        List<PeakOwnershipRingSegment>.unmodifiable([
+          for (final owner in orderedOwners)
+            PeakOwnershipRingSegment(
+              peakListId: owner.peakListId,
+              colourValue: owner.colourValue,
+            ),
+        ]);
+    peakMarkerColours[entry.key] = orderedOwners.first.colourValue;
   }
 
-  return Map<int, int>.unmodifiable(coloursByPeakId);
-});
+  return (
+    activeOwnershipSegments:
+        Map<int, List<PeakOwnershipRingSegment>>.unmodifiable(
+          activeOwnershipSegments,
+        ),
+    peakMarkerColours: Map<int, int>.unmodifiable(peakMarkerColours),
+  );
+}
+
+class _PeakListMembershipLookup {
+  _PeakListMembershipLookup({required this.repo});
+
+  final PeakListRepository repo;
+  final Map<int, List<PeakListItem>?> _itemsByPeakListId = {};
+
+  List<PeakListItem> itemsOrEmpty(PeakList peakList) {
+    return itemsFor(peakList) ?? const <PeakListItem>[];
+  }
+
+  List<PeakListItem>? itemsFor(PeakList peakList) {
+    return _itemsByPeakListId.putIfAbsent(peakList.peakListId, () {
+      try {
+        return repo.getPeakListItemsForList(peakList.peakListId);
+      } catch (error, stackTrace) {
+        developer.log(
+          'Failed to load membership for peak list ${peakList.peakListId}.',
+          error: error,
+          stackTrace: stackTrace,
+          name: 'peak_list_selection_provider',
+        );
+        return null;
+      }
+    });
+  }
+}
 
 List<Peak> _filterSpecificListPeaks({
   required PeakListRepository repo,
@@ -435,13 +644,13 @@ class PeakListSelectionChip {
     required bool isPinned,
     required int? colourValue,
   }) : this._(
-          label: label,
-          peakListId: peakListId,
-          regionKey: regionKey,
-          isSelected: isSelected,
-          isPinned: isPinned,
-          colourValue: colourValue,
-        );
+         label: label,
+         peakListId: peakListId,
+         regionKey: regionKey,
+         isSelected: isSelected,
+         isPinned: isPinned,
+         colourValue: colourValue,
+       );
 
   final String label;
   final int? peakListId;

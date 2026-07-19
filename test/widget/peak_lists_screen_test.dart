@@ -45,7 +45,8 @@ import '../harness/test_peak_list_file_picker.dart';
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
-final Expando<List<PeakListItem>> _registeredPeakListItems = Expando<List<PeakListItem>>();
+final Expando<List<PeakListItem>> _registeredPeakListItems =
+    Expando<List<PeakListItem>>();
 
 void main() {
   setUp(() {
@@ -335,6 +336,83 @@ void main() {
     expect(find.byKey(const Key('peak-lists-row-3')), findsOneWidget);
     expect(find.byKey(const Key('peak-lists-row-4')), findsOneWidget);
   });
+
+  testWidgets(
+    'region fab taps update accepted state immediately and stale deferred summaries are superseded',
+    (tester) async {
+      final fixture = _buildRegionFilterFixture();
+      final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
+
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: fixture.repository,
+        peakRepository: fixture.peakRepository,
+        overrides: [
+          peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
+            scheduler.call,
+          ),
+        ],
+      );
+
+      tester
+          .widget<InkWell>(find.byKey(const Key('peak-lists-row-1')))
+          .onTap!();
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
+      );
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Tas Only',
+      );
+
+      await tester.tap(find.byKey(const Key('peak-lists-region-fab-tasmania')));
+      await tester.pump();
+
+      expect(
+        container.read(peakListRegionFilterProvider).contains('tasmania'),
+        isFalse,
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Tas Only',
+      );
+      expect(scheduler.pendingCount, 1);
+
+      await tester.tap(find.byKey(const Key('peak-lists-region-fab-tasmania')));
+      await tester.pump();
+
+      expect(
+        container.read(peakListRegionFilterProvider).contains('tasmania'),
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Tas Only',
+      );
+      expect(scheduler.pendingCount, 1);
+
+      await scheduler.runPendingAt(0);
+      await tester.pump();
+
+      expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Tas Only',
+      );
+    },
+  );
 
   testWidgets('all-off is a valid persisted region filter state', (
     tester,
@@ -715,6 +793,7 @@ void main() {
   });
 
   testWidgets('bagged revision refreshes peak list counts', (tester) async {
+    final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
     final peaksBaggedRepository = PeaksBaggedRepository.test(
       InMemoryPeaksBaggedStorage([
         PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
@@ -736,6 +815,11 @@ void main() {
         ]),
       ),
       peaksBaggedRepository: peaksBaggedRepository,
+      overrides: [
+        peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
+          scheduler.call,
+        ),
+      ],
     );
 
     expect(
@@ -764,7 +848,9 @@ void main() {
     ProviderScope.containerOf(
       tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
     ).read(peaksBaggedRevisionProvider.notifier).increment();
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await scheduler.runAllPending();
+    await tester.pump();
 
     expect(
       tester.widget<Text>(find.byKey(const Key('peak-lists-climbed-1'))).data,
@@ -818,6 +904,7 @@ void main() {
   testWidgets('negative peak ids appear in peak lists counts and rows', (
     tester,
   ) async {
+    final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
     final peakListRepository = PeakListRepository.test(
       InMemoryPeakListStorage([
         _buildPeakList(1, 'Tas Peaks', [-1]),
@@ -838,6 +925,11 @@ void main() {
       repository: peakListRepository,
       peakRepository: peakRepository,
       peaksBaggedRepository: peaksBaggedRepository,
+      overrides: [
+        peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
+          scheduler.call,
+        ),
+      ],
     );
 
     await peaksBaggedRepository.rebuildFromTracks([
@@ -851,7 +943,9 @@ void main() {
     ProviderScope.containerOf(
       tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
     ).read(peaksBaggedRevisionProvider.notifier).increment();
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await scheduler.runAllPending();
+    await tester.pump();
 
     expect(
       tester.widget<Text>(find.byKey(const Key('peak-lists-climbed-1'))).data,
@@ -1660,10 +1754,9 @@ void main() {
         _buildPeak(200, 'Mike Peak', -41.2, 146.2),
       ]),
     );
-    final peakListRepository = _peakListRepository(
-      [PeakList(name: 'Tasmania')..peakListId = 1],
-      peakRepository: peakRepository,
-    );
+    final peakListRepository = _peakListRepository([
+      PeakList(name: 'Tasmania')..peakListId = 1,
+    ], peakRepository: peakRepository);
 
     await _pumpPeakListsApp(
       tester,
@@ -1718,10 +1811,11 @@ void main() {
         selectedRowContainer.decoration as BoxDecoration?;
     expect(selectedRowDecoration, isNotNull);
     expect(selectedRowDecoration!.color, isNotNull);
-    expect(
-      _storedMemberships(peakListRepository, 'Tasmania'),
-      [(100, 3), (200, 5), (300, 7)],
-    );
+    expect(_storedMemberships(peakListRepository, 'Tasmania'), [
+      (100, 3),
+      (200, 5),
+      (300, 7),
+    ]);
   });
 
   testWidgets('add dialog cancel keeps the current selection', (tester) async {
@@ -1779,10 +1873,9 @@ void main() {
           _buildPeak(200, 'Mike Peak', -41.2, 146.2),
         ]),
       );
-      final peakListRepository = _peakListRepository(
-        [PeakList(name: 'Tasmania')..peakListId = 1],
-        peakRepository: peakRepository,
-      );
+      final peakListRepository = _peakListRepository([
+        PeakList(name: 'Tasmania')..peakListId = 1,
+      ], peakRepository: peakRepository);
 
       await _pumpPeakListsApp(
         tester,
@@ -1824,10 +1917,11 @@ void main() {
       await tester.tap(find.byKey(const Key('peak-list-peak-save')));
       await tester.pumpAndSettle();
 
-      expect(
-        _storedMemberships(peakListRepository, 'Tasmania'),
-        [(100, 3), (200, 5), (300, 7)],
-      );
+      expect(_storedMemberships(peakListRepository, 'Tasmania'), [
+        (100, 3),
+        (200, 5),
+        (300, 7),
+      ]);
       expect(peakListRepository.findByName('Tassy Full'), isNull);
     },
   );
@@ -1968,29 +2062,29 @@ void main() {
     );
   });
 
-  testWidgets(
-    'empty rows stay visible without unsupported details message',
-    (tester) async {
-      await _pumpPeakListsApp(
-        tester,
-        filePicker: TestPeakListFilePicker(),
-        repository: _peakListRepository([
-          _buildPeakList(1, 'Empty List', []),
-        ]),
-        peakRepository: PeakRepository.test(InMemoryPeakStorage()),
-        peaksBaggedRepository: PeaksBaggedRepository.test(
-          InMemoryPeaksBaggedStorage(),
-        ),
-      );
+  testWidgets('empty rows stay visible without unsupported details message', (
+    tester,
+  ) async {
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: _peakListRepository([_buildPeakList(1, 'Empty List', [])]),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
+    );
 
-      expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
-      expect(find.text('Empty List'), findsNWidgets(2));
-      expect(find.byKey(const Key('peak-lists-delete-1')), findsOneWidget);
-      expect(find.byKey(const Key('peak-lists-total-1')), findsOneWidget);
-      expect(find.text('0'), findsWidgets);
-      expect(find.byKey(const Key('peak-lists-unsupported-message')), findsNothing);
-    },
-  );
+    expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
+    expect(find.text('Empty List'), findsNWidgets(2));
+    expect(find.byKey(const Key('peak-lists-delete-1')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-total-1')), findsOneWidget);
+    expect(find.text('0'), findsWidgets);
+    expect(
+      find.byKey(const Key('peak-lists-unsupported-message')),
+      findsNothing,
+    );
+  });
 
   testWidgets(
     'derived metric sorts keep zero-member rows ordered deterministically and indicators stay deterministic',
@@ -2071,6 +2165,7 @@ void main() {
       tester,
       filePicker: TestPeakListFilePicker(),
       repository: repository,
+      overrides: [_immediatePeakListsSummaryRefreshSchedulerOverride],
     );
 
     expect(
@@ -3532,9 +3627,7 @@ void main() {
       repository: repository,
       importRunner:
           ({required String listName, required String csvPath}) async {
-            final saved = await repository.save(
-              PeakList(name: listName),
-            );
+            final saved = await repository.save(PeakList(name: listName));
             ProviderScope.containerOf(
               tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
             ).read(peakListRevisionProvider.notifier).increment();
@@ -3648,6 +3741,7 @@ void main() {
   testWidgets('renaming the selected list refreshes title and row', (
     tester,
   ) async {
+    final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
     final repository = PeakListRepository.test(
       InMemoryPeakListStorage([
         PeakList(name: 'Abels')..peakListId = 1,
@@ -3660,6 +3754,12 @@ void main() {
       tester,
       filePicker: TestPeakListFilePicker(),
       repository: repository,
+      overrides: [
+        peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
+          scheduler.call,
+        ),
+        _immediatePeakListSelectionRefreshSchedulerOverride,
+      ],
     );
 
     tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
@@ -3672,12 +3772,12 @@ void main() {
       'Abels',
     );
 
-    await repository.save(
-      PeakList(peakListId: 1, name: 'Abels Renamed'),
-    );
+    await repository.save(PeakList(peakListId: 1, name: 'Abels Renamed'));
     ProviderScope.containerOf(
       tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
     ).read(peakListRevisionProvider.notifier).increment();
+    await tester.pump();
+    await scheduler.runAllPending();
     await tester.pumpAndSettle();
 
     expect(
@@ -4168,10 +4268,10 @@ void main() {
           .data,
       'Round Trip Import',
     );
-    expect(
-      _storedMemberships(repository, 'Round Trip Import'),
-      [(101, 3), (202, 7)],
-    );
+    expect(_storedMemberships(repository, 'Round Trip Import'), [
+      (101, 3),
+      (202, 7),
+    ]);
     expect(peakRepository.findByOsmId(101)?.name, 'Imported Peak');
     expect(peakRepository.findByOsmId(202)?.name, 'Created Peak');
   });
@@ -4311,7 +4411,8 @@ Future<void> _pumpPeakListsApp(
   TestMapNotifier? mapNotifier,
   List overrides = const [],
 }) async {
-  final effectivePeakRepository = peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
+  final effectivePeakRepository =
+      peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
   final effectiveRepository = _effectivePeakListRepository(
     repository,
     peakRepository: effectivePeakRepository,
@@ -4384,7 +4485,8 @@ Future<void> _pumpPeakListsScreen(
   int? initialPeakListId,
   List overrides = const [],
 }) async {
-  final effectivePeakRepository = peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
+  final effectivePeakRepository =
+      peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
   final effectiveRepository = _effectivePeakListRepository(
     repository,
     peakRepository: effectivePeakRepository,
@@ -4468,12 +4570,16 @@ PeakListRepository _peakListRepository(
   List<PeakList> peakLists, {
   PeakRepository? peakRepository,
 }) {
-  final listsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
-  final repository = peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
+  final listsById = {
+    for (final peakList in peakLists) peakList.peakListId: peakList,
+  };
+  final repository =
+      peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
   final items = <PeakListItemEntity>[];
   var itemId = 1;
   for (final peakList in peakLists) {
-    for (final item in _registeredPeakListItems[peakList] ?? const <PeakListItem>[]) {
+    for (final item
+        in _registeredPeakListItems[peakList] ?? const <PeakListItem>[]) {
       items.add(
         PeakListItemEntity(id: itemId++, points: item.points)
           ..peakList.target = listsById[peakList.peakListId]!
@@ -4557,6 +4663,37 @@ String _tooltipMessageFor(WidgetTester tester, String regionKey) {
           .message ??
       '';
 }
+
+class _ControlledPeakListsSummaryRefreshScheduler {
+  final _pendingTasks = <FutureOr<void> Function()>[];
+
+  int get pendingCount => _pendingTasks.length;
+
+  Future<void> call(FutureOr<void> Function() task) async {
+    _pendingTasks.add(task);
+  }
+
+  Future<void> runPendingAt(int index) async {
+    final task = _pendingTasks.removeAt(index);
+    await task();
+  }
+
+  Future<void> runAllPending() async {
+    while (_pendingTasks.isNotEmpty) {
+      await runPendingAt(0);
+    }
+  }
+}
+
+final _immediatePeakListsSummaryRefreshSchedulerOverride =
+    peakListsSummaryRefreshSchedulerProvider.overrideWithValue((task) async {
+      await task();
+    });
+
+final _immediatePeakListSelectionRefreshSchedulerOverride =
+    peakListSelectionRefreshSchedulerProvider.overrideWithValue((task) async {
+      await task();
+    });
 
 ({PeakListRepository repository, PeakRepository peakRepository})
 _buildRegionFilterFixture() {

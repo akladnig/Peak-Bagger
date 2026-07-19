@@ -1816,7 +1816,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
       token: ++_cameraIntentToken,
     );
     _liveCamera = liveCamera;
-    _syncVisibleBounds();
     _bumpViewportUiRevision();
     _applyContinuousMotionSideEffects(zoom: zoom);
     if (debounce) {

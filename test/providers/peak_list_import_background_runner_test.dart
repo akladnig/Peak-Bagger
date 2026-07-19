@@ -145,6 +145,11 @@ void main() {
         overrides: [
           peakListRepositoryProvider.overrideWithValue(peakListRepository),
           currentRoutePathProvider.overrideWithValue('/map'),
+          peakListSelectionRefreshSchedulerProvider.overrideWithValue((
+            task,
+          ) async {
+            await task();
+          }),
           peakListImportServiceProvider.overrideWithValue(
             _ReloadingImportService(
               peakRepository: peakRepository,

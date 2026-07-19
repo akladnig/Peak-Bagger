@@ -66,14 +66,17 @@ void main() {
     );
     expect(container.read(mapProvider).selectedPeakListId, 999);
     expect(
-      repository.getPeakListItemsForList(abels.peakListId)
+      repository
+          .getPeakListItemsForList(abels.peakListId)
           .map((item) => (item.peakOsmId, item.points))
           .toList(),
       [(11, 2), (22, 4)],
     );
     expect(
       repository
-          .getPeakListItemsForList(repository.findByName('Tassy Full')!.peakListId)
+          .getPeakListItemsForList(
+            repository.findByName('Tassy Full')!.peakListId,
+          )
           .map((item) => (item.peakOsmId, item.points))
           .toList(),
       [(99, 9)],
@@ -130,6 +133,8 @@ void main() {
 
       final runner = container.read(peakListImportRunnerProvider);
       await runner(listName: 'Imported Peaks', csvPath: '/tmp/import.csv');
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
 
       expect(container.read(peakListRevisionProvider), 1);
       expect(
@@ -180,12 +185,20 @@ void main() {
           mapProvider.overrideWith(() => mapNotifier),
           peakRepositoryProvider.overrideWithValue(peakRepository),
           peakListRepositoryProvider.overrideWithValue(repository),
+          peakListSelectionRefreshSchedulerProvider.overrideWithValue((
+            task,
+          ) async {
+            await task();
+          }),
         ],
       );
       addTearDown(container.dispose);
 
       expect(
-        container.read(filteredPeaksProvider).map((peak) => peak.osmId).toList(),
+        container
+            .read(filteredPeaksProvider)
+            .map((peak) => peak.osmId)
+            .toList(),
         [11],
       );
 
@@ -195,7 +208,10 @@ void main() {
       );
 
       expect(
-        container.read(filteredPeaksProvider).map((peak) => peak.osmId).toList(),
+        container
+            .read(filteredPeaksProvider)
+            .map((peak) => peak.osmId)
+            .toList(),
         [11],
       );
 
@@ -204,7 +220,10 @@ void main() {
       expect(container.read(peakListRevisionProvider), 1);
       expect(mapNotifier.reloadPeakMarkersCallCount, 0);
       expect(
-        container.read(filteredPeaksProvider).map((peak) => peak.osmId).toList(),
+        container
+            .read(filteredPeaksProvider)
+            .map((peak) => peak.osmId)
+            .toList(),
         [11, 22],
       );
     },
