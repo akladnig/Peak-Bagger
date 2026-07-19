@@ -88,6 +88,18 @@ _Avoid_: peak search when referring to the popup flow
 The `MapScreen` filter control for peak metadata such as rating, difficulty, and duration.
 _Avoid_: peak list filter when referring to metadata dropdowns
 
+**Local tile server**:
+A project-managed HTTP service that serves app-consumable `XYZ` map tiles for one or more managed regions and may run on a laptop, mini PC, NAS, or localhost during development.
+_Avoid_: Flutter-embedded renderer, localhost-only basemap
+
+**Local Topo**:
+The app-owned basemap label for the project-managed locally hosted topographic `XYZ` source rendered from the canonical style and region-scoped source data.
+_Avoid_: style editor, vector basemap, user-custom basemap
+
+**Local tile server base URL**:
+The user-configured Settings value that points `Peak Bagger` at the root HTTP host for project-managed local topo basemap routes.
+_Avoid_: hard-coded localhost, embedded server address
+
 **Peak list mini-map**:
 The embedded map on `PeakListsScreen` that previews the selected peak list's geography.
 _Avoid_: mini-map when the dashboard latest-walk preview is also in scope
