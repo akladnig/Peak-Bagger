@@ -45,7 +45,10 @@ void main() {
     expect(signature, contains('Peak.verified:'));
     expect(signature, contains('Peak.sourceOfTruth:'));
     expect(signature, contains('PeakList.name:'));
-    expect(signature, contains('PeakList.peakList:'));
+    expect(signature, contains('PeakList.region:'));
+    expect(signature, contains('PeakList.colour:'));
+    expect(signature, contains('PeakList.peakList:false'));
+    expect(signature, contains('PeakList.membershipState:false'));
     expect(signature, contains('PeakList.minLat:'));
     expect(signature, contains('PeakList.maxLat:'));
     expect(signature, contains('PeakList.minLng:'));

@@ -119,7 +119,6 @@ void main() {
         peakListId: 1,
         name: 'Abels',
         region: 'tasmania',
-        peakList: '[{"peakOsmId":101,"points":3}]',
         colour: 0xFF4C8BF5,
       ),
     ];
@@ -180,10 +179,6 @@ void main() {
     expect(peakListRepository.findById(1)?.colour, 0xFF123456);
     expect(peakListRepository.findById(1)?.name, 'Abels');
     expect(peakListRepository.findById(1)?.region, 'tasmania');
-    expect(
-      peakListRepository.findById(1)?.peakList,
-      '[{"peakOsmId":101,"points":3}]',
-    );
   });
 
   testWidgets('gpx track row shows view and delete actions', (tester) async {
@@ -1606,6 +1601,7 @@ void main() {
 
   testWidgets('Peak delete is blocked by dependent PeakList', (tester) async {
     final peaks = [_buildPeak(id: 1, osmId: 101, name: 'Mt Ossa')];
+    final abels = PeakList(name: 'Abels')..peakListId = 1;
     final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
       'Peak': peaks.map(_peakRow).toList(),
       'PeakList': const [],
@@ -1624,13 +1620,11 @@ void main() {
       peakRepository: repository,
       peakDeleteGuard: PeakDeleteGuard(
         _PeakListBlockerSource(
-          peakLists: [
-            PeakList(
-              name: 'Abels',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 101, points: 3),
-              ]),
-            ),
+          peakLists: [abels],
+          peakListItems: [
+            PeakListItemEntity(id: 1, points: 3)
+              ..peakList.target = abels
+              ..peak.target = peaks.single,
           ],
         ),
       ),
@@ -2096,11 +2090,13 @@ class _MutablePeakListRepository extends PeakListRepository {
   @override
   Future<PeakList> save(
     PeakList peakList, {
+    List<PeakListItem>? items,
     void Function()? beforePutForTest,
     bool recomputeDerivedFields = false,
   }) async {
     final saved = await super.save(
       peakList,
+      items: items,
       beforePutForTest: beforePutForTest,
       recomputeDerivedFields: recomputeDerivedFields,
     );
@@ -2124,9 +2120,13 @@ class _MutablePeakListRepository extends PeakListRepository {
 }
 
 class _PeakListBlockerSource implements PeakDeleteGuardSource {
-  _PeakListBlockerSource({required this.peakLists});
+  _PeakListBlockerSource({
+    required this.peakLists,
+    this.peakListItems = const [],
+  });
 
   final List<PeakList> peakLists;
+  final List<PeakListItemEntity> peakListItems;
 
   @override
   List<GpxTrack> loadGpxTracks() => const [];
@@ -2135,7 +2135,7 @@ class _PeakListBlockerSource implements PeakDeleteGuardSource {
   List<PeakList> loadPeakLists() => peakLists;
 
   @override
-  List<PeakListItemEntity> loadPeakListItems() => const [];
+  List<PeakListItemEntity> loadPeakListItems() => peakListItems;
 
   @override
   List<PeaksBagged> loadPeaksBagged() => const [];

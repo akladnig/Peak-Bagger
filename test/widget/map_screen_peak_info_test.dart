@@ -1002,22 +1002,16 @@ void main() {
   });
 
   testWidgets('peak popup shows singular trimmed list label', (tester) async {
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: '  Abels  ',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6406, points: 1),
-          ]),
-        )..peakListId = 1,
-        PeakList(
-          name: '   ',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6406, points: 2),
-          ]),
-        )..peakListId = 2,
-      ]),
-    );
+    final peakListRepository = _peakListRepository([
+      (
+        peakList: PeakList(name: '  Abels  ')..peakListId = 1,
+        items: const [PeakListItem(peakOsmId: 6406, points: 1)],
+      ),
+      (
+        peakList: PeakList(name: '   ')..peakListId = 2,
+        items: const [PeakListItem(peakOsmId: 6406, points: 2)],
+      ),
+    ]);
 
     await _pumpMap(
       tester,
@@ -1045,22 +1039,16 @@ void main() {
     tester,
   ) async {
     final tasmapRepository = await TestTasmapRepository.create();
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: 'HWC  ',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6406, points: 1),
-          ]),
-        )..peakListId = 1,
-        PeakList(
-          name: 'Abels  ',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6406, points: 2),
-          ]),
-        )..peakListId = 2,
-      ]),
-    );
+    final peakListRepository = _peakListRepository([
+      (
+        peakList: PeakList(name: 'HWC  ')..peakListId = 1,
+        items: const [PeakListItem(peakOsmId: 6406, points: 1)],
+      ),
+      (
+        peakList: PeakList(name: 'Abels  ')..peakListId = 2,
+        items: const [PeakListItem(peakOsmId: 6406, points: 2)],
+      ),
+    ]);
 
     await _pumpMap(
       tester,
@@ -1545,22 +1533,16 @@ void main() {
   testWidgets(
     'select peaks FAB opens drawer and none/all peaks update markers',
     (tester) async {
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Alpha',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 6406, points: 1),
-            ]),
-          )..peakListId = 1,
-          PeakList(
-            name: 'Zero',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 9999, points: 1),
-            ]),
-          )..peakListId = 4,
-        ]),
-      );
+      final peakListRepository = _peakListRepository([
+        (
+          peakList: PeakList(name: 'Alpha')..peakListId = 1,
+          items: const [PeakListItem(peakOsmId: 6406, points: 1)],
+        ),
+        (
+          peakList: PeakList(name: 'Zero')..peakListId = 4,
+          items: const [PeakListItem(peakOsmId: 9999, points: 1)],
+        ),
+      ]);
       await _pumpMap(
         tester,
         _mapStateWithPeak(),
@@ -1606,34 +1588,24 @@ void main() {
   testWidgets('drawer shows legacy Tasmania list values in Tasmania only', (
     tester,
   ) async {
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: 'Bravo',
-          region: 'new-south-wales',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 7000, points: 2),
-            const PeakListItem(peakOsmId: 9999, points: 1),
-          ]),
-        )..peakListId = 2,
-        PeakList(
-          name: 'Alpha',
-          region: '',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 6406, points: 1),
-          ]),
-        )..peakListId = 1,
-        PeakList(
-          name: 'Zero',
-          region: 'victoria',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 9999, points: 1),
-          ]),
-        )..peakListId = 4,
-        PeakList(name: 'Broken', region: 'tasmania', peakList: '{"oops":true}')
-          ..peakListId = 3,
-      ]),
-    );
+    final peakListRepository = _peakListRepository([
+      (
+        peakList: PeakList(name: 'Bravo', region: 'new-south-wales')..peakListId = 2,
+        items: const [
+          PeakListItem(peakOsmId: 7000, points: 2),
+          PeakListItem(peakOsmId: 9999, points: 1),
+        ],
+      ),
+      (
+        peakList: PeakList(name: 'Alpha', region: '')..peakListId = 1,
+        items: const [PeakListItem(peakOsmId: 6406, points: 1)],
+      ),
+      (
+        peakList: PeakList(name: 'Zero', region: 'victoria')..peakListId = 4,
+        items: const [PeakListItem(peakOsmId: 9999, points: 1)],
+      ),
+      (peakList: PeakList(name: 'Broken', region: 'tasmania')..peakListId = 3, items: const []),
+    ]);
 
     await _pumpMap(
       tester,
@@ -1688,6 +1660,8 @@ void main() {
   testWidgets('drawer falls back to all peaks when no lists render', (
     tester,
   ) async {
+    final zero = PeakList(name: 'Zero', region: 'tasmania')..peakListId = 4;
+    final broken = PeakList(name: 'Broken', region: 'tasmania')..peakListId = 5;
     await _pumpMap(
       tester,
       MapState(
@@ -1704,16 +1678,16 @@ void main() {
         ],
       ),
       peakListRepository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Zero',
-            region: 'tasmania',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 9999, points: 1),
-            ]),
-          )..peakListId = 4,
-          PeakList(name: 'Broken', region: 'tasmania', peakList: '{not-json}')
-            ..peakListId = 5,
+        InMemoryPeakListStorage([zero, broken]),
+        itemStorage: InMemoryPeakListItemEntityStorage([
+          PeakListItemEntity(id: 1, points: 1)
+            ..peakList.target = zero
+            ..peak.target = Peak(
+              osmId: 9999,
+              name: 'Missing',
+              latitude: -43.0,
+              longitude: 147.0,
+            ),
         ]),
       ),
     );
@@ -1825,6 +1799,34 @@ MapState _mapStateWithPeak({
             longitude: 147.0,
           ),
     ],
+  );
+}
+
+PeakListRepository _peakListRepository(
+  List<({PeakList peakList, List<PeakListItem> items})> definitions,
+) {
+  final peakLists = [for (final definition in definitions) definition.peakList];
+  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+  final items = <PeakListItemEntity>[];
+  var itemId = 1;
+  for (final definition in definitions) {
+    for (final item in definition.items) {
+      items.add(
+        PeakListItemEntity(id: itemId++, points: item.points)
+          ..peakList.target = peakListsById[definition.peakList.peakListId]!
+          ..peak.target = Peak(
+            osmId: item.peakOsmId,
+            name: 'Peak ${item.peakOsmId}',
+            latitude: -42,
+            longitude: 146,
+          ),
+      );
+    }
+  }
+
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(peakLists),
+    itemStorage: InMemoryPeakListItemEntityStorage(items),
   );
 }
 

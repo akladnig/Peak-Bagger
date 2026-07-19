@@ -768,13 +768,11 @@ ObjectBoxAdminRow peakListToAdminRow(
         for (final item in membershipItems ?? const <PeakListItem>[])
           {'peakOsmId': item.peakOsmId, 'points': item.points},
       ],
-      'peakList': peakList.peakList,
       'colour': peakList.colour,
       'minLat': peakList.minLat,
       'maxLat': peakList.maxLat,
       'minLng': peakList.minLng,
       'maxLng': peakList.maxLng,
-      'membershipState': peakList.membershipState,
     },
   );
 }

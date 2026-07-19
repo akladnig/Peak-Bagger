@@ -1,5 +1,3 @@
-import 'dart:developer' as developer;
-
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
@@ -34,10 +32,7 @@ class TassyFullPeakListSyncService {
         continue;
       }
 
-      final items = _decodeItemsOrNull(peakList);
-      if (items == null) {
-        continue;
-      }
+      final items = _repository.getPeakListItemsForList(peakList.peakListId);
 
       for (final item in items) {
         if (!_isTasmanianPeak(item.peakOsmId, peakRegionsByOsmId)) {
@@ -55,7 +50,9 @@ class TassyFullPeakListSyncService {
 
     final mergedByPeakOsmId = <int, PeakListItem>{};
     var removedCount = 0;
-    for (final item in _decodeTargetItemsOrNull(existingTarget) ?? const []) {
+    for (final item in existingTarget == null
+        ? const <PeakListItem>[]
+        : _repository.getPeakListItemsForList(existingTarget.peakListId)) {
       if (_isTasmanianPeak(item.peakOsmId, peakRegionsByOsmId)) {
         mergedByPeakOsmId[item.peakOsmId] = item;
         continue;
@@ -80,7 +77,8 @@ class TassyFullPeakListSyncService {
       ..sort((left, right) => left.peakOsmId.compareTo(right.peakOsmId));
 
     await _repository.saveWithoutSync(
-      PeakList(name: targetName, peakList: encodePeakListItems(mergedItems)),
+      PeakList(name: targetName),
+      items: mergedItems,
       recomputeDerivedFields: true,
     );
 
@@ -93,37 +91,5 @@ class TassyFullPeakListSyncService {
 
   bool _isTasmanianPeak(int peakOsmId, Map<int, String?> peakRegionsByOsmId) {
     return peakRegionsByOsmId[peakOsmId] == Peak.defaultRegion;
-  }
-
-  List<PeakListItem>? _decodeItemsOrNull(PeakList peakList) {
-    try {
-      return decodePeakListItems(peakList.peakList);
-    } catch (error, stackTrace) {
-      developer.log(
-        'Skipping malformed source peak list ${peakList.peakListId} during Tassy Full refresh.',
-        error: error,
-        stackTrace: stackTrace,
-        name: 'tassy_full_peak_list_sync_service',
-      );
-      return null;
-    }
-  }
-
-  List<PeakListItem>? _decodeTargetItemsOrNull(PeakList? peakList) {
-    if (peakList == null) {
-      return null;
-    }
-
-    try {
-      return decodePeakListItems(peakList.peakList);
-    } catch (error, stackTrace) {
-      developer.log(
-        'Skipping malformed Tassy Full peak list ${peakList.peakListId} during refresh.',
-        error: error,
-        stackTrace: stackTrace,
-        name: 'tassy_full_peak_list_sync_service',
-      );
-      return const [];
-    }
   }
 }

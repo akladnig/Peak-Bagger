@@ -56,9 +56,6 @@ int renderablePeakCount({
                       .map((peak) => peak.osmId)
                       .toSet())
           : peakIdsForRegion(peaks: peaks, cursorPoint: cursorPoint));
-  if (!peakList.isMembershipReady) {
-    return 0;
-  }
   final items = _loadPeakListVisibilityItems(
     peakList,
     itemsLoader: itemsLoader,
@@ -103,10 +100,6 @@ Set<String> memberRegionKeysForPeakList({
   required Iterable<Peak> peaks,
   PeakListVisibilityItemsLoader? itemsLoader,
 }) {
-  if (!peakList.isMembershipReady) {
-    return const <String>{};
-  }
-
   final items = _loadPeakListVisibilityItems(
     peakList,
     itemsLoader: itemsLoader,
@@ -215,7 +208,6 @@ Set<int> renderablePeakListIdsForVisibleRegions({
 
   for (final peakList in peakLists) {
     if (!selectedIds.contains(peakList.peakListId) ||
-        !peakList.isMembershipReady ||
         !peakListAppliesToVisibleRegions(
         peakList,
         visibleRegionKeys,
@@ -288,7 +280,7 @@ List<PeakListItem> _loadPeakListVisibilityItems(
   if (itemsLoader != null) {
     return itemsLoader(peakList);
   }
-  return decodePeakListItems(peakList.peakList);
+  throw StateError('PeakListVisibilityItemsLoader is required.');
 }
 
 bool _peakListBoundsIntersectVisibleBounds(

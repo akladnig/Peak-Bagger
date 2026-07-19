@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:objectbox/objectbox.dart';
 import 'package:peak_bagger/models/peak.dart';
 
@@ -8,10 +6,6 @@ const _peakListCopyWithUnset = Object();
 @Entity()
 class PeakList {
   static const mixedRegion = 'mixed';
-  static const membershipStateReady = 'ready';
-  static const membershipStatePendingLegacyMigration =
-      'pendingLegacyMigration';
-  static const membershipStateUnsupportedLegacy = 'unsupportedLegacy';
 
   @Id(assignable: true)
   int peakListId;
@@ -21,11 +15,7 @@ class PeakList {
 
   String region;
 
-  String peakList;
-
   int colour;
-
-  String membershipState;
 
   double? minLat;
   double? maxLat;
@@ -36,9 +26,7 @@ class PeakList {
     this.peakListId = 0,
     required this.name,
     this.region = Peak.defaultRegion,
-    required this.peakList,
     this.colour = 0,
-    this.membershipState = membershipStateReady,
     this.minLat,
     this.maxLat,
     this.minLng,
@@ -49,9 +37,7 @@ class PeakList {
     int? peakListId,
     String? name,
     String? region,
-    String? peakList,
     int? colour,
-    String? membershipState,
     Object? minLat = _peakListCopyWithUnset,
     Object? maxLat = _peakListCopyWithUnset,
     Object? minLng = _peakListCopyWithUnset,
@@ -61,9 +47,7 @@ class PeakList {
       peakListId: peakListId ?? this.peakListId,
       name: name ?? this.name,
       region: region ?? this.region,
-      peakList: peakList ?? this.peakList,
       colour: colour ?? this.colour,
-      membershipState: membershipState ?? this.membershipState,
       minLat: identical(minLat, _peakListCopyWithUnset)
           ? this.minLat
           : minLat as double?,
@@ -78,15 +62,6 @@ class PeakList {
           : maxLng as double?,
     );
   }
-
-  bool get isMembershipReady => membershipState == membershipStateReady;
-
-  bool get isUnsupportedLegacy =>
-      membershipState == membershipStateUnsupportedLegacy;
-
-  bool get needsLegacyMembershipMigration =>
-      membershipState.isEmpty ||
-      membershipState == membershipStatePendingLegacyMigration;
 }
 
 class PeakListItem {
@@ -94,6 +69,16 @@ class PeakListItem {
 
   final int peakOsmId;
   final int points;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PeakListItem &&
+          other.peakOsmId == peakOsmId &&
+          other.points == points;
+
+  @override
+  int get hashCode => Object.hash(peakOsmId, points);
 
   Map<String, Object> toJson() {
     return {'peakOsmId': peakOsmId, 'points': points};
@@ -118,23 +103,4 @@ class PeakListItemEntity {
   final peak = ToOne<Peak>();
 
   int points;
-}
-
-String encodePeakListItems(List<PeakListItem> items) {
-  return json.encode(
-    items.map((item) => item.toJson()).toList(growable: false),
-  );
-}
-
-List<PeakListItem> decodePeakListItems(String payload) {
-  final decoded = json.decode(payload);
-  if (decoded is! List) {
-    throw const FormatException(
-      'Peak list payload must decode to a JSON array.',
-    );
-  }
-
-  return decoded
-      .map((entry) => PeakListItem.fromJson(entry as Map<String, dynamic>))
-      .toList(growable: false);
 }

@@ -16,7 +16,7 @@ void main() {
     });
 
     test(
-      'returns blockers in deterministic type order and ignores bad JSON',
+      'returns blockers in deterministic type order from relational memberships',
       () {
         final peak = Peak(
           id: 7,
@@ -29,15 +29,20 @@ void main() {
         source.gpxTracks = [
           GpxTrack(gpxTrackId: 2, contentHash: 'hash', trackName: 'Z Track'),
         ]..first.peaks.add(peak);
-        source.peakLists = [
-          PeakList(name: 'Broken list', peakList: '{not json'),
-          PeakList(
-            name: 'Abels',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 999, points: 2),
-              const PeakListItem(peakOsmId: 123, points: 4),
-            ]),
-          ),
+        final peakList = PeakList(peakListId: 1, name: 'Abels');
+        source.peakLists = [PeakList(peakListId: 2, name: 'Broken list'), peakList];
+        source.peakListItems = [
+          PeakListItemEntity(id: 1, points: 2)
+            ..peakList.target = peakList
+            ..peak.target = Peak(
+              osmId: 999,
+              name: 'Other Peak',
+              latitude: -41,
+              longitude: 146,
+            ),
+          PeakListItemEntity(id: 2, points: 4)
+            ..peakList.target = peakList
+            ..peak.target = peak,
         ];
         source.peaksBagged = [
           PeaksBagged(baggedId: 3, peakId: 123, gpxId: 77),
@@ -87,7 +92,6 @@ void main() {
       final peakList = PeakList(
         peakListId: 3,
         name: 'Relational',
-        peakList: '[]',
       );
       final item = PeakListItemEntity(id: 1, points: 4)
         ..peakList.target = peakList

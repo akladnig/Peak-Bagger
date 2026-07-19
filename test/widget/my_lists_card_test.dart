@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -119,7 +120,7 @@ void main() {
 
 Future<void> _pumpMyListsCard(
   WidgetTester tester, {
-  required List<PeakList> peakLists,
+  required List<({PeakList peakList, List<int> peakIds})> peakLists,
   required Set<int> climbedPeakIds,
   double width = 420,
 }) async {
@@ -142,7 +143,7 @@ Future<void> _pumpMyListsCard(
     ProviderScope(
       overrides: [
         peakListRepositoryProvider.overrideWithValue(
-          PeakListRepository.test(InMemoryPeakListStorage(peakLists)),
+          _peakListRepository(peakLists),
         ),
         peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
         mapProvider.overrideWith(
@@ -171,14 +172,41 @@ Future<void> _pumpMyListsCard(
   await tester.pumpAndSettle();
 }
 
-PeakList _peakList(int id, String name, List<int> peakIds) {
-  return PeakList(
-    peakListId: id,
-    name: name,
-    peakList: encodePeakListItems(
-      peakIds
-          .map((peakId) => PeakListItem(peakOsmId: peakId, points: 1))
-          .toList(growable: false),
-    ),
+({PeakList peakList, List<int> peakIds}) _peakList(
+  int id,
+  String name,
+  List<int> peakIds,
+) {
+  return (
+    peakList: PeakList(peakListId: id, name: name),
+    peakIds: peakIds,
+  );
+}
+
+PeakListRepository _peakListRepository(
+  List<({PeakList peakList, List<int> peakIds})> definitions,
+) {
+  final peakLists = [for (final definition in definitions) definition.peakList];
+  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+  final items = <PeakListItemEntity>[];
+  var itemId = 1;
+  for (final definition in definitions) {
+    for (final peakId in definition.peakIds) {
+      items.add(
+        PeakListItemEntity(id: itemId++, points: 1)
+          ..peakList.target = peakListsById[definition.peakList.peakListId]!
+          ..peak.target = Peak(
+            osmId: peakId,
+            name: 'Peak $peakId',
+            latitude: -42,
+            longitude: 146,
+          ),
+      );
+    }
+  }
+
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(peakLists),
+    itemStorage: InMemoryPeakListItemEntityStorage(items),
   );
 }

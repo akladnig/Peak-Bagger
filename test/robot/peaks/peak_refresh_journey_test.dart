@@ -82,39 +82,35 @@ void main() {
   testWidgets('update tassy full journey rebuilds and reconciles selection', (
     tester,
   ) async {
-    final repository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: 'Abels',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 11, points: 5),
-            const PeakListItem(peakOsmId: 22, points: 4),
-            const PeakListItem(peakOsmId: 44, points: 7),
-          ]),
-        )..peakListId = 1,
-        PeakList(
-          name: 'South West',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 11, points: 2),
-          ]),
-        )..peakListId = 2,
-        PeakList(
-          name: 'Tassy Full',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 11, points: 1),
-            const PeakListItem(peakOsmId: 33, points: 1),
-            const PeakListItem(peakOsmId: 44, points: 1),
-          ]),
-        )..peakListId = 3,
-      ]),
-      peakRepository: PeakRepository.test(
-        InMemoryPeakStorage([
-          _peak(11),
-          _peak(22),
-          _peak(33),
-          _peak(44, region: 'new-south-wales'),
-        ]),
-      ),
+    final repository = await _peakListRepository(
+      peaks: [
+        _peak(11),
+        _peak(22),
+        _peak(33),
+        _peak(44, region: 'new-south-wales'),
+      ],
+      definitions: [
+        (
+          peakList: PeakList(peakListId: 1, name: 'Abels'),
+          items: const [
+            PeakListItem(peakOsmId: 11, points: 5),
+            PeakListItem(peakOsmId: 22, points: 4),
+            PeakListItem(peakOsmId: 44, points: 7),
+          ],
+        ),
+        (
+          peakList: PeakList(peakListId: 2, name: 'South West'),
+          items: const [PeakListItem(peakOsmId: 11, points: 2)],
+        ),
+        (
+          peakList: PeakList(peakListId: 3, name: 'Tassy Full'),
+          items: const [
+            PeakListItem(peakOsmId: 11, points: 1),
+            PeakListItem(peakOsmId: 33, points: 1),
+            PeakListItem(peakOsmId: 44, points: 1),
+          ],
+        ),
+      ],
     );
     final robot = TassyFullRefreshRobot(
       tester,
@@ -148,14 +144,30 @@ void main() {
       robot.notifier.state.peakListSelectionMode,
       PeakListSelectionMode.specificList,
     );
-    expect(robot.notifier.state.selectedPeakListId, 999);
+    expect(robot.notifier.state.selectedPeakListIds, {999});
     expect(
-      decodePeakListItems(
-        repository.findByName('Tassy Full')!.peakList,
-      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      repository
+          .getPeakListItemsForList(repository.findByName('Tassy Full')!.peakListId)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
       [(11, 5), (22, 4), (33, 1), (44, 7)],
     );
   });
+}
+
+Future<PeakListRepository> _peakListRepository({
+  required List<Peak> peaks,
+  required List<({PeakList peakList, List<PeakListItem> items})> definitions,
+}) async {
+  final peakRepository = PeakRepository.test(InMemoryPeakStorage(peaks));
+  final repository = PeakListRepository.test(
+    InMemoryPeakListStorage(),
+    peakRepository: peakRepository,
+  );
+  for (final definition in definitions) {
+    await repository.save(definition.peakList, items: definition.items);
+  }
+  return repository;
 }
 
 Peak _peak(int osmId, {String region = Peak.defaultRegion}) {

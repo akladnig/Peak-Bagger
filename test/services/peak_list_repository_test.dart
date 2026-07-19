@@ -7,44 +7,48 @@ import 'package:peak_bagger/services/peak_repository.dart';
 void main() {
   group('PeakListRepository', () {
     test('round-trips ordered peakList payload unchanged', () async {
-      final repository = PeakListRepository.test(InMemoryPeakListStorage());
-      final payload = encodePeakListItems([
-        const PeakListItem(peakOsmId: 11, points: 2),
-        const PeakListItem(peakOsmId: 22, points: 10),
-      ]);
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([_peak(11), _peak(22)]),
+        ),
+      );
 
-      await repository.save(PeakList(name: 'Abels', peakList: payload));
+      await repository.save(
+        PeakList(name: 'Abels'),
+        items: const [
+          PeakListItem(peakOsmId: 11, points: 2),
+          PeakListItem(peakOsmId: 22, points: 10),
+        ],
+      );
 
       final stored = repository.getAllPeakLists().single;
 
       expect(stored.name, 'Abels');
-      expect(stored.peakList, payload);
       expect(
-        decodePeakListItems(
-          stored.peakList,
-        ).map((item) => (item.peakOsmId, item.points)).toList(),
+        repository
+            .getPeakListItemsForList(stored.peakListId)
+            .map((item) => (item.peakOsmId, item.points))
+            .toList(),
         [(11, 2), (22, 10)],
       );
     });
 
     test('duplicate-name update preserves existing data on failure', () async {
-      final repository = PeakListRepository.test(InMemoryPeakListStorage());
-      final originalPayload = encodePeakListItems([
-        const PeakListItem(peakOsmId: 11, points: 2),
-      ]);
+      final repository = PeakListRepository.test(
+        InMemoryPeakListStorage(),
+        peakRepository: PeakRepository.test(InMemoryPeakStorage([_peak(11)])),
+      );
 
       final saved = await repository.save(
-        PeakList(name: 'Abels', peakList: originalPayload),
+        PeakList(name: 'Abels'),
+        items: const [PeakListItem(peakOsmId: 11, points: 2)],
       );
 
       await expectLater(
         repository.save(
-          PeakList(
-            name: 'Abels',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 22, points: 10),
-            ]),
-          ),
+          PeakList(name: 'Abels'),
+          items: const [PeakListItem(peakOsmId: 11, points: 2)],
           beforePutForTest: () {
             throw StateError('boom');
           },
@@ -56,14 +60,16 @@ void main() {
 
       expect(stored.peakListId, saved.peakListId);
       expect(stored.name, 'Abels');
-      expect(stored.peakList, originalPayload);
+      expect(repository.getPeakListItemsForList(stored.peakListId), [
+        const PeakListItem(peakOsmId: 11, points: 2),
+      ]);
     });
 
     test('getById returns stored row', () async {
       final repository = PeakListRepository.test(InMemoryPeakListStorage());
 
       final saved = await repository.save(
-        PeakList(name: 'Abels', peakList: '[]'),
+        PeakList(name: 'Abels'),
       );
 
       final stored = repository.findById(saved.peakListId);
@@ -75,8 +81,8 @@ void main() {
     test('delete removes only the targeted row', () async {
       final repository = PeakListRepository.test(
         InMemoryPeakListStorage([
-          PeakList(name: 'Abels', peakList: '[]')..peakListId = 1,
-          PeakList(name: 'Connoisseurs', peakList: '[]')..peakListId = 2,
+          PeakList(name: 'Abels')..peakListId = 1,
+          PeakList(name: 'Connoisseurs')..peakListId = 2,
         ]),
       );
 
@@ -88,10 +94,9 @@ void main() {
     });
 
     test('add update and remove peak items preserve list metadata', () async {
-      final repository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Abels', peakList: '[]')..peakListId = 1,
-        ]),
+      final repository = _peakListRepository(
+        peakLists: [PeakList(name: 'Abels')..peakListId = 1],
+        peaks: [_peak(11), _peak(22)],
       );
 
       await repository.addPeakItem(
@@ -113,9 +118,10 @@ void main() {
 
       expect(stored?.name, 'Abels');
       expect(
-        decodePeakListItems(
-          stored!.peakList,
-        ).map((item) => (item.peakOsmId, item.points)).toList(),
+        repository
+            .getPeakListItemsForList(stored!.peakListId)
+            .map((item) => (item.peakOsmId, item.points))
+            .toList(),
         [(11, 7)],
       );
     });
@@ -134,11 +140,9 @@ void main() {
           InMemoryPeakListStorage(),
           peakRepository: peakRepository,
         );
-        final initialPayload = encodePeakListItems([
-          const PeakListItem(peakOsmId: 11, points: 2),
-        ]);
         final saved = await repository.save(
-          PeakList(name: 'Abels', peakList: initialPayload),
+          PeakList(name: 'Abels'),
+          items: const [PeakListItem(peakOsmId: 11, points: 2)],
         );
 
         await repository.addPeakItems(
@@ -158,7 +162,6 @@ void main() {
           peakOsmId: 22,
         );
 
-        expect(repository.findById(saved.peakListId)?.peakList, initialPayload);
         expect(
           repository
               .getPeakListItemsForList(saved.peakListId)
@@ -177,7 +180,6 @@ void main() {
           peakOsmId: 11,
         );
 
-        expect(repository.findById(saved.peakListId)?.peakList, initialPayload);
         expect(repository.getPeakListItemsForList(saved.peakListId), isEmpty);
       },
     );
@@ -186,7 +188,6 @@ void main() {
       final peakList = PeakList(
         peakListId: 1,
         name: 'Abels',
-        peakList: '[]',
         minLat: -42.0,
         maxLat: -41.0,
         minLng: 145.0,
@@ -218,14 +219,12 @@ void main() {
         final preserved = await repository.save(
           PeakList(
             name: 'Abels',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 11, points: 2),
-            ]),
             minLat: 1,
             maxLat: 2,
             minLng: 3,
             maxLng: 4,
           ),
+          items: const [PeakListItem(peakOsmId: 11, points: 2)],
         );
         final recomputed = await repository.save(
           preserved,
@@ -272,14 +271,12 @@ void main() {
           PeakList(
             name: 'Italy',
             region: Peak.defaultRegion,
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 11, points: 1),
-            ]),
             minLat: 0,
             maxLat: 0,
             minLng: 0,
             maxLng: 0,
           ),
+          items: const [PeakListItem(peakOsmId: 11, points: 1)],
         );
 
         final afterAdd = await repository.addPeakItem(
@@ -341,7 +338,6 @@ void main() {
               peakListId: 2,
               name: 'Empty Ready',
               region: 'veneto',
-              peakList: '[]',
               minLat: 1,
               maxLat: 2,
               minLng: 3,
@@ -351,13 +347,11 @@ void main() {
           peakRepository: peakRepository,
         );
         final mixedLegacy = await repository.save(
-          PeakList(
-            name: 'Mixed Legacy',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 11, points: 1),
-              const PeakListItem(peakOsmId: 22, points: 1),
-            ]),
-          ),
+          PeakList(name: 'Mixed Legacy'),
+          items: const [
+            PeakListItem(peakOsmId: 11, points: 1),
+            PeakListItem(peakOsmId: 22, points: 1),
+          ],
         );
 
         final changed = await repository.backfillStoredPeakLists();
@@ -380,15 +374,10 @@ void main() {
     );
 
     test('duplicate add is rejected', () async {
-      final repository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Abels',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 11, points: 2),
-            ]),
-          )..peakListId = 1,
-        ]),
+      final repository = _peakListRepository(
+        peakLists: [PeakList(name: 'Abels')..peakListId = 1],
+        peaks: [_peak(11)],
+        memberships: const [(peakListId: 1, peakOsmId: 11, points: 2)],
       );
 
       await expectLater(
@@ -403,7 +392,7 @@ void main() {
     test('Tassy Full single add rejects non-Tasmanian peaks', () async {
       final repository = PeakListRepository.test(
         InMemoryPeakListStorage([
-          PeakList(name: 'Tassy Full', peakList: '[]')..peakListId = 1,
+          PeakList(name: 'Tassy Full')..peakListId = 1,
         ]),
         peakRepository: PeakRepository.test(
           InMemoryPeakStorage([
@@ -432,7 +421,7 @@ void main() {
         ),
       );
 
-      expect(decodePeakListItems(repository.findById(1)!.peakList), isEmpty);
+      expect(repository.getPeakListItemsForList(1), isEmpty);
     });
 
     test(
@@ -440,7 +429,7 @@ void main() {
       () async {
         final repository = PeakListRepository.test(
           InMemoryPeakListStorage([
-            PeakList(name: 'Tassy Full', peakList: '[]')..peakListId = 1,
+            PeakList(name: 'Tassy Full')..peakListId = 1,
           ]),
           peakRepository: PeakRepository.test(
             InMemoryPeakStorage([
@@ -473,7 +462,7 @@ void main() {
           ),
         );
 
-        expect(decodePeakListItems(repository.findById(1)!.peakList), isEmpty);
+        expect(repository.getPeakListItemsForList(1), isEmpty);
       },
     );
 
@@ -482,7 +471,7 @@ void main() {
       () async {
         final repository = PeakListRepository.test(
           InMemoryPeakListStorage([
-            PeakList(name: 'Tassy Full', peakList: '[]')..peakListId = 1,
+            PeakList(name: 'Tassy Full')..peakListId = 1,
           ]),
           peakRepository: PeakRepository.test(
             InMemoryPeakStorage([
@@ -514,23 +503,18 @@ void main() {
     test(
       'findPeakListNamesForPeak returns sorted unique memberships',
       () async {
-        final repository = PeakListRepository.test(
-          InMemoryPeakListStorage([
-            PeakList(
-              name: 'Zeta',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 11, points: 2),
-                const PeakListItem(peakOsmId: 11, points: 5),
-              ]),
-            )..peakListId = 1,
-            PeakList(
-              name: 'Alpha',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 11, points: 3),
-              ]),
-            )..peakListId = 2,
-            PeakList(name: 'Gamma', peakList: '[]')..peakListId = 3,
-          ]),
+        final repository = _peakListRepository(
+          peakLists: [
+            PeakList(name: 'Zeta')..peakListId = 1,
+            PeakList(name: 'Alpha')..peakListId = 2,
+            PeakList(name: 'Gamma')..peakListId = 3,
+          ],
+          peaks: [_peak(11)],
+          memberships: const [
+            (peakListId: 1, peakOsmId: 11, points: 2),
+            (peakListId: 1, peakOsmId: 11, points: 5),
+            (peakListId: 2, peakOsmId: 11, points: 3),
+          ],
         );
 
         final names = repository.findPeakListNamesForPeak(11);
@@ -539,33 +523,17 @@ void main() {
       },
     );
 
-    test('findPeakListNamesForPeak skips malformed list payloads', () async {
-      final repository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Valid',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 11, points: 2),
-            ]),
-          )..peakListId = 1,
-          PeakList(name: 'Broken', peakList: '{not json')..peakListId = 2,
-        ]),
-      );
-
-      expect(repository.findPeakListNamesForPeak(11), ['Valid']);
-    });
-
     test('save normalizes Tasmania legacy region values only', () async {
       final repository = PeakListRepository.test(InMemoryPeakListStorage());
 
       final blank = await repository.save(
-        PeakList(name: 'Blank', region: '', peakList: '[]'),
+        PeakList(name: 'Blank', region: ''),
       );
       final legacyCased = await repository.save(
-        PeakList(name: 'Legacy', region: 'Tasmania', peakList: '[]'),
+        PeakList(name: 'Legacy', region: 'Tasmania'),
       );
       final victoria = await repository.save(
-        PeakList(name: 'Victoria', region: 'victoria', peakList: '[]'),
+        PeakList(name: 'Victoria', region: 'victoria'),
       );
 
       expect(blank.region, Peak.defaultRegion);
@@ -582,7 +550,7 @@ void main() {
         final repository = PeakListRepository.test(InMemoryPeakListStorage());
 
         final saved = await repository.save(
-          PeakList(name: 'Abels', peakList: '[]'),
+          PeakList(name: 'Abels'),
         );
 
         expect(saved.peakListId, 1);
@@ -595,11 +563,47 @@ void main() {
       final repository = PeakListRepository.test(InMemoryPeakListStorage());
 
       final saved = await repository.save(
-        PeakList(name: 'Abels', peakList: '[]', colour: 0xFF123456),
+        PeakList(name: 'Abels', colour: 0xFF123456),
       );
 
       expect(saved.colour, 0xFF123456);
       expect(repository.findById(saved.peakListId)?.colour, 0xFF123456);
     });
   });
+}
+
+PeakListRepository _peakListRepository({
+  required List<PeakList> peakLists,
+  List<Peak> peaks = const [],
+  List<({int peakListId, int peakOsmId, int points})> memberships = const [],
+}) {
+  final peaksByOsmId = {
+    for (final peak in peaks) peak.osmId: peak,
+    for (final membership in memberships)
+      if (!peaks.any((peak) => peak.osmId == membership.peakOsmId))
+        membership.peakOsmId: _peak(membership.peakOsmId),
+  };
+  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(peakLists),
+    peakRepository: PeakRepository.test(
+      InMemoryPeakStorage(peaksByOsmId.values.toList(growable: false)),
+    ),
+    itemStorage: InMemoryPeakListItemEntityStorage([
+      for (var index = 0; index < memberships.length; index++)
+        PeakListItemEntity(id: index + 1, points: memberships[index].points)
+          ..peakList.target = peakListsById[memberships[index].peakListId]!
+          ..peak.target = peaksByOsmId[memberships[index].peakOsmId]!,
+    ]),
+  );
+}
+
+Peak _peak(int osmId) {
+  return Peak(
+    osmId: osmId,
+    name: 'Peak $osmId',
+    latitude: -42,
+    longitude: 146,
+  );
 }

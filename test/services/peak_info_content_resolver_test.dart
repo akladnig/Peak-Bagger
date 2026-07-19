@@ -25,20 +25,27 @@ void main() {
       easting: '12345',
       northing: '67890',
     );
+    final abels = PeakList(name: 'Abels')..peakListId = 1;
+    final tasmania = PeakList(name: 'Tasmania')..peakListId = 2;
     final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(
-          name: 'Abels',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 42, points: 10),
-          ]),
-        )..peakListId = 1,
-        PeakList(
-          name: 'Tasmania',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 99, points: 4),
-          ]),
-        )..peakListId = 2,
+      InMemoryPeakListStorage([abels, tasmania]),
+      itemStorage: InMemoryPeakListItemEntityStorage([
+        PeakListItemEntity(id: 1, points: 10)
+          ..peakList.target = abels
+          ..peak.target = Peak(
+            osmId: 42,
+            name: 'Alpha Peak',
+            latitude: -42.0,
+            longitude: 146.0,
+          ),
+        PeakListItemEntity(id: 2, points: 4)
+          ..peakList.target = tasmania
+          ..peak.target = Peak(
+            osmId: 99,
+            name: 'Other Peak',
+            latitude: -42.1,
+            longitude: 146.1,
+          ),
       ]),
     );
     final peaksBaggedRepository = PeaksBaggedRepository.test(

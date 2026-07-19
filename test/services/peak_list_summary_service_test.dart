@@ -7,16 +7,25 @@ void main() {
     const service = PeakListSummaryService();
 
     test('sorts by climbed percentage and caps at five rows', () {
+      final itemsByPeakListId = {
+        10: _items([1, 2]),
+        11: _items([1, 3]),
+        12: _items([2, 4]),
+        13: _items([6]),
+        14: _items([1, 5, 8]),
+        15: _items([9]),
+      };
       final rows = service.buildRows(
         peakLists: [
-          _peakList(10, 'Alpha', [1, 2]),
-          _peakList(11, 'Alpha', [1, 3]),
-          _peakList(12, 'Beta', [2, 4]),
-          _peakList(13, 'Delta', [6]),
-          _peakList(14, 'Gamma', [1, 5, 8]),
-          _peakList(15, 'Epsilon', [9]),
+          _peakList(10, 'Alpha'),
+          _peakList(11, 'Alpha'),
+          _peakList(12, 'Beta'),
+          _peakList(13, 'Delta'),
+          _peakList(14, 'Gamma'),
+          _peakList(15, 'Epsilon'),
         ],
         climbedPeakIds: {1, 2, 3, 4, 5, 6},
+        itemsLoader: (peakList) => itemsByPeakListId[peakList.peakListId]!,
       );
 
       expect(rows, hasLength(5));
@@ -43,13 +52,11 @@ void main() {
       expect(rows.last.percentageLabel, '67%');
     });
 
-    test('skips malformed lists and keeps zero-peak rows', () {
+    test('keeps zero-peak rows', () {
       final rows = service.buildRows(
-        peakLists: [
-          _peakList(20, 'Empty', []),
-          PeakList(name: 'Broken', peakList: 'not-json')..peakListId = 21,
-        ],
+        peakLists: [_peakList(20, 'Empty')],
         climbedPeakIds: const {},
+        itemsLoader: (_) => const [],
       );
 
       expect(rows, hasLength(1));
@@ -64,6 +71,7 @@ void main() {
       final rows = service.buildRows(
         peakLists: const [],
         climbedPeakIds: const {},
+        itemsLoader: (_) => const [],
       );
 
       expect(rows, isEmpty);
@@ -71,14 +79,12 @@ void main() {
   });
 }
 
-PeakList _peakList(int id, String name, List<int> peakIds) {
-  return PeakList(
-    peakListId: id,
-    name: name,
-    peakList: encodePeakListItems(
-      peakIds
-          .map((peakId) => PeakListItem(peakOsmId: peakId, points: 1))
-          .toList(growable: false),
-    ),
-  );
+PeakList _peakList(int id, String name) {
+  return PeakList(peakListId: id, name: name);
+}
+
+List<PeakListItem> _items(List<int> peakIds) {
+  return peakIds
+      .map((peakId) => PeakListItem(peakOsmId: peakId, points: 1))
+      .toList(growable: false);
 }

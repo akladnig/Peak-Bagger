@@ -79,10 +79,7 @@ void main() {
         expect(storedList.maxLat, 46.4084);
         expect(storedList.minLng, 13.0475);
         expect(storedList.maxLng, 13.0475);
-        expect(
-          storedList.peakList,
-          encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 1)]),
-        );
+        expect(_storedMemberships(peakListRepository, storedList.name), [(101, 1)]);
       },
     );
 
@@ -108,9 +105,7 @@ void main() {
       final peakRepository = PeakRepository.test(
         InMemoryPeakStorage([peak, syntheticPeak]),
       );
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
@@ -145,12 +140,7 @@ void main() {
       expect(secondCreatedPeak?.rating, 4.8);
       expect(secondCreatedPeak?.difficulty, 'EEA');
       expect(secondCreatedPeak?.notes, 'High summit');
-      expect(
-        decodePeakListItems(
-          storedList.peakList,
-        ).map((item) => (item.peakOsmId, item.points)).toList(),
-        [(-8, 1), (-9, 1)],
-      );
+      expect(_storedMemberships(peakListRepository, storedList.name), [(-8, 1), (-9, 1)]);
     });
 
     test('ranked csv blank values keep existing stored fields', () async {
@@ -175,9 +165,7 @@ void main() {
             region: 'italy-nord-est',
           );
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
@@ -217,9 +205,7 @@ void main() {
         longitude: 13.0475,
       );
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
@@ -266,9 +252,7 @@ void main() {
       final peakRepository = PeakRepository.test(
         InMemoryPeakStorage([peakA, peakB]),
       );
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
@@ -304,9 +288,7 @@ void main() {
         longitude: 13.0475,
       );
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
@@ -347,9 +329,7 @@ void main() {
         longitude: 13.0475,
       );
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
@@ -392,9 +372,7 @@ void main() {
           longitude: 13.0475,
         );
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
@@ -481,9 +459,7 @@ void main() {
         final peakRepository = PeakRepository.test(
           InMemoryPeakStorage([peakA, peakB]),
         );
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
@@ -532,9 +508,7 @@ void main() {
           longitude: 145.97754,
         );
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
@@ -558,10 +532,7 @@ void main() {
           peakRepository.findByOsmId(101)?.sourceOfTruth,
           Peak.sourceOfTruthHwc,
         );
-        expect(
-          peakListRepository.getAllPeakLists().single.peakList,
-          encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 3)]),
-        );
+        expect(_singleStoredMemberships(peakListRepository), [(101, 3)]);
       },
     );
 
@@ -574,11 +545,10 @@ void main() {
         longitude: 145.97754,
       );
       final coords = _csvCoordinatesFromPeak(peak);
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
-        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
             'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85566,145.97754,3\n',
@@ -599,9 +569,7 @@ void main() {
 
     test('unmatched rows create new HWC peaks and list entries', () async {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage());
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
@@ -626,10 +594,8 @@ void main() {
       expect(createdPeak.name, 'Missing Peak');
       expect(createdPeak.sourceOfTruth, Peak.sourceOfTruthHwc);
       expect(
-        peakListRepository.getAllPeakLists().single.peakList,
-        encodePeakListItems([
-          PeakListItem(peakOsmId: createdPeak.osmId, points: 1),
-        ]),
+        _singleStoredMemberships(peakListRepository),
+        [(createdPeak.osmId, 1)],
       );
     });
 
@@ -644,9 +610,7 @@ void main() {
           longitude: 145.97754,
         ).copyWith(altName: 'Manual Achilles', verified: true);
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final coords = _csvCoordinatesFromPeak(
           peak,
           eastingOffset: 75,
@@ -705,11 +669,10 @@ void main() {
           eastingOffset: 75,
           northingOffset: -125,
         );
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
-          peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+          peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
               'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85916,145.97754,3\n',
@@ -748,11 +711,10 @@ void main() {
           eastingOffset: 900,
           northingOffset: -900,
         );
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
-          peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+          peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
               'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nWrong Name,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85916,145.97754,3\n',
@@ -790,11 +752,10 @@ void main() {
           eastingOffset: 900,
           northingOffset: -900,
         );
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
-          peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+          peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
               'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85916,145.97754,3\n',
@@ -824,9 +785,10 @@ void main() {
       ).copyWith(sourceOfTruth: Peak.sourceOfTruthHwc);
       final coords = _csvCoordinatesFromPeak(peak);
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
         peakRepository: peakRepository,
-        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        peakListRepository: peakListRepository,
         csvLoader: (_) async =>
             'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85916,145.97754,3\n',
         importRootLoader: () async => '/tmp/Bushwalking',
@@ -861,9 +823,7 @@ void main() {
         northingOffset: -125,
       );
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
@@ -892,10 +852,7 @@ void main() {
       expect(storedPeak?.easting, peak.easting);
       expect(storedPeak?.northing, peak.northing);
       expect(storedPeak?.sourceOfTruth, Peak.sourceOfTruthHwc);
-      expect(
-        peakListRepository.getAllPeakLists().single.peakList,
-        encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 3)]),
-      );
+        expect(_singleStoredMemberships(peakListRepository), [(101, 3)]);
     });
 
     test(
@@ -922,13 +879,12 @@ void main() {
               northing: targetPeak.northing,
             );
         final coords = _csvCoordinatesFromPeak(targetPeak);
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
+        final peakRepository = PeakRepository.test(
+          InMemoryPeakStorage([targetPeak, nearbyPeak]),
         );
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
-          peakRepository: PeakRepository.test(
-            InMemoryPeakStorage([targetPeak, nearbyPeak]),
-          ),
+          peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
               'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Ossa,1617,${targetPeak.gridZoneDesignator},${coords.easting},${coords.northing},-41.6542,146.0312,6\n',
@@ -944,10 +900,7 @@ void main() {
 
         expect(result.importedCount, 1);
         expect(result.skippedCount, 0);
-        expect(
-          peakListRepository.getAllPeakLists().single.peakList,
-          encodePeakListItems([const PeakListItem(peakOsmId: 201, points: 6)]),
-        );
+        expect(_singleStoredMemberships(peakListRepository), [(201, 6)]);
       },
     );
 
@@ -980,9 +933,7 @@ void main() {
         final peakRepository = PeakRepository.test(
           InMemoryPeakStorage([matchingPeak, ambiguousPeakA, ambiguousPeakB]),
         );
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
@@ -1016,11 +967,8 @@ void main() {
           (peak) => peak.name == 'Missing Peak',
         );
         expect(
-          peakListRepository.getAllPeakLists().single.peakList,
-          encodePeakListItems([
-            const PeakListItem(peakOsmId: 101, points: 3),
-            PeakListItem(peakOsmId: createdPeak.osmId, points: 1),
-          ]),
+          _singleStoredMemberships(peakListRepository),
+          [(101, 3), (createdPeak.osmId, 1)],
         );
       },
     );
@@ -1036,11 +984,10 @@ void main() {
           longitude: 145.97754,
         );
         final coords = _csvCoordinatesFromPeak(peak);
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final createPeakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+        final peakListRepository = _emptyPeakListRepository(createPeakRepository);
         final createService = PeakListImportService(
-          peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+          peakRepository: createPeakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
               'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85916,145.97754,3\n',
@@ -1054,8 +1001,9 @@ void main() {
           csvPath: '/tmp/create.csv',
         );
 
+        final updatePeakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
         final updateService = PeakListImportService(
-          peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+          peakRepository: updatePeakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
               'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nWrong Name,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85916,145.97754,6\n',
@@ -1077,10 +1025,7 @@ void main() {
         expect(updated.warningEntries, hasLength(2));
         expect(updated.warningEntries.last, 'Could not update import.log.');
         expect(updated.warningMessage, 'Could not update import.log.');
-        expect(
-          peakListRepository.getAllPeakLists().single.peakList,
-          encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 6)]),
-        );
+        expect(_singleStoredMemberships(peakListRepository), [(101, 6)]);
       },
     );
 
@@ -1093,11 +1038,10 @@ void main() {
         longitude: 145.97754,
       );
       final coords = _csvCoordinatesFromPeak(peak);
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
-        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
             'Name,Ht,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85916,145.97754,3\n',
@@ -1122,11 +1066,10 @@ void main() {
         latitude: -41.85916,
         longitude: 145.97754,
       );
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
-        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
             'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,,,,-41.85916,145.97754,3\n',
@@ -1140,7 +1083,7 @@ void main() {
       );
 
       expect(result.importedCount, 1);
-      expect(peakListRepository.getAllPeakLists().single.peakList, isNotEmpty);
+      expect(_singleStoredMemberships(peakListRepository), isNotEmpty);
     });
 
     test('utm-only row derives latlng fields', () async {
@@ -1152,11 +1095,10 @@ void main() {
         longitude: 145.97754,
       );
       final coords = _csvCoordinatesFromPeak(peak);
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
-        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
             'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},,,3\n',
@@ -1183,11 +1125,10 @@ void main() {
           latitude: -41.85916,
           longitude: 145.97754,
         );
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
-          peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+          peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
               'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\n,,,,,-41.85916,145.97754,abc\n',
@@ -1208,10 +1149,7 @@ void main() {
           contains('normalized invalid points'),
         );
         expect(result.warningEntries.last, contains('missing height'));
-        expect(
-          peakListRepository.getAllPeakLists().single.peakList,
-          encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 0)]),
-        );
+        expect(_singleStoredMemberships(peakListRepository), [(101, 0)]);
       },
     );
 
@@ -1224,11 +1162,10 @@ void main() {
         longitude: 145.97754,
       );
       final coords = _csvCoordinatesFromPeak(peak);
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
-        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+        peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
             'Name,Height,Zone,Easting,Northing,Latitude,Longitude,Points\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85916,145.97754,3\nMount Achilles,1363,${peak.gridZoneDesignator},${coords.easting},${coords.northing},-41.85916,145.97754,6\n',
@@ -1242,10 +1179,7 @@ void main() {
       );
 
       expect(result.importedCount, 1);
-      expect(
-        peakListRepository.getAllPeakLists().single.peakList,
-        encodePeakListItems([const PeakListItem(peakOsmId: 101, points: 3)]),
-      );
+      expect(_singleStoredMemberships(peakListRepository), [(101, 3)]);
     });
 
     test(
@@ -1308,9 +1242,7 @@ void main() {
         final peakRepository = PeakRepository.test(
           InMemoryPeakStorage([existingPeak, syntheticPeak]),
         );
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
@@ -1389,9 +1321,7 @@ void main() {
         expect(updatedSyntheticPeak?.difficulty, 'T4');
         expect(importedList?.region, Peak.defaultRegion);
         expect(
-          decodePeakListItems(
-            importedList!.peakList,
-          ).map((item) => (item.peakOsmId, item.points)).toList(),
+          _storedMemberships(peakListRepository, importedList!.name),
           [(101, 7), (202, 2), (101, 5), (-7, 9)],
         );
       },
@@ -1439,9 +1369,7 @@ void main() {
         final peakRepository = PeakRepository.test(
           InMemoryPeakStorage([existingPeak, syntheticPeak]),
         );
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final rowA = _appOwnedCsvRowForPeak(createdTemplateA, points: 2)
           ..['osmId'] = '';
         final rowB = _appOwnedCsvRowForPeak(createdTemplateB, points: 5)
@@ -1476,9 +1404,7 @@ void main() {
         expect(createdPeakB?.difficulty, 'T4');
         expect(createdPeakB?.osmId, -9);
         expect(
-          decodePeakListItems(
-            importedList!.peakList,
-          ).map((item) => (item.peakOsmId, item.points)).toList(),
+          _storedMemberships(peakListRepository, importedList!.name),
           [(-8, 2), (-9, 5)],
         );
       },
@@ -1521,9 +1447,7 @@ void main() {
         final peakRepository = PeakRepository.test(
           InMemoryPeakStorage([existingPeak]),
         );
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final existingRow = _appOwnedCsvRowForPeak(existingPeak, points: 4)
           ..addAll({
             'name': '  Updated Existing  ',
@@ -1610,9 +1534,7 @@ void main() {
         expect(createdPeak?.sourceOfTruth, Peak.sourceOfTruthOsm);
 
         expect(
-          decodePeakListItems(
-            importedList!.peakList,
-          ).map((item) => (item.peakOsmId, item.points)).toList(),
+          _storedMemberships(peakListRepository, importedList!.name),
           [(101, 4), (202, 2)],
         );
       },
@@ -1629,9 +1551,7 @@ void main() {
           longitude: 145.97754,
         );
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final badRow = _appOwnedCsvRowForPeak(
           peak.copyWith(name: 'Broken Duration Peak'),
           points: 3,
@@ -1672,18 +1592,14 @@ void main() {
         longitude: 145.97754,
       ).copyWith(region: 'old-peak-region');
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Existing Import',
-            region: 'italy-nord-est',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 101, points: 1),
-            ]),
-          )..peakListId = 1,
-        ]),
-        peakRepository: peakRepository,
-      );
+        final peakListRepository = _peakListRepository(
+          peakLists: [
+            PeakList(name: 'Existing Import', region: 'italy-nord-est')
+              ..peakListId = 1,
+          ],
+          peakRepository: peakRepository,
+          memberships: const [(peakListId: 1, peakOsmId: 101, points: 1)],
+        );
       final service = PeakListImportService(
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
@@ -1710,12 +1626,7 @@ void main() {
         peakListRepository.findByName('Existing Import')?.region,
         Peak.defaultRegion,
       );
-      expect(
-        decodePeakListItems(
-          peakListRepository.findByName('Existing Import')!.peakList,
-        ).map((item) => (item.peakOsmId, item.points)).toList(),
-        [(101, 4)],
-      );
+        expect(_storedMemberships(peakListRepository, 'Existing Import'), [(101, 4)]);
     });
 
     test('app-owned export import left pads short grid components', () async {
@@ -1726,9 +1637,7 @@ void main() {
         northing: '08881',
       );
       final peakRepository = PeakRepository.test(InMemoryPeakStorage());
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
@@ -1788,9 +1697,7 @@ void main() {
           longitude: 145.97754,
         ).copyWith(sourceOfTruth: Peak.sourceOfTruthOsm);
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-        final peakListRepository = PeakListRepository.test(
-          InMemoryPeakListStorage(),
-        );
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
@@ -1857,9 +1764,7 @@ void main() {
 
     test('old export header is rejected by the new-format importer', () async {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage());
-      final peakListRepository = PeakListRepository.test(
-        InMemoryPeakListStorage(),
-      );
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
@@ -1889,9 +1794,11 @@ void main() {
     });
 
     test('missing headers throw before row import succeeds', () async {
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage());
+      final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
-        peakRepository: PeakRepository.test(InMemoryPeakStorage()),
-        peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
+        peakRepository: peakRepository,
+        peakListRepository: peakListRepository,
         csvLoader: (_) async =>
             'Name,Height,Zone,Easting,Northing,Latitude,Longitude\nMissing Points,1000,55G,4 15 135,53 65 355,-41.0,145.0\n',
         importRootLoader: () async => '/tmp/Bushwalking',
@@ -2001,4 +1908,46 @@ String _csvCell(String value) {
   }
   final escaped = value.replaceAll('"', '""');
   return '"$escaped"';
+}
+
+PeakListRepository _emptyPeakListRepository(PeakRepository peakRepository) {
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(),
+    peakRepository: peakRepository,
+  );
+}
+
+List<(int, int)> _singleStoredMemberships(PeakListRepository repository) {
+  final peakList = repository.getAllPeakLists().single;
+  return _storedMemberships(repository, peakList.name);
+}
+
+List<(int, int)> _storedMemberships(
+  PeakListRepository repository,
+  String listName,
+) {
+  final peakList = repository.findByName(listName)!;
+  return repository
+      .getPeakListItemsForList(peakList.peakListId)
+      .map((item) => (item.peakOsmId, item.points))
+      .toList();
+}
+
+PeakListRepository _peakListRepository({
+  required List<PeakList> peakLists,
+  PeakRepository? peakRepository,
+  List<({int peakListId, int peakOsmId, int points})> memberships = const [],
+}) {
+  final listsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+  final repository = peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(peakLists),
+    peakRepository: repository,
+    itemStorage: InMemoryPeakListItemEntityStorage([
+      for (var index = 0; index < memberships.length; index++)
+        PeakListItemEntity(id: index + 1, points: memberships[index].points)
+          ..peakList.target = listsById[memberships[index].peakListId]!
+          ..peak.target = repository.findByOsmId(memberships[index].peakOsmId),
+    ]),
+  );
 }

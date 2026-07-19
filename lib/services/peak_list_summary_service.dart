@@ -52,7 +52,7 @@ class PeakListSummaryService {
   List<PeakListSummaryRow> buildRows({
     required Iterable<PeakList> peakLists,
     required Set<int> climbedPeakIds,
-    PeakListSummaryItemsLoader? itemsLoader,
+    required PeakListSummaryItemsLoader itemsLoader,
     int maxRows = 5,
   }) {
     if (maxRows <= 0) {
@@ -62,13 +62,9 @@ class PeakListSummaryService {
     final rows = <PeakListSummaryRow>[];
 
     for (final peakList in peakLists) {
-      if (!peakList.isMembershipReady) {
-        continue;
-      }
       PeakListSummaryRow? row;
       try {
-        final items =
-            itemsLoader?.call(peakList) ?? decodePeakListItems(peakList.peakList);
+        final items = itemsLoader(peakList);
         final uniquePeakIds = <int>{};
         for (final item in items) {
           uniquePeakIds.add(item.peakOsmId);

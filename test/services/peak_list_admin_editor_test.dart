@@ -8,7 +8,6 @@ void main() {
       peakListId: 7,
       name: 'Abels',
       region: 'tasmania',
-      peakList: '[{"peakOsmId":101,"points":3}]',
       colour: 1,
     );
 
@@ -22,7 +21,6 @@ void main() {
     expect(result.peakList!.peakListId, 7);
     expect(result.peakList!.name, 'Abels');
     expect(result.peakList!.region, 'tasmania');
-    expect(result.peakList!.peakList, '[{"peakOsmId":101,"points":3}]');
     expect(result.peakList!.colour, 2);
     expect(PeakListAdminEditor.normalize(source).colour, '0x00000001');
   });

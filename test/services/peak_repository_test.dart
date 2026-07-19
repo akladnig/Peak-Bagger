@@ -9,7 +9,6 @@ import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/objectbox.g.dart';
-import 'package:peak_bagger/services/peak_list_derived_data.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
 void main() {
@@ -276,16 +275,15 @@ void main() {
     test(
       'saveDetailed refreshes cached peak-list bounds after coordinate edits',
       () async {
-        final rewritePort = _RecordingPeakListRewritePort(
-          peakLists: [
-            PeakList(
-              name: 'Abels',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 123, points: 2),
-              ]),
-            ),
+        final peakList = PeakList(name: 'Abels')..peakListId = 1;
+        final rewritePort = InMemoryPeakListRewritePort(
+          peakLists: [peakList],
+          peakListItems: [
+            _peakListItemEntity(id: 1, peakList: peakList, peakOsmId: 123, points: 2),
           ],
           peaksBagged: const [],
+          tracks: const [],
+          routes: const [],
           peakStorage: storage,
         );
         final detailedRepository = PeakRepository.test(
@@ -301,7 +299,7 @@ void main() {
             longitude: 146.0,
           ),
         ]);
-        rewritePort.peakLists.single
+        peakList
           ..minLat = -41.0
           ..maxLat = -41.0
           ..minLng = 146.0
@@ -317,10 +315,12 @@ void main() {
           ),
         );
 
-        expect(rewritePort.peakLists.single.minLat, -42.0);
-        expect(rewritePort.peakLists.single.maxLat, -42.0);
-        expect(rewritePort.peakLists.single.minLng, 147.0);
-        expect(rewritePort.peakLists.single.maxLng, 147.0);
+        final updatedPeakList = rewritePort.peakLists.single;
+
+        expect(updatedPeakList.minLat, -42.0);
+        expect(updatedPeakList.maxLat, -42.0);
+        expect(updatedPeakList.minLng, 147.0);
+        expect(updatedPeakList.maxLng, 147.0);
       },
     );
 
@@ -409,21 +409,18 @@ void main() {
           ],
         );
         final routes = [route];
-        final peakLists = [
-          PeakList(
-            name: 'Repair List',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 123, points: 4),
-              const PeakListItem(peakOsmId: 999, points: 2),
-            ]),
-          ),
-        ];
+        final repairList = PeakList(name: 'Repair List')..peakListId = 1;
+        final peakLists = [repairList];
         final peaksBagged = [
           PeaksBagged(baggedId: 1, peakId: 123, gpxId: 21),
           PeaksBagged(baggedId: 2, peakId: 999, gpxId: 22),
         ];
         final rewritePort = InMemoryPeakListRewritePort(
           peakLists: peakLists,
+          peakListItems: [
+            _peakListItemEntity(id: 1, peakList: repairList, peakOsmId: 123, points: 4),
+            _peakListItemEntity(id: 2, peakList: repairList, peakOsmId: 999, points: 2),
+          ],
           peaksBagged: peaksBagged,
           tracks: tracks,
           routes: routes,
@@ -448,12 +445,7 @@ void main() {
         expect(result.survivingPeak?.id, survivingPeak.id);
         expect(detailedRepository.findById(duplicatePeak.id), isNull);
         expect(detailedRepository.findById(survivingPeak.id)?.osmId, 456);
-        expect(
-          decodePeakListItems(
-            peakLists.single.peakList,
-          ).map((item) => item.peakOsmId).toList(),
-          [456, 999],
-        );
+        expect(_peakListMemberships(rewritePort.peakListItems, 1), [(456, 4), (999, 2)]);
         expect(peaksBagged.map((row) => row.peakId).toList(), [456, 999]);
         expect(tracks.single.peaks.map((peak) => peak.osmId).toList(), [
           456,
@@ -526,22 +518,19 @@ void main() {
           ],
         );
         final routes = [route];
-        final peakLists = [
-          PeakList(
-            name: 'Collision List',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 123, points: 7),
-              const PeakListItem(peakOsmId: 456, points: 9),
-              const PeakListItem(peakOsmId: 999, points: 2),
-            ]),
-          ),
-        ];
+        final collisionList = PeakList(name: 'Collision List')..peakListId = 1;
+        final peakLists = [collisionList];
         final peaksBagged = [
           PeaksBagged(baggedId: 1, peakId: 123, gpxId: 41),
           PeaksBagged(baggedId: 2, peakId: 456, gpxId: 41),
         ];
         final rewritePort = InMemoryPeakListRewritePort(
           peakLists: peakLists,
+          peakListItems: [
+            _peakListItemEntity(id: 1, peakList: collisionList, peakOsmId: 123, points: 7),
+            _peakListItemEntity(id: 2, peakList: collisionList, peakOsmId: 456, points: 9),
+            _peakListItemEntity(id: 3, peakList: collisionList, peakOsmId: 999, points: 2),
+          ],
           peaksBagged: peaksBagged,
           tracks: tracks,
           routes: routes,
@@ -563,12 +552,7 @@ void main() {
         );
 
         expect(result.isSuccess, isTrue);
-        expect(
-          decodePeakListItems(
-            peakLists.single.peakList,
-          ).map((item) => (item.peakOsmId, item.points)).toList(),
-          [(456, 7), (999, 2)],
-        );
+        expect(_peakListMemberships(rewritePort.peakListItems, 1), [(456, 7), (999, 2)]);
         expect(peaksBagged.map((row) => row.baggedId).toList(), [2]);
         expect(peaksBagged.single.peakId, 456);
         expect(tracks.single.peaks.map((peak) => peak.osmId).toList(), [
@@ -627,17 +611,14 @@ void main() {
           ],
         );
         final routes = [route];
-        final peakLists = [
-          PeakList(
-            name: 'Rollback List',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 123, points: 5),
-            ]),
-          ),
-        ];
+        final rollbackList = PeakList(name: 'Rollback List')..peakListId = 1;
+        final peakLists = [rollbackList];
         final peaksBagged = [PeaksBagged(baggedId: 1, peakId: 123, gpxId: 61)];
         final rewritePort = InMemoryPeakListRewritePort(
           peakLists: peakLists,
+          peakListItems: [
+            _peakListItemEntity(id: 1, peakList: rollbackList, peakOsmId: 123, points: 5),
+          ],
           peaksBagged: peaksBagged,
           tracks: tracks,
           routes: routes,
@@ -660,12 +641,7 @@ void main() {
         expect(result.isSuccess, isFalse);
         expect(result.failureMessage, contains('boom'));
         expect(detailedRepository.findById(duplicatePeak.id), isNotNull);
-        expect(
-          decodePeakListItems(
-            peakLists.single.peakList,
-          ).map((item) => item.peakOsmId).toList(),
-          [123],
-        );
+        expect(_peakListMemberships(rewritePort.peakListItems, 1), [(123, 5)]);
         expect(peaksBagged.single.peakId, 123);
         expect(tracks.single.peaks.map((peak) => peak.osmId).toList(), [123]);
         expect(routes.single.routeWaypoints.single.peakOsmId, 123);
@@ -673,18 +649,11 @@ void main() {
     );
 
     test(
-      'saveDetailed rewrites dependent PeakList and PeaksBagged rows',
+      'saveDetailed rewrites dependent PeakList and PeaksBagged rows using relational memberships only',
       () async {
-        final peakLists = [
-          PeakList(
-            name: 'Abels',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 123, points: 2),
-              const PeakListItem(peakOsmId: 999, points: 4),
-            ]),
-          ),
-          PeakList(name: 'Broken', peakList: '{not json'),
-        ];
+        final abels = PeakList(name: 'Abels')..peakListId = 1;
+        final other = PeakList(name: 'Other')..peakListId = 2;
+        final peakLists = [abels, other];
         final peaksBagged = [
           PeaksBagged(baggedId: 1, peakId: 123, gpxId: 7),
           PeaksBagged(baggedId: 2, peakId: 999, gpxId: 8),
@@ -698,9 +667,15 @@ void main() {
             longitude: 146,
           ),
         ]);
-        final rewritePort = _RecordingPeakListRewritePort(
+        final rewritePort = InMemoryPeakListRewritePort(
           peakLists: peakLists,
+          peakListItems: [
+            _peakListItemEntity(id: 1, peakList: abels, peakOsmId: 123, points: 2),
+            _peakListItemEntity(id: 2, peakList: abels, peakOsmId: 999, points: 4),
+          ],
           peaksBagged: peaksBagged,
+          tracks: const [],
+          routes: const [],
           peakStorage: detailedStorage,
         );
         final detailedRepository = PeakRepository.test(
@@ -721,17 +696,9 @@ void main() {
         expect(result.peak.osmId, 456);
         expect(result.peak.latitude, -41.2);
         expect(result.peakListRewriteResult?.rewrittenCount, 1);
-        expect(result.peakListRewriteResult?.skippedMalformedCount, 1);
-        expect(
-          result.peakListRewriteResult?.warningMessage,
-          "1 PeakList has been skipped as it's malformed.",
-        );
-        expect(
-          decodePeakListItems(
-            peakLists.first.peakList,
-          ).map((item) => item.peakOsmId).toList(),
-          [456, 999],
-        );
+        expect(result.peakListRewriteResult?.skippedMalformedCount, 0);
+        expect(result.peakListRewriteResult?.warningMessage, isNull);
+        expect(_peakListMemberships(rewritePort.peakListItems, 1), [(456, 2)]);
         expect(peaksBagged.first.peakId, 456);
         expect(peaksBagged.last.peakId, 999);
       },
@@ -740,11 +707,7 @@ void main() {
     test(
       'saveDetailed rewrites relational peak-list memberships without updating stale legacy payloads',
       () async {
-        final peakList = PeakList(
-          peakListId: 1,
-          name: 'Relational',
-          peakList: '[]',
-        );
+        final peakList = PeakList(peakListId: 1, name: 'Relational');
         final detailedStorage = InMemoryPeakStorage([
           Peak(
             id: 7,
@@ -789,7 +752,6 @@ void main() {
         );
 
         expect(result.peak.osmId, 456);
-        expect(peakList.peakList, '[]');
         expect(peakListItems.single.peak.target?.osmId, 456);
       },
     );
@@ -894,102 +856,31 @@ class _NoopPeakListRewritePort implements PeakListRewritePort {
   }) {}
 }
 
-class _RecordingPeakListRewritePort implements PeakListRewritePort {
-  _RecordingPeakListRewritePort({
-    required this.peakLists,
-    required this.peaksBagged,
-    required this.peakStorage,
-  });
-
-  final List<PeakList> peakLists;
-  final List<PeaksBagged> peaksBagged;
-  final InMemoryPeakStorage peakStorage;
-
-  @override
-  PeakListRewriteResult rewriteOsmIdReferences({
-    required int oldOsmId,
-    required int newOsmId,
-  }) {
-    var rewrittenCount = 0;
-    var skippedMalformedCount = 0;
-
-    for (final peakList in peakLists) {
-      try {
-        final items = decodePeakListItems(peakList.peakList);
-        var changed = false;
-        final updatedItems = <PeakListItem>[];
-        for (final item in items) {
-          if (item.peakOsmId == oldOsmId) {
-            updatedItems.add(
-              PeakListItem(peakOsmId: newOsmId, points: item.points),
-            );
-            changed = true;
-          } else {
-            updatedItems.add(item);
-          }
-        }
-        if (changed) {
-          rewrittenCount += 1;
-          peakList.peakList = encodePeakListItems(updatedItems);
-        }
-      } catch (_) {
-        skippedMalformedCount += 1;
-      }
-    }
-
-    for (final row in peaksBagged) {
-      if (row.peakId == oldOsmId) {
-        row.peakId = newOsmId;
-      }
-    }
-
-    return PeakListRewriteResult(
-      rewrittenCount: rewrittenCount,
-      skippedMalformedCount: skippedMalformedCount,
+PeakListItemEntity _peakListItemEntity({
+  required int id,
+  required PeakList peakList,
+  required int peakOsmId,
+  required int points,
+}) {
+  return PeakListItemEntity(id: id, points: points)
+    ..peakList.target = peakList
+    ..peak.target = Peak(
+      osmId: peakOsmId,
+      name: 'Peak $peakOsmId',
+      latitude: -42,
+      longitude: 146,
     );
-  }
+}
 
-  @override
-  int refreshDerivedDataForPeakReferences({
-    required Peak previousPeak,
-    required Peak updatedPeak,
-  }) {
-    final peaksByOsmId = {
-      for (final peak in peakStorage.getAll()) peak.osmId: peak,
-    };
-    final refreshedOsmIds = {previousPeak.osmId, updatedPeak.osmId};
-    var refreshedCount = 0;
-
-    for (var index = 0; index < peakLists.length; index++) {
-      final peakList = peakLists[index];
-      late final List<PeakListItem> items;
-      try {
-        items = decodePeakListItems(peakList.peakList);
-      } catch (_) {
-        continue;
-      }
-      if (!items.any((item) => refreshedOsmIds.contains(item.peakOsmId))) {
-        continue;
-      }
-
-      final derivedData = derivePeakListDerivedData(
-        peakList: peakList,
-        items: items,
-        peakResolver: (peakOsmId) => peaksByOsmId[peakOsmId],
-      );
-      peakLists[index] = derivedData.applyTo(peakList);
-      refreshedCount += 1;
-    }
-
-    return refreshedCount;
-  }
-
-  @override
-  void resolvePeakDuplicate({
-    required Peak duplicatePeak,
-    required Peak survivingPeak,
-    required PeakStorage peakStorage,
-  }) {
-    throw UnimplementedError();
-  }
+List<(int, int)> _peakListMemberships(
+  List<PeakListItemEntity> items,
+  int peakListId,
+) {
+  final memberships = items
+      .where((item) => item.peakList.target?.peakListId == peakListId)
+      .toList(growable: false)
+    ..sort((left, right) => left.id.compareTo(right.id));
+  return memberships
+      .map((item) => (item.peak.target!.osmId, item.points))
+      .toList(growable: false);
 }

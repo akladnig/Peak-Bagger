@@ -22,14 +22,10 @@ void main() {
     _setLargeViewport(tester);
     final repository = _buildRepository(
       peakLists: [
-        PeakList(
-          name: 'Abels',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 11, points: 2),
-          ]),
-        )..peakListId = 1,
+        PeakList(name: 'Abels')..peakListId = 1,
       ],
       peaks: [_peak(11)],
+      memberships: const [(peakListId: 1, peakOsmId: 11, points: 2)],
     );
     final mapNotifier = TestPeakNotifier(
       MapState(
@@ -92,23 +88,16 @@ void main() {
     final peakIds = List<int>.generate(1234, (index) => index + 1);
     final repository = _buildRepository(
       peakLists: [
-        PeakList(
-          name: 'Abels',
-          peakList: encodePeakListItems([
-            for (final peakId in peakIds)
-              PeakListItem(peakOsmId: peakId, points: 1),
-          ]),
-        )..peakListId = 1,
-        PeakList(
-          name: 'Tassy Full',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 2000, points: 9),
-          ]),
-        )..peakListId = 2,
+        PeakList(name: 'Abels')..peakListId = 1,
+        PeakList(name: 'Tassy Full')..peakListId = 2,
       ],
       peaks: [
         for (final peakId in peakIds) _peak(peakId),
         _peak(2000, region: 'new-south-wales'),
+      ],
+      memberships: [
+        for (final peakId in peakIds) (peakListId: 1, peakOsmId: peakId, points: 1),
+        (peakListId: 2, peakOsmId: 2000, points: 9),
       ],
     );
     final mapNotifier = TestPeakNotifier(
@@ -173,26 +162,22 @@ void main() {
       findsOneWidget,
     );
     expect(
-      decodePeakListItems(
-        repository.findByName('Tassy Full')!.peakList,
-      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      repository
+          .getPeakListItemsForList(repository.findByName('Tassy Full')!.peakListId)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
       [for (final peakId in peakIds) (peakId, 1), (2000, 9)],
     );
   });
 
   testWidgets('update tassy full shows failure dialog', (tester) async {
     _setLargeViewport(tester);
+    final abels = PeakList(name: 'Abels')..peakListId = 1;
     final repository = _buildRepository(
-      storage: _FailingTassyFullStorage([
-        PeakList(
-          name: 'Abels',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 11, points: 2),
-          ]),
-        )..peakListId = 1,
-      ]),
-      peakLists: const [],
+      storage: _FailingTassyFullStorage([abels]),
+      peakLists: [abels],
       peaks: [_peak(11)],
+      memberships: const [(peakListId: 1, peakOsmId: 11, points: 2)],
     );
     final mapNotifier = TestPeakNotifier(
       MapState(
@@ -287,10 +272,19 @@ PeakListRepository _buildRepository({
   PeakListStorage? storage,
   required List<PeakList> peakLists,
   required List<Peak> peaks,
+  List<({int peakListId, int peakOsmId, int points})> memberships = const [],
 }) {
+  final peakRepository = PeakRepository.test(InMemoryPeakStorage(peaks));
+  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
   return PeakListRepository.test(
     storage ?? InMemoryPeakListStorage(peakLists),
-    peakRepository: PeakRepository.test(InMemoryPeakStorage(peaks)),
+    peakRepository: peakRepository,
+    itemStorage: InMemoryPeakListItemEntityStorage([
+      for (var index = 0; index < memberships.length; index++)
+        PeakListItemEntity(id: index + 1, points: memberships[index].points)
+          ..peakList.target = peakListsById[memberships[index].peakListId]!
+          ..peak.target = peakRepository.findByOsmId(memberships[index].peakOsmId),
+    ]),
   );
 }
 

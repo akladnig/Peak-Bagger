@@ -4,11 +4,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peak_repository.dart';
 
 import '../harness/test_map_notifier.dart';
 
@@ -30,12 +32,10 @@ void main() {
           'tasmania': {2},
         },
       ),
-      peakListRepository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Zulu', peakList: '[]')..peakListId = 2,
-          PeakList(name: 'Alpha', peakList: '[]')..peakListId = 1,
+      peakListRepository: _peakListRepositoryWithItems([
+          PeakList(name: 'Zulu')..peakListId = 2,
+          PeakList(name: 'Alpha')..peakListId = 1,
         ]),
-      ),
     );
     router.go('/map');
     await tester.pumpAndSettle();
@@ -92,36 +92,6 @@ void main() {
     );
   });
 
-  testWidgets('map drawer shows loading state while memberships are migrating', (
-    tester,
-  ) async {
-    await _pumpApp(
-      tester,
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-        visibleBounds: _tasmaniaBounds,
-        peakListMembershipReadinessStatus:
-            PeakListMembershipReadinessStatus.loading,
-      ),
-      peakListRepository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Alpha', peakList: '[]')..peakListId = 1,
-        ]),
-      ),
-    );
-
-    router.go('/map');
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const Key('show-peaks-fab')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const Key('peak-list-selection-loading-message')), findsOneWidget);
-    expect(find.byKey(const Key('peak-list-item-Alpha')), findsNothing);
-  });
-
   testWidgets('summary remains visible on constrained desktop widths', (
     tester,
   ) async {
@@ -138,13 +108,10 @@ void main() {
         peakListSelectionMode: PeakListSelectionMode.specificList,
         selectedPeakListIds: {1, 2},
       ),
-      peakListRepository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Alpha Long List Name', peakList: '[]')
-            ..peakListId = 1,
-          PeakList(name: 'Zulu Long List Name', peakList: '[]')..peakListId = 2,
+      peakListRepository: _peakListRepositoryWithItems([
+          PeakList(name: 'Alpha Long List Name')..peakListId = 1,
+          PeakList(name: 'Zulu Long List Name')..peakListId = 2,
         ]),
-      ),
     );
 
     router.go('/map');
@@ -172,14 +139,12 @@ void main() {
           peakListSelectionMode: PeakListSelectionMode.specificList,
           selectedPeakListIds: {1, 2, 3},
         ),
-        peakListRepository: PeakListRepository.test(
-          InMemoryPeakListStorage([
-            PeakList(name: 'Abels', peakList: '[]')..peakListId = 1,
-            PeakList(name: 'HWC Peak Baggers', peakList: '[]')..peakListId = 2,
-            PeakList(name: 'Poimena Reserve West Ridge', peakList: '[]')
+        peakListRepository: _peakListRepositoryWithItems([
+            PeakList(name: 'Abels')..peakListId = 1,
+            PeakList(name: 'HWC Peak Baggers')..peakListId = 2,
+            PeakList(name: 'Poimena Reserve West Ridge')
               ..peakListId = 3,
           ]),
-        ),
       );
       router.go('/map');
       await tester.pumpAndSettle();
@@ -220,11 +185,9 @@ void main() {
         peakListSelectionMode: PeakListSelectionMode.specificList,
         selectedPeakListIds: {1},
       ),
-      peakListRepository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Alpha', peakList: '[]')..peakListId = 1,
+      peakListRepository: _peakListRepositoryWithItems([
+          PeakList(name: 'Alpha')..peakListId = 1,
         ]),
-      ),
     );
 
     router.go('/settings');
@@ -289,14 +252,12 @@ void main() {
         selectedPeakListIds: {1, 2},
         previousSpecificPeakListIds: {1, 2},
       ),
-      peakListRepository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
+      peakListRepository: _peakListRepositoryWithItems([
+          PeakList(name: 'Alpha', region: 'tasmania')
             ..peakListId = 1,
-          PeakList(name: 'Bravo', region: 'new-south-wales', peakList: '[]')
+          PeakList(name: 'Bravo', region: 'new-south-wales')
             ..peakListId = 2,
         ]),
-      ),
     );
 
     router.go('/map');
@@ -326,14 +287,12 @@ void main() {
         visibleBounds: _tasmaniaBounds,
         peakListSelectionMode: PeakListSelectionMode.allPeaks,
       ),
-      peakListRepository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
+      peakListRepository: _peakListRepositoryWithItems([
+          PeakList(name: 'Alpha', region: 'tasmania')
             ..peakListId = 1,
-          PeakList(name: 'Bravo', region: 'new-south-wales', peakList: '[]')
+          PeakList(name: 'Bravo', region: 'new-south-wales')
             ..peakListId = 2,
         ]),
-      ),
     );
 
     router.go('/map');
@@ -414,12 +373,10 @@ void main() {
         selectedPeakListIds: {1},
         previousSpecificPeakListIds: {1},
       ),
-      peakListRepository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
+      peakListRepository: _peakListRepositoryWithItems([
+          PeakList(name: 'Alpha', region: 'tasmania')
             ..peakListId = 1,
         ]),
-      ),
     );
 
     router.go('/map');
@@ -448,12 +405,10 @@ void main() {
           'tasmania': {1},
         },
       ),
-      peakListRepository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
+      peakListRepository: _peakListRepositoryWithItems([
+          PeakList(name: 'Alpha', region: 'tasmania')
             ..peakListId = 1,
         ]),
-      ),
     );
 
     router.go('/map');
@@ -477,12 +432,10 @@ void main() {
         visibleBounds: _tasmaniaBounds,
         peakListSelectionMode: PeakListSelectionMode.allPeaks,
       ),
-      peakListRepository: PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(name: 'Alpha', region: 'tasmania', peakList: '[]')
+      peakListRepository: _peakListRepositoryWithItems([
+          PeakList(name: 'Alpha', region: 'tasmania')
             ..peakListId = 1,
         ]),
-      ),
     );
 
     router.go('/map');
@@ -540,22 +493,18 @@ void main() {
           'tasmania': {2},
         },
       ),
-      peakListRepository: PeakListRepository.test(
-        InMemoryPeakListStorage([
+      peakListRepository: _peakListRepositoryWithItems([
           PeakList(
             name: 'Alpha',
             region: 'tasmania',
-            peakList: '[]',
             colour: 0xFF4C8BF5,
           )..peakListId = 1,
           PeakList(
             name: 'Bravo',
             region: 'tasmania',
-            peakList: '[]',
             colour: 0xFFE67E22,
           )..peakListId = 2,
         ]),
-      ),
     );
 
     router.go('/map');
@@ -594,45 +543,6 @@ void main() {
     );
   });
 
-  testWidgets(
-    'unsupported legacy lists are omitted from map selection surfaces',
-    (tester) async {
-      await _pumpApp(
-        tester,
-        MapState(
-          center: const LatLng(-41.5, 146.5),
-          zoom: 15,
-          basemap: Basemap.tracestrack,
-          visibleBounds: _tasmaniaBounds,
-          peakListSelectionMode: PeakListSelectionMode.specificList,
-          selectedPeakListIds: {3},
-          previousSpecificPeakListIds: {3},
-        ),
-        peakListRepository: PeakListRepository.test(
-          InMemoryPeakListStorage([
-            PeakList(
-              name: 'Broken',
-              region: 'tasmania',
-              membershipState: PeakList.membershipStateUnsupportedLegacy,
-              peakList: '{not-json}',
-              colour: 0xFFD6336C,
-            )..peakListId = 3,
-          ]),
-        ),
-      );
-
-      router.go('/map');
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('peak-list-app-bar-item-3')), findsNothing);
-      expect(find.byKey(const Key('peak-list-selection-chip-3')), findsNothing);
-
-      await tester.tap(find.byKey(const Key('show-peaks-fab')));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const Key('peak-list-item-Broken')), findsNothing);
-    },
-  );
 }
 
 final _tasmaniaBounds = LatLngBounds(
@@ -667,4 +577,48 @@ Color? _resolvedBackgroundColor(ButtonStyle? style) {
 
 Color? _resolvedSideColor(ButtonStyle? style) {
   return style?.side?.resolve(const <WidgetState>{})?.color;
+}
+
+PeakListRepository _peakListRepositoryWithItems(List<PeakList> peakLists) {
+  final peaks = [
+    for (final peakList in peakLists) _membershipPeakForList(peakList),
+  ];
+  final peaksById = {for (final peak in peaks) peak.osmId: peak};
+  final items = <PeakListItemEntity>[];
+  var itemId = 1;
+  for (final peakList in peakLists) {
+    items.add(
+      PeakListItemEntity(id: itemId++, points: 0)
+        ..peakList.target = peakList
+        ..peak.target = peaksById[_membershipPeakId(peakList.peakListId)]!,
+    );
+  }
+
+  return PeakListRepository.test(
+    InMemoryPeakListStorage(peakLists),
+    peakRepository: PeakRepository.test(InMemoryPeakStorage(peaks)),
+    itemStorage: InMemoryPeakListItemEntityStorage(items),
+  );
+}
+
+int _membershipPeakId(int peakListId) => peakListId * 1000;
+
+Peak _membershipPeakForList(PeakList peakList) {
+  final region = peakList.region.trim().isEmpty ? 'tasmania' : peakList.region;
+  return switch (region) {
+    'new-south-wales' => Peak(
+      osmId: _membershipPeakId(peakList.peakListId),
+      name: '${peakList.name} Peak',
+      latitude: -33.8,
+      longitude: 149.2,
+      region: region,
+    ),
+    _ => Peak(
+      osmId: _membershipPeakId(peakList.peakListId),
+      name: '${peakList.name} Peak',
+      latitude: -42.0,
+      longitude: 146.0,
+      region: region == PeakList.mixedRegion ? 'tasmania' : region,
+    ),
+  };
 }

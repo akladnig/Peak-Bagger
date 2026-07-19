@@ -13,30 +13,10 @@ void main() {
       () async {
         final repository = _buildRepository(
           peakLists: [
-            PeakList(
-              name: 'Abels',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 22, points: 4),
-                const PeakListItem(peakOsmId: 11, points: 2),
-                const PeakListItem(peakOsmId: 55, points: 8),
-              ]),
-            )..peakListId = 1,
-            PeakList(
-              name: 'South West',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 22, points: 7),
-                const PeakListItem(peakOsmId: 33, points: 1),
-              ]),
-            )..peakListId = 2,
-            PeakList(name: 'Broken', peakList: '{not json')..peakListId = 3,
-            PeakList(
-              name: 'Tassy Full',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 44, points: 9),
-                const PeakListItem(peakOsmId: 22, points: 1),
-                const PeakListItem(peakOsmId: 55, points: 5),
-              ]),
-            )..peakListId = 4,
+            PeakList(name: 'Abels')..peakListId = 1,
+            PeakList(name: 'South West')..peakListId = 2,
+            PeakList(name: 'Broken')..peakListId = 3,
+            PeakList(name: 'Tassy Full')..peakListId = 4,
           ],
           peaks: [
             _peak(11),
@@ -50,6 +30,16 @@ void main() {
               longitude: 151.2093,
             ),
           ],
+          memberships: const [
+            (peakListId: 1, peakOsmId: 22, points: 4),
+            (peakListId: 1, peakOsmId: 11, points: 2),
+            (peakListId: 1, peakOsmId: 55, points: 8),
+            (peakListId: 2, peakOsmId: 22, points: 7),
+            (peakListId: 2, peakOsmId: 33, points: 1),
+            (peakListId: 4, peakOsmId: 44, points: 9),
+            (peakListId: 4, peakOsmId: 22, points: 1),
+            (peakListId: 4, peakOsmId: 55, points: 5),
+          ],
         );
 
         final result = await repository.refreshTassyFullPeakList();
@@ -60,9 +50,10 @@ void main() {
         expect(result.updatedCount, 1);
         expect(result.removedCount, 1);
         expect(
-          decodePeakListItems(
-            stored!.peakList,
-          ).map((item) => (item.peakOsmId, item.points)).toList(),
+          repository
+              .getPeakListItemsForList(stored!.peakListId)
+              .map((item) => (item.peakOsmId, item.points))
+              .toList(),
           [(11, 2), (22, 7), (33, 1), (44, 9)],
         );
       },
@@ -73,13 +64,7 @@ void main() {
       () async {
         final repository = _buildRepository(
           peakLists: [
-            PeakList(
-              name: 'Abels',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 5, points: 1),
-                const PeakListItem(peakOsmId: 6, points: 9),
-              ]),
-            )..peakListId = 1,
+            PeakList(name: 'Abels')..peakListId = 1,
           ],
           peaks: [
             _peak(5),
@@ -90,6 +75,10 @@ void main() {
               longitude: 151.2093,
             ),
           ],
+          memberships: const [
+            (peakListId: 1, peakOsmId: 5, points: 1),
+            (peakListId: 1, peakOsmId: 6, points: 9),
+          ],
         );
 
         final result = await repository.refreshTassyFullPeakList();
@@ -98,9 +87,12 @@ void main() {
         expect(result.updatedCount, 0);
         expect(result.removedCount, 0);
         expect(
-          decodePeakListItems(
-            repository.findByName('Tassy Full')!.peakList,
-          ).map((item) => (item.peakOsmId, item.points)).toList(),
+          repository
+              .getPeakListItemsForList(
+                repository.findByName('Tassy Full')!.peakListId,
+              )
+              .map((item) => (item.peakOsmId, item.points))
+              .toList(),
           [(5, 1)],
         );
       },
@@ -111,13 +103,7 @@ void main() {
       () async {
         final repository = _buildRepository(
           peakLists: [
-            PeakList(
-              name: 'Abels',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 11, points: 4),
-                const PeakListItem(peakOsmId: 22, points: 9),
-              ]),
-            )..peakListId = 1,
+            PeakList(name: 'Abels')..peakListId = 1,
           ],
           peaks: [
             Peak(
@@ -135,6 +121,10 @@ void main() {
               region: 'victoria',
             ),
           ],
+          memberships: const [
+            (peakListId: 1, peakOsmId: 11, points: 4),
+            (peakListId: 1, peakOsmId: 22, points: 9),
+          ],
         );
 
         final result = await repository.refreshTassyFullPeakList();
@@ -143,9 +133,12 @@ void main() {
         expect(result.updatedCount, 0);
         expect(result.removedCount, 0);
         expect(
-          decodePeakListItems(
-            repository.findByName('Tassy Full')!.peakList,
-          ).map((item) => (item.peakOsmId, item.points)).toList(),
+          repository
+              .getPeakListItemsForList(
+                repository.findByName('Tassy Full')!.peakListId,
+              )
+              .map((item) => (item.peakOsmId, item.points))
+              .toList(),
           [(11, 4)],
         );
       },
@@ -156,13 +149,7 @@ void main() {
       () async {
         final repository = _buildRepository(
           peakLists: [
-            PeakList(
-              name: 'Tassy Full',
-              peakList: encodePeakListItems([
-                const PeakListItem(peakOsmId: 44, points: 9),
-                const PeakListItem(peakOsmId: 66, points: 3),
-              ]),
-            )..peakListId = 4,
+            PeakList(name: 'Tassy Full')..peakListId = 4,
           ],
           peaks: [
             _peak(44),
@@ -173,6 +160,10 @@ void main() {
               longitude: 151.2093,
             ),
           ],
+          memberships: const [
+            (peakListId: 4, peakOsmId: 44, points: 9),
+            (peakListId: 4, peakOsmId: 66, points: 3),
+          ],
         );
 
         final result = await repository.refreshTassyFullPeakList();
@@ -181,33 +172,30 @@ void main() {
         expect(result.updatedCount, 0);
         expect(result.removedCount, 1);
         expect(
-          decodePeakListItems(
-            repository.findByName('Tassy Full')!.peakList,
-          ).map((item) => (item.peakOsmId, item.points)).toList(),
+          repository
+              .getPeakListItemsForList(
+                repository.findByName('Tassy Full')!.peakListId,
+              )
+              .map((item) => (item.peakOsmId, item.points))
+              .toList(),
           [(44, 9)],
         );
       },
     );
 
     test('refresh failure leaves an existing target unchanged', () async {
-      final repository = _buildRepository(
-        storage: _FailingReplaceStorage([
-          PeakList(
-            name: 'Abels',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 11, points: 5),
-            ]),
-          )..peakListId = 1,
-          PeakList(
-            name: 'Tassy Full',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 11, points: 1),
-              const PeakListItem(peakOsmId: 44, points: 9),
-            ]),
-          )..peakListId = 2,
+        final repository = _buildRepository(
+          storage: _FailingReplaceStorage([
+          PeakList(name: 'Abels')..peakListId = 1,
+          PeakList(name: 'Tassy Full')..peakListId = 2,
         ]),
         peakLists: const [],
         peaks: [_peak(11), _peak(44)],
+        memberships: const [
+          (peakListId: 1, peakOsmId: 11, points: 5),
+          (peakListId: 2, peakOsmId: 11, points: 1),
+          (peakListId: 2, peakOsmId: 44, points: 9),
+        ],
       );
 
       await expectLater(
@@ -216,9 +204,10 @@ void main() {
       );
 
       expect(
-        decodePeakListItems(
-          repository.findByName('Tassy Full')!.peakList,
-        ).map((item) => (item.peakOsmId, item.points)).toList(),
+        repository
+            .getPeakListItemsForList(repository.findByName('Tassy Full')!.peakListId)
+            .map((item) => (item.peakOsmId, item.points))
+            .toList(),
         [(11, 1), (44, 9)],
       );
     });
@@ -229,11 +218,22 @@ PeakListRepository _buildRepository({
   PeakListStorage? storage,
   required List<PeakList> peakLists,
   required List<Peak> peaks,
+  List<({int peakListId, int peakOsmId, int points})> memberships = const [],
 }) {
   final peakRepository = PeakRepository.test(InMemoryPeakStorage(peaks));
+  final peakListStorage = storage ?? InMemoryPeakListStorage(peakLists);
+  final peakListsById = {
+    for (final peakList in peakListStorage.getAll()) peakList.peakListId: peakList,
+  };
   return PeakListRepository.test(
-    storage ?? InMemoryPeakListStorage(peakLists),
+    peakListStorage,
     peakRepository: peakRepository,
+    itemStorage: InMemoryPeakListItemEntityStorage([
+      for (var index = 0; index < memberships.length; index++)
+        PeakListItemEntity(id: index + 1, points: memberships[index].points)
+          ..peakList.target = peakListsById[memberships[index].peakListId]!
+          ..peak.target = peakRepository.findByOsmId(memberships[index].peakOsmId),
+    ]),
   );
 }
 

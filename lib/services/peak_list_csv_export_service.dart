@@ -206,27 +206,13 @@ class PeakListCsvExportService {
         continue;
       }
 
-      if (!peakList.isMembershipReady) {
-        skippedMalformedListCount += 1;
-        warningEntries.add(
-          'Peak list ${peakList.peakListId} (${peakList.name}): unsupported legacy membership payload',
-        );
-        completedFileCount += 1;
-        reportProgress(
-          currentFileName: currentFileName,
-          currentFileWrittenRowCount: 0,
-          currentFileTotalRowCount: 0,
-        );
-        continue;
-      }
-
       late final List<PeakListItem> items;
       try {
         items = _peakListRepository.getPeakListItemsForList(peakList.peakListId);
       } catch (_) {
         skippedMalformedListCount += 1;
         warningEntries.add(
-          'Peak list ${peakList.peakListId} (${peakList.name}): malformed peakList payload',
+          'Peak list ${peakList.peakListId} (${peakList.name}): membership rows unavailable',
         );
         completedFileCount += 1;
         reportProgress(

@@ -25,20 +25,12 @@ void main() {
       peakRepository: peakRepository,
     );
     final abels = await repository.save(
-      PeakList(
-        name: 'Abels',
-        peakList: encodePeakListItems([
-          const PeakListItem(peakOsmId: 11, points: 2),
-        ]),
-      ),
+      PeakList(name: 'Abels'),
+      items: const [PeakListItem(peakOsmId: 11, points: 2)],
     );
     await repository.save(
-      PeakList(
-        name: 'Tassy Full',
-        peakList: encodePeakListItems([
-          const PeakListItem(peakOsmId: 99, points: 9),
-        ]),
-      ),
+      PeakList(name: 'Tassy Full'),
+      items: const [PeakListItem(peakOsmId: 99, points: 9)],
     );
 
     final container = ProviderContainer(
@@ -80,9 +72,10 @@ void main() {
       [(11, 2), (22, 4)],
     );
     expect(
-      decodePeakListItems(
-        repository.findByName('Tassy Full')!.peakList,
-      ).map((item) => (item.peakOsmId, item.points)).toList(),
+      repository
+          .getPeakListItemsForList(repository.findByName('Tassy Full')!.peakListId)
+          .map((item) => (item.peakOsmId, item.points))
+          .toList(),
       [(99, 9)],
     );
   });
@@ -96,17 +89,14 @@ void main() {
         InMemoryPeakStorage([importedPeak]),
       );
       final repository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(
-            name: 'Tassy Full',
-            peakList: encodePeakListItems([
-              const PeakListItem(peakOsmId: 99, points: 9),
-            ]),
-          )..peakListId = 1,
-        ]),
+        InMemoryPeakListStorage(),
         peakRepository: PeakRepository.test(
           InMemoryPeakStorage([_peak(99), _peak(101)]),
         ),
+      );
+      await repository.save(
+        PeakList(name: 'Tassy Full'),
+        items: const [PeakListItem(peakOsmId: 99, points: 9)],
       );
       final importService = PeakListImportService(
         peakRepository: peakRepository,
@@ -144,14 +134,17 @@ void main() {
       expect(container.read(peakListRevisionProvider), 1);
       expect(
         container.read(mapProvider).peakListSelectionMode,
-        PeakListSelectionMode.specificList,
+        PeakListSelectionMode.allPeaks,
       );
-      expect(container.read(mapProvider).selectedPeakListId, 999);
+      expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
       expect(repository.findByName('Imported Peaks'), isNotNull);
       expect(
-        decodePeakListItems(
-          repository.findByName('Tassy Full')!.peakList,
-        ).map((item) => (item.peakOsmId, item.points)).toList(),
+        repository
+            .getPeakListItemsForList(
+              repository.findByName('Tassy Full')!.peakListId,
+            )
+            .map((item) => (item.peakOsmId, item.points))
+            .toList(),
         [(99, 9)],
       );
     },
@@ -168,12 +161,8 @@ void main() {
         peakRepository: peakRepository,
       );
       final saved = await repository.save(
-        PeakList(
-          name: 'Abels',
-          peakList: encodePeakListItems([
-            const PeakListItem(peakOsmId: 11, points: 2),
-          ]),
-        ),
+        PeakList(name: 'Abels'),
+        items: const [PeakListItem(peakOsmId: 11, points: 2)],
       );
 
       final mapNotifier = _InitialStateMapNotifier(

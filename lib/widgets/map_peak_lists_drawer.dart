@@ -23,7 +23,6 @@ class MapPeakListsDrawer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final (
-      :arePeakListMembershipsReady,
       :peakListSelectionMode,
       :selectedPeakListIds,
       :pinnedPeakListIdsByRegion,
@@ -32,7 +31,6 @@ class MapPeakListsDrawer extends ConsumerWidget {
     ) = ref.watch(
       mapProvider.select(
         (state) => (
-          arePeakListMembershipsReady: state.arePeakListMembershipsReady,
           peakListSelectionMode: state.peakListSelectionMode,
           selectedPeakListIds: state.selectedPeakListIds,
           pinnedPeakListIdsByRegion: state.pinnedPeakListIdsByRegion,
@@ -65,13 +63,13 @@ class MapPeakListsDrawer extends ConsumerWidget {
         continue;
       }
 
-      if (!peakList.isMembershipReady) {
-        continue;
-      }
       int itemCount;
       try {
         itemCount = repo.getPeakListItemsForList(peakList.peakListId).length;
       } catch (_) {
+        continue;
+      }
+      if (itemCount == 0) {
         continue;
       }
       visiblePeakLists.add((peakList: peakList, renderableCount: itemCount));
@@ -108,9 +106,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
                 label: _allPeaksLabel,
                 isSelected:
                     peakListSelectionMode == PeakListSelectionMode.allPeaks,
-                onPressed: !arePeakListMembershipsReady
-                    ? null
-                    : () {
+                onPressed: () {
                   ref
                       .read(mapProvider.notifier)
                       .setAllPeaksSelected(
@@ -120,21 +116,7 @@ class MapPeakListsDrawer extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 8),
-            if (!arePeakListMembershipsReady)
-              const ListTile(
-                key: Key('peak-list-selection-loading-message'),
-                title: Text(
-                  'Peak lists loading',
-                  style: TextStyle(fontSize: UiConstants.drawerControlFontSize),
-                ),
-                subtitle: Text(
-                  'Peak-list memberships will become available after startup migration finishes.',
-                  style: TextStyle(
-                    fontSize: UiConstants.drawerSupportingFontSize,
-                  ),
-                ),
-              )
-            else if (peakListsLoadState.failed)
+            if (peakListsLoadState.failed)
               const ListTile(
                 key: Key('peak-list-selection-unavailable-message'),
                 title: Text(

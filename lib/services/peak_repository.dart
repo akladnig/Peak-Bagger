@@ -151,58 +151,26 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
       });
 
     for (final peakList in peakLists) {
-      if (!peakList.isMembershipReady) {
-        continue;
+      var changed = false;
+      final updatedItems = <PeakListItem>[];
+      for (final item in _peakListItemsFromEntities(
+        _peakListItemEntitiesForPeakList(peakList.peakListId),
+      )) {
+        if (item.peakOsmId == oldOsmId) {
+          updatedItems.add(PeakListItem(peakOsmId: newOsmId, points: item.points));
+          changed = true;
+        } else {
+          updatedItems.add(item);
+        }
       }
 
-      final entityRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
-      if (entityRows.isNotEmpty) {
-        var changed = false;
-        final updatedItems = <PeakListItem>[];
-        for (final item in _peakListItemsFromEntities(entityRows)) {
-          if (item.peakOsmId == oldOsmId) {
-            updatedItems.add(
-              PeakListItem(peakOsmId: newOsmId, points: item.points),
-            );
-            changed = true;
-          } else {
-            updatedItems.add(item);
-          }
-        }
-
-        if (changed) {
-          rewrittenCount += 1;
-          _replacePeakListItemEntities(
-            peakList,
-            updatedItems,
-            peaksByOsmId: peaksByOsmId,
-          );
-        }
-        continue;
-      }
-
-      try {
-        final items = decodePeakListItems(peakList.peakList);
-        var changed = false;
-        final updatedItems = <PeakListItem>[];
-        for (final item in items) {
-          if (item.peakOsmId == oldOsmId) {
-            updatedItems.add(
-              PeakListItem(peakOsmId: newOsmId, points: item.points),
-            );
-            changed = true;
-          } else {
-            updatedItems.add(item);
-          }
-        }
-
-        if (changed) {
-          rewrittenCount += 1;
-          peakList.peakList = encodePeakListItems(updatedItems);
-          _peakListBox.put(peakList);
-        }
-      } catch (_) {
-        skippedMalformedCount += 1;
+      if (changed) {
+        rewrittenCount += 1;
+        _replacePeakListItemEntities(
+          peakList,
+          updatedItems,
+          peaksByOsmId: peaksByOsmId,
+        );
       }
     }
 
@@ -242,10 +210,6 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
 
     for (final peakList in _peakListBox.getAll()) {
       final items = _loadActivePeakListItems(peakList);
-      if (items == null) {
-        continue;
-      }
-
       if (!items.any((item) => refreshedOsmIds.contains(item.peakOsmId))) {
         continue;
       }
@@ -299,9 +263,6 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
 
     if (peakListUpdates.isNotEmpty) {
       for (final update in peakListUpdates) {
-        if (!update.usesRelationalSource) {
-          continue;
-        }
         _replacePeakListItemEntities(
           update.updated,
           update.items,
@@ -357,54 +318,21 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
     return items;
   }
 
-  List<PeakListItem>? _loadActivePeakListItems(PeakList peakList) {
-    if (!peakList.isMembershipReady) {
-      return null;
-    }
-
-    final entityRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
-    if (entityRows.isNotEmpty) {
-      return _peakListItemsFromEntities(entityRows);
-    }
-    if (peakList.peakList.trim().isEmpty) {
-      return const <PeakListItem>[];
-    }
-
-    try {
-      return decodePeakListItems(peakList.peakList);
-    } catch (_) {
-      return null;
-    }
+  List<PeakListItem> _loadActivePeakListItems(PeakList peakList) {
+    return _peakListItemsFromEntities(
+      _peakListItemEntitiesForPeakList(peakList.peakListId),
+    );
   }
 
   List<_PeakListMembershipSnapshot> _loadPeakListMembershipSnapshots() {
     final snapshots = <_PeakListMembershipSnapshot>[];
     for (final peakList in _peakListBox.getAll()) {
-      if (!peakList.isMembershipReady) {
-        continue;
-      }
-
-      final entityRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
-      if (entityRows.isNotEmpty) {
-        snapshots.add((
-          peakList: peakList,
-          items: _peakListItemsFromEntities(entityRows),
-          usesRelationalSource: true,
-        ));
-        continue;
-      }
-
-      try {
-        snapshots.add((
-          peakList: peakList,
-          items: decodePeakListItems(peakList.peakList),
-          usesRelationalSource: false,
-        ));
-      } catch (_) {
-        throw PeakDuplicateResolutionException(
-          'Peak duplicate resolution failed: PeakList "${peakList.name}" is malformed.',
-        );
-      }
+      snapshots.add((
+        peakList: peakList,
+        items: _peakListItemsFromEntities(
+          _peakListItemEntitiesForPeakList(peakList.peakListId),
+        ),
+      ));
     }
     return snapshots;
   }
@@ -473,57 +401,24 @@ class InMemoryPeakListRewritePort implements PeakListRewritePort {
 
     for (var index = 0; index < peakLists.length; index++) {
       final peakList = peakLists[index];
-      if (!peakList.isMembershipReady) {
-        continue;
-      }
-
       final relationalRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
-      if (relationalRows.isNotEmpty) {
-        var changed = false;
-        final updatedItems = <PeakListItem>[];
-        for (final item in _peakListItemsFromEntities(relationalRows)) {
-          if (item.peakOsmId == oldOsmId) {
-            updatedItems.add(
-              PeakListItem(peakOsmId: newOsmId, points: item.points),
-            );
-            changed = true;
-          } else {
-            updatedItems.add(item);
-          }
+      var changed = false;
+      final updatedItems = <PeakListItem>[];
+      for (final item in _peakListItemsFromEntities(relationalRows)) {
+        if (item.peakOsmId == oldOsmId) {
+          updatedItems.add(PeakListItem(peakOsmId: newOsmId, points: item.points));
+          changed = true;
+        } else {
+          updatedItems.add(item);
         }
-        if (changed) {
-          rewrittenCount += 1;
-          _replacePeakListItemEntities(
-            peakList,
-            updatedItems,
-            peaksByOsmId: peaksByOsmId,
-          );
-        }
-        continue;
       }
-
-      try {
-        final items = decodePeakListItems(peakList.peakList);
-        var changed = false;
-        final updatedItems = <PeakListItem>[];
-        for (final item in items) {
-          if (item.peakOsmId == oldOsmId) {
-            updatedItems.add(
-              PeakListItem(peakOsmId: newOsmId, points: item.points),
-            );
-            changed = true;
-          } else {
-            updatedItems.add(item);
-          }
-        }
-        if (changed) {
-          rewrittenCount += 1;
-          peakLists[index] = peakList.copyWith(
-            peakList: encodePeakListItems(updatedItems),
-          );
-        }
-      } catch (_) {
-        skippedMalformedCount += 1;
+      if (changed) {
+        rewrittenCount += 1;
+        _replacePeakListItemEntities(
+          peakList,
+          updatedItems,
+          peaksByOsmId: peaksByOsmId,
+        );
       }
     }
 
@@ -559,9 +454,6 @@ class InMemoryPeakListRewritePort implements PeakListRewritePort {
     for (var index = 0; index < peakLists.length; index++) {
       final peakList = peakLists[index];
       final items = _loadActivePeakListItems(peakList);
-      if (items == null) {
-        continue;
-      }
       if (!items.any((item) => refreshedOsmIds.contains(item.peakOsmId))) {
         continue;
       }
@@ -623,9 +515,6 @@ class InMemoryPeakListRewritePort implements PeakListRewritePort {
 
     try {
       for (final update in peakListUpdates) {
-        if (!update.usesRelationalSource) {
-          continue;
-        }
         _replacePeakListItemEntities(
           update.updated,
           update.items,
@@ -672,54 +561,20 @@ class InMemoryPeakListRewritePort implements PeakListRewritePort {
     return items;
   }
 
-  List<PeakListItem>? _loadActivePeakListItems(PeakList peakList) {
-    if (!peakList.isMembershipReady) {
-      return null;
-    }
-
+  List<PeakListItem> _loadActivePeakListItems(PeakList peakList) {
     final relationalRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
-    if (relationalRows.isNotEmpty) {
-      return _peakListItemsFromEntities(relationalRows);
-    }
-    if (peakList.peakList.trim().isEmpty) {
-      return const <PeakListItem>[];
-    }
-
-    try {
-      return decodePeakListItems(peakList.peakList);
-    } catch (_) {
-      return null;
-    }
+    return _peakListItemsFromEntities(relationalRows);
   }
 
   List<_PeakListMembershipSnapshot> _loadPeakListMembershipSnapshots() {
     final snapshots = <_PeakListMembershipSnapshot>[];
     for (final peakList in peakLists) {
-      if (!peakList.isMembershipReady) {
-        continue;
-      }
-
-      final relationalRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
-      if (relationalRows.isNotEmpty) {
-        snapshots.add((
-          peakList: peakList,
-          items: _peakListItemsFromEntities(relationalRows),
-          usesRelationalSource: true,
-        ));
-        continue;
-      }
-
-      try {
-        snapshots.add((
-          peakList: peakList,
-          items: decodePeakListItems(peakList.peakList),
-          usesRelationalSource: false,
-        ));
-      } catch (_) {
-        throw PeakDuplicateResolutionException(
-          'Peak duplicate resolution failed: PeakList "${peakList.name}" is malformed.',
-        );
-      }
+      snapshots.add((
+        peakList: peakList,
+        items: _peakListItemsFromEntities(
+          _peakListItemEntitiesForPeakList(peakList.peakListId),
+        ),
+      ));
     }
     return snapshots;
   }
@@ -1316,13 +1171,11 @@ class _NoopPeakListRewritePort implements PeakListRewritePort {
 typedef _PeakListMembershipSnapshot = ({
   PeakList peakList,
   List<PeakListItem> items,
-  bool usesRelationalSource,
 });
 typedef _PeakListUpdate = ({
   PeakList original,
   PeakList updated,
   List<PeakListItem> items,
-  bool usesRelationalSource,
 });
 typedef _PeaksBaggedUpdate = ({PeaksBagged original, PeaksBagged updated});
 typedef _TrackUpdate = ({GpxTrack original, GpxTrack updated});
@@ -1365,21 +1218,15 @@ List<_PeakListUpdate> _buildPeakListUpdates({
       continue;
     }
 
-    final normalizedPeakList = peakList.copyWith(
-      peakList: membership.usesRelationalSource
-          ? peakList.peakList
-          : encodePeakListItems(normalizedItems),
-    );
     final derivedData = derivePeakListDerivedData(
-      peakList: normalizedPeakList,
+      peakList: peakList,
       items: normalizedItems,
       peakResolver: (peakOsmId) => peaksByOsmId[peakOsmId],
     );
     updates.add((
       original: peakList,
-      updated: derivedData.applyTo(normalizedPeakList),
+      updated: derivedData.applyTo(peakList),
       items: normalizedItems,
-      usesRelationalSource: membership.usesRelationalSource,
     ));
   }
 
