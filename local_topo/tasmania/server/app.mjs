@@ -25,12 +25,27 @@ function buildTileserverTileUrl({ tileserverInternalUrl, dataSetId, z, x, y }) {
   );
 }
 
+function buildTileserverStyleTileUrl({
+  tileserverInternalUrl,
+  styleId,
+  z,
+  x,
+  y,
+}) {
+  return new URL(
+    `/styles/${styleId}/${z}/${x}/${y}.png`,
+    tileserverInternalUrl,
+  );
+}
+
 export async function createApp({
   capabilities,
   tileserverInternalUrl = process.env.TILESERVER_INTERNAL_URL ?? 'http://127.0.0.1:8080',
   dataSetId = process.env.TILESERVER_DATASET_ID ?? defaultDataSetId,
+  styleId = process.env.TILESERVER_STYLE_ID ?? '',
 } = {}) {
   const resolvedCapabilities = capabilities ?? (await loadCapabilities());
+  const trimmedStyleId = styleId.trim();
 
   return async function app(request, response) {
     const requestUrl = new URL(request.url ?? '/', 'http://localhost');
@@ -60,13 +75,21 @@ export async function createApp({
 
     try {
       const tileResponse = await fetch(
-        buildTileserverTileUrl({
-          tileserverInternalUrl,
-          dataSetId,
-          z,
-          x,
-          y,
-        }),
+        trimmedStyleId.length === 0
+            ? buildTileserverTileUrl({
+                tileserverInternalUrl,
+                dataSetId,
+                z,
+                x,
+                y,
+              })
+            : buildTileserverStyleTileUrl({
+                tileserverInternalUrl,
+                styleId: trimmedStyleId,
+                z,
+                x,
+                y,
+              }),
       );
 
       const body = Buffer.from(await tileResponse.arrayBuffer());
