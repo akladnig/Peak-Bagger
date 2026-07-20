@@ -5,6 +5,7 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:peak_bagger/services/peak_cluster_engine.dart';
+import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 
 class PeakProjectionCache {
   _PeakProjectionCacheKey? _key;
@@ -59,6 +60,7 @@ class PeakProjectionCache {
       return _data!;
     }
 
+    MapRebuildDebugCounters.recordPeakProjectionBuild();
     final data = clusteringEnabled
         ? switch (algorithm) {
             PeakClusterAlgorithm.supercluster => _buildSuperclusterViewportData(

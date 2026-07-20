@@ -3,12 +3,14 @@ abstract final class MapRebuildDebugCounters {
   static int actionRailBuilds = 0;
   static int polygonAssetLayerBuilds = 0;
   static int peakListDerivedRefreshes = 0;
+  static int peakProjectionBuilds = 0;
 
   static void reset() {
     routeRootBuilds = 0;
     actionRailBuilds = 0;
     polygonAssetLayerBuilds = 0;
     peakListDerivedRefreshes = 0;
+    peakProjectionBuilds = 0;
   }
 
   static void recordRouteRootBuild() {
@@ -25,5 +27,9 @@ abstract final class MapRebuildDebugCounters {
 
   static void recordPeakListDerivedRefresh() {
     peakListDerivedRefreshes += 1;
+  }
+
+  static void recordPeakProjectionBuild() {
+    peakProjectionBuilds += 1;
   }
 }

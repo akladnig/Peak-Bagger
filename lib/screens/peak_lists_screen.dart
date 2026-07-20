@@ -135,6 +135,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     final peakListRevision = ref.watch(peakListRevisionProvider);
     final peakListRepository = ref.watch(peakListRepositoryProvider);
     final peakRepository = ref.watch(peakRepositoryProvider);
+    final peaksByOsmId = ref.watch(peaksByOsmIdProvider);
     final peaksBaggedRepository = ref.watch(peaksBaggedRepositoryProvider);
     final selectedRegionKeys = ref.watch(peakListRegionFilterProvider);
     final peakLists = ref.watch(peakListsProvider);
@@ -146,16 +147,21 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     );
     final summaryRows = _resolveDerivedSummaryRows(
       derivedRefreshKey: derivedRefreshKey,
+      preferredSelectedPeakListId: _selectedPeakListId,
       selectedRegionKeys: selectedRegionKeys,
       peakLists: peakLists,
       peakListRepository: peakListRepository,
       peakRepository: peakRepository,
+      peaksByOsmId: peaksByOsmId,
       peaksBaggedRepository: peaksBaggedRepository,
     );
     final sortedSummaryRows = _sortSummaryRows(summaryRows);
     final selectedSummaryRow = _resolveSelectedSummaryRow(sortedSummaryRows);
+    final resolvedSelectedSummaryRow = _derivedSnapshot?.resolveRowDetails(
+      selectedSummaryRow,
+    );
     _queueSelectionSync(sortedSummaryRows, selectedSummaryRow);
-    final selectedMapPeak = _resolveSelectedMapPeak(selectedSummaryRow);
+    final selectedMapPeak = _resolveSelectedMapPeak(resolvedSelectedSummaryRow);
     final route = ModalRoute.of(context);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -200,6 +206,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                   child: _SummaryPane(
                     rows: sortedSummaryRows,
                     selectedPeakListId: selectedSummaryRow?.peakList.peakListId,
+                    selectedSummaryRow: resolvedSelectedSummaryRow,
                     sortColumn: _sortColumn,
                     sortAscending: _sortAscending,
                     miniPeakMapKey: _miniPeakMapKey,
@@ -229,7 +236,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                   key: const Key('peak-lists-details-pane'),
                   width: panes.rightWidth,
                   child: _DetailsPane(
-                    selectedSummaryRow: selectedSummaryRow,
+                    selectedSummaryRow: resolvedSelectedSummaryRow,
                     selectedPeakId: _selectedPeakId,
                     onSummaryPeakSelected: (peakId) {
                       setState(() {
@@ -242,7 +249,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                         _selectedPeakId = peakId;
                       });
                       final result = await _openPeakDialog(
-                        selectedSummaryRow,
+                        resolvedSelectedSummaryRow,
                         peakId,
                       );
                       if (!mounted || result == null) {
@@ -254,7 +261,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                     },
                     onAddPeakRequested: () async {
                       final result = await _openAddPeakDialog(
-                        selectedSummaryRow,
+                        resolvedSelectedSummaryRow,
                       );
                       if (!mounted || result == null) {
                         return;
@@ -279,19 +286,24 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
 
   List<_PeakListSummaryRow> _resolveDerivedSummaryRows({
     required _PeakListsDerivedRefreshKey derivedRefreshKey,
+    required int? preferredSelectedPeakListId,
     required Set<String> selectedRegionKeys,
     required List<PeakList> peakLists,
     required PeakListRepository peakListRepository,
     required PeakRepository peakRepository,
+    required Map<int, Peak> peaksByOsmId,
     required PeaksBaggedRepository peaksBaggedRepository,
   }) {
     final settledSnapshot = _derivedSnapshot;
     if (settledSnapshot == null) {
       final initialSnapshot = _buildPeakListsDerivedSnapshot(
+        state: this,
+        preferredSelectedPeakListId: preferredSelectedPeakListId,
         selectedRegionKeys: selectedRegionKeys,
         peakLists: peakLists,
         peakListRepository: peakListRepository,
         peakRepository: peakRepository,
+        peaksByOsmId: peaksByOsmId,
         peaksBaggedRepository: peaksBaggedRepository,
       );
       _derivedSnapshot = initialSnapshot;
@@ -312,10 +324,12 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         (pendingKey == null || !pendingKey.matches(derivedRefreshKey))) {
       _scheduleDerivedSummaryRefresh(
         derivedRefreshKey: derivedRefreshKey,
+        preferredSelectedPeakListId: preferredSelectedPeakListId,
         selectedRegionKeys: selectedRegionKeys,
         peakLists: peakLists,
         peakListRepository: peakListRepository,
         peakRepository: peakRepository,
+        peaksByOsmId: peaksByOsmId,
         peaksBaggedRepository: peaksBaggedRepository,
       );
     }
@@ -325,10 +339,12 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
 
   void _scheduleDerivedSummaryRefresh({
     required _PeakListsDerivedRefreshKey derivedRefreshKey,
+    required int? preferredSelectedPeakListId,
     required Set<String> selectedRegionKeys,
     required List<PeakList> peakLists,
     required PeakListRepository peakListRepository,
     required PeakRepository peakRepository,
+    required Map<int, Peak> peaksByOsmId,
     required PeaksBaggedRepository peaksBaggedRepository,
   }) {
     _pendingDerivedRefreshKey = derivedRefreshKey;
@@ -341,15 +357,23 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
 
     unawaited(
       scheduleRefresh(() {
+        final perfTrace = _PeakListsPerfTrace.start(
+          'Deferred My Peak Lists refresh',
+        );
         try {
           final nextSnapshot = _buildPeakListsDerivedSnapshot(
+            state: this,
+            preferredSelectedPeakListId: preferredSelectedPeakListId,
             selectedRegionKeys: selectedRegionKeysSnapshot,
             peakLists: peakListsSnapshot,
             peakListRepository: peakListRepository,
             peakRepository: peakRepository,
+            peaksByOsmId: peaksByOsmId,
             peaksBaggedRepository: peaksBaggedRepository,
           );
+          perfTrace?.mark('built snapshot');
           if (!mounted || refreshSerial != _derivedRefreshSerial) {
+            perfTrace?.finish('superseded');
             return;
           }
           setState(() {
@@ -357,7 +381,9 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
             _settledDerivedRefreshKey = derivedRefreshKey;
             _pendingDerivedRefreshKey = null;
           });
+          perfTrace?.finish('applied');
         } catch (error, stackTrace) {
+          perfTrace?.finish('failed');
           developer.log(
             'Failed to refresh My Peak Lists derived summary rows.',
             error: error,
@@ -964,6 +990,7 @@ class _SummaryPane extends StatelessWidget {
   const _SummaryPane({
     required this.rows,
     required this.selectedPeakListId,
+    required this.selectedSummaryRow,
     required this.selectedMapPeak,
     required this.miniPeakMapKey,
     required this.sortColumn,
@@ -980,6 +1007,7 @@ class _SummaryPane extends StatelessWidget {
 
   final List<_PeakListSummaryRow> rows;
   final int? selectedPeakListId;
+  final _PeakListSummaryRow? selectedSummaryRow;
   final _MapPeak? selectedMapPeak;
   final GlobalKey<_MiniPeakMapState> miniPeakMapKey;
   final _PeakListSortColumn sortColumn;
@@ -1020,15 +1048,7 @@ class _SummaryPane extends StatelessWidget {
           Expanded(
             flex: 7,
             child: _MiniPeakMapContainer(
-              selectedSummaryRow: rows.isEmpty
-                  ? null
-                  : rows.firstWhere(
-                      (row) =>
-                          row.peakList.peakListId ==
-                          (selectedPeakListId ??
-                              rows.first.peakList.peakListId),
-                      orElse: () => rows.first,
-                    ),
+              selectedSummaryRow: selectedSummaryRow,
               selectedMapPeak: selectedMapPeak,
               miniPeakMapKey: miniPeakMapKey,
               onPeakSelected: onPeakSelected,
@@ -3687,53 +3707,216 @@ class _PeakListsDerivedRefreshKey {
   }
 }
 
+class _PeakListsDerivedBaseDataKey {
+  const _PeakListsDerivedBaseDataKey({
+    required this.peakListRepository,
+    required this.peakRepository,
+    required this.peaksBaggedRepository,
+    required this.peakRevision,
+    required this.peakListRevision,
+    required this.peaksBaggedRevision,
+  });
+
+  final PeakListRepository peakListRepository;
+  final PeakRepository peakRepository;
+  final PeaksBaggedRepository peaksBaggedRepository;
+  final int peakRevision;
+  final int peakListRevision;
+  final int peaksBaggedRevision;
+
+  bool matches(_PeakListsDerivedBaseDataKey other) {
+    return identical(peakListRepository, other.peakListRepository) &&
+        identical(peakRepository, other.peakRepository) &&
+        identical(peaksBaggedRepository, other.peaksBaggedRepository) &&
+        peakRevision == other.peakRevision &&
+        peakListRevision == other.peakListRevision &&
+        peaksBaggedRevision == other.peaksBaggedRevision;
+  }
+}
+
+class _PeakListsDerivedBaseData {
+  const _PeakListsDerivedBaseData({
+    required this.peaksById,
+    required this.ascentCountsByPeakId,
+    required this.latestAscentDatesByPeakId,
+    required this.itemsByPeakListId,
+    required this.peakRegionKeysByOsmId,
+  });
+
+  final Map<int, Peak> peaksById;
+  final Map<int, int> ascentCountsByPeakId;
+  final Map<int, DateTime?> latestAscentDatesByPeakId;
+  final Map<int, List<PeakListItem>> itemsByPeakListId;
+  final Map<int, String?> peakRegionKeysByOsmId;
+}
+
+_PeakListsDerivedBaseDataKey? _cachedPeakListsDerivedBaseDataKey;
+_PeakListsDerivedBaseData? _cachedPeakListsDerivedBaseData;
+
 class _PeakListsDerivedSnapshot {
-  const _PeakListsDerivedSnapshot({required this.summaryRows});
+  const _PeakListsDerivedSnapshot({
+    required this.summaryRows,
+    required this.itemsByPeakListId,
+    required this.peaksById,
+    required this.ascentCountsByPeakId,
+    required this.latestAscentDatesByPeakId,
+  });
 
   final List<_PeakListSummaryRow> summaryRows;
+  final Map<int, List<PeakListItem>> itemsByPeakListId;
+  final Map<int, Peak> peaksById;
+  final Map<int, int> ascentCountsByPeakId;
+  final Map<int, DateTime?> latestAscentDatesByPeakId;
+
+  _PeakListSummaryRow? resolveRowDetails(_PeakListSummaryRow? row) {
+    if (row == null || row.detailsResolved) {
+      return row;
+    }
+
+    final perfTrace = _PeakListsPerfTrace.start(
+      'Resolve selected Peak Lists details for ${row.peakList.name}',
+    );
+    final resolvedRow = row.resolveDetails(
+      items: itemsByPeakListId[row.peakList.peakListId] ??
+          const <PeakListItem>[],
+      peaksById: peaksById,
+      ascentCountsByPeakId: ascentCountsByPeakId,
+      latestAscentDatesByPeakId: latestAscentDatesByPeakId,
+    );
+    perfTrace?.finish('resolved details');
+    return resolvedRow;
+  }
+}
+
+_PeakListsDerivedBaseData _resolvePeakListsDerivedBaseData({
+  required _PeakListsDerivedBaseDataKey baseDataKey,
+  required List<PeakList> peakLists,
+  required PeakListRepository peakListRepository,
+  required Map<int, Peak> peaksByOsmId,
+  required PeaksBaggedRepository peaksBaggedRepository,
+  _PeakListsPerfTrace? perfTrace,
+}) {
+  final cachedKey = _cachedPeakListsDerivedBaseDataKey;
+  final cachedData = _cachedPeakListsDerivedBaseData;
+  if (cachedKey != null &&
+      cachedData != null &&
+      cachedKey.matches(baseDataKey)) {
+    perfTrace?.mark('reused cached base data');
+    return cachedData;
+  }
+
+  final peaksById = peaksByOsmId;
+  perfTrace?.mark('loaded peaks');
+  final ascentCountsByPeakId = peaksBaggedRepository.ascentCountsByPeakId();
+  final latestAscentDatesByPeakId = peaksBaggedRepository
+      .latestAscentDatesByPeakId();
+  perfTrace?.mark('loaded ascent summaries');
+  final itemsByPeakListId = peakListRepository.getPeakListItemsByPeakListId();
+  perfTrace?.mark('loaded grouped memberships');
+  final mixedPeakListIds = {
+    for (final peakList in peakLists)
+      if (peakList.region == PeakList.mixedRegion) peakList.peakListId,
+  };
+  final peakRegionKeysByOsmId = <int, String?>{};
+  for (final peakListId in mixedPeakListIds) {
+    for (final item in itemsByPeakListId[peakListId] ?? const <PeakListItem>[]) {
+      peakRegionKeysByOsmId.putIfAbsent(item.peakOsmId, () {
+        final peak = peaksById[item.peakOsmId];
+        return peak == null ? null : canonicalPeakRegionKey(peak);
+      });
+    }
+  }
+  perfTrace?.mark(
+    'resolved peak region keys (${peakRegionKeysByOsmId.length})',
+  );
+
+  final baseData = _PeakListsDerivedBaseData(
+    peaksById: peaksById,
+    ascentCountsByPeakId: ascentCountsByPeakId,
+    latestAscentDatesByPeakId: latestAscentDatesByPeakId,
+    itemsByPeakListId: itemsByPeakListId,
+    peakRegionKeysByOsmId: peakRegionKeysByOsmId,
+  );
+  _cachedPeakListsDerivedBaseData = baseData;
+  _cachedPeakListsDerivedBaseDataKey = baseDataKey;
+  return baseData;
 }
 
 _PeakListsDerivedSnapshot _buildPeakListsDerivedSnapshot({
+  required _PeakListsScreenState state,
+  required int? preferredSelectedPeakListId,
   required Set<String> selectedRegionKeys,
   required List<PeakList> peakLists,
   required PeakListRepository peakListRepository,
   required PeakRepository peakRepository,
+  required Map<int, Peak> peaksByOsmId,
   required PeaksBaggedRepository peaksBaggedRepository,
 }) {
-  final peaksById = <int, Peak>{
-    for (final peak in peakRepository.getAllPeaks()) peak.osmId: peak,
-  };
-  final ascentCountsByPeakId = peaksBaggedRepository.ascentCountsByPeakId();
-  final latestAscentDatesByPeakId = peaksBaggedRepository
-      .latestAscentDatesByPeakId();
-  final filteredPeakLists = peakLists
-      .where(
-        (peakList) => peakListAppliesToVisibleRegions(
-          peakList,
-          selectedRegionKeys,
-          peaks: peaksById.values,
-          itemsLoader: (peakList) {
-            return peakListRepository.getPeakListItemsForList(
-              peakList.peakListId,
-            );
-          },
-        ),
-      )
-      .toList(growable: false);
+  final perfTrace = _PeakListsPerfTrace.start('Build My Peak Lists snapshot');
+  final baseData = _resolvePeakListsDerivedBaseData(
+    baseDataKey: _PeakListsDerivedBaseDataKey(
+      peakListRepository: peakListRepository,
+      peakRepository: peakRepository,
+      peaksBaggedRepository: peaksBaggedRepository,
+      peakRevision: state.ref.read(peakRevisionProvider),
+      peakListRevision: state.ref.read(peakListRevisionProvider),
+      peaksBaggedRevision: state.ref.read(peaksBaggedRevisionProvider),
+    ),
+    peakLists: peakLists,
+    peakListRepository: peakListRepository,
+    peaksByOsmId: peaksByOsmId,
+    peaksBaggedRepository: peaksBaggedRepository,
+    perfTrace: perfTrace,
+  );
+  final filteredPeakLists = <PeakList>[];
+  for (final peakList in peakLists) {
+    final listPerfTrace = _PeakListsPerfTrace.start(
+      'Filter list ${peakList.peakListId}:${peakList.name}',
+    );
+    final applies = peakListAppliesToVisibleRegions(
+      peakList,
+      selectedRegionKeys,
+      peaks: baseData.peaksById.values,
+      peakRegionKeysByOsmId: baseData.peakRegionKeysByOsmId,
+      itemsLoader: (peakList) =>
+          baseData.itemsByPeakListId[peakList.peakListId] ??
+          const <PeakListItem>[],
+    );
+    listPerfTrace?.finish(
+      'applies=$applies mixed=${peakList.region == PeakList.mixedRegion}',
+    );
+    if (applies) {
+      filteredPeakLists.add(peakList);
+    }
+  }
+  perfTrace?.mark('filtered visible lists (${filteredPeakLists.length})');
+  final detailedPeakListId = filteredPeakLists.any(
+    (peakList) => peakList.peakListId == preferredSelectedPeakListId,
+  )
+      ? preferredSelectedPeakListId
+      : (filteredPeakLists.isEmpty ? null : filteredPeakLists.first.peakListId);
 
-  return _PeakListsDerivedSnapshot(
+  final snapshot = _PeakListsDerivedSnapshot(
     summaryRows: filteredPeakLists
         .map(
           (peakList) => _PeakListSummaryRow.fromPeakList(
             peakList,
-            peakListRepository: peakListRepository,
-            peaksById: peaksById,
-            ascentCountsByPeakId: ascentCountsByPeakId,
-            latestAscentDatesByPeakId: latestAscentDatesByPeakId,
+            items: baseData.itemsByPeakListId[peakList.peakListId] ??
+                const <PeakListItem>[],
+            peaksById: baseData.peaksById,
+            ascentCountsByPeakId: baseData.ascentCountsByPeakId,
+            latestAscentDatesByPeakId: baseData.latestAscentDatesByPeakId,
+            includeDetailData: peakList.peakListId == detailedPeakListId,
           ),
         )
         .toList(growable: false),
+    itemsByPeakListId: baseData.itemsByPeakListId,
+    peaksById: baseData.peaksById,
+    ascentCountsByPeakId: baseData.ascentCountsByPeakId,
+    latestAscentDatesByPeakId: baseData.latestAscentDatesByPeakId,
   );
+  perfTrace?.finish('rows=${snapshot.summaryRows.length}');
+  return snapshot;
 }
 
 bool _sameRegionKeySet(Set<String> left, Set<String> right) {
@@ -3835,18 +4018,17 @@ class _PeakListSummaryRow {
     required this.mapPeaks,
     required this.latestAscentDate,
     required this.latestAscentPeaks,
+    required this.detailsResolved,
   });
 
   factory _PeakListSummaryRow.fromPeakList(
     PeakList peakList, {
-    required PeakListRepository peakListRepository,
+    required List<PeakListItem> items,
     required Map<int, Peak> peaksById,
     required Map<int, int> ascentCountsByPeakId,
     required Map<int, DateTime?> latestAscentDatesByPeakId,
+    bool includeDetailData = true,
   }) {
-    final items = peakListRepository.getPeakListItemsForList(
-      peakList.peakListId,
-    );
     final uniqueItems = <PeakListItem>[];
     final seenPeakIds = <int>{};
     for (final item in items) {
@@ -3860,41 +4042,19 @@ class _PeakListSummaryRow {
       (sum, item) => sum + (ascentCountsByPeakId[item.peakOsmId] ?? 0),
     );
 
-    final peakRows = uniqueItems
-        .map((item) {
-          final peak = peaksById[item.peakOsmId];
-          return _PeakDetailRow(
-            peakId: item.peakOsmId,
-            peak: peak,
-            name: peak?.name ?? 'Unknown',
-            elevation: peak?.elevation,
-            rating: peak?.rating,
-            ascentDate: latestAscentDatesByPeakId[item.peakOsmId],
-            ascentCount: ascentCountsByPeakId[item.peakOsmId] ?? 0,
-            difficulty: peak?.difficulty ?? '',
-            durationMinutes: peak?.durationMinutes,
-            durationLabel: peak?.durationLabel ?? '',
-            points: item.points,
-          );
-        })
-        .toList(growable: false);
-    final mapPeaks = uniqueItems
-        .map((item) {
-          final peak = peaksById[item.peakOsmId];
-          if (peak == null) {
-            return null;
-          }
-          return _MapPeak(
-            peak: peak,
-            isClimbed: latestAscentDatesByPeakId.containsKey(item.peakOsmId),
-          );
-        })
-        .whereType<_MapPeak>()
-        .toList(growable: false);
+    final details = includeDetailData
+        ? _buildPeakListResolvedDetails(
+            uniqueItems: uniqueItems,
+            peaksById: peaksById,
+            ascentCountsByPeakId: ascentCountsByPeakId,
+            latestAscentDatesByPeakId: latestAscentDatesByPeakId,
+          )
+        : null;
+
+    final totalPeaks = uniqueItems.length;
     final climbed = uniqueItems
         .where((item) => latestAscentDatesByPeakId.containsKey(item.peakOsmId))
         .length;
-    final totalPeaks = uniqueItems.length;
     final unclimbed = totalPeaks - climbed;
     final totalPoints = uniqueItems.fold<int>(
       0,
@@ -3907,27 +4067,47 @@ class _PeakListSummaryRow {
         ? 0.0
         : climbed / totalPeaks.toDouble();
 
-    DateTime? latestAscentDate;
-    for (final row in peakRows) {
-      if (row.ascentDate == null) {
-        continue;
-      }
-      final ascentDay = _dateOnly(row.ascentDate!);
-      if (latestAscentDate == null || ascentDay.isAfter(latestAscentDate)) {
-        latestAscentDate = ascentDay;
-      }
+    return _PeakListSummaryRow._(
+      peakList: peakList,
+      totalPeaks: totalPeaks,
+      climbed: climbed,
+      unclimbed: unclimbed,
+      ascentCount: ascentCount,
+      totalPoints: totalPoints,
+      earnedPoints: earnedPoints,
+      percentageValue: percentageValue,
+      peakRows: details?.peakRows ?? const <_PeakDetailRow>[],
+      mapPeaks: details?.mapPeaks ?? const <_MapPeak>[],
+      latestAscentDate: details?.latestAscentDate,
+      latestAscentPeaks:
+          details?.latestAscentPeaks ?? const <_LatestAscentPeak>[],
+      detailsResolved: includeDetailData,
+    );
+  }
+
+  _PeakListSummaryRow resolveDetails({
+    required List<PeakListItem> items,
+    required Map<int, Peak> peaksById,
+    required Map<int, int> ascentCountsByPeakId,
+    required Map<int, DateTime?> latestAscentDatesByPeakId,
+  }) {
+    if (detailsResolved) {
+      return this;
     }
 
-    final latestAscentPeakRows = latestAscentDate == null
-        ? <_PeakDetailRow>[]
-        : (peakRows
-              .where(
-                (row) =>
-                    row.ascentDate != null &&
-                    _dateOnly(row.ascentDate!) == latestAscentDate,
-              )
-              .toList(growable: false)
-            ..sort((left, right) => left.peakId.compareTo(right.peakId)));
+    final uniqueItems = <PeakListItem>[];
+    final seenPeakIds = <int>{};
+    for (final item in items) {
+      if (seenPeakIds.add(item.peakOsmId)) {
+        uniqueItems.add(item);
+      }
+    }
+    final details = _buildPeakListResolvedDetails(
+      uniqueItems: uniqueItems,
+      peaksById: peaksById,
+      ascentCountsByPeakId: ascentCountsByPeakId,
+      latestAscentDatesByPeakId: latestAscentDatesByPeakId,
+    );
 
     return _PeakListSummaryRow._(
       peakList: peakList,
@@ -3938,13 +4118,11 @@ class _PeakListSummaryRow {
       totalPoints: totalPoints,
       earnedPoints: earnedPoints,
       percentageValue: percentageValue,
-      peakRows: peakRows,
-      mapPeaks: mapPeaks,
-      latestAscentDate: latestAscentDate,
-      latestAscentPeaks: [
-        for (final row in latestAscentPeakRows)
-          _LatestAscentPeak(peakId: row.peakId, name: row.name),
-      ],
+      peakRows: details.peakRows,
+      mapPeaks: details.mapPeaks,
+      latestAscentDate: details.latestAscentDate,
+      latestAscentPeaks: details.latestAscentPeaks,
+      detailsResolved: true,
     );
   }
 
@@ -3960,6 +4138,7 @@ class _PeakListSummaryRow {
   final List<_MapPeak> mapPeaks;
   final DateTime? latestAscentDate;
   final List<_LatestAscentPeak> latestAscentPeaks;
+  final bool detailsResolved;
 
   String get totalPeaksLabel => _formattedCountOrDash(totalPeaks);
   String get climbedLabel => _formattedCountOrDash(climbed);
@@ -4001,6 +4180,92 @@ class _PeakListSummaryRow {
   String _formattedCountOrDash(int? value) {
     return value == null ? '-' : formatCount(value);
   }
+}
+
+_PeakListResolvedDetails _buildPeakListResolvedDetails({
+  required List<PeakListItem> uniqueItems,
+  required Map<int, Peak> peaksById,
+  required Map<int, int> ascentCountsByPeakId,
+  required Map<int, DateTime?> latestAscentDatesByPeakId,
+}) {
+  final peakRows = uniqueItems
+      .map((item) {
+        final peak = peaksById[item.peakOsmId];
+        return _PeakDetailRow(
+          peakId: item.peakOsmId,
+          peak: peak,
+          name: peak?.name ?? 'Unknown',
+          elevation: peak?.elevation,
+          rating: peak?.rating,
+          ascentDate: latestAscentDatesByPeakId[item.peakOsmId],
+          ascentCount: ascentCountsByPeakId[item.peakOsmId] ?? 0,
+          difficulty: peak?.difficulty ?? '',
+          durationMinutes: peak?.durationMinutes,
+          durationLabel: peak?.durationLabel ?? '',
+          points: item.points,
+        );
+      })
+      .toList(growable: false);
+  final mapPeaks = uniqueItems
+      .map((item) {
+        final peak = peaksById[item.peakOsmId];
+        if (peak == null) {
+          return null;
+        }
+        return _MapPeak(
+          peak: peak,
+          isClimbed: latestAscentDatesByPeakId.containsKey(item.peakOsmId),
+        );
+      })
+      .whereType<_MapPeak>()
+      .toList(growable: false);
+
+  DateTime? latestAscentDate;
+  for (final row in peakRows) {
+    if (row.ascentDate == null) {
+      continue;
+    }
+    final ascentDay = _PeakListSummaryRow._dateOnly(row.ascentDate!);
+    if (latestAscentDate == null || ascentDay.isAfter(latestAscentDate)) {
+      latestAscentDate = ascentDay;
+    }
+  }
+
+  final latestAscentPeakRows = latestAscentDate == null
+      ? <_PeakDetailRow>[]
+      : (peakRows
+            .where(
+              (row) =>
+                  row.ascentDate != null &&
+                  _PeakListSummaryRow._dateOnly(row.ascentDate!) ==
+                      latestAscentDate,
+            )
+            .toList(growable: false)
+          ..sort((left, right) => left.peakId.compareTo(right.peakId)));
+
+  return _PeakListResolvedDetails(
+    peakRows: peakRows,
+    mapPeaks: mapPeaks,
+    latestAscentDate: latestAscentDate,
+    latestAscentPeaks: [
+      for (final row in latestAscentPeakRows)
+        _LatestAscentPeak(peakId: row.peakId, name: row.name),
+    ],
+  );
+}
+
+class _PeakListResolvedDetails {
+  const _PeakListResolvedDetails({
+    required this.peakRows,
+    required this.mapPeaks,
+    required this.latestAscentDate,
+    required this.latestAscentPeaks,
+  });
+
+  final List<_PeakDetailRow> peakRows;
+  final List<_MapPeak> mapPeaks;
+  final DateTime? latestAscentDate;
+  final List<_LatestAscentPeak> latestAscentPeaks;
 }
 
 class _PeakDetailRow {
@@ -4078,6 +4343,36 @@ class _MapPeak {
 
   final Peak peak;
   final bool isClimbed;
+}
+
+const _peakListsPerfEnabled = bool.fromEnvironment('PEAK_LISTS_PERF');
+
+class _PeakListsPerfTrace {
+  _PeakListsPerfTrace._(this._label) : _stopwatch = Stopwatch()..start();
+
+  final String _label;
+  final Stopwatch _stopwatch;
+
+  static _PeakListsPerfTrace? start(String label) {
+    if (!_peakListsPerfEnabled) {
+      return null;
+    }
+    return _PeakListsPerfTrace._(label);
+  }
+
+  void mark(String label) {
+    developer.log(
+      '$_label: $label at ${_stopwatch.elapsedMilliseconds}ms',
+      name: 'peak_lists_perf',
+    );
+  }
+
+  void finish(String label) {
+    developer.log(
+      '$_label: $label at ${_stopwatch.elapsedMilliseconds}ms',
+      name: 'peak_lists_perf',
+    );
+  }
 }
 
 class _PeakListSummarySentence extends StatelessWidget {
