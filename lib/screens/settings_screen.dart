@@ -7,6 +7,7 @@ import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
+import 'package:peak_bagger/providers/local_topo_settings_provider.dart';
 import 'package:peak_bagger/providers/open_route_service_api_key_provider.dart';
 import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/peak_csv_export_provider.dart';
@@ -54,17 +55,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String _status = '';
   Key _statusKey = const Key('peak-refresh-status');
   late final VoidCallback _routerListener;
+  late final TextEditingController _localTopoBaseUrlController;
+  String _lastSeededLocalTopoBaseUrl = '';
 
   @override
   void initState() {
     super.initState();
     _routerListener = _clearStatusWhenHidden;
+    _localTopoBaseUrlController = TextEditingController();
     router.routerDelegate.addListener(_routerListener);
   }
 
   @override
   void dispose() {
     router.routerDelegate.removeListener(_routerListener);
+    _localTopoBaseUrlController.dispose();
     super.dispose();
   }
 
@@ -73,6 +78,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final mapState = ref.watch(mapProvider);
     final filterState = ref.watch(gpxFilterSettingsProvider);
     final openRouteServiceApiKey = ref.watch(openRouteServiceApiKeyProvider);
+    final localTopoSettings = ref.watch(localTopoSettingsProvider);
     final showPeakListMiniMapClusters = ref.watch(
       peakListMiniMapClusterDisplaySettingsProvider,
     );
@@ -86,6 +92,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final themeSchemeVariant = ref.watch(themeSchemeVariantProvider);
     final themeContrastLevel = ref.watch(themeContrastLevelProvider);
     final isDarkTheme = themeMode == ThemeMode.dark;
+
+    _syncLocalTopoBaseUrlField(localTopoSettings.savedBaseUrlText);
 
     return Scaffold(
       body: ListTileTheme(
@@ -129,6 +137,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               trailing: const Icon(Icons.chevron_right),
               onTap: _editOpenRouteServiceApiKey,
             ),
+            _buildLocalTopoSettingsSection(localTopoSettings),
             ListTile(
               key: const Key('refresh-peak-data-tile'),
               leading: const Icon(Icons.refresh),
@@ -717,6 +726,123 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           .read(openRouteServiceApiKeyProvider.notifier)
           .setApiKey(controller.text.trim());
     }
+  }
+
+  Widget _buildLocalTopoSettingsSection(
+    LocalTopoSettingsState localTopoSettings,
+  ) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Local tile server base URL',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('local-topo-base-url-field'),
+                controller: _localTopoBaseUrlController,
+                decoration: const InputDecoration(
+                  labelText: 'Local tile server base URL',
+                  hintText: 'http://127.0.0.1:8090',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton(
+                    key: const Key('local-topo-save-button'),
+                    onPressed: localTopoSettings.isValidating
+                        ? null
+                        : () {
+                            unawaited(
+                              ref
+                                  .read(localTopoSettingsProvider.notifier)
+                                  .saveAndValidate(
+                                    _localTopoBaseUrlController.text,
+                                  ),
+                            );
+                          },
+                    child: const Text('Save'),
+                  ),
+                  FilledButton(
+                    key: const Key('local-topo-retry-button'),
+                    onPressed: localTopoSettings.canRetry
+                        ? () {
+                            unawaited(
+                              ref
+                                  .read(localTopoSettingsProvider.notifier)
+                                  .retryValidation(),
+                            );
+                          }
+                        : null,
+                    child: const Text('Retry'),
+                  ),
+                  FilledButton(
+                    key: const Key('local-topo-clear-button'),
+                    onPressed: localTopoSettings.canClear
+                        ? () {
+                            unawaited(
+                              ref
+                                  .read(localTopoSettingsProvider.notifier)
+                                  .clearSetting(),
+                            );
+                          }
+                        : null,
+                    child: const Text('Clear'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                localTopoSettings.hasSavedBaseUrl
+                    ? 'Saved URL: ${localTopoSettings.savedBaseUrlText}'
+                    : 'Saved URL: Empty',
+                key: const Key('local-topo-saved-url-text'),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Validation state: ${localTopoSettings.validationStatusLabel}',
+                key: const Key('local-topo-validation-state-text'),
+              ),
+              if (localTopoSettings.detailMessage != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  localTopoSettings.detailMessage!,
+                  key: const Key('local-topo-validation-detail-text'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _syncLocalTopoBaseUrlField(String savedBaseUrlText) {
+    final controllerText = _localTopoBaseUrlController.text;
+    final shouldReplace =
+        controllerText.isEmpty ||
+        controllerText == _lastSeededLocalTopoBaseUrl ||
+        savedBaseUrlText == _lastSeededLocalTopoBaseUrl;
+    if (!shouldReplace || controllerText == savedBaseUrlText) {
+      _lastSeededLocalTopoBaseUrl = savedBaseUrlText;
+      return;
+    }
+
+    _localTopoBaseUrlController.value = TextEditingValue(
+      text: savedBaseUrlText,
+      selection: TextSelection.collapsed(offset: savedBaseUrlText.length),
+    );
+    _lastSeededLocalTopoBaseUrl = savedBaseUrlText;
   }
 
   String? _currentPath() {

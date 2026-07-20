@@ -398,6 +398,16 @@ class LocalTopoRuntime {
     );
   }
 
+  Future<void> clearCapabilitySnapshot({
+    Future<SharedPreferences> Function()? loadPreferences,
+  }) async {
+    final preferences =
+        await (loadPreferences ?? SharedPreferences.getInstance)();
+    await preferences.remove(localTopoCapabilitySnapshotPrefsKey);
+
+    _state = LocalTopoPersistedState(savedBaseUrl: savedBaseUrl);
+  }
+
   Future<void> clear({
     Future<SharedPreferences> Function()? loadPreferences,
   }) async {
