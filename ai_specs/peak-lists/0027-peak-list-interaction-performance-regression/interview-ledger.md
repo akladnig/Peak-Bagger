@@ -138,3 +138,19 @@ Recommended Answer:
 Answer: agreed
 
 Decision: The fix must add deterministic regression coverage for hot-path decoupling and `latest interaction wins`, while avoiding fragile wall-clock performance tests.
+
+### L9
+
+Status: current
+
+Question: Which currently observed hot paths should this Spec treat as the confirmed regression source?
+
+Answer: The confirmed regression source is the remaining peak-list-derived work still coupled to main-map interaction, not the older camera feedback or per-frame persistence bugs.
+
+Decision: This Spec should target two confirmed hot paths: per-frame main-map peak projection or viewport work during continuous motion, and settled visible-bounds peak-list reconciliation that still performs expensive membership-derived work on the UI isolate.
+
+Reason: The earlier `pan-zoom-optmize1` and `pan-zoom-optmize2` fixes are still in place, the `Peak list mini-map` remains responsive, and the current slowdown tracks the main map's peak-list-derived rendering and selection refresh path instead.
+
+Constraints:
+- Do not treat this regression as justification to restore rebuild-time camera sync or per-frame camera persistence.
+- Keep `Peak list mini-map` out of scope unless implementation proves it shares the same blocking path.
