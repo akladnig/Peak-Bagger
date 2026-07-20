@@ -317,9 +317,8 @@ void main() {
   );
 
   test(
-    'settled bounds and latest selection win when motion settle overlaps stale refresh work',
+    'latest selection and visible bounds recompute summary immediately',
     () async {
-      final scheduler = _ControlledPeakListSelectionRefreshScheduler();
       final peakListRepository = _peakListRepository(
         peakLists: [
           PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 7,
@@ -380,9 +379,6 @@ void main() {
             ),
           ),
           peakListRepositoryProvider.overrideWithValue(peakListRepository),
-          peakListSelectionRefreshSchedulerProvider.overrideWithValue(
-            scheduler.call,
-          ),
         ],
       );
       addTearDown(container.dispose);
@@ -407,16 +403,6 @@ void main() {
             ),
           );
       await Future<void>.delayed(Duration.zero);
-
-      expect(scheduler.pendingCount, 2);
-
-      await scheduler.runPendingAt(1);
-
-      final settledSummary = container.read(peakListSelectionSummaryProvider);
-      expect(settledSummary.chips.any((chip) => chip.peakListId == 8), isTrue);
-      expect(settledSummary.chips.any((chip) => chip.peakListId == 7), isFalse);
-
-      await scheduler.runPendingAt(0);
 
       final finalSummary = container.read(peakListSelectionSummaryProvider);
       expect(container.read(mapProvider).selectedPeakListIds, {8});

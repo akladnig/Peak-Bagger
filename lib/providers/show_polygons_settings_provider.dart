@@ -42,6 +42,10 @@ class ShowPolygonsSettingsNotifier extends Notifier<bool> {
 
       final stored = prefs.getBool(showPolygonsKey) ?? false;
       if (state != stored) {
+        await Future<void>.delayed(Duration.zero);
+        if (!ref.mounted || _hasUserOverride) {
+          return;
+        }
         state = stored;
       }
     } catch (_) {}

@@ -68,6 +68,10 @@ class PeakListRegionFilterNotifier extends Notifier<Set<String>> {
         return;
       }
 
+      await Future<void>.delayed(Duration.zero);
+      if (!ref.mounted || _hasUserOverride) {
+        return;
+      }
       state = Set<String>.unmodifiable(restoredSelection);
     } catch (_) {}
   }
