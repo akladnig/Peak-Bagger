@@ -27,10 +27,15 @@ class ProjectedPeakCandidate {
 }
 
 class PeakCluster {
-  const PeakCluster({required this.members, required this.screenPosition});
+  const PeakCluster({
+    required this.members,
+    required this.screenPosition,
+    required this.anchor,
+  });
 
   final List<ProjectedPeakCandidate> members;
   final ui.Offset screenPosition;
+  final LatLng anchor;
 
   int get tickedCount => members.where((member) => member.isTicked).length;
 
@@ -222,7 +227,13 @@ PeakClusterViewportData buildPeakClusterViewportDataFromSuperclusterIndex({
         final center = camera.latLngToScreenOffset(
           LatLng(cluster.latitude, cluster.longitude),
         );
-        clusters.add(PeakCluster(members: members, screenPosition: center));
+        clusters.add(
+          PeakCluster(
+            members: members,
+            screenPosition: center,
+            anchor: LatLng(cluster.latitude, cluster.longitude),
+          ),
+        );
       },
       point: (point) {
         final candidate = _projectIndexedPeakPoint(point.originalPoint, camera);
@@ -525,6 +536,7 @@ PeakClusterViewportData _buildPeakClusterViewportDataFromComponents({
       PeakCluster(
         members: component,
         screenPosition: center / component.length.toDouble(),
+        anchor: _componentAnchor(component),
       ),
     );
   }
@@ -536,6 +548,85 @@ PeakClusterViewportData _buildPeakClusterViewportDataFromComponents({
   return PeakClusterViewportData(
     individualCandidates: [...untickedIndividuals, ...tickedIndividuals],
     clusters: clusters,
+  );
+}
+
+PeakClusterViewportData transformPeakClusterViewportData({
+  required PeakClusterViewportData data,
+  required MapCamera camera,
+}) {
+  final size = camera.nonRotatedSize;
+  if (size == MapCamera.kImpossibleSize) {
+    return const PeakClusterViewportData(
+      individualCandidates: [],
+      clusters: [],
+    );
+  }
+
+  final paddedViewport = ui.Rect.fromLTWH(
+    -MapConstants.peakViewportPadding,
+    -MapConstants.peakViewportPadding,
+    size.width + MapConstants.peakViewportPadding * 2,
+    size.height + MapConstants.peakViewportPadding * 2,
+  );
+
+  final individualCandidates = <ProjectedPeakCandidate>[];
+  for (final candidate in data.individualCandidates) {
+    final screenPosition = camera.latLngToScreenOffset(
+      LatLng(candidate.peak.latitude, candidate.peak.longitude),
+    );
+    if (!screenPosition.dx.isFinite || !screenPosition.dy.isFinite) {
+      continue;
+    }
+    if (!paddedViewport.contains(screenPosition)) {
+      continue;
+    }
+    individualCandidates.add(
+      ProjectedPeakCandidate(
+        peak: candidate.peak,
+        screenPosition: screenPosition,
+        isTicked: candidate.isTicked,
+        untickedColourValue: candidate.untickedColourValue,
+        activeOwnershipSegments: candidate.activeOwnershipSegments,
+        ownershipRingSegments: candidate.ownershipRingSegments,
+      ),
+    );
+  }
+
+  final clusters = <PeakCluster>[];
+  for (final cluster in data.clusters) {
+    final screenPosition = camera.latLngToScreenOffset(cluster.anchor);
+    if (!screenPosition.dx.isFinite || !screenPosition.dy.isFinite) {
+      continue;
+    }
+    if (!paddedViewport.contains(screenPosition)) {
+      continue;
+    }
+    clusters.add(
+      PeakCluster(
+        members: cluster.members,
+        screenPosition: screenPosition,
+        anchor: cluster.anchor,
+      ),
+    );
+  }
+
+  return PeakClusterViewportData(
+    individualCandidates: individualCandidates,
+    clusters: clusters,
+  );
+}
+
+LatLng _componentAnchor(List<ProjectedPeakCandidate> component) {
+  var latitudeSum = 0.0;
+  var longitudeSum = 0.0;
+  for (final candidate in component) {
+    latitudeSum += candidate.peak.latitude;
+    longitudeSum += candidate.peak.longitude;
+  }
+  return LatLng(
+    latitudeSum / component.length.toDouble(),
+    longitudeSum / component.length.toDouble(),
   );
 }
 

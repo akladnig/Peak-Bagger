@@ -357,9 +357,6 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
 
     unawaited(
       scheduleRefresh(() {
-        final perfTrace = _PeakListsPerfTrace.start(
-          'Deferred My Peak Lists refresh',
-        );
         try {
           final nextSnapshot = _buildPeakListsDerivedSnapshot(
             state: this,
@@ -371,9 +368,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
             peaksByOsmId: peaksByOsmId,
             peaksBaggedRepository: peaksBaggedRepository,
           );
-          perfTrace?.mark('built snapshot');
           if (!mounted || refreshSerial != _derivedRefreshSerial) {
-            perfTrace?.finish('superseded');
             return;
           }
           setState(() {
@@ -381,9 +376,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
             _settledDerivedRefreshKey = derivedRefreshKey;
             _pendingDerivedRefreshKey = null;
           });
-          perfTrace?.finish('applied');
         } catch (error, stackTrace) {
-          perfTrace?.finish('failed');
           developer.log(
             'Failed to refresh My Peak Lists derived summary rows.',
             error: error,
@@ -3773,18 +3766,13 @@ class _PeakListsDerivedSnapshot {
       return row;
     }
 
-    final perfTrace = _PeakListsPerfTrace.start(
-      'Resolve selected Peak Lists details for ${row.peakList.name}',
-    );
-    final resolvedRow = row.resolveDetails(
+    return row.resolveDetails(
       items: itemsByPeakListId[row.peakList.peakListId] ??
           const <PeakListItem>[],
       peaksById: peaksById,
       ascentCountsByPeakId: ascentCountsByPeakId,
       latestAscentDatesByPeakId: latestAscentDatesByPeakId,
     );
-    perfTrace?.finish('resolved details');
-    return resolvedRow;
   }
 }
 
@@ -3794,25 +3782,20 @@ _PeakListsDerivedBaseData _resolvePeakListsDerivedBaseData({
   required PeakListRepository peakListRepository,
   required Map<int, Peak> peaksByOsmId,
   required PeaksBaggedRepository peaksBaggedRepository,
-  _PeakListsPerfTrace? perfTrace,
 }) {
   final cachedKey = _cachedPeakListsDerivedBaseDataKey;
   final cachedData = _cachedPeakListsDerivedBaseData;
   if (cachedKey != null &&
       cachedData != null &&
       cachedKey.matches(baseDataKey)) {
-    perfTrace?.mark('reused cached base data');
     return cachedData;
   }
 
   final peaksById = peaksByOsmId;
-  perfTrace?.mark('loaded peaks');
   final ascentCountsByPeakId = peaksBaggedRepository.ascentCountsByPeakId();
   final latestAscentDatesByPeakId = peaksBaggedRepository
       .latestAscentDatesByPeakId();
-  perfTrace?.mark('loaded ascent summaries');
   final itemsByPeakListId = peakListRepository.getPeakListItemsByPeakListId();
-  perfTrace?.mark('loaded grouped memberships');
   final mixedPeakListIds = {
     for (final peakList in peakLists)
       if (peakList.region == PeakList.mixedRegion) peakList.peakListId,
@@ -3826,9 +3809,6 @@ _PeakListsDerivedBaseData _resolvePeakListsDerivedBaseData({
       });
     }
   }
-  perfTrace?.mark(
-    'resolved peak region keys (${peakRegionKeysByOsmId.length})',
-  );
 
   final baseData = _PeakListsDerivedBaseData(
     peaksById: peaksById,
@@ -3852,7 +3832,6 @@ _PeakListsDerivedSnapshot _buildPeakListsDerivedSnapshot({
   required Map<int, Peak> peaksByOsmId,
   required PeaksBaggedRepository peaksBaggedRepository,
 }) {
-  final perfTrace = _PeakListsPerfTrace.start('Build My Peak Lists snapshot');
   final baseData = _resolvePeakListsDerivedBaseData(
     baseDataKey: _PeakListsDerivedBaseDataKey(
       peakListRepository: peakListRepository,
@@ -3866,13 +3845,9 @@ _PeakListsDerivedSnapshot _buildPeakListsDerivedSnapshot({
     peakListRepository: peakListRepository,
     peaksByOsmId: peaksByOsmId,
     peaksBaggedRepository: peaksBaggedRepository,
-    perfTrace: perfTrace,
   );
   final filteredPeakLists = <PeakList>[];
   for (final peakList in peakLists) {
-    final listPerfTrace = _PeakListsPerfTrace.start(
-      'Filter list ${peakList.peakListId}:${peakList.name}',
-    );
     final applies = peakListAppliesToVisibleRegions(
       peakList,
       selectedRegionKeys,
@@ -3882,21 +3857,17 @@ _PeakListsDerivedSnapshot _buildPeakListsDerivedSnapshot({
           baseData.itemsByPeakListId[peakList.peakListId] ??
           const <PeakListItem>[],
     );
-    listPerfTrace?.finish(
-      'applies=$applies mixed=${peakList.region == PeakList.mixedRegion}',
-    );
     if (applies) {
       filteredPeakLists.add(peakList);
     }
   }
-  perfTrace?.mark('filtered visible lists (${filteredPeakLists.length})');
   final detailedPeakListId = filteredPeakLists.any(
     (peakList) => peakList.peakListId == preferredSelectedPeakListId,
   )
       ? preferredSelectedPeakListId
       : (filteredPeakLists.isEmpty ? null : filteredPeakLists.first.peakListId);
 
-  final snapshot = _PeakListsDerivedSnapshot(
+  return _PeakListsDerivedSnapshot(
     summaryRows: filteredPeakLists
         .map(
           (peakList) => _PeakListSummaryRow.fromPeakList(
@@ -3915,8 +3886,6 @@ _PeakListsDerivedSnapshot _buildPeakListsDerivedSnapshot({
     ascentCountsByPeakId: baseData.ascentCountsByPeakId,
     latestAscentDatesByPeakId: baseData.latestAscentDatesByPeakId,
   );
-  perfTrace?.finish('rows=${snapshot.summaryRows.length}');
-  return snapshot;
 }
 
 bool _sameRegionKeySet(Set<String> left, Set<String> right) {
@@ -4343,36 +4312,6 @@ class _MapPeak {
 
   final Peak peak;
   final bool isClimbed;
-}
-
-const _peakListsPerfEnabled = bool.fromEnvironment('PEAK_LISTS_PERF');
-
-class _PeakListsPerfTrace {
-  _PeakListsPerfTrace._(this._label) : _stopwatch = Stopwatch()..start();
-
-  final String _label;
-  final Stopwatch _stopwatch;
-
-  static _PeakListsPerfTrace? start(String label) {
-    if (!_peakListsPerfEnabled) {
-      return null;
-    }
-    return _PeakListsPerfTrace._(label);
-  }
-
-  void mark(String label) {
-    developer.log(
-      '$_label: $label at ${_stopwatch.elapsedMilliseconds}ms',
-      name: 'peak_lists_perf',
-    );
-  }
-
-  void finish(String label) {
-    developer.log(
-      '$_label: $label at ${_stopwatch.elapsedMilliseconds}ms',
-      name: 'peak_lists_perf',
-    );
-  }
 }
 
 class _PeakListSummarySentence extends StatelessWidget {

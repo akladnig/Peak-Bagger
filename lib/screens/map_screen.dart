@@ -1058,7 +1058,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final motionActive = allowContinuousMotionLag && _liveCamera != null;
     final settledFrame = _settledPeakViewportFrame;
     if (motionActive && settledFrame != null) {
-      return settledFrame.viewportData;
+      return transformPeakClusterViewportData(
+        data: settledFrame.viewportData,
+        camera: camera,
+      );
     }
 
     final viewportData = _peakProjectionCache.getOrBuild(

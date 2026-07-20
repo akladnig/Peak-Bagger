@@ -1,5 +1,3 @@
-import 'dart:developer' as developer;
-
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/fab_colour_resolver.dart';
@@ -455,7 +453,6 @@ class PeakListRepository {
   }
 
   Map<int, List<PeakListItem>> getPeakListItemsByPeakListId() {
-    final stopwatch = _peakListsPerfEnabled ? (Stopwatch()..start()) : null;
     final itemsByPeakListId = <int, List<PeakListItem>>{};
     for (final entity in _itemStorage.getAll()) {
       final peakListId = entity.peakList.hasValue
@@ -468,14 +465,10 @@ class PeakListRepository {
       itemsByPeakListId.putIfAbsent(peakListId, () => []).add(item);
     }
 
-    final result = Map<int, List<PeakListItem>>.unmodifiable({
+    return Map<int, List<PeakListItem>>.unmodifiable({
       for (final entry in itemsByPeakListId.entries)
         entry.key: List<PeakListItem>.unmodifiable(entry.value),
     });
-    stopwatch.logPeakListsPerf(
-      'Grouped ${result.length} peak lists from ${itemsByPeakListId.values.fold<int>(0, (sum, items) => sum + items.length)} memberships',
-    );
-    return result;
   }
 
   List<String> findPeakListNamesForPeak(int peakOsmId) {
@@ -897,20 +890,5 @@ class PeakListRepository {
       return null;
     }
     return PeakListItem(peakOsmId: peak.osmId, points: entity.points);
-  }
-}
-
-const _peakListsPerfEnabled = bool.fromEnvironment('PEAK_LISTS_PERF');
-
-extension on Stopwatch? {
-  void logPeakListsPerf(String message) {
-    final stopwatch = this;
-    if (!_peakListsPerfEnabled || stopwatch == null) {
-      return;
-    }
-    developer.log(
-      '$message in ${stopwatch.elapsedMilliseconds}ms',
-      name: 'peak_lists_perf',
-    );
   }
 }
