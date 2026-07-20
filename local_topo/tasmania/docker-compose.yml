@@ -1,0 +1,27 @@
+services:
+  gateway:
+    image: node:20-bookworm-slim
+    working_dir: /workspace
+    command: ["node", "server/app.mjs"]
+    environment:
+      PORT: "8080"
+      TILESERVER_INTERNAL_URL: "http://tileserver:8080"
+      TILESERVER_DATASET_ID: "tasmania-local-topo-smoke"
+    volumes:
+      - .:/workspace
+    ports:
+      - "${LOCAL_TOPO_PORT:-8090}:8080"
+    depends_on:
+      - tileserver
+
+  tileserver:
+    image: maptiler/tileserver-gl:latest
+    working_dir: /data
+    command:
+      - "-c"
+      - "/data/config/tileserver-config.json"
+      - "--ignore-missing-files"
+      - "--verbose"
+      - "1"
+    volumes:
+      - .:/data

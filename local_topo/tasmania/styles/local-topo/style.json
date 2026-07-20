@@ -1,0 +1,74 @@
+{
+  "version": 8,
+  "name": "Peak Bagger Tasmania Local Topo",
+  "metadata": {
+    "maputnik:renderer": "mbgljs",
+    "peak-bagger:style-owner": "local_topo/tasmania"
+  },
+  "sources": {
+    "tasmania-osm": {
+      "type": "vector",
+      "url": "mbtiles://{tasmania-osm}"
+    },
+    "tasmania-contours": {
+      "type": "vector",
+      "url": "mbtiles://{tasmania-contours}"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#f5f0e4"
+      }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "tasmania-osm",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#9fd2f3",
+        "fill-opacity": 0.9
+      }
+    },
+    {
+      "id": "roads",
+      "type": "line",
+      "source": "tasmania-osm",
+      "source-layer": "transportation",
+      "paint": {
+        "line-color": "#d5b489",
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          6,
+          0.4,
+          12,
+          1.4
+        ]
+      }
+    },
+    {
+      "id": "contours",
+      "type": "line",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "paint": {
+        "line-color": "#8c6a43",
+        "line-opacity": 0.75,
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          8,
+          0.3,
+          14,
+          1.1
+        ]
+      }
+    }
+  ]
+}
