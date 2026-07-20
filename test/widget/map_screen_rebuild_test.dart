@@ -210,6 +210,83 @@ void main() {
     },
   );
 
+  testWidgets(
+    'continuous drag defers peak projection rebuild until motion settles',
+    (tester) async {
+      MapRebuildDebugCounters.reset();
+      final peakA = Peak(
+        osmId: 1,
+        name: 'Peak A',
+        latitude: -41.5,
+        longitude: 146.5,
+        region: 'tasmania',
+      );
+      final peakList = PeakList(
+        peakListId: 42,
+        name: 'Focus List',
+        region: 'tasmania',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mapProvider.overrideWith(
+              () => TestMapNotifier(
+                MapState(
+                  center: const LatLng(-41.5, 146.5),
+                  zoom: 12,
+                  basemap: Basemap.tracestrack,
+                  peaks: [peakA],
+                  visibleBounds: _tasmaniaBounds,
+                  peakListSelectionMode: PeakListSelectionMode.specificList,
+                  selectedPeakListIds: {42},
+                ),
+              ),
+            ),
+            peakListRepositoryProvider.overrideWithValue(
+              PeakListRepository.test(
+                InMemoryPeakListStorage([peakList]),
+                itemStorage: InMemoryPeakListItemEntityStorage([
+                  PeakListItemEntity(id: 1, points: 0)
+                    ..peakList.target = peakList
+                    ..peak.target = peakA,
+                ]),
+              ),
+            ),
+          ],
+          child: const App(),
+        ),
+      );
+      await tester.pump();
+      router.go('/map');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      final initialBuilds = MapRebuildDebugCounters.peakProjectionBuilds;
+      final region = find.byKey(const Key('map-interaction-region'));
+      final gesture = await tester.startGesture(tester.getCenter(region));
+
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      await gesture.moveBy(const Offset(40, 0));
+      await tester.pump();
+
+      expect(MapRebuildDebugCounters.peakProjectionBuilds, initialBuilds);
+
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(
+        MapRebuildDebugCounters.peakProjectionBuilds,
+        greaterThan(initialBuilds),
+      );
+    },
+  );
+
   testWidgets('polygon toggle hides and restores the layer', (tester) async {
     MapRebuildDebugCounters.reset();
     final notifier = TestMapNotifier(

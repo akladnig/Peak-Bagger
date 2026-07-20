@@ -11,13 +11,10 @@ final myAscentsSummaryProvider = Provider<MyAscentsDataset>((ref) {
   ref.watch(peaksBaggedRevisionProvider);
 
   try {
-    final peakRepository = ref.watch(peakRepositoryProvider);
     final peaksBaggedRepository = ref.watch(peaksBaggedRepositoryProvider);
     return MyAscentsDataset(
       baggedRows: peaksBaggedRepository.getAll(),
-      peaksByOsmId: {
-        for (final peak in peakRepository.getAllPeaks()) peak.osmId: peak,
-      },
+      peaksByOsmId: ref.watch(peaksByOsmIdProvider),
     );
   } catch (error, stackTrace) {
     developer.log(

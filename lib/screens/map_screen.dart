@@ -22,6 +22,7 @@ import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/drive_eta_provider.dart';
 import 'package:peak_bagger/providers/polygon_assets_provider.dart';
@@ -169,6 +170,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   List<GpxTrack>? _cachedTrackHoverTracks;
   List<TrackHoverCandidate>? _cachedTrackHoverCandidates;
   final _peakProjectionCache = PeakProjectionCache();
+  _SettledPeakViewportFrame? _settledPeakViewportFrame;
   PolygonLayer? _cachedPolygonAssetLayer;
   List<MapPolygonAsset>? _cachedPolygonAssetLayerAssets;
   int? _cachedRouteHoverViewportRevision;
@@ -1015,7 +1017,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     final peak = hitTestPeakFromViewportData(
       pointerPosition: localPosition,
-      data: _buildPeakViewportData(peaks, camera),
+      data: _buildPeakViewportData(peaks: peaks, camera: camera),
     );
     if (peak == null) {
       ref.read(mapProvider.notifier).closeHoveredPeakInfoPopup();
@@ -1039,20 +1041,49 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return null;
     }
 
-    final viewportData = _buildPeakViewportData(peaks, camera);
+    final viewportData = _buildPeakViewportData(peaks: peaks, camera: camera);
     return hitTestPeakCluster(
       pointerPosition: localPosition,
       data: viewportData,
     );
   }
 
-  PeakClusterViewportData _buildPeakViewportData(
-    List<Peak> peaks,
-    MapCamera camera,
-  ) {
-    return _peakProjectionCache.getOrBuild(
-      peaks: peaks,
+  PeakClusterViewportData _buildPeakViewportData({
+    required List<Peak> peaks,
+    required MapCamera camera,
+    _PeakViewportInputs? inputs,
+    bool allowContinuousMotionLag = false,
+  }) {
+    final resolvedInputs = inputs ?? _readPeakViewportInputs(peaks: peaks);
+    final motionActive = allowContinuousMotionLag && _liveCamera != null;
+    final settledFrame = _settledPeakViewportFrame;
+    if (motionActive && settledFrame != null) {
+      return transformPeakClusterViewportData(
+        data: settledFrame.viewportData,
+        camera: camera,
+      );
+    }
+
+    final viewportData = _peakProjectionCache.getOrBuild(
+      peaks: resolvedInputs.peaks,
       camera: camera,
+      correlatedPeakIds: resolvedInputs.correlatedPeakIds,
+      untickedPeakColours: resolvedInputs.untickedPeakColours,
+      activeOwnershipSegments: resolvedInputs.activeOwnershipSegments,
+      ownershipRingSegments: resolvedInputs.ownershipRingSegments,
+      clusteringEnabled: resolvedInputs.clusteringEnabled,
+    );
+    if (!motionActive) {
+      _settledPeakViewportFrame = _SettledPeakViewportFrame(
+        viewportData: viewportData,
+      );
+    }
+    return viewportData;
+  }
+
+  _PeakViewportInputs _readPeakViewportInputs({required List<Peak> peaks}) {
+    return _PeakViewportInputs(
+      peaks: peaks,
       correlatedPeakIds: ref.read(mapProvider.notifier).correlatedPeakIds,
       untickedPeakColours: ref.read(peakMarkerColourAssignmentsProvider),
       activeOwnershipSegments: ref.read(peakActiveOwnershipSegmentsProvider),
@@ -2370,9 +2401,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         ? ref.watch(polygonAssetsProvider)
                         : null;
                     final filteredPeaks = ref.watch(filteredPeaksProvider);
-                    ref.watch(peakMarkerColourAssignmentsProvider);
-                    ref.watch(peakActiveOwnershipSegmentsProvider);
-                    ref.watch(peakOwnershipRingSegmentsProvider);
+                    final peakMarkerColours = ref.watch(
+                      peakMarkerColourAssignmentsProvider,
+                    );
+                    final activeOwnershipSegments = ref.watch(
+                      peakActiveOwnershipSegmentsProvider,
+                    );
+                    final ownershipRingSegments = ref.watch(
+                      peakOwnershipRingSegmentsProvider,
+                    );
+                    final clusteringEnabled = ref.watch(
+                      peakMapClusterDisplaySettingsProvider,
+                    );
                     final routes = ref.watch(routeListProvider);
                     final routeDraftSourceRouteId = ref.watch(
                       mapProvider.select((state) => state.sourceRouteId),
@@ -2448,6 +2488,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     final favouriteWaypoints = ref
                         .read(mapProvider.notifier)
                         .favouriteWaypoints();
+                    final peakViewportInputs = _PeakViewportInputs(
+                      peaks: filteredPeaks,
+                      correlatedPeakIds:
+                          ref.read(mapProvider.notifier).correlatedPeakIds,
+                      untickedPeakColours: peakMarkerColours,
+                      activeOwnershipSegments: activeOwnershipSegments,
+                      ownershipRingSegments: ownershipRingSegments,
+                      clusteringEnabled: clusteringEnabled,
+                    );
                     _queueSelectedMapZoom(mapState);
                     _queueSelectedTrackZoom(mapState);
                     _queueSelectedRouteZoom(mapState, routes);
@@ -3136,9 +3185,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 MapConstants.peakMinZoom)
                                           Consumer(
                                             builder: (context, ref, child) {
-                                              ref.watch(
-                                                peakMapClusterDisplaySettingsProvider,
-                                              );
                                               final peakUiState = ref.watch(
                                                 mapProvider.select(
                                                   (state) => (
@@ -3159,8 +3205,13 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                     peakUiState.popupPeakId,
                                                 viewportData:
                                                     _buildPeakViewportData(
-                                                      filteredPeaks,
-                                                      _mapController.camera,
+                                                      peaks:
+                                                          peakViewportInputs.peaks,
+                                                      camera:
+                                                          _mapController.camera,
+                                                      inputs: peakViewportInputs,
+                                                      allowContinuousMotionLag:
+                                                          true,
                                                     ),
                                               );
                                             },
@@ -4776,6 +4827,30 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _pendingSelectedRouteSerial = null;
     }
   }
+}
+
+class _PeakViewportInputs {
+  const _PeakViewportInputs({
+    required this.peaks,
+    required this.correlatedPeakIds,
+    required this.untickedPeakColours,
+    required this.activeOwnershipSegments,
+    required this.ownershipRingSegments,
+    required this.clusteringEnabled,
+  });
+
+  final List<Peak> peaks;
+  final Set<int> correlatedPeakIds;
+  final Map<int, int> untickedPeakColours;
+  final Map<int, List<PeakOwnershipRingSegment>> activeOwnershipSegments;
+  final Map<int, List<PeakOwnershipRingSegment>> ownershipRingSegments;
+  final bool clusteringEnabled;
+}
+
+class _SettledPeakViewportFrame {
+  const _SettledPeakViewportFrame({required this.viewportData});
+
+  final PeakClusterViewportData viewportData;
 }
 
 class _LiveCameraState {
