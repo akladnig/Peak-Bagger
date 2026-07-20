@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/tile_cache_download_scope.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +14,7 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     TileCacheService.resetLowZoomWarmupStateForTesting();
+    localTopoRuntime.resetForTesting();
   });
 
   test('ensureLowZoomWarmup downloads missing low zoom tiles once', () async {
@@ -166,4 +168,49 @@ void main() {
       'https://tile.openstreetmap.org/10/-1/-1.png',
     );
   });
+
+  test(
+    'transformUrl uses the resolved runtime contract for Local Topo',
+    () async {
+      await localTopoRuntime.saveValidatedSnapshot(
+        LocalTopoCapabilitySnapshot(
+          baseUrl: Uri.parse('http://127.0.0.1:8090'),
+          regions: const [
+            LocalTopoRegionCapability(
+              regionKey: 'tasmania',
+              tilePathTemplate: '/tasmania/local-topo/{z}/{x}/{y}.png',
+            ),
+          ],
+        ),
+      );
+
+      expect(
+        TileCacheService.transformUrl(Basemap.localTopo, 7, 88, 99),
+        'http://127.0.0.1:8090/tasmania/local-topo/7/88/99.png',
+      );
+    },
+  );
+
+  test(
+    'Local Topo participates in manual cache basemaps but not warmup',
+    () async {
+      await localTopoRuntime.saveValidatedSnapshot(
+        LocalTopoCapabilitySnapshot(
+          baseUrl: Uri.parse('http://127.0.0.1:8090'),
+          regions: const [
+            LocalTopoRegionCapability(
+              regionKey: 'tasmania',
+              tilePathTemplate: '/tasmania/local-topo/{z}/{x}/{y}.png',
+            ),
+          ],
+        ),
+      );
+
+      expect(TileCacheService.availableBasemaps, contains(Basemap.localTopo));
+      expect(
+        TileCacheService.warmupBasemaps,
+        isNot(contains(Basemap.localTopo)),
+      );
+    },
+  );
 }

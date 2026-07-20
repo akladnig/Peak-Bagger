@@ -7,6 +7,8 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/screens/settings_screen.dart';
+import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -14,8 +16,17 @@ import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  testWidgets('defaults to first name-sorted map chip', (tester) async {
+  setUp(() {
+    SharedPreferences.resetStatic();
     SharedPreferences.setMockInitialValues({});
+    localTopoRuntime.resetForTesting();
+  });
+
+  tearDown(() {
+    localTopoRuntime.resetForTesting();
+  });
+
+  testWidgets('defaults to first name-sorted map chip', (tester) async {
     final repository = await TestTasmapRepository.create(
       maps: [
         _map(name: 'Zulu'),
@@ -128,7 +139,6 @@ void main() {
   testWidgets('search selects map and empty results keep selection', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
     final repository = await TestTasmapRepository.create(
       maps: [
         _map(name: 'Zulu'),
@@ -215,7 +225,6 @@ void main() {
   });
 
   testWidgets('basemap changes keep the selected map', (tester) async {
-    SharedPreferences.setMockInitialValues({});
     final repository = await TestTasmapRepository.create(
       maps: [
         _map(name: 'Zulu'),
@@ -286,7 +295,6 @@ void main() {
   });
 
   testWidgets('tasmap revision reseeds missing selection', (tester) async {
-    SharedPreferences.setMockInitialValues({});
     final repository = await TestTasmapRepository.create(
       maps: [
         _map(name: 'Zulu'),
@@ -351,6 +359,41 @@ void main() {
         matching: find.text('Beta'),
       ),
       findsOneWidget,
+    );
+  });
+
+  testWidgets('tile cache hides Local Topo until a snapshot exists', (
+    tester,
+  ) async {
+    final repository = await TestTasmapRepository.create();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 12,
+                basemap: Basemap.tracestrack,
+              ),
+            ),
+          ),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'Map Tile Cache'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('tile-cache-basemap-chip-localTopo')),
+      findsNothing,
     );
   });
 }

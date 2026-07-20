@@ -1933,6 +1933,10 @@ class _TileCacheSettingsScreenState
     });
   }
 
+  String _basemapLabel(Basemap basemap) {
+    return regionManifestCatalog.basemapForEnum(basemap)?.name ?? basemap.name;
+  }
+
   void _handleMapSearchChanged(String value) {
     final repo = ref.read(tasmapRepositoryProvider);
     setState(() {
@@ -2054,7 +2058,7 @@ class _TileCacheSettingsScreenState
                       .map(
                         (basemap) => FilterChip(
                           key: Key('tile-cache-basemap-chip-${basemap.name}'),
-                          label: Text(basemap.name),
+                          label: Text(_basemapLabel(basemap)),
                           selected: _selectedBasemaps.contains(basemap),
                           onSelected: _isDownloading
                               ? null
@@ -2234,7 +2238,7 @@ class _TileCacheSettingsScreenState
           if (!mounted) return;
           setState(
             () => _status =
-                '${basemap.name}: ${formatCount(progress.successfulTilesCount)} downloaded, ${formatCount(progress.existingTilesCount)} skipped (${formatPercentage(progress.percentageProgress)})',
+                '${_basemapLabel(basemap)}: ${formatCount(progress.successfulTilesCount)} downloaded, ${formatCount(progress.existingTilesCount)} skipped (${formatPercentage(progress.percentageProgress)})',
           );
         }
       }
@@ -2274,7 +2278,7 @@ class _TileCacheSettingsScreenState
           title: const Text('Clear Cache?'),
           content: Text(
             _selectedBasemaps.length == 1
-                ? 'Delete all cached tiles for ${_selectedBasemaps.first.name}?'
+                ? 'Delete all cached tiles for ${_basemapLabel(_selectedBasemaps.first)}?'
                 : 'Delete all cached tiles for selected basemaps?',
           ),
           actions: [

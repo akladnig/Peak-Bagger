@@ -119,6 +119,10 @@ class LocalTopoCapabilitySnapshot {
   final Uri baseUrl;
   final List<LocalTopoRegionCapability> regions;
 
+  Set<String> get supportedRegionKeys => {
+    for (final region in regions) region.regionKey,
+  };
+
   factory LocalTopoCapabilitySnapshot.fromCapabilitiesResponse({
     required Uri baseUrl,
     required Object? decoded,
@@ -275,6 +279,16 @@ class LocalTopoCapabilitySnapshot {
     }
 
     return null;
+  }
+
+  bool supportsRegionKey(String regionKey) {
+    for (final region in regions) {
+      if (region.regionKey == regionKey) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   Map<String, dynamic> toJson() {

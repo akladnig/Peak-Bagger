@@ -24,6 +24,48 @@ bool isBasemapAvailable(Basemap basemap) {
   };
 }
 
+List<String> localTopoRegionKeysForBounds(
+  LatLngBounds? bounds, {
+  LocalTopoCapabilitySnapshot? snapshot,
+}) {
+  final activeSnapshot = snapshot ?? localTopoRuntime.capabilitySnapshot;
+  if (bounds == null || activeSnapshot == null) {
+    return const [];
+  }
+
+  final visibleRegions = regionManifestCatalog.regionsForBounds(bounds);
+  return [
+    for (final region in visibleRegions)
+      if (activeSnapshot.supportsRegionKey(region.key)) region.key,
+  ];
+}
+
+bool isLocalTopoAvailableForBounds(
+  LatLngBounds? bounds, {
+  LocalTopoCapabilitySnapshot? snapshot,
+}) {
+  return localTopoRegionKeysForBounds(bounds, snapshot: snapshot).isNotEmpty;
+}
+
+List<RegionManifestBasemapData> basemapsForDrawer({
+  required LatLng point,
+  required LatLngBounds? visibleBounds,
+}) {
+  final basemaps = regionManifestCatalog
+      .basemapsForPoint(point)
+      .toList(growable: true);
+  if (!isLocalTopoAvailableForBounds(visibleBounds)) {
+    return List.unmodifiable(basemaps);
+  }
+
+  final localTopo = regionManifestCatalog.basemapByKey(Basemap.localTopo.name);
+  if (localTopo != null &&
+      basemaps.every((basemap) => basemap.key != localTopo.key)) {
+    basemaps.add(localTopo);
+  }
+  return List.unmodifiable(basemaps);
+}
+
 class RegionManifestBasemapData {
   const RegionManifestBasemapData({
     required this.key,

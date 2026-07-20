@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -126,6 +127,61 @@ void main() {
   );
 
   test(
+    'successful validation falls back when accepted support no longer intersects the viewport',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        localTileServerBaseUrlPrefsKey: 'http://127.0.0.1:8090',
+        localTopoCapabilitySnapshotPrefsKey: jsonEncode(_snapshotJson()),
+        localTopoValidationStatusPrefsKey: 'live-validated',
+      });
+
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 10,
+                basemap: Basemap.localTopo,
+                visibleBounds: LatLngBounds(
+                  const LatLng(-43.5, 145.5),
+                  const LatLng(-40.5, 148.5),
+                ),
+              ),
+            ),
+          ),
+          localTopoSettingsHttpClientProvider.overrideWithValue(
+            _FakeHttpClient(
+              (request) async => http.Response(
+                jsonEncode(
+                  _capabilitiesJson(
+                    regionKey: 'slovenia',
+                    tilePathTemplate: '/slovenia/local-topo/{z}/{x}/{y}.png',
+                  ),
+                ),
+                200,
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(localTopoSettingsProvider);
+      await _drainAsync();
+      await container
+          .read(localTopoSettingsProvider.notifier)
+          .retryValidation();
+
+      expect(container.read(mapProvider).basemap, Basemap.tracestrack);
+      expect(
+        container.read(localTopoSettingsProvider).validationStatus,
+        LocalTopoValidationStatus.liveValidated,
+      );
+    },
+  );
+
+  test(
     'clear removes the saved setting and falls back to tracestrack',
     () async {
       SharedPreferences.setMockInitialValues({
@@ -200,7 +256,10 @@ Map<String, dynamic> _snapshotJson({String baseUrl = 'http://127.0.0.1:8090'}) {
   };
 }
 
-Map<String, dynamic> _capabilitiesJson() {
+Map<String, dynamic> _capabilitiesJson({
+  String regionKey = 'tasmania',
+  String tilePathTemplate = '/tasmania/local-topo/{z}/{x}/{y}.png',
+}) {
   return {
     'service': 'peak-bagger-local-topo',
     'version': 1,
@@ -209,10 +268,7 @@ Map<String, dynamic> _capabilitiesJson() {
         'key': 'localTopo',
         'label': 'Local Topo',
         'regions': [
-          {
-            'regionKey': 'tasmania',
-            'tilePathTemplate': '/tasmania/local-topo/{z}/{x}/{y}.png',
-          },
+          {'regionKey': regionKey, 'tilePathTemplate': tilePathTemplate},
         ],
       },
     ],

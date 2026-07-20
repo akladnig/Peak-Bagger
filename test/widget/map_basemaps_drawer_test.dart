@@ -7,13 +7,25 @@ import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.resetStatic();
+    SharedPreferences.setMockInitialValues({});
+    localTopoRuntime.resetForTesting();
+  });
+
+  tearDown(() {
+    localTopoRuntime.resetForTesting();
+  });
+
   testWidgets('basemap drawer snapshot stays fixed while open', (tester) async {
     final notifier = TestMapNotifier(
       MapState(
@@ -153,7 +165,64 @@ void main() {
       hasMapyCzApiKey ? findsOneWidget : findsNothing,
     );
   });
+
+  testWidgets('tasmania viewport shows local topo when snapshot supports it', (
+    tester,
+  ) async {
+    await localTopoRuntime.saveValidatedSnapshot(_localTopoSnapshot());
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        cursorPoint: const LatLng(-41.5, 146.5),
+        zoom: 12,
+        basemap: Basemap.tracestrack,
+      ),
+    );
+
+    await _pumpRawMapScreen(tester, notifier, size: const Size(1600, 900));
+
+    await tester.tap(find.byKey(const Key('show-basemaps-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('basemap-option-localTopo')), findsOneWidget);
+  });
+
+  testWidgets(
+    'unsupported viewport hides local topo without switching the active basemap',
+    (tester) async {
+      await localTopoRuntime.saveValidatedSnapshot(_localTopoSnapshot());
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(46.05, 14.5),
+          cursorPoint: const LatLng(46.05, 14.5),
+          zoom: 12,
+          basemap: Basemap.localTopo,
+        ),
+      );
+
+      await _pumpRawMapScreen(tester, notifier, size: const Size(1600, 900));
+
+      await tester.tap(find.byKey(const Key('show-basemaps-fab')));
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('map-interaction-region'))),
+      );
+      expect(find.byKey(const Key('basemap-option-localTopo')), findsNothing);
+      expect(container.read(mapProvider).basemap, Basemap.localTopo);
+    },
+  );
 }
+
+LocalTopoCapabilitySnapshot _localTopoSnapshot() => LocalTopoCapabilitySnapshot(
+  baseUrl: Uri.parse('http://127.0.0.1:8090'),
+  regions: const [
+    LocalTopoRegionCapability(
+      regionKey: 'tasmania',
+      tilePathTemplate: '/tasmania/local-topo/{z}/{x}/{y}.png',
+    ),
+  ],
+);
 
 Future<void> _pumpRawMapScreen(
   WidgetTester tester,

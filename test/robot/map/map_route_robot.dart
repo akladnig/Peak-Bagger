@@ -42,6 +42,7 @@ class MapRouteRobot {
     this.routeElevationOutcomes = const [],
     RouteRepository? routeRepository,
     this.routeGraphStore,
+    this.providerOverrides = const [],
   }) : routeRepository =
            routeRepository ?? RouteRepository.test(InMemoryRouteStorage());
 
@@ -51,6 +52,7 @@ class MapRouteRobot {
   final List<Object> routeElevationOutcomes;
   final RouteRepository routeRepository;
   final RouteGraphStore? routeGraphStore;
+  final List providerOverrides;
 
   late final TestTasmapRepository _tasmapRepository;
   late final MapNotifier _mapNotifier;
@@ -136,6 +138,7 @@ class MapRouteRobot {
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
           tasmapRepositoryProvider.overrideWithValue(_tasmapRepository),
+          ...providerOverrides,
         ],
         child: const App(),
       ),

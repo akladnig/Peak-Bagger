@@ -113,6 +113,7 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
   static const _validationTimeout = Duration(seconds: 15);
 
   int _validationRequestSerial = 0;
+  bool _hasUserOverride = false;
 
   @override
   LocalTopoSettingsState build() {
@@ -124,6 +125,7 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
   }
 
   Future<void> saveAndValidate(String rawValue) async {
+    _hasUserOverride = true;
     final trimmed = rawValue.trim();
     if (trimmed.isEmpty) {
       await clearSetting();
@@ -146,6 +148,10 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
     final hadSnapshot = localTopoRuntime.hasCapabilitySnapshot;
     final isSameSavedBaseUrl =
         previousSavedBaseUrlText == normalizedBaseUrlText;
+    final previousSnapshot = localTopoRuntime.capabilitySnapshot;
+    final previousBoundsSupport = _snapshotSupportsCurrentVisibleBounds(
+      previousSnapshot,
+    );
     final retainedSnapshot = isSameSavedBaseUrl
         ? localTopoRuntime.capabilitySnapshot
         : null;
@@ -184,6 +190,12 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
         activeSnapshot: snapshot,
         detailMessage: 'Live capabilities validated successfully.',
       );
+
+      if (ref.read(mapProvider).basemap == Basemap.localTopo &&
+          previousBoundsSupport &&
+          !_snapshotSupportsCurrentVisibleBounds(snapshot)) {
+        _fallbackToTracestrackIfLocalTopoSelected();
+      }
     } catch (error) {
       if (!_isLatestRequest(requestSerial)) {
         return;
@@ -214,6 +226,7 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
   }
 
   Future<void> clearSetting() async {
+    _hasUserOverride = true;
     _validationRequestSerial += 1;
 
     await localTopoRuntime.clear(
@@ -238,7 +251,7 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
     );
 
     await localTopoRuntime.restore(loadPreferences: prefsLoader);
-    if (!ref.mounted) {
+    if (!ref.mounted || _hasUserOverride) {
       return;
     }
 
@@ -346,6 +359,15 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
 
   bool _isLatestRequest(int requestSerial) {
     return ref.mounted && requestSerial == _validationRequestSerial;
+  }
+
+  bool _snapshotSupportsCurrentVisibleBounds(
+    LocalTopoCapabilitySnapshot? snapshot,
+  ) {
+    return isLocalTopoAvailableForBounds(
+      ref.read(mapProvider).visibleBounds,
+      snapshot: snapshot,
+    );
   }
 }
 
