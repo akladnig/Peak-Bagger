@@ -11,7 +11,6 @@ import 'package:peak_bagger/providers/open_route_service_api_key_provider.dart';
 import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/peak_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_list_mini_map_cluster_display_settings_provider.dart';
-import 'package:peak_bagger/providers/peak_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
@@ -76,9 +75,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final openRouteServiceApiKey = ref.watch(openRouteServiceApiKeyProvider);
     final showPeakListMiniMapClusters = ref.watch(
       peakListMiniMapClusterDisplaySettingsProvider,
-    );
-    final showMapPeakClusters = ref.watch(
-      peakMapClusterDisplaySettingsProvider,
     );
     final showPeakInfo = ref.watch(peakMarkerInfoSettingsProvider);
     final showPeakOwnershipRings = ref.watch(peakOwnershipRingSettingsProvider);
@@ -457,35 +453,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               .notifier,
                         )
                         .setShowPeakClusters(!showPeakListMiniMapClusters),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: ListTile(
-                key: const Key('show-map-peak-clusters-tile'),
-                leading: const Icon(Icons.bubble_chart),
-                title: const Text('Show Map Peak Clusters'),
-                subtitle: const Text(
-                  'Toggle clustered peak display on the main map',
-                ),
-                trailing: Switch(
-                  key: const Key('show-map-peak-clusters-switch'),
-                  value: showMapPeakClusters,
-                  onChanged: (value) {
-                    unawaited(
-                      ref
-                          .read(peakMapClusterDisplaySettingsProvider.notifier)
-                          .setShowPeakClusters(value),
-                    );
-                  },
-                ),
-                onTap: () {
-                  unawaited(
-                    ref
-                        .read(peakMapClusterDisplaySettingsProvider.notifier)
-                        .setShowPeakClusters(!showMapPeakClusters),
                   );
                 },
               ),

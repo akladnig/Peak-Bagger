@@ -95,6 +95,138 @@ void main() {
     );
   });
 
+  testWidgets(
+    'selecting a specific list from the drawer while hidden restores clustered peaks',
+    (tester) async {
+      await _pumpApp(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          visibleBounds: _tasmaniaBounds,
+          peakVisibilityMode: PeakVisibilityMode.hidePeaks,
+          peakListSelectionMode: PeakListSelectionMode.none,
+        ),
+        peakListRepository: _peakListRepositoryWithItems([
+          PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 1,
+        ]),
+      );
+      router.go('/map');
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+
+      expect(
+        find.byKey(const Key('peak-list-selection-chip-none')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('show-peaks-fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(mapProvider).peakVisibilityMode,
+        PeakVisibilityMode.showPeakClusters,
+      );
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.specificList,
+      );
+      expect(container.read(mapProvider).selectedPeakListIds, {1});
+    },
+  );
+
+  testWidgets(
+    'selecting All Peaks from the drawer while hidden restores clustered peaks',
+    (tester) async {
+      await _pumpApp(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          visibleBounds: _tasmaniaBounds,
+          peakVisibilityMode: PeakVisibilityMode.hidePeaks,
+          peakListSelectionMode: PeakListSelectionMode.none,
+        ),
+      );
+      router.go('/map');
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+
+      await tester.tap(find.byKey(const Key('show-peaks-fab')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(mapProvider).peakVisibilityMode,
+        PeakVisibilityMode.showPeakClusters,
+      );
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.allPeaks,
+      );
+      expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'tapping a visible pinned chip while hidden restores clustered peaks and selects that list',
+    (tester) async {
+      await _pumpApp(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          visibleBounds: _tasmaniaBounds,
+          peakVisibilityMode: PeakVisibilityMode.hidePeaks,
+          peakListSelectionMode: PeakListSelectionMode.none,
+          pinnedPeakListIdsByRegion: {
+            'tasmania': {1},
+          },
+        ),
+        peakListRepository: _peakListRepositoryWithItems([
+          PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 1,
+        ]),
+      );
+      router.go('/map');
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+
+      expect(
+        find.byKey(const Key('peak-list-selection-chip-none')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('peak-list-app-bar-item-1')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('peak-list-selection-chip-1')));
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(mapProvider).peakVisibilityMode,
+        PeakVisibilityMode.showPeakClusters,
+      );
+      expect(
+        container.read(mapProvider).peakListSelectionMode,
+        PeakListSelectionMode.specificList,
+      );
+      expect(container.read(mapProvider).selectedPeakListIds, {1});
+    },
+  );
+
   testWidgets('summary remains visible on constrained desktop widths', (
     tester,
   ) async {
