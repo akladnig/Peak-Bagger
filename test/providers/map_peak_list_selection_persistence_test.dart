@@ -165,6 +165,10 @@ void main() {
       container.read(mapProvider).peakListSelectionMode,
       PeakListSelectionMode.specificList,
     );
+    expect(
+      container.read(mapProvider).peakVisibilityMode,
+      PeakVisibilityMode.showPeakClusters,
+    );
     expect(container.read(mapProvider).selectedPeakListIds, {7});
     expect(container.read(mapProvider).pinnedPeakListIdsByRegion, {
       'tasmania': {7},
@@ -366,6 +370,81 @@ void main() {
     expect(prefs.getString('peak_list_selection_mode_v2'), 'specificList');
     expect(prefs.getString('peak_list_selected_ids_v2'), '[8]');
     expect(prefs.getString('peak_list_previous_specific_ids_v2'), '[8]');
+  });
+
+  test('hidden peak visibility mode is not persisted across reopen', () async {
+    SharedPreferences.setMockInitialValues({});
+    final tasmapRepository = await TestTasmapRepository.create();
+
+    ProviderContainer buildContainer() {
+      return ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => MapNotifier(
+              peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+              overpassService: OverpassService(),
+              tasmapRepository: tasmapRepository,
+              gpxTrackRepository: GpxTrackRepository.test(
+                InMemoryGpxTrackStorage(),
+              ),
+              peaksBaggedRepository: PeaksBaggedRepository.test(
+                InMemoryPeaksBaggedStorage(),
+              ),
+              loadPeaksOnBuild: false,
+              loadTracksOnBuild: false,
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(
+              InMemoryPeakListStorage([
+                PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 7,
+              ]),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final firstContainer = buildContainer();
+    addTearDown(firstContainer.dispose);
+
+    final notifier = firstContainer.read(mapProvider.notifier);
+    await _drainAsync();
+    notifier.selectPeakList(PeakListSelectionMode.specificList, peakListId: 7);
+    await _drainAsync();
+
+    notifier.cyclePeakVisibilityMode();
+    notifier.cyclePeakVisibilityMode();
+
+    expect(
+      firstContainer.read(mapProvider).peakVisibilityMode,
+      PeakVisibilityMode.hidePeaks,
+    );
+    expect(
+      firstContainer.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.none,
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString('peak_list_selection_mode_v2'), 'specificList');
+    expect(prefs.getString('peak_list_selected_ids_v2'), '[7]');
+
+    firstContainer.dispose();
+
+    final secondContainer = buildContainer();
+    addTearDown(secondContainer.dispose);
+    secondContainer.read(mapProvider.notifier);
+    await _drainAsync();
+
+    expect(
+      secondContainer.read(mapProvider).peakVisibilityMode,
+      PeakVisibilityMode.showPeakClusters,
+    );
+    expect(
+      secondContainer.read(mapProvider).peakListSelectionMode,
+      PeakListSelectionMode.specificList,
+    );
+    expect(secondContainer.read(mapProvider).selectedPeakListIds, {7});
   });
 
   test(
@@ -806,7 +885,9 @@ PeakListRepository _peakListRepository({
   List<({int peakListId, int peakOsmId, int points})> memberships = const [],
 }) {
   final peaksByOsmId = {for (final peak in peaks) peak.osmId: peak};
-  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+  final peakListsById = {
+    for (final peakList in peakLists) peakList.peakListId: peakList,
+  };
 
   return PeakListRepository.test(
     InMemoryPeakListStorage(peakLists),

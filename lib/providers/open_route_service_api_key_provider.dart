@@ -50,6 +50,10 @@ class OpenRouteServiceApiKeyNotifier extends Notifier<String> {
           prefs.getString(openRouteServiceApiKeyPrefsKey) ??
           defaultOpenRouteServiceApiKey;
       if (state != stored) {
+        await Future<void>.delayed(Duration.zero);
+        if (!ref.mounted || _hasUserOverride) {
+          return;
+        }
         state = stored;
       }
     } catch (_) {}

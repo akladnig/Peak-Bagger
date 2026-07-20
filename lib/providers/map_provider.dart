@@ -383,6 +383,8 @@ enum TasmapDisplayMode { overlay, none, selectedMap }
 
 enum MapGridVisibility { hidden, mapGridOnly, mapGridAndDistanceGrid }
 
+enum PeakVisibilityMode { showPeakClusters, showPeaks, hidePeaks }
+
 enum PeakListSelectionMode { none, allPeaks, specificList }
 
 enum EndDrawerMode { basemaps, peakLists, tracksRoutes }
@@ -676,6 +678,7 @@ class MapState {
   final Tasmap50k? selectedMap;
   final TasmapDisplayMode tasmapDisplayMode;
   final MapGridVisibility gridVisibility;
+  final PeakVisibilityMode peakVisibilityMode;
   final List<Tasmap50k> mapSuggestions;
   final String mapSearchQuery;
   final int selectedMapFocusSerial;
@@ -783,6 +786,7 @@ class MapState {
     this.selectedMap,
     this.tasmapDisplayMode = TasmapDisplayMode.none,
     MapGridVisibility? gridVisibility,
+    this.peakVisibilityMode = PeakVisibilityMode.showPeakClusters,
     this.mapSuggestions = const [],
     this.mapSearchQuery = '',
     this.selectedMapFocusSerial = 0,
@@ -918,7 +922,28 @@ class MapState {
     };
   }
 
-  bool get showPeaks => peakListSelectionMode != PeakListSelectionMode.none;
+  PeakVisibilityMode get nextPeakVisibilityMode {
+    return switch (peakVisibilityMode) {
+      PeakVisibilityMode.showPeakClusters => PeakVisibilityMode.showPeaks,
+      PeakVisibilityMode.showPeaks => PeakVisibilityMode.hidePeaks,
+      PeakVisibilityMode.hidePeaks => PeakVisibilityMode.showPeakClusters,
+    };
+  }
+
+  String get peakVisibilityTooltipMessage {
+    return switch (nextPeakVisibilityMode) {
+      PeakVisibilityMode.showPeakClusters => 'Show Peak Clusters',
+      PeakVisibilityMode.showPeaks => 'Show Peaks',
+      PeakVisibilityMode.hidePeaks => 'Hide Peaks',
+    };
+  }
+
+  bool get peakClusteringEnabled =>
+      peakVisibilityMode == PeakVisibilityMode.showPeakClusters;
+
+  bool get showPeaks =>
+      peakVisibilityMode != PeakVisibilityMode.hidePeaks &&
+      peakListSelectionMode != PeakListSelectionMode.none;
 
   int get activePeakMetadataFilterCount {
     var count = 0;
@@ -1027,6 +1052,7 @@ class MapState {
     Tasmap50k? selectedMap,
     TasmapDisplayMode? tasmapDisplayMode,
     MapGridVisibility? gridVisibility,
+    PeakVisibilityMode? peakVisibilityMode,
     List<Tasmap50k>? mapSuggestions,
     String? mapSearchQuery,
     int? selectedMapFocusSerial,
@@ -1195,6 +1221,7 @@ class MapState {
       selectedMap: selectedMap ?? this.selectedMap,
       tasmapDisplayMode: tasmapDisplayMode ?? this.tasmapDisplayMode,
       gridVisibility: gridVisibility ?? this.gridVisibility,
+      peakVisibilityMode: peakVisibilityMode ?? this.peakVisibilityMode,
       mapSuggestions: mapSuggestions ?? this.mapSuggestions,
       mapSearchQuery: mapSearchQuery ?? this.mapSearchQuery,
       selectedMapFocusSerial:
@@ -1325,6 +1352,12 @@ typedef _RouteDraftSnapshot = ({
   bool routeDraftCanRedo,
 });
 
+typedef _PersistedPeakListSelectionState = ({
+  PeakListSelectionMode mode,
+  Set<int> selectedPeakListIds,
+  Set<int> previousSpecificPeakListIds,
+});
+
 final routeElevationSamplerProvider = Provider<RouteElevationSampler>((ref) {
   return BundledDemRouteElevationSampler();
 });
@@ -1410,6 +1443,7 @@ class MapNotifier extends Notifier<MapState> {
   Map<String, _VisibleRegionPeakListSnapshot> _visibleRegionSelectionSnapshots =
       const <String, _VisibleRegionPeakListSnapshot>{};
   String? _activeVisibleRegionSelectionSnapshotKey;
+  _PersistedPeakListSelectionState? _hiddenPeakListSelectionPersistenceState;
 
   MapNotifier({
     PeakRepository? peakRepository,
@@ -1517,9 +1551,6 @@ class MapNotifier extends Notifier<MapState> {
 
   @override
   MapState build() {
-    ref.listen<int>(peaksBaggedRevisionProvider, (previous, next) {
-      refreshPeakInfoPopupContent();
-    });
     _peakRepository =
         _injectedPeakRepository ?? ref.read(peakRepositoryProvider);
     _peakRefreshService = PeakRefreshService(
@@ -1560,7 +1591,11 @@ class MapNotifier extends Notifier<MapState> {
     _prefsLoader = ref.read(mapPreferencesLoaderProvider);
     _peakRegionAssetImportService =
         _injectedPeakRegionAssetImportService ?? PeakRegionAssetImportService();
-    Future.microtask(_runStartupLoad);
+    unawaited(
+      Future<void>(() async {
+        await _runStartupLoad();
+      }),
+    );
     return MapState(
       center: MapConstants.defaultCenter,
       zoom: MapConstants.defaultZoom,
@@ -1874,6 +1909,9 @@ class MapNotifier extends Notifier<MapState> {
         clearHoveredTrackId: true,
         clearSelectedTrackId: true,
       );
+      if (syncPeaksBagged) {
+        refreshPeakInfoPopupContent();
+      }
       return result;
     } catch (e) {
       state = state.copyWith(
@@ -2028,6 +2066,9 @@ class MapNotifier extends Notifier<MapState> {
         isLoadingTracks: false,
         clearHoveredTrackId: true,
       );
+      if (addedItems.isNotEmpty) {
+        refreshPeakInfoPopupContent();
+      }
 
       return GpxTrackImportResult(
         items: addedItems,
@@ -2442,6 +2483,7 @@ class MapNotifier extends Notifier<MapState> {
         clearHoveredTrackId: true,
         clearSelectedTrackId: true,
       );
+      refreshPeakInfoPopupContent();
       return TrackStatisticsRecalcResult(
         updatedCount: updatedCount,
         skippedCount: skippedCount,
@@ -2701,9 +2743,11 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<void> persistPeakListSelection() async {
-    final mode = state.peakListSelectionMode;
-    final selectedPeakListIds = state.selectedPeakListIds;
-    final previousSpecificPeakListIds = state.previousSpecificPeakListIds;
+    final persistedSelectionState = _persistedPeakListSelectionState();
+    final mode = persistedSelectionState.mode;
+    final selectedPeakListIds = persistedSelectionState.selectedPeakListIds;
+    final previousSpecificPeakListIds =
+        persistedSelectionState.previousSpecificPeakListIds;
     final pinnedPeakListIdsByRegion = state.pinnedPeakListIdsByRegion;
     _peakListSelectionPersistChain = _peakListSelectionPersistChain.then((
       _,
@@ -2742,6 +2786,15 @@ class MapNotifier extends Notifier<MapState> {
       'specificList' => PeakListSelectionMode.specificList,
       _ => PeakListSelectionMode.allPeaks,
     };
+  }
+
+  _PersistedPeakListSelectionState _persistedPeakListSelectionState() {
+    return _hiddenPeakListSelectionPersistenceState ??
+        (
+          mode: state.peakListSelectionMode,
+          selectedPeakListIds: state.selectedPeakListIds,
+          previousSpecificPeakListIds: state.previousSpecificPeakListIds,
+        );
   }
 
   void updatePosition(LatLng center, double zoom) {
@@ -4818,6 +4871,17 @@ class MapNotifier extends Notifier<MapState> {
     setShowTrails(!state.showTrails);
   }
 
+  void cyclePeakVisibilityMode() {
+    switch (state.peakVisibilityMode) {
+      case PeakVisibilityMode.showPeakClusters:
+        _updatePeakVisibilityMode(PeakVisibilityMode.showPeaks);
+      case PeakVisibilityMode.showPeaks:
+        _enterHiddenPeakVisibilityMode();
+      case PeakVisibilityMode.hidePeaks:
+        _restorePeakVisibilityModeFromHidden();
+    }
+  }
+
   void selectPeakList(PeakListSelectionMode mode, {int? peakListId}) {
     if (mode == PeakListSelectionMode.specificList && peakListId == null) {
       return;
@@ -4841,6 +4905,16 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void togglePeakListSelection(int peakListId) {
+    if (state.peakVisibilityMode == PeakVisibilityMode.hidePeaks) {
+      _updatePeakListSelection(
+        mode: PeakListSelectionMode.specificList,
+        selectedPeakListIds: {peakListId},
+        previousSpecificPeakListIds: {peakListId},
+        peakVisibilityMode: PeakVisibilityMode.showPeakClusters,
+      );
+      return;
+    }
+
     if (state.peakListSelectionMode == PeakListSelectionMode.allPeaks) {
       _updatePeakListSelection(
         mode: PeakListSelectionMode.specificList,
@@ -4884,14 +4958,19 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
-    final snapshot =
-        state.peakListSelectionMode == PeakListSelectionMode.specificList
+    final snapshot = state.peakVisibilityMode == PeakVisibilityMode.hidePeaks
+        ? state.previousSpecificPeakListIds
+        : state.peakListSelectionMode == PeakListSelectionMode.specificList
         ? state.selectedPeakListIds
         : null;
     _updatePeakListSelection(
       mode: PeakListSelectionMode.allPeaks,
       selectedPeakListIds: const <int>{},
       previousSpecificPeakListIds: snapshot,
+      peakVisibilityMode:
+          state.peakVisibilityMode == PeakVisibilityMode.hidePeaks
+          ? PeakVisibilityMode.showPeakClusters
+          : null,
     );
   }
 
@@ -4994,10 +5073,11 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     List<PeakListItem> loadItems(PeakList peakList) {
-      return ref.read(peakListRepositoryProvider).getPeakListItemsForList(
-        peakList.peakListId,
-      );
+      return ref
+          .read(peakListRepositoryProvider)
+          .getPeakListItemsForList(peakList.peakListId);
     }
+
     final regionKeys = memberRegionKeysForPeakList(
       peakList: peakList,
       peaks: state.peaks,
@@ -5031,12 +5111,18 @@ class MapNotifier extends Notifier<MapState> {
     required PeakListSelectionMode mode,
     required Set<int> selectedPeakListIds,
     Set<int>? previousSpecificPeakListIds,
+    PeakVisibilityMode? peakVisibilityMode,
+    bool syncVisibleRegionSnapshot = true,
+    bool persist = true,
   }) {
     final nextSelectedPeakListIds = _immutablePeakListIds(selectedPeakListIds);
     final nextPreviousSpecificPeakListIds = previousSpecificPeakListIds == null
         ? state.previousSpecificPeakListIds
         : _immutablePeakListIds(previousSpecificPeakListIds);
+    final nextPeakVisibilityMode =
+        peakVisibilityMode ?? state.peakVisibilityMode;
     if (state.peakListSelectionMode == mode &&
+        state.peakVisibilityMode == nextPeakVisibilityMode &&
         _samePeakListIds(state.selectedPeakListIds, nextSelectedPeakListIds) &&
         _samePeakListIds(
           state.previousSpecificPeakListIds,
@@ -5045,15 +5131,96 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
 
+    if (nextPeakVisibilityMode != PeakVisibilityMode.hidePeaks) {
+      _hiddenPeakListSelectionPersistenceState = null;
+    }
+
     state = state.copyWith(
+      peakVisibilityMode: nextPeakVisibilityMode,
       peakListSelectionMode: mode,
       selectedPeakListIds: nextSelectedPeakListIds,
       previousSpecificPeakListIds: nextPreviousSpecificPeakListIds,
       clearPeakInfoPopup: true,
       clearHoveredPeakId: true,
     );
-    _syncVisibleRegionSelectionSnapshotForCurrentState();
-    unawaited(persistPeakListSelection());
+    if (syncVisibleRegionSnapshot) {
+      _syncVisibleRegionSelectionSnapshotForCurrentState();
+    }
+    if (persist) {
+      unawaited(persistPeakListSelection());
+    }
+  }
+
+  void _updatePeakVisibilityMode(PeakVisibilityMode mode) {
+    if (state.peakVisibilityMode == mode) {
+      return;
+    }
+
+    if (mode != PeakVisibilityMode.hidePeaks) {
+      _hiddenPeakListSelectionPersistenceState = null;
+    }
+
+    state = state.copyWith(peakVisibilityMode: mode);
+  }
+
+  void _enterHiddenPeakVisibilityMode() {
+    if (state.peakVisibilityMode == PeakVisibilityMode.hidePeaks) {
+      return;
+    }
+
+    _hiddenPeakListSelectionPersistenceState = (
+      mode: state.peakListSelectionMode,
+      selectedPeakListIds: state.selectedPeakListIds,
+      previousSpecificPeakListIds: state.previousSpecificPeakListIds,
+    );
+    _updatePeakListSelection(
+      mode: PeakListSelectionMode.none,
+      selectedPeakListIds: const <int>{},
+      peakVisibilityMode: PeakVisibilityMode.hidePeaks,
+      syncVisibleRegionSnapshot: false,
+      persist: false,
+    );
+  }
+
+  void _restorePeakVisibilityModeFromHidden() {
+    final visibleRegionKeys = _currentVisibleRegionKeys();
+    final snapshot = visibleRegionKeys.isEmpty
+        ? null
+        : _snapshotForVisibleRegionKeys(visibleRegionKeys);
+
+    if (snapshot == null) {
+      _updatePeakListSelection(
+        mode: PeakListSelectionMode.allPeaks,
+        selectedPeakListIds: const <int>{},
+        previousSpecificPeakListIds: const <int>{},
+        peakVisibilityMode: PeakVisibilityMode.showPeakClusters,
+      );
+      return;
+    }
+
+    switch (snapshot.mode) {
+      case PeakListSelectionMode.none:
+        _updatePeakListSelection(
+          mode: PeakListSelectionMode.none,
+          selectedPeakListIds: const <int>{},
+          previousSpecificPeakListIds: const <int>{},
+          peakVisibilityMode: PeakVisibilityMode.showPeakClusters,
+        );
+      case PeakListSelectionMode.allPeaks:
+        _updatePeakListSelection(
+          mode: PeakListSelectionMode.allPeaks,
+          selectedPeakListIds: const <int>{},
+          previousSpecificPeakListIds: const <int>{},
+          peakVisibilityMode: PeakVisibilityMode.showPeakClusters,
+        );
+      case PeakListSelectionMode.specificList:
+        _updatePeakListSelection(
+          mode: PeakListSelectionMode.specificList,
+          selectedPeakListIds: snapshot.ids,
+          previousSpecificPeakListIds: snapshot.ids,
+          peakVisibilityMode: PeakVisibilityMode.showPeakClusters,
+        );
+    }
   }
 
   Set<String> _currentVisibleRegionKeys() {
@@ -5103,6 +5270,7 @@ class MapNotifier extends Notifier<MapState> {
           List<PeakListItem> loadItems(PeakList peakList) {
             return repo.getPeakListItemsForList(peakList.peakListId);
           }
+
           final peakListsById = {
             for (final peakList in peakLists) peakList.peakListId: peakList,
           };
@@ -5144,6 +5312,7 @@ class MapNotifier extends Notifier<MapState> {
     List<PeakListItem> loadItems(PeakList peakList) {
       return repo.getPeakListItemsForList(peakList.peakListId);
     }
+
     final peakListsById = {
       for (final peakList in peakLists) peakList.peakListId: peakList,
     };
@@ -5209,6 +5378,7 @@ class MapNotifier extends Notifier<MapState> {
     List<PeakListItem> loadItems(PeakList peakList) {
       return repo.getPeakListItemsForList(peakList.peakListId);
     }
+
     List<PeakList> peakLists;
     try {
       peakLists = repo.getAllPeakLists();
@@ -5237,7 +5407,10 @@ class MapNotifier extends Notifier<MapState> {
         for (final peakListId in state.selectedPeakListIds)
           if (availablePeakListIds.contains(peakListId)) peakListId,
       };
-      if (!_samePeakListIds(nextSelectedPeakListIds, state.selectedPeakListIds)) {
+      if (!_samePeakListIds(
+        nextSelectedPeakListIds,
+        state.selectedPeakListIds,
+      )) {
         if (nextSelectedPeakListIds.isEmpty) {
           _resetToAllPeaks();
         } else {
@@ -5260,6 +5433,12 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     final snapshotsChanged = _pruneVisibleRegionSelectionSnapshots(peakLists);
+    if (state.peakVisibilityMode == PeakVisibilityMode.hidePeaks) {
+      if (snapshotsChanged) {
+        unawaited(persistPeakListSelection());
+      }
+      return;
+    }
     final snapshot = _snapshotForVisibleRegionKeys(visibleRegionKeys);
     if (snapshot == null) {
       if (regionChanged) {
@@ -6300,6 +6479,7 @@ class MapNotifier extends Notifier<MapState> {
     final remainingTracks = _gpxTrackRepository.getAllTracks();
     await _peaksBaggedRepository.syncFromTracks(remainingTracks);
     ref.read(peaksBaggedRevisionProvider.notifier).increment();
+    refreshPeakInfoPopupContent();
   }
 
   void reconcileSelectedTrackState() {

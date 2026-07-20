@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
-import 'package:peak_bagger/providers/peak_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
@@ -33,6 +33,7 @@ void main() {
                 center: const LatLng(-43.0, 147.0),
                 zoom: 8,
                 basemap: Basemap.tracestrack,
+                peakVisibilityMode: PeakVisibilityMode.showPeaks,
                 peaks: [
                   Peak(
                     osmId: 6406,
@@ -51,9 +52,11 @@ void main() {
               correlatedPeakIds: {6406},
             ),
           ),
-          peakMapClusterDisplaySettingsProvider.overrideWith(
-            _StaticPeakMapClusterDisplayNotifier.new,
-          ),
+          peakListSelectionRefreshSchedulerProvider.overrideWithValue((
+            task,
+          ) async {
+            await task();
+          }),
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
@@ -87,6 +90,7 @@ void main() {
                 center: const LatLng(-43.0, 147.0),
                 zoom: 8,
                 basemap: Basemap.tracestrack,
+                peakVisibilityMode: PeakVisibilityMode.showPeakClusters,
                 peaks: [
                   Peak(
                     osmId: 6406,
@@ -105,9 +109,11 @@ void main() {
               correlatedPeakIds: {6406},
             ),
           ),
-          peakMapClusterDisplaySettingsProvider.overrideWith(
-            _StaticPeakMapClusterDisplayOnNotifier.new,
-          ),
+          peakListSelectionRefreshSchedulerProvider.overrideWithValue((
+            task,
+          ) async {
+            await task();
+          }),
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
@@ -140,6 +146,7 @@ void main() {
                   center: const LatLng(-43.0, 147.0),
                   zoom: 8,
                   basemap: Basemap.tracestrack,
+                  peakVisibilityMode: PeakVisibilityMode.showPeakClusters,
                   peaks: [
                     Peak(
                       osmId: 6406,
@@ -158,9 +165,11 @@ void main() {
                 correlatedPeakIds: {7000},
               ),
             ),
-            peakMapClusterDisplaySettingsProvider.overrideWith(
-              _StaticPeakMapClusterDisplayOnNotifier.new,
-            ),
+            peakListSelectionRefreshSchedulerProvider.overrideWithValue((
+              task,
+            ) async {
+              await task();
+            }),
             peakOwnershipRingSettingsProvider.overrideWith(
               _StaticPeakOwnershipRingOffNotifier.new,
             ),
@@ -204,18 +213,156 @@ void main() {
       expect(find.byKey(const Key('peak-cluster-count-0')), findsOneWidget);
     },
   );
-}
 
-class _StaticPeakMapClusterDisplayNotifier
-    extends PeakMapClusterDisplaySettingsNotifier {
-  @override
-  bool build() => false;
-}
+  testWidgets(
+    'hidden peak visibility mode skips peak provider work and map tap hit testing',
+    (tester) async {
+      final repository = await TestTasmapRepository.create();
 
-class _StaticPeakMapClusterDisplayOnNotifier
-    extends PeakMapClusterDisplaySettingsNotifier {
-  @override
-  bool build() => true;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mapProvider.overrideWith(
+              () => TestMapNotifier(
+                MapState(
+                  center: const LatLng(-43.0, 147.0),
+                  zoom: 8,
+                  basemap: Basemap.tracestrack,
+                  peakVisibilityMode: PeakVisibilityMode.hidePeaks,
+                  peakListSelectionMode: PeakListSelectionMode.none,
+                  peaks: [
+                    Peak(
+                      osmId: 6406,
+                      name: 'Bonnet Hill',
+                      latitude: -43.0,
+                      longitude: 147.0,
+                    ),
+                  ],
+                ),
+                correlatedPeakIds: {6406},
+              ),
+            ),
+            peakListSelectionRefreshSchedulerProvider.overrideWithValue((
+              task,
+            ) async {
+              await task();
+            }),
+            filteredPeaksProvider.overrideWith((ref) {
+              throw StateError('filteredPeaksProvider should not be watched');
+            }),
+            peakMarkerColourAssignmentsProvider.overrideWith((ref) {
+              throw StateError(
+                'peakMarkerColourAssignmentsProvider should not be watched',
+              );
+            }),
+            peakActiveOwnershipSegmentsProvider.overrideWith((ref) {
+              throw StateError(
+                'peakActiveOwnershipSegmentsProvider should not be watched',
+              );
+            }),
+            peakOwnershipRingSegmentsProvider.overrideWith((ref) {
+              throw StateError(
+                'peakOwnershipRingSegmentsProvider should not be watched',
+              );
+            }),
+            peakListRepositoryProvider.overrideWithValue(
+              PeakListRepository.test(InMemoryPeakListStorage()),
+            ),
+            tasmapStateProvider.overrideWith(
+              () => TestTasmapNotifier(repository),
+            ),
+            tasmapRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: const MaterialApp(home: MapScreen()),
+        ),
+      );
+
+      await tester.pump();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
+      expect(find.byKey(const Key('peak-cluster-layer')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('map-interaction-region')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'low zoom keeps peak layers hidden while the visibility mode changes',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final repository = await TestTasmapRepository.create();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            mapProvider.overrideWith(
+              () => TestMapNotifier(
+                MapState(
+                  center: const LatLng(-43.0, 147.0),
+                  zoom: MapConstants.peakMinZoom - 1,
+                  basemap: Basemap.tracestrack,
+                  peakVisibilityMode: PeakVisibilityMode.showPeakClusters,
+                  peaks: [
+                    Peak(
+                      osmId: 6406,
+                      name: 'Bonnet Hill',
+                      latitude: -43.0,
+                      longitude: 147.0,
+                    ),
+                  ],
+                ),
+                correlatedPeakIds: {6406},
+              ),
+            ),
+            peakListSelectionRefreshSchedulerProvider.overrideWithValue((
+              task,
+            ) async {
+              await task();
+            }),
+            peakListRepositoryProvider.overrideWithValue(
+              PeakListRepository.test(InMemoryPeakListStorage()),
+            ),
+            tasmapStateProvider.overrideWith(
+              () => TestTasmapNotifier(repository),
+            ),
+            tasmapRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: const MaterialApp(home: MapScreen()),
+        ),
+      );
+
+      await tester.pump();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(MapScreen)),
+      );
+      expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
+      expect(find.byKey(const Key('peak-cluster-layer')), findsNothing);
+
+      final peakVisibilityFab = find.byKey(
+        const Key('peak-visibility-mode-fab'),
+      );
+      await tester.ensureVisible(peakVisibilityFab);
+      await tester.pumpAndSettle();
+      await tester.tap(peakVisibilityFab);
+      await tester.pump();
+
+      expect(
+        container.read(mapProvider).peakVisibilityMode,
+        PeakVisibilityMode.showPeaks,
+      );
+      expect(find.byKey(const Key('peak-marker-layer')), findsNothing);
+      expect(find.byKey(const Key('peak-cluster-layer')), findsNothing);
+    },
+  );
 }
 
 class _StaticPeakOwnershipRingOffNotifier

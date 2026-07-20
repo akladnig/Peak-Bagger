@@ -116,6 +116,10 @@ _Avoid_: screen-local task, blocking import/export
 The segmented ring drawn around a peak marker or peak cluster to show visible peak-list ownership in map rendering.
 _Avoid_: list ring, ownership halo
 
+**Peak visibility mode**:
+The main-map three-state peak display control that chooses between hidden peaks, individual peak markers, and peak clusters.
+_Avoid_: peak cluster setting, show peaks FAB when referring to the full three-state behavior
+
 **Peak duplicate resolution**:
 An ObjectBox Admin peak-maintenance workflow that reassigns app-owned references from a duplicate `Peak` to one surviving canonical `Peak` before deleting the duplicate row.
 _Avoid_: plain delete when the peak is being replaced

@@ -184,6 +184,65 @@ final peakMarkerColourAssignmentsProvider = Provider<Map<int, int>>((ref) {
   return ref.watch(_peakListSelectionDerivedStateProvider).peakMarkerColours;
 });
 
+class PeakViewportSelectionData {
+  const PeakViewportSelectionData({
+    required this.filteredPeaks,
+    required this.activeOwnershipSegments,
+    required this.ownershipRingSegments,
+    required this.peakMarkerColours,
+  });
+
+  final List<Peak> filteredPeaks;
+  final Map<int, List<PeakOwnershipRingSegment>> activeOwnershipSegments;
+  final Map<int, List<PeakOwnershipRingSegment>> ownershipRingSegments;
+  final Map<int, int> peakMarkerColours;
+}
+
+PeakViewportSelectionData buildPeakViewportSelectionData({
+  required PeakListSelectionMode peakListSelectionMode,
+  required Set<int> selectedPeakListIds,
+  required Map<String, Set<int>> pinnedPeakListIdsByRegion,
+  required LatLngBounds? visibleBounds,
+  required List<Peak> peaks,
+  required List<PeakList> peakLists,
+  required PeakRatingFilterOption ratingFilter,
+  required PeakDifficultyFilterOption? difficultyFilter,
+  required PeakDurationFilterOption durationFilter,
+  required bool showPeakOwnershipRings,
+  required PeakListRepository repo,
+}) {
+  final derivedState = _buildDerivedState(
+    inputs: (
+      peakListSelectionMode: peakListSelectionMode,
+      selectedPeakListIds: selectedPeakListIds,
+      pinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion,
+      visibleBounds: visibleBounds,
+      peaks: peaks,
+      peakLists: peakLists,
+      revision: 0,
+    ),
+    repo: repo,
+  );
+
+  final filteredPeaks = derivedState.metadataFilterScopePeaks
+      .where((peak) {
+        return peakMatchesRatingFilter(peak, ratingFilter) &&
+            peakMatchesDifficultyFilter(peak, difficultyFilter) &&
+            peakMatchesDurationFilter(peak, durationFilter);
+      })
+      .toList(growable: false);
+
+  return PeakViewportSelectionData(
+    filteredPeaks: filteredPeaks,
+    activeOwnershipSegments: derivedState.activeOwnershipSegments,
+    ownershipRingSegments: _buildOwnershipRingSegments(
+      activeOwnershipSegments: derivedState.activeOwnershipSegments,
+      showPeakOwnershipRings: showPeakOwnershipRings,
+    ),
+    peakMarkerColours: derivedState.peakMarkerColours,
+  );
+}
+
 class MapPeakListDrawerEntry {
   const MapPeakListDrawerEntry({
     required this.peakList,
@@ -212,52 +271,35 @@ class _PeakListSelectionDerivedState {
   final Map<int, int> peakMarkerColours;
 }
 
-class _PeakListSelectionDerivedStateNotifier
-    extends Notifier<_PeakListSelectionDerivedState> {
-  int _refreshSerial = 0;
-
-  @override
-  _PeakListSelectionDerivedState build() {
-    ref.listen<_PeakListSelectionRefreshInputs>(
-      _peakListSelectionRefreshInputsProvider,
-      (previous, next) {
-        _scheduleRefresh(next);
-      },
-    );
-
-    return _buildDerivedState(
-      inputs: ref.read(_peakListSelectionRefreshInputsProvider),
-      repo: ref.read(peakListRepositoryProvider),
-    );
+Map<int, List<PeakOwnershipRingSegment>> _buildOwnershipRingSegments({
+  required Map<int, List<PeakOwnershipRingSegment>> activeOwnershipSegments,
+  required bool showPeakOwnershipRings,
+}) {
+  if (!showPeakOwnershipRings) {
+    return const <int, List<PeakOwnershipRingSegment>>{};
   }
 
-  void _scheduleRefresh(_PeakListSelectionRefreshInputs inputs) {
-    final refreshSerial = ++_refreshSerial;
-    final scheduleRefresh = ref.read(peakListSelectionRefreshSchedulerProvider);
-    unawaited(
-      scheduleRefresh(() {
-        if (!ref.mounted) {
-          return;
-        }
+  final segmentsByPeakId = <int, List<PeakOwnershipRingSegment>>{};
+  for (final entry in activeOwnershipSegments.entries) {
+    if (entry.value.length < 2) {
+      continue;
+    }
+    segmentsByPeakId[entry.key] = entry.value;
+  }
 
-        try {
-          final nextState = _buildDerivedState(
-            inputs: inputs,
-            repo: ref.read(peakListRepositoryProvider),
-          );
-          if (!ref.mounted || refreshSerial != _refreshSerial) {
-            return;
-          }
-          state = nextState;
-        } catch (error, stackTrace) {
-          developer.log(
-            'Failed to refresh map peak-list derived state.',
-            error: error,
-            stackTrace: stackTrace,
-            name: 'peak_list_selection_provider',
-          );
-        }
-      }),
+  return Map<int, List<PeakOwnershipRingSegment>>.unmodifiable(
+    segmentsByPeakId,
+  );
+}
+
+class _PeakListSelectionDerivedStateNotifier
+    extends Notifier<_PeakListSelectionDerivedState> {
+  @override
+  _PeakListSelectionDerivedState build() {
+    final inputs = ref.watch(_peakListSelectionRefreshInputsProvider);
+    return _buildDerivedState(
+      inputs: inputs,
+      repo: ref.watch(peakListRepositoryProvider),
     );
   }
 }

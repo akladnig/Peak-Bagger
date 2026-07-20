@@ -30,10 +30,10 @@ import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
-import 'package:peak_bagger/providers/peak_map_cluster_display_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
@@ -187,13 +187,78 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _mapController = MapController();
     _mapNotifier = ref.read(mapProvider.notifier);
     _mapChartHoverNotifier = ref.read(mapChartHoverProvider.notifier);
+    ref.listenManual<
+      ({
+        bool isRouteDrafting,
+        List<RouteDraftDisplayMarker> routeDraftDisplayMarkers,
+        int routeDraftRequestId,
+      })
+    >(
+      mapProvider.select(
+        (state) => (
+          isRouteDrafting: state.isRouteDrafting,
+          routeDraftDisplayMarkers: state.routeDraftDisplayMarkers,
+          routeDraftRequestId: state.routeDraftRequestId,
+        ),
+      ),
+      (previous, next) {
+        final popupMarkerId = _routeDraftDeletePopupMarkerId;
+        if (popupMarkerId == null) {
+          return;
+        }
+
+        final markerStillVisible = next.routeDraftDisplayMarkers.any(
+          (marker) => marker.id == popupMarkerId,
+        );
+        if (!next.isRouteDrafting ||
+            !markerStillVisible ||
+            previous?.routeDraftDisplayMarkers !=
+                next.routeDraftDisplayMarkers ||
+            previous?.routeDraftRequestId != next.routeDraftRequestId) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _dismissRouteDraftMarkerDeletePopup();
+            }
+          });
+        }
+      },
+    );
+    ref.listenManual<bool>(mapProvider.select((state) => state.showTrails), (
+      previous,
+      next,
+    ) {
+      if (next && next != previous && mounted && _mapReady) {
+        unawaited(
+          _mapNotifier.prefetchRouteGraphVisibleBounds(
+            _mapController.camera.visibleBounds,
+          ),
+        );
+      }
+    });
+    ref.listenManual(routeListProvider, (previous, next) {
+      _mapNotifier.reconcileSelectedRouteState();
+    });
+    ref.listenManual<({int? selectedRouteId, int? selectedTrackId})>(
+      mapProvider.select(
+        (state) => (
+          selectedRouteId: state.selectedRouteId,
+          selectedTrackId: state.selectedTrackId,
+        ),
+      ),
+      (previous, next) {
+        if (previous != next) {
+          ref.read(mapChartHoverProvider.notifier).clear();
+        }
+      },
+    );
     _searchFocusNode.addListener(_onSearchFocusChange);
     _gotoFocusNode.addListener(_onGotoFocusChange);
-    Future.microtask(() {
-      if (mounted) {
-        _mapNotifier.reconcileSelectedTrackState();
-        _mapNotifier.reconcileSelectedRouteState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
       }
+      _mapNotifier.reconcileSelectedTrackState();
+      _mapNotifier.reconcileSelectedRouteState();
     });
   }
 
@@ -1088,7 +1153,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
       untickedPeakColours: ref.read(peakMarkerColourAssignmentsProvider),
       activeOwnershipSegments: ref.read(peakActiveOwnershipSegmentsProvider),
       ownershipRingSegments: ref.read(peakOwnershipRingSegmentsProvider),
-      clusteringEnabled: ref.read(peakMapClusterDisplaySettingsProvider),
+      clusteringEnabled: ref.read(
+        mapProvider.select((state) => state.peakClusteringEnabled),
+      ),
     );
   }
 
@@ -2065,43 +2132,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<
-      ({
-        bool isRouteDrafting,
-        List<RouteDraftDisplayMarker> routeDraftDisplayMarkers,
-        int routeDraftRequestId,
-      })
-    >(
-      mapProvider.select(
-        (state) => (
-          isRouteDrafting: state.isRouteDrafting,
-          routeDraftDisplayMarkers: state.routeDraftDisplayMarkers,
-          routeDraftRequestId: state.routeDraftRequestId,
-        ),
-      ),
-      (previous, next) {
-        final popupMarkerId = _routeDraftDeletePopupMarkerId;
-        if (popupMarkerId == null) {
-          return;
-        }
-
-        final markerStillVisible = next.routeDraftDisplayMarkers.any(
-          (marker) => marker.id == popupMarkerId,
-        );
-        if (!next.isRouteDrafting ||
-            !markerStillVisible ||
-            previous?.routeDraftDisplayMarkers !=
-                next.routeDraftDisplayMarkers ||
-            previous?.routeDraftRequestId != next.routeDraftRequestId) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _dismissRouteDraftMarkerDeletePopup();
-            }
-          });
-        }
-      },
-    );
-
     MapRebuildDebugCounters.recordRouteRootBuild();
     final routeChrome = ref.watch(
       mapProvider.select(
@@ -2347,8 +2377,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
             },
             body: Stack(
               children: [
-                Consumer(
-                  builder: (context, ref, child) {
+                Builder(
+                  builder: (context) {
                     final mapScene = ref.watch(
                       mapProvider.select(
                         (state) => (
@@ -2369,6 +2399,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           showTrails: state.showTrails,
                           showPeaks: state.showPeaks,
                           hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
+                          peaks: state.peaks,
                           tracks: state.tracks,
                           selectedTrackId: state.selectedTrackId,
                           selectedRouteId: state.selectedRouteId,
@@ -2393,26 +2424,67 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     final showPeakInfo = ref.watch(
                       peakMarkerInfoSettingsProvider,
                     );
-                    ref.watch(peakOwnershipRingSettingsProvider);
+                    final showPeakOwnershipRings = ref.watch(
+                      peakOwnershipRingSettingsProvider,
+                    );
                     final showPolygons = ref.watch(
                       showPolygonsSettingsProvider,
                     );
                     final polygonAssets = showPolygons
                         ? ref.watch(polygonAssetsProvider)
                         : null;
-                    final filteredPeaks = ref.watch(filteredPeaksProvider);
-                    final peakMarkerColours = ref.watch(
-                      peakMarkerColourAssignmentsProvider,
+                    final peakViewportSelectionInputs = ref.watch(
+                      mapProvider.select(
+                        (state) => (
+                          peakListSelectionMode: state.peakListSelectionMode,
+                          selectedPeakListIds: state.selectedPeakListIds,
+                          pinnedPeakListIdsByRegion:
+                              state.pinnedPeakListIdsByRegion,
+                          peakClusteringEnabled: state.peakClusteringEnabled,
+                        ),
+                      ),
                     );
-                    final activeOwnershipSegments = ref.watch(
-                      peakActiveOwnershipSegmentsProvider,
+                    final peakLists = ref.watch(peakListsProvider);
+                    final peakListRepository = ref.read(
+                      peakListRepositoryProvider,
                     );
-                    final ownershipRingSegments = ref.watch(
-                      peakOwnershipRingSegmentsProvider,
-                    );
-                    final clusteringEnabled = ref.watch(
-                      peakMapClusterDisplaySettingsProvider,
-                    );
+                    final shouldBuildPeakViewport =
+                        mapScene.showPeaks &&
+                        mapScene.zoom >= MapConstants.peakMinZoom;
+                    final peakViewportSelectionData = shouldBuildPeakViewport
+                        ? buildPeakViewportSelectionData(
+                            peakListSelectionMode: peakViewportSelectionInputs
+                                .peakListSelectionMode,
+                            selectedPeakListIds:
+                                peakViewportSelectionInputs.selectedPeakListIds,
+                            pinnedPeakListIdsByRegion:
+                                peakViewportSelectionInputs
+                                    .pinnedPeakListIdsByRegion,
+                            visibleBounds: mapScene.visibleBounds,
+                            peaks: mapScene.peaks,
+                            peakLists: peakLists,
+                            ratingFilter: routeChrome.peakRatingFilter,
+                            difficultyFilter: routeChrome.peakDifficultyFilter,
+                            durationFilter: routeChrome.peakDurationFilter,
+                            showPeakOwnershipRings: showPeakOwnershipRings,
+                            repo: peakListRepository,
+                          )
+                        : null;
+                    final filteredPeaks =
+                        peakViewportSelectionData?.filteredPeaks ??
+                        const <Peak>[];
+                    final peakMarkerColours =
+                        peakViewportSelectionData?.peakMarkerColours ??
+                        const <int, int>{};
+                    final activeOwnershipSegments =
+                        peakViewportSelectionData?.activeOwnershipSegments ??
+                        const <int, List<PeakOwnershipRingSegment>>{};
+                    final ownershipRingSegments =
+                        peakViewportSelectionData?.ownershipRingSegments ??
+                        const <int, List<PeakOwnershipRingSegment>>{};
+                    final clusteringEnabled = shouldBuildPeakViewport
+                        ? peakViewportSelectionInputs.peakClusteringEnabled
+                        : false;
                     final routes = ref.watch(routeListProvider);
                     final routeDraftSourceRouteId = ref.watch(
                       mapProvider.select((state) => state.sourceRouteId),
@@ -2420,34 +2492,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     final polygonLayer = _polygonAssetLayerFor(
                       showPolygons: showPolygons,
                       polygonAssets: polygonAssets,
-                    );
-                    ref.listen<bool>(
-                      mapProvider.select((state) => state.showTrails),
-                      (previous, next) {
-                        if (next && next != previous && mounted && _mapReady) {
-                          unawaited(
-                            _mapNotifier.prefetchRouteGraphVisibleBounds(
-                              _mapController.camera.visibleBounds,
-                            ),
-                          );
-                        }
-                      },
-                    );
-                    ref.listen(routeListProvider, (previous, next) {
-                      _mapNotifier.reconcileSelectedRouteState();
-                    });
-                    ref.listen<({int? selectedRouteId, int? selectedTrackId})>(
-                      mapProvider.select(
-                        (state) => (
-                          selectedRouteId: state.selectedRouteId,
-                          selectedTrackId: state.selectedTrackId,
-                        ),
-                      ),
-                      (previous, next) {
-                        if (previous != next) {
-                          ref.read(mapChartHoverProvider.notifier).clear();
-                        }
-                      },
                     );
                     final routeDraftVisibility = ref.watch(
                       mapProvider.select(
@@ -2488,15 +2532,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     final favouriteWaypoints = ref
                         .read(mapProvider.notifier)
                         .favouriteWaypoints();
-                    final peakViewportInputs = _PeakViewportInputs(
-                      peaks: filteredPeaks,
-                      correlatedPeakIds:
-                          ref.read(mapProvider.notifier).correlatedPeakIds,
-                      untickedPeakColours: peakMarkerColours,
-                      activeOwnershipSegments: activeOwnershipSegments,
-                      ownershipRingSegments: ownershipRingSegments,
-                      clusteringEnabled: clusteringEnabled,
-                    );
+                    final peakViewportInputs = shouldBuildPeakViewport
+                        ? _PeakViewportInputs(
+                            peaks: filteredPeaks,
+                            correlatedPeakIds: ref
+                                .read(mapProvider.notifier)
+                                .correlatedPeakIds,
+                            untickedPeakColours: peakMarkerColours,
+                            activeOwnershipSegments: activeOwnershipSegments,
+                            ownershipRingSegments: ownershipRingSegments,
+                            clusteringEnabled: clusteringEnabled,
+                          )
+                        : null;
                     _queueSelectedMapZoom(mapState);
                     _queueSelectedTrackZoom(mapState);
                     _queueSelectedRouteZoom(mapState, routes);
@@ -2796,11 +2843,20 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                             );
                                             return;
                                           }
+                                          final mapState = ref.read(
+                                            mapProvider,
+                                          );
+                                          final tappablePeaks =
+                                              mapState.showPeaks &&
+                                                  mapState.zoom >=
+                                                      MapConstants.peakMinZoom
+                                              ? ref.read(filteredPeaksProvider)
+                                              : const <Peak>[];
                                           final tappedCluster =
                                               _hitTestPeakCluster(
                                                 event.localPosition,
-                                                ref.read(mapProvider),
-                                                ref.read(filteredPeaksProvider),
+                                                mapState,
+                                                tappablePeaks,
                                               );
                                           if (tappedCluster != null) {
                                             _expandPeakCluster(tappedCluster);
@@ -2808,8 +2864,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                           }
                                           final tappedPeak = _hitTestPeak(
                                             event.localPosition,
-                                            ref.read(mapProvider),
-                                            ref.read(filteredPeaksProvider),
+                                            mapState,
+                                            tappablePeaks,
                                           );
                                           if (tappedPeak != null) {
                                             notifier.openPeakInfoPopup(
@@ -3179,10 +3235,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 })
                                                 .toList(growable: false),
                                           ),
-                                        if (mapScene.showPeaks &&
-                                            filteredPeaks.isNotEmpty &&
-                                            mapScene.zoom >=
-                                                MapConstants.peakMinZoom)
+                                        if (peakViewportInputs != null &&
+                                            filteredPeaks.isNotEmpty)
                                           Consumer(
                                             builder: (context, ref, child) {
                                               final peakUiState = ref.watch(
@@ -3205,11 +3259,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                     peakUiState.popupPeakId,
                                                 viewportData:
                                                     _buildPeakViewportData(
-                                                      peaks:
-                                                          peakViewportInputs.peaks,
+                                                      peaks: peakViewportInputs
+                                                          .peaks,
                                                       camera:
                                                           _mapController.camera,
-                                                      inputs: peakViewportInputs,
+                                                      inputs:
+                                                          peakViewportInputs,
                                                       allowContinuousMotionLag:
                                                           true,
                                                     ),

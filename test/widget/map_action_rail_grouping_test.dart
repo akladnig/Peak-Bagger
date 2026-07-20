@@ -46,9 +46,10 @@ void main() {
     );
     expect(
       _messagesFor(find.byKey(const Key('map-action-view-group')), tester),
-      containsAll(<String>[
+      equals(<String>[
         'Select Basemaps',
         'Show Map and MGRS Grid',
+        'Show Peaks',
         'Select Peak List',
         'Show Tracks/Routes (T)',
         'Show Trails',
@@ -66,9 +67,22 @@ void main() {
     );
     expect(find.byKey(const Key('drop-marker-fab')), findsOneWidget);
     expect(find.byKey(const Key('goto-favourite-fab')), findsOneWidget);
+    expect(find.byKey(const Key('peak-visibility-mode-fab')), findsOneWidget);
+    expect(find.byKey(const Key('show-peaks-fab')), findsOneWidget);
     expect(
       _messageForButton(find.byKey(const Key('map-info-fab')), tester),
       'Info',
+    );
+    expect(
+      _messageForButton(
+        find.byKey(const Key('peak-visibility-mode-fab')),
+        tester,
+      ),
+      'Show Peaks',
+    );
+    expect(
+      _messageForButton(find.byKey(const Key('show-peaks-fab')), tester),
+      'Select Peak List',
     );
 
     final createRouteFab = tester.widget<FloatingActionButton>(
@@ -82,9 +96,60 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      _iconForButton(const Key('peak-visibility-mode-fab'), tester),
+      Icons.landscape,
+    );
+    expect(
+      _iconForButton(const Key('show-peaks-fab'), tester),
+      Icons.collections,
+    );
 
     final container = ProviderScope.containerOf(
       tester.element(find.byType(MapActionRail)),
+    );
+
+    final peakVisibilityFab = find.byKey(const Key('peak-visibility-mode-fab'));
+    await tester.ensureVisible(peakVisibilityFab);
+    await tester.pumpAndSettle();
+    await tester.tap(peakVisibilityFab);
+    await tester.pump();
+    expect(
+      container.read(mapProvider).peakVisibilityMode,
+      PeakVisibilityMode.showPeaks,
+    );
+    expect(_messageForButton(peakVisibilityFab, tester), 'Hide Peaks');
+    expect(
+      find.descendant(of: peakVisibilityFab, matching: find.byType(SvgPicture)),
+      findsOneWidget,
+    );
+
+    await tester.tap(peakVisibilityFab);
+    await tester.pump();
+    expect(
+      container.read(mapProvider).peakVisibilityMode,
+      PeakVisibilityMode.hidePeaks,
+    );
+    expect(_messageForButton(peakVisibilityFab, tester), 'Show Peak Clusters');
+    expect(
+      _iconForButton(const Key('peak-visibility-mode-fab'), tester),
+      Icons.donut_large_outlined,
+    );
+    expect(
+      find.descendant(of: peakVisibilityFab, matching: find.byType(SvgPicture)),
+      findsNothing,
+    );
+
+    await tester.tap(peakVisibilityFab);
+    await tester.pump();
+    expect(
+      container.read(mapProvider).peakVisibilityMode,
+      PeakVisibilityMode.showPeakClusters,
+    );
+    expect(_messageForButton(peakVisibilityFab, tester), 'Show Peaks');
+    expect(
+      _iconForButton(const Key('peak-visibility-mode-fab'), tester),
+      Icons.landscape,
     );
 
     await tester.ensureVisible(find.byKey(const Key('grid-map-fab')));
@@ -262,4 +327,12 @@ String _messageForButton(Finder finder, WidgetTester tester) {
         find.ancestor(of: finder, matching: find.byType(LeftTooltipFab)),
       )
       .message;
+}
+
+IconData _iconForButton(Key key, WidgetTester tester) {
+  return tester
+      .widget<Icon>(
+        find.descendant(of: find.byKey(key), matching: find.byType(Icon)).first,
+      )
+      .icon!;
 }
