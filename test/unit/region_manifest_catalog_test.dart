@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
+import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/manifest_priority.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
@@ -33,6 +34,7 @@ void main() {
         'nswTopo',
         'sloveniaTopo',
         'fvgTopo',
+        'localTopo',
       ],
     );
   });
@@ -334,6 +336,7 @@ void main() {
     );
     expect(mapTileUrl(Basemap.sloveniaTopo), sloveniaTopoDebugTileUrl);
     expect(mapTileUrl(Basemap.fvgTopo), fvgTopoDebugTileUrl);
+    expect(mapTileUrl(Basemap.localTopo), localTopoPlaceholderTileUrl);
   });
 
   test('Slovenia topo uses the proxy tile layer config', () {

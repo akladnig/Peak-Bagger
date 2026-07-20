@@ -1,5 +1,6 @@
 import 'package:flutter_map/src/geo/latlng_bounds.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/manifest_priority.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
 
@@ -18,6 +19,7 @@ bool get hasTracestrackApiKey => tracestrackApiKey.trim().isNotEmpty;
 bool isBasemapAvailable(Basemap basemap) {
   return switch (basemap) {
     Basemap.mapyCz => hasMapyCzApiKey,
+    Basemap.localTopo => localTopoRuntime.hasCapabilitySnapshot,
     _ => true,
   };
 }

@@ -8,6 +8,7 @@ import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/map_grid_geometry.dart';
 import 'package:peak_bagger/services/map_ruler_scale.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
@@ -52,6 +53,11 @@ String mapTileUrl(Basemap basemap) {
 
   if (basemap == Basemap.fvgTopo && !kReleaseMode) {
     return fvgTopoDebugTileUrl;
+  }
+
+  if (basemap == Basemap.localTopo) {
+    return localTopoRuntime.resolvedTileUrlTemplate() ??
+        localTopoPlaceholderTileUrl;
   }
 
   return regionManifestCatalog.basemapByKey(basemap.name)?.tileUrl ??

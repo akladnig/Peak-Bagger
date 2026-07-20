@@ -22,6 +22,18 @@ const _postBaselineBasemapOrder = <String>[
   'nswTopo',
   'sloveniaTopo',
   'fvgTopo',
+  'localTopo',
+];
+
+const _appOwnedBasemaps = <_BasemapDefinition>[
+  _BasemapDefinition(
+    key: 'localTopo',
+    name: 'Local Topo',
+    tileUrl: 'https://local-topo.invalid/{z}/{x}/{y}.png',
+    attribution: 'OpenStreetMap contributors and State of Tasmania',
+    maxZoom: 18,
+    coveragePolygons: [],
+  ),
 ];
 
 void main(List<String> args) {
@@ -139,15 +151,22 @@ void main(List<String> args) {
     );
   }
 
+  final mergedBasemapDefinitions = _mergeAppOwnedBasemaps(basemapDefinitions);
+
   final orderedBasemapKeys = <String>[
     for (final key in _baselineBasemapOrder)
-      if (basemapDefinitions.containsKey(key)) key,
+      if (mergedBasemapDefinitions.containsKey(key)) key,
     for (final key in _postBaselineBasemapOrder)
-      if (basemapDefinitions.containsKey(key)) key,
+      if (mergedBasemapDefinitions.containsKey(key)) key,
     for (final key in seenBasemapOrder)
       if (!_baselineBasemapOrder.contains(key) &&
           !_postBaselineBasemapOrder.contains(key))
         key,
+    for (final basemap in _appOwnedBasemaps)
+      if (!_baselineBasemapOrder.contains(basemap.key) &&
+          !_postBaselineBasemapOrder.contains(basemap.key) &&
+          !seenBasemapOrder.contains(basemap.key))
+        basemap.key,
   ];
 
   final buffer = StringBuffer()
@@ -168,7 +187,7 @@ void main(List<String> args) {
     ..writeln('  basemaps: [');
 
   for (final key in orderedBasemapKeys) {
-    final basemap = basemapDefinitions[key]!;
+    final basemap = mergedBasemapDefinitions[key]!;
     buffer
       ..writeln('    RegionManifestBasemapData(')
       ..writeln('      key: ${_stringLiteral(basemap.key)},')
@@ -246,6 +265,24 @@ void main(List<String> args) {
   final outputFile = File(_outputPath);
   outputFile.parent.createSync(recursive: true);
   outputFile.writeAsStringSync(buffer.toString());
+}
+
+Map<String, _BasemapDefinition> _mergeAppOwnedBasemaps(
+  Map<String, _BasemapDefinition> basemapDefinitions,
+) {
+  final merged = <String, _BasemapDefinition>{...basemapDefinitions};
+  for (final basemap in _appOwnedBasemaps) {
+    final existing = merged[basemap.key];
+    if (existing == null) {
+      merged[basemap.key] = basemap;
+      continue;
+    }
+
+    if (!existing.isCompatibleWith(basemap)) {
+      throw StateError('App-owned basemap key conflict for ${basemap.key}');
+    }
+  }
+  return merged;
 }
 
 List<dynamic> _readList(dynamic value, String field, String regionKey) {
