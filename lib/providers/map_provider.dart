@@ -922,8 +922,16 @@ class MapState {
     };
   }
 
-  String get peakVisibilityTooltipMessage {
+  PeakVisibilityMode get nextPeakVisibilityMode {
     return switch (peakVisibilityMode) {
+      PeakVisibilityMode.showPeakClusters => PeakVisibilityMode.showPeaks,
+      PeakVisibilityMode.showPeaks => PeakVisibilityMode.hidePeaks,
+      PeakVisibilityMode.hidePeaks => PeakVisibilityMode.showPeakClusters,
+    };
+  }
+
+  String get peakVisibilityTooltipMessage {
+    return switch (nextPeakVisibilityMode) {
       PeakVisibilityMode.showPeakClusters => 'Show Peak Clusters',
       PeakVisibilityMode.showPeaks => 'Show Peaks',
       PeakVisibilityMode.hidePeaks => 'Hide Peaks',

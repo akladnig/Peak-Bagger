@@ -65,6 +65,8 @@ class MapActionRail extends ConsumerWidget {
       :hasTrackRecoveryIssue,
       :isRouteDrafting,
       :gridTooltipMessage,
+      :nextPeakVisibilityMode,
+      :peakVisibilityTooltipMessage,
     ) = ref.watch(
       mapProvider.select(
         (state) => (
@@ -72,6 +74,8 @@ class MapActionRail extends ConsumerWidget {
           hasTrackRecoveryIssue: state.hasTrackRecoveryIssue,
           isRouteDrafting: state.isRouteDrafting,
           gridTooltipMessage: state.mapGridTooltipMessage,
+          nextPeakVisibilityMode: state.nextPeakVisibilityMode,
+          peakVisibilityTooltipMessage: state.peakVisibilityTooltipMessage,
         ),
       ),
     );
@@ -215,6 +219,25 @@ class MapActionRail extends ConsumerWidget {
                       ),
                       const SizedBox(height: UiConstants.railSpacing),
                       LeftTooltipFab(
+                        message: peakVisibilityTooltipMessage,
+                        child: FloatingActionButton.small(
+                          key: const Key('peak-visibility-mode-fab'),
+                          heroTag: 'peak-visibility-mode',
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.surface,
+                          onPressed: () {
+                            ref
+                                .read(mapProvider.notifier)
+                                .cyclePeakVisibilityMode();
+                          },
+                          child: _PeakVisibilityFabIcon(
+                            mode: nextPeakVisibilityMode,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: UiConstants.railSpacing),
+                      LeftTooltipFab(
                         message: 'Select Peak List',
                         child: FloatingActionButton.small(
                           key: const Key('show-peaks-fab'),
@@ -238,7 +261,7 @@ class MapActionRail extends ConsumerWidget {
                             Scaffold.of(context).openEndDrawer();
                           },
                           child: Icon(
-                            Icons.landscape,
+                            Icons.collections,
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
@@ -666,6 +689,30 @@ class MapActionRail extends ConsumerWidget {
         final warning => <String>[warning],
       },
     ];
+  }
+}
+
+class _PeakVisibilityFabIcon extends StatelessWidget {
+  const _PeakVisibilityFabIcon({required this.mode});
+
+  final PeakVisibilityMode mode;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconColor = Theme.of(context).colorScheme.onSurface;
+    return switch (mode) {
+      PeakVisibilityMode.showPeakClusters => Icon(
+        Icons.donut_large_outlined,
+        color: iconColor,
+      ),
+      PeakVisibilityMode.showPeaks => Icon(Icons.landscape, color: iconColor),
+      PeakVisibilityMode.hidePeaks => SvgPicture.asset(
+        'assets/svg/landscape_slash.svg',
+        width: 24,
+        height: 24,
+        colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+      ),
+    };
   }
 }
 
