@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const capabilitiesFileUrl = new URL('../fixtures/capabilities.json', import.meta.url);
@@ -38,13 +39,57 @@ function buildTileserverStyleTileUrl({
   );
 }
 
+function resolveStaticTilePath(staticTileRoot, requestPathname) {
+  const rootPath = resolve(staticTileRoot);
+  const relativePath = requestPathname.startsWith('/')
+    ? requestPathname.slice(1)
+    : requestPathname;
+  const tilePath = resolve(rootPath, relativePath);
+
+  if (tilePath !== rootPath && !tilePath.startsWith(`${rootPath}${sep}`)) {
+    return null;
+  }
+
+  return tilePath;
+}
+
+async function serveStaticTile({ response, staticTileRoot, requestPathname }) {
+  const tilePath = resolveStaticTilePath(staticTileRoot, requestPathname);
+  if (tilePath == null) {
+    json(response, 404, { error: 'not-found' });
+    return;
+  }
+
+  try {
+    const body = await readFile(tilePath);
+    response.writeHead(200, {
+      'content-type': 'image/png',
+      'cache-control': 'public, max-age=300',
+    });
+    response.end(body);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      (error.code === 'ENOENT' || error.code === 'ENOTDIR')
+    ) {
+      json(response, 404, { error: 'not-found' });
+      return;
+    }
+
+    throw error;
+  }
+}
+
 export async function createApp({
   capabilities,
   tileserverInternalUrl = process.env.TILESERVER_INTERNAL_URL ?? 'http://127.0.0.1:8080',
+  staticTileRoot = process.env.LOCAL_TOPO_STATIC_TILE_ROOT ?? '',
   dataSetId = process.env.TILESERVER_DATASET_ID ?? defaultDataSetId,
   styleId = process.env.TILESERVER_STYLE_ID ?? '',
 } = {}) {
   const resolvedCapabilities = capabilities ?? (await loadCapabilities());
+  const trimmedStaticTileRoot = staticTileRoot.trim();
   const trimmedStyleId = styleId.trim();
 
   return async function app(request, response) {
@@ -74,6 +119,15 @@ export async function createApp({
     const [, z, x, y] = tileMatch;
 
     try {
+      if (trimmedStaticTileRoot.length > 0) {
+        await serveStaticTile({
+          response,
+          staticTileRoot: trimmedStaticTileRoot,
+          requestPathname: requestUrl.pathname,
+        });
+        return;
+      }
+
       const tileResponse = await fetch(
         trimmedStyleId.length === 0
             ? buildTileserverTileUrl({

@@ -1,8 +1,13 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 
 import { createApp, startServer } from '../server/app.mjs';
+
+const pngFixture = Buffer.from('89504E470D0A1A0A', 'hex');
 
 function listen(server) {
   return new Promise((resolve) => {
@@ -22,6 +27,13 @@ async function closeServer(server) {
       resolve();
     });
   });
+}
+
+async function makeStaticTileRoot() {
+  const root = await mkdtemp(join(tmpdir(), 'peak-bagger-local-topo-'));
+  await mkdir(join(root, 'tasmania', 'local-topo', '0', '0'), { recursive: true });
+  await writeFile(join(root, 'tasmania', 'local-topo', '0', '0', '0.png'), pngFixture);
+  return root;
 }
 
 test('GET /capabilities returns the committed v1 contract without auth', async () => {
@@ -67,7 +79,7 @@ test('Tasmania tile route proxies to the deterministic tileserver path without a
     seenPath = request.url;
     seenAuthorization = request.headers.authorization ?? null;
     response.writeHead(200, { 'content-type': 'image/png' });
-    response.end(Buffer.from('89504E470D0A1A0A', 'hex'));
+    response.end(pngFixture);
   });
 
   const backendAddress = await listen(backend);
@@ -103,7 +115,7 @@ test('Tasmania tile route can proxy rendered style tiles without auth', async ()
     seenPath = request.url;
     seenAuthorization = request.headers.authorization ?? null;
     response.writeHead(200, { 'content-type': 'image/png' });
-    response.end(Buffer.from('89504E470D0A1A0A', 'hex'));
+    response.end(pngFixture);
   });
 
   const backendAddress = await listen(backend);
@@ -136,5 +148,81 @@ test('Tasmania tile route can proxy rendered style tiles without auth', async ()
   } finally {
     await closeServer(gateway);
     await closeServer(backend);
+  }
+});
+
+test('Tasmania tile route serves static prerendered tiles without backend fallback', async () => {
+  let backendRequests = 0;
+
+  const backend = createServer((_request, response) => {
+    backendRequests += 1;
+    response.writeHead(200, { 'content-type': 'image/png' });
+    response.end(pngFixture);
+  });
+
+  const backendAddress = await listen(backend);
+  const backendBaseUrl = `http://127.0.0.1:${backendAddress.port}`;
+  const staticTileRoot = await makeStaticTileRoot();
+
+  const app = await createApp({
+    staticTileRoot,
+    styleId: 'tasmania-local-topo',
+    tileserverInternalUrl: backendBaseUrl,
+  });
+  const gateway = createServer((request, response) => {
+    void app(request, response);
+  });
+  const gatewayAddress = await listen(gateway);
+
+  try {
+    const baseUrl = `http://127.0.0.1:${gatewayAddress.port}`;
+    const response = await fetch(new URL('/tasmania/local-topo/0/0/0.png', baseUrl));
+
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type') ?? '', /^image\/png/);
+    await response.arrayBuffer();
+
+    assert.equal(backendRequests, 0);
+  } finally {
+    await closeServer(gateway);
+    await closeServer(backend);
+    await rm(staticTileRoot, { force: true, recursive: true });
+  }
+});
+
+test('Tasmania static delivery returns 404 for missing prerendered tiles without on-demand fallback', async () => {
+  let backendRequests = 0;
+
+  const backend = createServer((_request, response) => {
+    backendRequests += 1;
+    response.writeHead(200, { 'content-type': 'image/png' });
+    response.end(pngFixture);
+  });
+
+  const backendAddress = await listen(backend);
+  const backendBaseUrl = `http://127.0.0.1:${backendAddress.port}`;
+  const staticTileRoot = await mkdtemp(join(tmpdir(), 'peak-bagger-local-topo-empty-'));
+
+  const app = await createApp({
+    staticTileRoot,
+    styleId: 'tasmania-local-topo',
+    tileserverInternalUrl: backendBaseUrl,
+  });
+  const gateway = createServer((request, response) => {
+    void app(request, response);
+  });
+  const gatewayAddress = await listen(gateway);
+
+  try {
+    const baseUrl = `http://127.0.0.1:${gatewayAddress.port}`;
+    const response = await fetch(new URL('/tasmania/local-topo/0/0/0.png', baseUrl));
+
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: 'not-found' });
+    assert.equal(backendRequests, 0);
+  } finally {
+    await closeServer(gateway);
+    await closeServer(backend);
+    await rm(staticTileRoot, { force: true, recursive: true });
   }
 });

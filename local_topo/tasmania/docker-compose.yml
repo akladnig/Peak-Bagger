@@ -5,6 +5,7 @@ services:
     command: ["node", "server/app.mjs"]
     environment:
       PORT: "8080"
+      LOCAL_TOPO_STATIC_TILE_ROOT: "${LOCAL_TOPO_STATIC_TILE_ROOT:-}"
       TILESERVER_INTERNAL_URL: "http://tileserver:8080"
       TILESERVER_DATASET_ID: "${TILESERVER_DATASET_ID:-tasmania-local-topo-smoke}"
       TILESERVER_STYLE_ID: "${TILESERVER_STYLE_ID:-}"

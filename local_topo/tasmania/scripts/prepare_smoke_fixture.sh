@@ -6,9 +6,14 @@ source "$script_dir/_common.sh"
 
 ensure_stack_dirs
 
+mkdir -p "$(dirname "$smoke_static_tile_path")"
+perl -e 'print pack("H*", shift)' "$smoke_png_hex" > "$smoke_static_tile_path"
+
+printf 'Prepared static smoke fixture: %s\n' "$smoke_static_tile_path"
+
 if ! command -v sqlite3 >/dev/null 2>&1; then
-  printf 'Missing required command: sqlite3\n' >&2
-  exit 1
+  printf 'Skipping MBTiles smoke fixture because sqlite3 is unavailable\n'
+  exit 0
 fi
 
 rm -f "$smoke_mbtiles_path"
@@ -28,4 +33,4 @@ sqlite3 "$smoke_mbtiles_path" \
   "CREATE UNIQUE INDEX tile_index ON tiles (zoom_level, tile_column, tile_row);" \
   "INSERT INTO tiles VALUES (0, 0, 0, X'$smoke_png_hex');"
 
-printf 'Prepared smoke fixture: %s\n' "$smoke_mbtiles_path"
+printf 'Prepared MBTiles smoke fixture: %s\n' "$smoke_mbtiles_path"
