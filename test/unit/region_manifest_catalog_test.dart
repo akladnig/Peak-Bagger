@@ -339,6 +339,16 @@ void main() {
     expect(mapTileUrl(Basemap.localTopo), localTopoPlaceholderTileUrl);
   });
 
+  test('Local Topo metadata stays app-owned and caps native zoom at 16', () {
+    final basemap = regionManifestCatalog.basemapByKey(Basemap.localTopo.name);
+
+    expect(basemap, isNotNull);
+    expect(basemap!.name, 'Local Topo');
+    expect(basemap.tileUrl, localTopoPlaceholderTileUrl);
+    expect(basemap.maxZoom, 16);
+    expect(buildBasemapTileLayer(Basemap.localTopo).maxNativeZoom, 16);
+  });
+
   test('Slovenia topo uses the proxy tile layer config', () {
     final layer = buildBasemapTileLayer(Basemap.sloveniaTopo);
 

@@ -21,6 +21,10 @@
     "tasmania-osm": {
       "mbtiles": "output/tasmania-osm.mbtiles"
     },
+    "tasmania-relief": {
+      "mbtiles": "output/tasmania-relief.mbtiles",
+      "tileSize": 256
+    },
     "tasmania-contours": {
       "mbtiles": "output/tasmania-contours.mbtiles"
     }

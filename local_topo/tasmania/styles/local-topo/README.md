@@ -9,4 +9,4 @@ Use `Maputnik` as the developer-only authoring tool for this file.
 - Commit the exported style JSON back into this directory.
 - If you add symbol or icon layers later, commit the required sprite and glyph assets under `sprites/` and `fonts/` in the same change.
 
-The current v1 style intentionally avoids symbol and icon layers so the stack can stay focused on the exact server contract first.
+The richer Tasmania style now uses committed `fonts/Roboto Regular/*.pbf` glyph assets and still avoids sprite-backed icons so `Local Topo` remains the sole basemap presentation layer.

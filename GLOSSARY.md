@@ -88,13 +88,21 @@ _Avoid_: peak search when referring to the popup flow
 The `MapScreen` filter control for peak metadata such as rating, difficulty, and duration.
 _Avoid_: peak list filter when referring to metadata dropdowns
 
+**Local Topo tile source**:
+A project-managed source for app-consumable `Local Topo` raster `XYZ` tiles, whether backed by on-demand rendering or pre-rendered static tile output.
+_Avoid_: treating the broader delivery concept as server-only, Flutter-embedded renderer
+
 **Local tile server**:
-A project-managed HTTP service that serves app-consumable `XYZ` map tiles for one or more managed regions and may run on a laptop, mini PC, NAS, or localhost during development.
-_Avoid_: Flutter-embedded renderer, localhost-only basemap
+A project-managed HTTP service that serves app-consumable `XYZ` map tiles for one or more managed regions as one possible `Local Topo tile source` implementation, and may run on a laptop, mini PC, NAS, or localhost during development.
+_Avoid_: using this term for static pre-rendered tile delivery in general, localhost-only basemap
 
 **Local Topo**:
 The app-owned basemap label for the project-managed locally hosted topographic `XYZ` source rendered from the canonical style and region-scoped source data.
 _Avoid_: style editor, vector basemap, user-custom basemap
+
+**Terrain relief shading**:
+A raster shaded-relief treatment derived from DEM elevation and blended into `Local Topo` to create terrain depth in a north-up 2D basemap.
+_Avoid_: true 3D terrain, pitched map camera, extruded terrain
 
 **Local tile server base URL**:
 The user-configured Settings value that points `Peak Bagger` at the root HTTP host for project-managed local topo basemap routes.

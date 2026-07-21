@@ -4,17 +4,50 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/_common.sh"
 
+mode="static"
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --mode=*)
+      mode="${1#--mode=}"
+      ;;
+    --mode)
+      shift
+      mode="$1"
+      ;;
+    *)
+      printf 'Unknown argument: %s\n' "$1" >&2
+      exit 1
+      ;;
+  esac
+  shift
+done
+
+if [ "$mode" != "static" ] && [ "$mode" != "preview" ]; then
+  printf 'Unsupported mode: %s\n' "$mode" >&2
+  exit 1
+fi
+
 "$script_dir/prepare_smoke_fixture.sh"
 
+unset LOCAL_TOPO_STATIC_TILE_ROOT
 unset TILESERVER_STYLE_ID
 unset TILESERVER_DATASET_ID
 
-if [ -f "$output_dir/tasmania-osm.mbtiles" ] && [ -f "$output_dir/tasmania-contours.mbtiles" ]; then
+if [ "$mode" = "preview" ]; then
+  if [ ! -f "$output_dir/tasmania-osm.mbtiles" ] || [ ! -f "$output_dir/tasmania-relief.mbtiles" ] || [ ! -f "$output_dir/tasmania-contours.mbtiles" ]; then
+    printf 'Preview mode requires rebuilt output/tasmania-osm.mbtiles, output/tasmania-relief.mbtiles, and output/tasmania-contours.mbtiles\n' >&2
+    exit 1
+  fi
+
   export TILESERVER_STYLE_ID="tasmania-local-topo"
-  printf 'Using rebuilt Tasmania style tiles from output/*.mbtiles\n'
+  printf 'Using explicit on-demand Tasmania style tiles from output/*.mbtiles\n'
+elif [ -f "$static_tiles_probe_path" ]; then
+  export LOCAL_TOPO_STATIC_TILE_ROOT="$static_tiles_root"
+  printf 'Using pre-rendered static tiles from %s\n' "$static_tiles_root"
 else
-  export TILESERVER_DATASET_ID="tasmania-local-topo-smoke"
-  printf 'Using deterministic smoke raster fixture because rebuilt output/*.mbtiles is missing\n'
+  export LOCAL_TOPO_STATIC_TILE_ROOT="$smoke_static_tile_root"
+  printf 'Using deterministic static smoke fixture because %s is missing\n' "$static_tiles_probe_path"
 fi
 
 docker compose -f "$stack_dir/docker-compose.yml" up -d

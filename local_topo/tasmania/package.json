@@ -6,8 +6,10 @@
     "test": "node --test tests/*.test.mjs",
     "serve": "node server/app.mjs",
     "stack:up": "./scripts/start_stack.sh",
+    "stack:up:preview": "./scripts/start_stack.sh --mode=preview",
     "stack:down": "./scripts/stop_stack.sh",
     "smoke": "node scripts/smoke.mjs",
+    "review:cartography": "node scripts/review_cartography.mjs",
     "refresh:manual": "./scripts/manual_refresh.sh",
     "refresh:scheduled": "./scripts/scheduled_refresh.sh"
   }

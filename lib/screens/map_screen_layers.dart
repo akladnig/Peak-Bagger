@@ -103,13 +103,25 @@ TileLayer buildBasemapTileLayer(
   return userAgentPackageName == null
       ? TileLayer(
           urlTemplate: mapTileUrl(basemap),
+          maxNativeZoom: _maxNativeZoomForBasemap(basemap),
           tileProvider: resolvedTileProvider,
         )
       : TileLayer(
           urlTemplate: mapTileUrl(basemap),
+          maxNativeZoom: _maxNativeZoomForBasemap(basemap),
           tileProvider: resolvedTileProvider,
           userAgentPackageName: userAgentPackageName,
         );
+}
+
+int _maxNativeZoomForBasemap(Basemap basemap) {
+  final manifestMaxZoom = regionManifestCatalog
+      .basemapByKey(basemap.name)
+      ?.maxZoom;
+  return switch (basemap) {
+    Basemap.localTopo when manifestMaxZoom != null => manifestMaxZoom,
+    _ => 19,
+  };
 }
 
 Widget buildMapRectangle(TasmapRepository repo, Tasmap50k map) {

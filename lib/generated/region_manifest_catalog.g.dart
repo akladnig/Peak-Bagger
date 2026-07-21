@@ -246,7 +246,7 @@ const regionManifestCatalogData = RegionManifestCatalogData(
       name: 'Local Topo',
       tileUrl: 'https://local-topo.invalid/{z}/{x}/{y}.png',
       attribution: 'OpenStreetMap contributors and State of Tasmania',
-      maxZoom: 18,
+      maxZoom: 16,
       coveragePolygons: [
       ],
     ),
