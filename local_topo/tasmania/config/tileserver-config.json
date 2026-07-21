@@ -1,0 +1,28 @@
+{
+  "options": {
+    "paths": {
+      "root": "/data",
+      "styles": "styles",
+      "mbtiles": ".",
+      "fonts": "fonts",
+      "sprites": "sprites"
+    }
+  },
+  "styles": {
+    "tasmania-local-topo": {
+      "style": "local-topo/style.json"
+    }
+  },
+  "data": {
+    "tasmania-local-topo-smoke": {
+      "mbtiles": "runtime/tasmania-local-topo-smoke.mbtiles",
+      "tileSize": 256
+    },
+    "tasmania-osm": {
+      "mbtiles": "output/tasmania-osm.mbtiles"
+    },
+    "tasmania-contours": {
+      "mbtiles": "output/tasmania-contours.mbtiles"
+    }
+  }
+}

@@ -1,0 +1,159 @@
+{
+  "version": 8,
+  "name": "Peak Bagger Tasmania Local Topo",
+  "metadata": {
+    "maputnik:renderer": "mbgljs",
+    "peak-bagger:style-owner": "local_topo/tasmania"
+  },
+  "sources": {
+    "tasmania-osm": {
+      "type": "vector",
+      "url": "mbtiles://{tasmania-osm}"
+    },
+    "tasmania-contours": {
+      "type": "vector",
+      "url": "mbtiles://{tasmania-contours}"
+    }
+  },
+  "layers": [
+    {
+      "id": "background",
+      "type": "background",
+      "paint": {
+        "background-color": "#f5f0e4"
+      }
+    },
+    {
+      "id": "landcover",
+      "type": "fill",
+      "source": "tasmania-osm",
+      "source-layer": "landcover",
+      "paint": {
+        "fill-color": [
+          "match",
+          ["get", "class"],
+          "wood",
+          "#d9e6c3",
+          "grass",
+          "#e4ecc7",
+          "scrub",
+          "#d8dfba",
+          "#ebe6d6"
+        ],
+        "fill-opacity": 0.8
+      }
+    },
+    {
+      "id": "landuse",
+      "type": "fill",
+      "source": "tasmania-osm",
+      "source-layer": "landuse",
+      "paint": {
+        "fill-color": [
+          "match",
+          ["get", "class"],
+          "park",
+          "#d7e8bf",
+          "forest",
+          "#cedeb5",
+          "residential",
+          "#efe6d8",
+          "farmland",
+          "#efe8bf",
+          "#ece3d4"
+        ],
+        "fill-opacity": 0.55
+      }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "tasmania-osm",
+      "source-layer": "water",
+      "paint": {
+        "fill-color": "#9fd2f3",
+        "fill-opacity": 0.9
+      }
+    },
+    {
+      "id": "waterway",
+      "type": "line",
+      "source": "tasmania-osm",
+      "source-layer": "waterway",
+      "paint": {
+        "line-color": "#7fb8e6",
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          8,
+          0.4,
+          14,
+          1.2,
+          16,
+          1.8
+        ]
+      }
+    },
+    {
+      "id": "roads",
+      "type": "line",
+      "source": "tasmania-osm",
+      "source-layer": "transportation",
+      "paint": {
+        "line-color": [
+          "match",
+          ["get", "class"],
+          "motorway",
+          "#c78b5a",
+          "trunk",
+          "#c78b5a",
+          "primary",
+          "#cda06d",
+          "secondary",
+          "#d9b37e",
+          "minor",
+          "#cbb089",
+          "track",
+          "#a88557",
+          "path",
+          "#8f7a5f",
+          "#cbb089"
+        ],
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          6,
+          0.4,
+          10,
+          0.9,
+          12,
+          1.8,
+          16,
+          2.6
+        ]
+      }
+    },
+    {
+      "id": "contours",
+      "type": "line",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 14,
+      "paint": {
+        "line-color": "#8c6a43",
+        "line-opacity": 0.35,
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          14,
+          0.55,
+          16,
+          0.85
+        ]
+      }
+    }
+  ]
+}

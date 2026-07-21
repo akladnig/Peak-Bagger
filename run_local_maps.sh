@@ -6,10 +6,24 @@ source "$script_dir/local_slovenia_proxy.sh"
 
 defines_file="$script_dir/dart_defines.local.json"
 flutter_log_path="$script_dir/.dart_tool/run_local_maps.log"
+local_topo_dir="$script_dir/local_topo/tasmania"
+local_topo_base_url="http://127.0.0.1:${LOCAL_TOPO_PORT:-8090}"
 
 started_proxy=0
+started_local_topo_stack=0
+
+local_topo_is_ready() {
+  local capabilities_status
+  local tile_status
+  capabilities_status="$(curl -s -o /dev/null -w '%{http_code}' "$local_topo_base_url/capabilities" || true)"
+  tile_status="$(curl -s -o /dev/null -w '%{http_code}' "$local_topo_base_url/tasmania/local-topo/0/0/0.png" || true)"
+  [ "$capabilities_status" = "200" ] && [ "$tile_status" = "200" ]
+}
 
 cleanup() {
+  if [ "$started_local_topo_stack" -eq 1 ]; then
+    npm run stack:down --prefix "$local_topo_dir" >/dev/null 2>&1 || true
+  fi
   if [ "$started_proxy" -eq 1 ]; then
     stop_managed_proxy >/dev/null 2>&1 || true
   fi
@@ -39,6 +53,13 @@ if ! proxy_is_ready; then
   started_proxy=1
 else
   printf 'Using existing Slovenia proxy on port %s\n' "$proxy_port"
+fi
+
+if ! local_topo_is_ready; then
+  npm run stack:up --prefix "$local_topo_dir"
+  started_local_topo_stack=1
+else
+  printf 'Using existing Tasmania local topo stack at %s\n' "$local_topo_base_url"
 fi
 
 flutter_args=(run --dart-define-from-file=dart_defines.local.json)

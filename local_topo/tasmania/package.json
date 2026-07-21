@@ -1,0 +1,14 @@
+{
+  "name": "peak-bagger-local-topo-tasmania",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "serve": "node server/app.mjs",
+    "stack:up": "./scripts/start_stack.sh",
+    "stack:down": "./scripts/stop_stack.sh",
+    "smoke": "node scripts/smoke.mjs",
+    "refresh:manual": "./scripts/manual_refresh.sh",
+    "refresh:scheduled": "./scripts/scheduled_refresh.sh"
+  }
+}

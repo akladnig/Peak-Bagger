@@ -1,5 +1,6 @@
-import 'package:flutter_map/src/geo/latlng_bounds.dart';
+import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/manifest_priority.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
 
@@ -18,8 +19,51 @@ bool get hasTracestrackApiKey => tracestrackApiKey.trim().isNotEmpty;
 bool isBasemapAvailable(Basemap basemap) {
   return switch (basemap) {
     Basemap.mapyCz => hasMapyCzApiKey,
+    Basemap.localTopo => localTopoRuntime.hasCapabilitySnapshot,
     _ => true,
   };
+}
+
+List<String> localTopoRegionKeysForBounds(
+  LatLngBounds? bounds, {
+  LocalTopoCapabilitySnapshot? snapshot,
+}) {
+  final activeSnapshot = snapshot ?? localTopoRuntime.capabilitySnapshot;
+  if (bounds == null || activeSnapshot == null) {
+    return const [];
+  }
+
+  final visibleRegions = regionManifestCatalog.regionsForBounds(bounds);
+  return [
+    for (final region in visibleRegions)
+      if (activeSnapshot.supportsRegionKey(region.key)) region.key,
+  ];
+}
+
+bool isLocalTopoAvailableForBounds(
+  LatLngBounds? bounds, {
+  LocalTopoCapabilitySnapshot? snapshot,
+}) {
+  return localTopoRegionKeysForBounds(bounds, snapshot: snapshot).isNotEmpty;
+}
+
+List<RegionManifestBasemapData> basemapsForDrawer({
+  required LatLng point,
+  required LatLngBounds? visibleBounds,
+}) {
+  final basemaps = regionManifestCatalog
+      .basemapsForPoint(point)
+      .toList(growable: true);
+  if (!isLocalTopoAvailableForBounds(visibleBounds)) {
+    return List.unmodifiable(basemaps);
+  }
+
+  final localTopo = regionManifestCatalog.basemapByKey(Basemap.localTopo.name);
+  if (localTopo != null &&
+      basemaps.every((basemap) => basemap.key != localTopo.key)) {
+    basemaps.add(localTopo);
+  }
+  return List.unmodifiable(basemaps);
 }
 
 class RegionManifestBasemapData {

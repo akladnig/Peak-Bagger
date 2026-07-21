@@ -12,9 +12,11 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/objectbox_schema_guard.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
+import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/route_graph_import_service.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
+import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
@@ -31,6 +33,10 @@ const _objectBoxMaxDbSizeInKB = 8 * 1024 * 1024;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  registerLocalTopoRegionKeyValidator(
+    (regionKey) => regionManifestCatalog.regionByKey(regionKey) != null,
+  );
+  await localTopoRuntime.restore();
   await TileCacheService.initialize();
   unawaited(TileCacheService.ensureLowZoomWarmup());
 

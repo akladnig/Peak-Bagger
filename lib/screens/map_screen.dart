@@ -3854,7 +3854,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
 
     final previousProvider = cachedProvider;
-    final nextProvider = TileCacheService.getStoreForBasemap(basemap) == null
+    final nextProvider =
+        basemap == Basemap.localTopo ||
+            TileCacheService.getStoreForBasemap(basemap) == null
         ? NetworkTileProvider(headers: mapTileHeaders(basemap))
         : FMTCTileProvider(
             stores: {basemap.name: BrowseStoreStrategy.readUpdateCreate},
@@ -4349,12 +4351,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     final mapState = ref.read(mapProvider);
     final point = mapState.cursorPoint ?? mapState.center;
-    final availableBasemaps = regionManifestCatalog.basemapsForPoint(point);
+    final availableBasemaps = basemapsForDrawer(
+      point: point,
+      visibleBounds: mapState.visibleBounds,
+    );
     final availableBasemapKeys = {
       for (final basemap in availableBasemaps) basemap.key,
     };
 
-    if (!availableBasemapKeys.contains(mapState.basemap.name)) {
+    if (!availableBasemapKeys.contains(mapState.basemap.name) &&
+        !(mapState.basemap == Basemap.localTopo &&
+            !isLocalTopoAvailableForBounds(mapState.visibleBounds))) {
       ref.read(mapProvider.notifier).setBasemap(Basemap.tracestrack);
     }
 

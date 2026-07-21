@@ -1,0 +1,6 @@
+input/*
+output/*
+runtime/*
+!input/.gitignore
+!output/.gitignore
+!runtime/.gitignore
