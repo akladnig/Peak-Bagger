@@ -1,0 +1,4 @@
+The committed `Roboto Regular` glyph PBF assets under `fonts/Roboto Regular/` were generated from Roboto, which is licensed under the Apache License, Version 2.0.
+
+Upstream project: https://github.com/googlefonts/roboto
+License text: https://www.apache.org/licenses/LICENSE-2.0

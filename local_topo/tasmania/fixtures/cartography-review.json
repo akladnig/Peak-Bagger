@@ -1,0 +1,41 @@
+{
+  "tiles": [
+    {
+      "slug": "low-zoom-southern-hobart",
+      "z": 10,
+      "x": 930,
+      "y": 647,
+      "expectations": [
+        "terrain relief shading is visible across the ridge and valley terrain west of Hobart",
+        "place labels include examples such as Grove, Collinsvale, or Glenorchy",
+        "no basemap peak or summit labels appear"
+      ]
+    },
+    {
+      "slug": "mid-zoom-lake-st-clair",
+      "z": 12,
+      "x": 3711,
+      "y": 2577,
+      "expectations": [
+        "contours are visible without overwhelming the basemap",
+        "place labels include Lake St Clair or Derwent Bridge",
+        "named water labels include Lake St Clair or Lake King William",
+        "road labels include Lyell Highway or Lake St Clair Road",
+        "no basemap peak or summit labels appear"
+      ]
+    },
+    {
+      "slug": "high-zoom-kunanyi-tracks",
+      "z": 14,
+      "x": 14893,
+      "y": 10356,
+      "expectations": [
+        "terrain relief shading remains visible under the local track network",
+        "hiking-path detail includes distinct paths and tracks",
+        "track or path labels include examples such as Organ Pipes Track or Myrtle Gully Track",
+        "waterway labels such as New Town Rivulet or Guy Fawkes Rivulet are legible where space allows",
+        "no basemap peak or summit labels appear despite mountain_peak source data in this tile"
+      ]
+    }
+  ]
+}
