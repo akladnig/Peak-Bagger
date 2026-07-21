@@ -8,6 +8,7 @@ import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const localTopoValidationStatusPrefsKey = 'local_topo_validation_status_v1';
+const defaultLocalTopoBaseUrlText = 'http://127.0.0.1:8090';
 
 final localTopoSettingsPreferencesLoaderProvider =
     Provider<Future<SharedPreferences> Function()>((ref) {

@@ -40,6 +40,7 @@ contours_geojson_path="$output_dir/tasmania-contours.geojson"
 
 geofabrik_tasmania_url="https://download.geofabrik.de/australia-oceania/australia/tasmania-latest.osm.pbf"
 minimum_osm_extract_bytes="${LOCAL_TOPO_MIN_OSM_EXTRACT_BYTES:-10000000}"
+contour_interval_meters="${LOCAL_TOPO_CONTOUR_INTERVAL_METERS:-50}"
 smoke_png_hex="89504E470D0A1A0A0000000D4948445200000001000000010804000000B51C0C020000000B4944415478DA63FCFF1F0003030200EDA5610D0000000049454E44AE426082"
 
 print_command() {

@@ -65,14 +65,14 @@ fi
 
 run_command "$dry_run" docker run --rm -e JAVA_TOOL_OPTIONS=-Xmx4g -v "$stack_dir:/workspace" ghcr.io/onthegomap/planetiler:latest --download --download_dir=/workspace/input/planetiler_sources --osm-path=/workspace/input/osm/tasmania-latest.osm.pbf --output=/workspace/output/tasmania-osm.mbtiles --force
 
-run_command "$dry_run" gdal_contour -i 25 "$dem_tiff_path" "$contours_projected_geojson_path"
+run_command "$dry_run" gdal_contour -i "$contour_interval_meters" "$dem_tiff_path" "$contours_projected_geojson_path"
 
 run_command "$dry_run" ogr2ogr -f GeoJSON -s_srs "$dem_source_srs" -t_srs EPSG:4326 "$contours_geojson_path" "$contours_projected_geojson_path"
 
 if command -v tippecanoe >/dev/null 2>&1; then
-  run_command "$dry_run" tippecanoe -o "$output_dir/tasmania-contours.mbtiles" -Z8 -z16 -l contours --force "$contours_geojson_path"
+  run_command "$dry_run" tippecanoe -o "$output_dir/tasmania-contours.mbtiles" -Z10 -z16 -l contours --exclude-all --drop-densest-as-needed --coalesce-densest-as-needed --simplification=4 --simplify-only-low-zooms --force "$contours_geojson_path"
 else
-  run_command "$dry_run" docker run --rm -v "$stack_dir:/workspace" ubuntu:24.04 bash -lc "apt-get update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tippecanoe >/dev/null && tippecanoe -o /workspace/output/tasmania-contours.mbtiles -Z8 -z16 -l contours --force /workspace/output/tasmania-contours.geojson"
+  run_command "$dry_run" docker run --rm -v "$stack_dir:/workspace" ubuntu:24.04 bash -lc "apt-get update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tippecanoe >/dev/null && tippecanoe -o /workspace/output/tasmania-contours.mbtiles -Z10 -z16 -l contours --exclude-all --drop-densest-as-needed --coalesce-densest-as-needed --simplification=4 --simplify-only-low-zooms --force /workspace/output/tasmania-contours.geojson"
 fi
 
 if [ "$dry_run" -eq 0 ]; then

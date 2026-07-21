@@ -828,21 +828,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _syncLocalTopoBaseUrlField(String savedBaseUrlText) {
+    final nextFieldText = savedBaseUrlText.isEmpty
+        ? defaultLocalTopoBaseUrlText
+        : savedBaseUrlText;
     final controllerText = _localTopoBaseUrlController.text;
     final shouldReplace =
         controllerText.isEmpty ||
         controllerText == _lastSeededLocalTopoBaseUrl ||
-        savedBaseUrlText == _lastSeededLocalTopoBaseUrl;
-    if (!shouldReplace || controllerText == savedBaseUrlText) {
-      _lastSeededLocalTopoBaseUrl = savedBaseUrlText;
+        nextFieldText == _lastSeededLocalTopoBaseUrl;
+    if (!shouldReplace || controllerText == nextFieldText) {
+      _lastSeededLocalTopoBaseUrl = nextFieldText;
       return;
     }
 
     _localTopoBaseUrlController.value = TextEditingValue(
-      text: savedBaseUrlText,
-      selection: TextSelection.collapsed(offset: savedBaseUrlText.length),
+      text: nextFieldText,
+      selection: TextSelection.collapsed(offset: nextFieldText.length),
     );
-    _lastSeededLocalTopoBaseUrl = savedBaseUrlText;
+    _lastSeededLocalTopoBaseUrl = nextFieldText;
   }
 
   String? _currentPath() {

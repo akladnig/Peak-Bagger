@@ -34,6 +34,13 @@ void main() {
     expect(find.text('Validation state: Empty'), findsOneWidget);
     expect(
       tester
+          .widget<TextField>(find.byKey(const Key('local-topo-base-url-field')))
+          .controller
+          ?.text,
+      defaultLocalTopoBaseUrlText,
+    );
+    expect(
+      tester
           .widget<FilledButton>(
             find.byKey(const Key('local-topo-retry-button')),
           )
@@ -52,10 +59,6 @@ void main() {
       ),
     );
 
-    await tester.enterText(
-      find.byKey(const Key('local-topo-base-url-field')),
-      'http://127.0.0.1:8090',
-    );
     await tester.tap(find.byKey(const Key('local-topo-save-button')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
