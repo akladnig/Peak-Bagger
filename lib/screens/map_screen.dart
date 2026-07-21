@@ -3854,7 +3854,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
 
     final previousProvider = cachedProvider;
-    final nextProvider = TileCacheService.getStoreForBasemap(basemap) == null
+    final nextProvider =
+        basemap == Basemap.localTopo ||
+            TileCacheService.getStoreForBasemap(basemap) == null
         ? NetworkTileProvider(headers: mapTileHeaders(basemap))
         : FMTCTileProvider(
             stores: {basemap.name: BrowseStoreStrategy.readUpdateCreate},
