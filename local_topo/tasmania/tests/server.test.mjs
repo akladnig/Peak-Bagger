@@ -151,6 +151,47 @@ test('Tasmania tile route can proxy rendered style tiles without auth', async ()
   }
 });
 
+test('Tasmania tile route can proxy rendered retina style tiles without auth', async () => {
+  let seenPath = null;
+
+  const backend = createServer((request, response) => {
+    seenPath = request.url;
+    response.writeHead(200, { 'content-type': 'image/png' });
+    response.end(pngFixture);
+  });
+
+  const backendAddress = await listen(backend);
+  const backendBaseUrl = `http://127.0.0.1:${backendAddress.port}`;
+
+  const app = await createApp({
+    tileserverInternalUrl: backendBaseUrl,
+    styleId: 'tasmania-local-topo',
+    tileScale: '@2x',
+  });
+  const gateway = createServer((request, response) => {
+    void app(request, response);
+  });
+  const gatewayAddress = await listen(gateway);
+
+  try {
+    const baseUrl = `http://127.0.0.1:${gatewayAddress.port}`;
+    const response = await fetch(
+      new URL('/tasmania/local-topo/15/29781/20716.png', baseUrl),
+    );
+
+    assert.equal(response.status, 200);
+    await response.arrayBuffer();
+
+    assert.equal(
+      seenPath,
+      '/styles/tasmania-local-topo/15/29781/20716@2x.png',
+    );
+  } finally {
+    await closeServer(gateway);
+    await closeServer(backend);
+  }
+});
+
 test('Tasmania tile route serves static prerendered tiles without backend fallback', async () => {
   let backendRequests = 0;
 

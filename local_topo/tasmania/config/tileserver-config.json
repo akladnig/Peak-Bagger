@@ -11,6 +11,9 @@
   "styles": {
     "tasmania-local-topo": {
       "style": "local-topo/style.json"
+    },
+    "tasmania-openstreetmap-contours": {
+      "style": "local-topo/openstreetmap.json"
     }
   },
   "data": {

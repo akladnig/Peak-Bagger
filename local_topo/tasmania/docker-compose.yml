@@ -9,6 +9,7 @@ services:
       TILESERVER_INTERNAL_URL: "http://tileserver:8080"
       TILESERVER_DATASET_ID: "${TILESERVER_DATASET_ID:-tasmania-local-topo-smoke}"
       TILESERVER_STYLE_ID: "${TILESERVER_STYLE_ID:-}"
+      TILESERVER_TILE_SCALE: "${TILESERVER_TILE_SCALE:-}"
     volumes:
       - .:/workspace
     ports:

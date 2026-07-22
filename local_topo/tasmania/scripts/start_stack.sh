@@ -5,6 +5,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$script_dir/_common.sh"
 
 mode="static"
+preview_style_id="${LOCAL_TOPO_PREVIEW_STYLE_ID:-tasmania-local-topo}"
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -33,6 +34,7 @@ fi
 unset LOCAL_TOPO_STATIC_TILE_ROOT
 unset TILESERVER_STYLE_ID
 unset TILESERVER_DATASET_ID
+unset TILESERVER_TILE_SCALE
 
 if [ "$mode" = "preview" ]; then
   if [ ! -f "$output_dir/tasmania-osm.mbtiles" ] || [ ! -f "$output_dir/tasmania-relief.mbtiles" ] || [ ! -f "$output_dir/tasmania-contours.mbtiles" ]; then
@@ -40,13 +42,14 @@ if [ "$mode" = "preview" ]; then
     exit 1
   fi
 
-  export TILESERVER_STYLE_ID="tasmania-local-topo"
-  printf 'Using explicit on-demand Tasmania style tiles from output/*.mbtiles\n'
+  export TILESERVER_STYLE_ID="$preview_style_id"
+  export TILESERVER_TILE_SCALE="${LOCAL_TOPO_PREVIEW_TILE_SCALE:-}"
+  printf 'Using explicit on-demand Tasmania style tiles from output/*.mbtiles with style %s\n' "$preview_style_id"
 elif [ -f "$static_tiles_probe_path" ]; then
-  export LOCAL_TOPO_STATIC_TILE_ROOT="$static_tiles_root"
+  export LOCAL_TOPO_STATIC_TILE_ROOT="$(workspace_path_for_host_path "$static_tiles_root")"
   printf 'Using pre-rendered static tiles from %s\n' "$static_tiles_root"
 else
-  export LOCAL_TOPO_STATIC_TILE_ROOT="$smoke_static_tile_root"
+  export LOCAL_TOPO_STATIC_TILE_ROOT="$(workspace_path_for_host_path "$smoke_static_tile_root")"
   printf 'Using deterministic static smoke fixture because %s is missing\n' "$static_tiles_probe_path"
 fi
 

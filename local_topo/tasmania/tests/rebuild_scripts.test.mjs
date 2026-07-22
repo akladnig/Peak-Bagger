@@ -74,9 +74,14 @@ printf 'hillshade' > "$output"
     `#!/usr/bin/env bash
 set -euo pipefail
 interval=""
+attribute=""
 args=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    -a)
+      shift
+      attribute="$1"
+      ;;
     -i)
       shift
       interval="$1"
@@ -93,7 +98,11 @@ if [ "\${FAKE_CONTOUR_FAIL_INTERVAL:-}" = "$interval" ] && [[ "$input" == *"\${F
   exit 1
 fi
 mkdir -p "$(dirname "$output")"
-printf '{"type":"FeatureCollection","features":[]}' > "$output"
+if [ -n "$attribute" ]; then
+  printf '{"type":"FeatureCollection","features":[{"type":"Feature","properties":{"%s":100},"geometry":{"type":"LineString","coordinates":[[0,0],[1,1]]}}]}' "$attribute" > "$output"
+else
+  printf '{"type":"FeatureCollection","features":[]}' > "$output"
+fi
 `,
   );
 
@@ -331,7 +340,7 @@ test('rebuild prefers higher-detail DEMs, falls back to theLIST 25m contours, an
   await writeFile(thelistDemPath, 'dem');
 
   await withRenderServer(async (baseUrl) => {
-    await runScript('rebuild_stack.sh', ['--mode', 'manual'], {
+    const run = await runScript('rebuild_stack.sh', ['--mode', 'manual'], {
       env: {
         ...process.env,
         ...workspace.env,
@@ -343,6 +352,9 @@ test('rebuild prefers higher-detail DEMs, falls back to theLIST 25m contours, an
         LOCAL_TOPO_PRERENDER_BASE_URL: baseUrl,
       },
     });
+
+    assert.match(run.stdout, /gdal_contour -a elev -i 25 /);
+    assert.match(run.stdout, /tippecanoe .* -l contours -y elev /);
   });
 
   const metadataPath = join(
@@ -354,10 +366,13 @@ test('rebuild prefers higher-detail DEMs, falls back to theLIST 25m contours, an
   );
   const metadata = JSON.parse(await readFile(metadataPath, 'utf8'));
   const reliefPath = join(workspace.outputDir, 'tasmania-relief.mbtiles');
+  const contoursGeojsonPath = join(workspace.outputDir, 'tasmania-contours.geojson');
+  const contoursGeojson = JSON.parse(await readFile(contoursGeojsonPath, 'utf8'));
 
   assert.equal(metadata.demSource.label, 'Higher Detail Local DEM');
   assert.equal(metadata.contours.intervalMeters, 25);
   assert.equal(metadata.contours.sourceLabel, 'theLIST 25m DEM');
+  assert.equal(contoursGeojson.features[0]?.properties?.elev, 100);
   assert.equal(await readFile(reliefPath, 'utf8'), 'mbtiles');
 
   await rm(workspace.root, { force: true, recursive: true });
