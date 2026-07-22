@@ -1,3 +1,3 @@
-# Sprites Placeholder
+# Local Sprite Bundle
 
-This directory is reserved for committed sprite assets when the Tasmania `Local Topo` style adds icon-backed layers.
+This directory stores the committed local `sprite` and `sprite@2x` assets used by the Tasmania preview styles.

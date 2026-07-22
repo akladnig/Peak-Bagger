@@ -57,7 +57,9 @@ Notes:
 
 - Downloading `style.json` alone does not make the style fully local.
 - Downloaded MapTiler styles usually still reference remote vector tiles, sprites, and glyphs.
-- To use one in this repo, save it under `styles/local-topo/`, then rewrite its sources, sprites, and glyphs as needed and add the local `tasmania-contours` source if you want the contour overlays.
+- To use one in this repo, save it under `styles/local-topo/`, rewrite its sources onto the committed `tasmania-osm`, `tasmania-contours`, and `tasmania-relief` sources, localize `sprite` to the committed `sprite` base, and keep `glyphs` on `{fontstack}/{range}.pbf`.
+- The committed preview rewrites are `maptiler-topo.json` and `maptiler-outdoor.json`, registered as `tasmania-maptiler-topo` and `tasmania-maptiler-outdoor`.
+- After the rewrite is committed, the repo no longer needs a MapTiler API key to preview those variants.
 
 ## Preview Style Changes
 
@@ -77,9 +79,22 @@ To preview the OpenStreetMap-based style variant with local contour overlays ins
 LOCAL_TOPO_PREVIEW_STYLE_ID=tasmania-openstreetmap-contours npm run stack:up:preview
 ```
 
+To preview the localized MapTiler Topo variant, run:
+
+```bash
+LOCAL_TOPO_PREVIEW_STYLE_ID=tasmania-maptiler-topo npm run stack:up:preview
+```
+
+To preview the localized MapTiler Outdoor variant, run:
+
+```bash
+LOCAL_TOPO_PREVIEW_STYLE_ID=tasmania-maptiler-outdoor npm run stack:up:preview
+```
+
 Notes:
 
 - Preview mode requires `output/tasmania-osm.mbtiles`, `output/tasmania-relief.mbtiles`, and `output/tasmania-contours.mbtiles` to already exist.
+- Phase 1 preview switching stays startup-scoped through `LOCAL_TOPO_PREVIEW_STYLE_ID`; the app-facing `Local Topo` route and capabilities contract stay unchanged.
 - If preview is already running, restart it after changing `style.json`:
 
 ```bash

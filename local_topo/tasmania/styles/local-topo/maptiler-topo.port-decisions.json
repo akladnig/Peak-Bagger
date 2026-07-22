@@ -1,0 +1,661 @@
+[
+  {
+    "upstreamLayerId": "Glacier",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Crop",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Scrub",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Forest",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Residential",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Industrial",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Pedestrian",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Dam",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Garages",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Cemetery",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Hospital",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Stadium",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Wood",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Grass",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Sand",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Hillshade",
+    "issueType": "source_remap",
+    "action": "remapped source from terrain_rgb to tasmania-relief",
+    "reason": "The preview stack exposes committed Tasmania relief raster tiles instead of the upstream terrain source."
+  },
+  {
+    "upstreamLayerId": "Hillshade",
+    "issueType": "unsupported_layer",
+    "action": "restyled hillshade layer as raster relief shading",
+    "reason": "The local Tasmania stack ships relief as raster tiles, so TileServer preview cannot evaluate upstream terrain-rgb hillshade styling directly."
+  },
+  {
+    "upstreamLayerId": "Contour index",
+    "issueType": "source_remap",
+    "action": "remapped source from contours to tasmania-contours",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Glacier contour index",
+    "issueType": "source_remap",
+    "action": "remapped source from contours to tasmania-contours",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Contour",
+    "issueType": "source_remap",
+    "action": "remapped source from contours to tasmania-contours",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Glacier contour",
+    "issueType": "source_remap",
+    "action": "remapped source from contours to tasmania-contours",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Contour labels",
+    "issueType": "source_remap",
+    "action": "remapped source from contours to tasmania-contours",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Contour labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "Glacier contour labels",
+    "issueType": "source_remap",
+    "action": "remapped source from contours to tasmania-contours",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Glacier contour labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "River tunnel",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "River",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "River intermittent",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Waterway",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Waterway intermittent",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Water",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Water intermittent",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Runway",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Taxiway",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Ferry",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Tunnel outline",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Tunnel",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Railway tunnel",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Railway tunnel hatching",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Tunnel path",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Bridge",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Pier",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Pier road",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Minor road outline",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Major road outline",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Highway outline",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Minor road",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Major road",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Highway",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Path minor",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Path",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Major railway",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Major railway hatching",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Minor railway",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Minor railway hatching",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Building",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Building 3D",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Minor lift",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Minor lift dash",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Cable car",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Cable car dash",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Aerialway labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Aerialway labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Italic, Noto Sans Italic"
+  },
+  {
+    "upstreamLayerId": "Other border",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Disputed border",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Country border",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "River labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "River labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Italic, Noto Sans Italic"
+  },
+  {
+    "upstreamLayerId": "Lakeline labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Lakeline labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "Ocean labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Ocean labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Italic, Noto Sans Italic"
+  },
+  {
+    "upstreamLayerId": "Sea labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Sea labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Italic, Noto Sans Italic"
+  },
+  {
+    "upstreamLayerId": "Lake labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Lake labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Italic, Noto Sans Italic"
+  },
+  {
+    "upstreamLayerId": "Road labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Road labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "Volcano labels (US)",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Volcano labels (US)",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Condensed Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "Volcano labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Volcano labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Condensed Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "Peak labels (US)",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Peak labels (US)",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Condensed Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "Peak labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Peak labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Condensed Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "Place labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Place labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "Village labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Village labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "Airport labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Airport labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "Protected area labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Protected area labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Italic, Noto Sans Italic"
+  },
+  {
+    "upstreamLayerId": "Town labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Town labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "State labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "State labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Regular, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "City labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "City labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Medium, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "National park labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "National park labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Italic, Noto Sans Italic"
+  },
+  {
+    "upstreamLayerId": "Country labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Country labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Medium, Noto Sans Regular"
+  },
+  {
+    "upstreamLayerId": "Continent labels",
+    "issueType": "source_remap",
+    "action": "remapped source from maptiler_planet to tasmania-osm",
+    "reason": "The preview stack uses committed Tasmania MBTiles sources instead of upstream MapTiler-hosted vector tiles."
+  },
+  {
+    "upstreamLayerId": "Continent labels",
+    "issueType": "font_rewrite",
+    "action": "rewrote text-font to Roboto Regular",
+    "reason": "Phase 1 keeps the committed local glyph contract and only ships Roboto Regular glyph PBFs.",
+    "notes": "Upstream font stack: Roboto Medium, Noto Sans Regular"
+  }
+]

@@ -12,6 +12,12 @@
     "tasmania-local-topo": {
       "style": "local-topo/style.json"
     },
+    "tasmania-maptiler-topo": {
+      "style": "local-topo/maptiler-topo.json"
+    },
+    "tasmania-maptiler-outdoor": {
+      "style": "local-topo/maptiler-outdoor.json"
+    },
     "tasmania-openstreetmap-contours": {
       "style": "local-topo/openstreetmap.json"
     }
