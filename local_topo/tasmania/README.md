@@ -87,11 +87,16 @@ The richer style now uses committed `Roboto Regular` glyph assets for labels whi
 
 ## Cartography Review
 
-Run the richer style in preview mode, capture the representative review tiles, and compare them against the committed expectations:
+Run each localized MapTiler preview style in preview mode, capture the representative review tiles, and compare them against the committed variant-scoped expectations:
 
 ```bash
-npm run stack:up:preview
-npm run review:cartography
+LOCAL_TOPO_PREVIEW_STYLE_ID=tasmania-maptiler-topo npm run stack:up:preview
+npm run review:cartography -- --style-id=tasmania-maptiler-topo
+
+LOCAL_TOPO_PREVIEW_STYLE_ID=tasmania-maptiler-outdoor npm run stack:up:preview
+npm run review:cartography -- --style-id=tasmania-maptiler-outdoor
 ```
 
-The review fixture saves exact low-, mid-, and high-zoom Tasmania `Local Topo` PNGs under `runtime/review/cartography/` and prints the expected visible `terrain relief shading`, contour density, hiking-path detail, labels, and absence of basemap peak labels for each tile.
+The review fixture is keyed by preview style id and saves each run under `runtime/review/cartography/<styleId>/` so `tasmania-maptiler-topo` and `tasmania-maptiler-outdoor` captures do not overwrite one another.
+
+The printed guidance includes variant-specific notes for the representative low-, mid-, and high-zoom Tasmania tiles. Use those notes to confirm each preview still reads as a close visual port of MapTiler `Topo` or `Outdoor` while remaining a source-limited Tasmania-local style.

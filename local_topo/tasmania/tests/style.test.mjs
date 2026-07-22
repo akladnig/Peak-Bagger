@@ -152,14 +152,27 @@ test('MapTiler preview variants stay on local sprite, glyph, and source contract
   }
 });
 
-test('cartography review fixture covers low, mid, and high representative tiles', async () => {
+test('cartography review fixture covers low, mid, and high representative tiles for both MapTiler preview variants', async () => {
   const fixture = await loadJson('fixtures/cartography-review.json');
-  const zooms = fixture.tiles.map((tile) => tile.z).sort((left, right) => left - right);
+  const styleReviews = fixture.styleReviews;
 
-  assert.deepEqual(zooms, [10, 12, 14]);
-  for (const tile of fixture.tiles) {
-    assert.equal(Array.isArray(tile.expectations), true);
-    assert.equal(tile.expectations.length > 0, true);
+  assert.deepEqual(
+    Object.keys(styleReviews).sort(),
+    ['tasmania-maptiler-outdoor', 'tasmania-maptiler-topo'],
+  );
+
+  for (const [styleId, styleReview] of Object.entries(styleReviews)) {
+    assert.equal(typeof styleId, 'string');
+    assert.equal(Array.isArray(styleReview.variantExpectations), true);
+    assert.equal(styleReview.variantExpectations.length > 0, true);
+
+    const zooms = styleReview.tiles.map((tile) => tile.z).sort((left, right) => left - right);
+    assert.deepEqual(zooms, [10, 12, 14]);
+
+    for (const tile of styleReview.tiles) {
+      assert.equal(Array.isArray(tile.expectations), true);
+      assert.equal(tile.expectations.length > 0, true);
+    }
   }
 });
 

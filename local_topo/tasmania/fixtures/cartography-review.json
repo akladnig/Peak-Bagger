@@ -1,41 +1,97 @@
 {
-  "tiles": [
-    {
-      "slug": "low-zoom-southern-hobart",
-      "z": 10,
-      "x": 930,
-      "y": 647,
-      "expectations": [
-        "terrain relief shading is visible across the ridge and valley terrain west of Hobart",
-        "place labels include examples such as Grove, Collinsvale, or Glenorchy",
-        "no basemap peak or summit labels appear"
+  "styleReviews": {
+    "tasmania-maptiler-topo": {
+      "variantExpectations": [
+        "reads as a close visual port of MapTiler Topo while remaining a Tasmania-local preview style backed only by committed local sources",
+        "preserves the stronger topo contour and road hierarchy feel without reintroducing remote tiles, sprites, or glyph dependencies"
+      ],
+      "tiles": [
+        {
+          "slug": "low-zoom-southern-hobart",
+          "z": 10,
+          "x": 930,
+          "y": 647,
+          "expectations": [
+            "terrain relief shading is visible across the ridge and valley terrain west of Hobart",
+            "settlement labels such as Grove, Collinsvale, or Glenorchy are legible against the pale topo land palette",
+            "the low-zoom map reads as a topo-forward reference style rather than the greener Outdoor variant",
+            "no basemap peak or summit labels appear"
+          ]
+        },
+        {
+          "slug": "mid-zoom-lake-st-clair",
+          "z": 12,
+          "x": 3711,
+          "y": 2577,
+          "expectations": [
+            "contours are visible without overwhelming the basemap",
+            "place labels include Lake St Clair or Derwent Bridge",
+            "named water labels include Lake St Clair or Lake King William",
+            "road labels include Lyell Highway or Lake St Clair Road",
+            "the tile still reads as a close MapTiler Topo port even though it is limited to Tasmania-local sources",
+            "no basemap peak or summit labels appear"
+          ]
+        },
+        {
+          "slug": "high-zoom-kunanyi-tracks",
+          "z": 14,
+          "x": 14893,
+          "y": 10356,
+          "expectations": [
+            "terrain relief shading remains visible under the local track network",
+            "track and path detail are present but remain secondary to the topo contour and road structure",
+            "track or path labels include examples such as Organ Pipes Track or Myrtle Gully Track",
+            "waterway labels such as New Town Rivulet or Guy Fawkes Rivulet are legible where space allows",
+            "no basemap peak or summit labels appear despite mountain_peak source data in this tile"
+          ]
+        }
       ]
     },
-    {
-      "slug": "mid-zoom-lake-st-clair",
-      "z": 12,
-      "x": 3711,
-      "y": 2577,
-      "expectations": [
-        "contours are visible without overwhelming the basemap",
-        "place labels include Lake St Clair or Derwent Bridge",
-        "named water labels include Lake St Clair or Lake King William",
-        "road labels include Lyell Highway or Lake St Clair Road",
-        "no basemap peak or summit labels appear"
-      ]
-    },
-    {
-      "slug": "high-zoom-kunanyi-tracks",
-      "z": 14,
-      "x": 14893,
-      "y": 10356,
-      "expectations": [
-        "terrain relief shading remains visible under the local track network",
-        "hiking-path detail includes distinct paths and tracks",
-        "track or path labels include examples such as Organ Pipes Track or Myrtle Gully Track",
-        "waterway labels such as New Town Rivulet or Guy Fawkes Rivulet are legible where space allows",
-        "no basemap peak or summit labels appear despite mountain_peak source data in this tile"
+    "tasmania-maptiler-outdoor": {
+      "variantExpectations": [
+        "reads as a close visual port of MapTiler Outdoor while remaining a Tasmania-local preview style backed only by committed local sources",
+        "preserves the greener Outdoor palette and trail-forward emphasis without depending on upstream MapTiler-hosted assets"
+      ],
+      "tiles": [
+        {
+          "slug": "low-zoom-southern-hobart",
+          "z": 10,
+          "x": 930,
+          "y": 647,
+          "expectations": [
+            "terrain relief shading is visible across the ridge and valley terrain west of Hobart",
+            "the greener Outdoor land palette is obvious compared with the MapTiler Topo variant",
+            "settlement labels such as Grove, Collinsvale, or Glenorchy remain legible over the greener background",
+            "no basemap peak or summit labels appear"
+          ]
+        },
+        {
+          "slug": "mid-zoom-lake-st-clair",
+          "z": 12,
+          "x": 3711,
+          "y": 2577,
+          "expectations": [
+            "contours stay visible while the greener Outdoor land styling remains dominant",
+            "place labels include Lake St Clair or Derwent Bridge",
+            "named water labels include Lake St Clair or Lake King William",
+            "the tile reads as a close MapTiler Outdoor port within the limits of Tasmania-local source coverage",
+            "no basemap peak or summit labels appear"
+          ]
+        },
+        {
+          "slug": "high-zoom-kunanyi-tracks",
+          "z": 14,
+          "x": 14893,
+          "y": 10356,
+          "expectations": [
+            "terrain relief shading remains visible under the local track network",
+            "track and path detail are more visually prominent than in the MapTiler Topo variant",
+            "track or path labels include examples such as Organ Pipes Track or Myrtle Gully Track",
+            "waterway labels such as New Town Rivulet or Guy Fawkes Rivulet are legible where space allows",
+            "no basemap peak or summit labels appear despite mountain_peak source data in this tile"
+          ]
+        }
       ]
     }
-  ]
+  }
 }

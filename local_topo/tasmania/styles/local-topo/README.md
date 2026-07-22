@@ -91,6 +91,13 @@ To preview the localized MapTiler Outdoor variant, run:
 LOCAL_TOPO_PREVIEW_STYLE_ID=tasmania-maptiler-outdoor npm run stack:up:preview
 ```
 
+To capture the committed representative cartography review tiles for either localized MapTiler preview variant without overwriting the other variant's output, run the matching review command after preview startup:
+
+```bash
+npm run review:cartography -- --style-id=tasmania-maptiler-topo
+npm run review:cartography -- --style-id=tasmania-maptiler-outdoor
+```
+
 Notes:
 
 - Preview mode requires `output/tasmania-osm.mbtiles`, `output/tasmania-relief.mbtiles`, and `output/tasmania-contours.mbtiles` to already exist.
