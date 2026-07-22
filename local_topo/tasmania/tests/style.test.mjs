@@ -1,18 +1,57 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
 
 const stackRoot = new URL('..', import.meta.url).pathname;
+const localGlyphsPath = '{fontstack}/{range}.pbf';
+const localSpriteBase = 'sprite';
+const localSpriteFiles = [
+  'sprites/sprite.json',
+  'sprites/sprite.png',
+  'sprites/sprite@2x.json',
+  'sprites/sprite@2x.png',
+];
+const previewStyleVariants = [
+  {
+    styleId: 'tasmania-maptiler-topo',
+    stylePath: 'styles/local-topo/maptiler-topo.json',
+    decisionsPath: 'styles/local-topo/maptiler-topo.port-decisions.json',
+  },
+  {
+    styleId: 'tasmania-maptiler-outdoor',
+    stylePath: 'styles/local-topo/maptiler-outdoor.json',
+    decisionsPath: 'styles/local-topo/maptiler-outdoor.port-decisions.json',
+  },
+];
+const localPreviewSourceUrls = new Set([
+  'mbtiles://{tasmania-osm}',
+  'mbtiles://{tasmania-contours}',
+  'mbtiles://{tasmania-relief}',
+]);
+const allowedPortDecisionIssueTypes = new Set([
+  'source_remap',
+  'font_rewrite',
+  'text_only',
+  'dropped',
+  'unsupported_layer',
+  'other',
+]);
 
 async function loadJson(relativePath) {
   return JSON.parse(await readFile(join(stackRoot, relativePath), 'utf8'));
 }
 
+async function assertLocalSpriteBundleExists() {
+  await Promise.all(
+    localSpriteFiles.map((relativePath) => access(join(stackRoot, relativePath))),
+  );
+}
+
 test('canonical richer Local Topo style includes relief, labels, and no mountain peak labels', async () => {
   const style = await loadJson('styles/local-topo/style.json');
 
-  assert.equal(style.glyphs, '{fontstack}/{range}.pbf');
+  assert.equal(style.glyphs, localGlyphsPath);
   assert.equal(style.sources['tasmania-relief']?.type, 'raster');
 
   const layers = new Map(style.layers.map((layer) => [layer.id, layer]));
@@ -41,14 +80,99 @@ test('canonical richer Local Topo style includes relief, labels, and no mountain
   assert.equal(sourceLayers.includes('mountain_peak'), false);
 });
 
-test('cartography review fixture covers low, mid, and high representative tiles', async () => {
-  const fixture = await loadJson('fixtures/cartography-review.json');
-  const zooms = fixture.tiles.map((tile) => tile.z).sort((left, right) => left - right);
+test('MapTiler preview variants stay on local sprite, glyph, and source contracts', async () => {
+  const config = await loadJson('config/tileserver-config.json');
+  await assertLocalSpriteBundleExists();
 
-  assert.deepEqual(zooms, [10, 12, 14]);
-  for (const tile of fixture.tiles) {
-    assert.equal(Array.isArray(tile.expectations), true);
-    assert.equal(tile.expectations.length > 0, true);
+  for (const variant of previewStyleVariants) {
+    const style = await loadJson(variant.stylePath);
+    const decisions = await loadJson(variant.decisionsPath);
+    const layers = new Map(style.layers.map((layer) => [layer.id, layer]));
+
+    assert.equal(config.styles[variant.styleId]?.style, variant.stylePath.replace('styles/', ''));
+    assert.equal(style.glyphs, localGlyphsPath);
+    assert.equal(style.sprite, localSpriteBase);
+    assert.deepEqual(
+      Object.keys(style.sources).sort(),
+      ['tasmania-contours', 'tasmania-osm', 'tasmania-relief'],
+    );
+
+    for (const source of Object.values(style.sources)) {
+      assert.equal(source.url.startsWith('http'), false);
+      assert.equal(localPreviewSourceUrls.has(source.url), true);
+    }
+
+    for (const layer of style.layers) {
+      if (layer.source != null) {
+        assert.equal(
+          ['tasmania-contours', 'tasmania-osm', 'tasmania-relief'].includes(layer.source),
+          true,
+        );
+      }
+
+      const textFont = layer.layout?.['text-font'];
+      if (textFont != null) {
+        assert.deepEqual(textFont, ['Roboto Regular']);
+      }
+    }
+
+    assert.equal(Array.isArray(decisions), true);
+    assert.equal(decisions.length > 0, true);
+
+    for (const decision of decisions) {
+      assert.equal(typeof decision.upstreamLayerId, 'string');
+      assert.equal(allowedPortDecisionIssueTypes.has(decision.issueType), true);
+      assert.equal(typeof decision.action, 'string');
+      assert.equal(typeof decision.reason, 'string');
+
+      const layer = layers.get(decision.upstreamLayerId);
+      if (decision.issueType === 'dropped') {
+        assert.equal(layer, undefined);
+        continue;
+      }
+
+      assert.notEqual(layer, undefined);
+
+      if (decision.issueType === 'font_rewrite') {
+        assert.deepEqual(layer.layout?.['text-font'], ['Roboto Regular']);
+      }
+
+      if (decision.issueType === 'source_remap') {
+        assert.equal(
+          ['tasmania-contours', 'tasmania-osm', 'tasmania-relief'].includes(layer.source),
+          true,
+        );
+      }
+
+      if (decision.issueType === 'unsupported_layer') {
+        assert.equal(layer.type, 'raster');
+        assert.equal(layer.source, 'tasmania-relief');
+      }
+    }
+  }
+});
+
+test('cartography review fixture covers low, mid, and high representative tiles for both MapTiler preview variants', async () => {
+  const fixture = await loadJson('fixtures/cartography-review.json');
+  const styleReviews = fixture.styleReviews;
+
+  assert.deepEqual(
+    Object.keys(styleReviews).sort(),
+    ['tasmania-maptiler-outdoor', 'tasmania-maptiler-topo'],
+  );
+
+  for (const [styleId, styleReview] of Object.entries(styleReviews)) {
+    assert.equal(typeof styleId, 'string');
+    assert.equal(Array.isArray(styleReview.variantExpectations), true);
+    assert.equal(styleReview.variantExpectations.length > 0, true);
+
+    const zooms = styleReview.tiles.map((tile) => tile.z).sort((left, right) => left - right);
+    assert.deepEqual(zooms, [10, 12, 14]);
+
+    for (const tile of styleReview.tiles) {
+      assert.equal(Array.isArray(tile.expectations), true);
+      assert.equal(tile.expectations.length > 0, true);
+    }
   }
 });
 

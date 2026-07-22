@@ -36,6 +36,8 @@ unset TILESERVER_STYLE_ID
 unset TILESERVER_DATASET_ID
 unset TILESERVER_TILE_SCALE
 
+compose_args=(up -d)
+
 if [ "$mode" = "preview" ]; then
   if [ ! -f "$output_dir/tasmania-osm.mbtiles" ] || [ ! -f "$output_dir/tasmania-relief.mbtiles" ] || [ ! -f "$output_dir/tasmania-contours.mbtiles" ]; then
     printf 'Preview mode requires rebuilt output/tasmania-osm.mbtiles, output/tasmania-relief.mbtiles, and output/tasmania-contours.mbtiles\n' >&2
@@ -44,6 +46,8 @@ if [ "$mode" = "preview" ]; then
 
   export TILESERVER_STYLE_ID="$preview_style_id"
   export TILESERVER_TILE_SCALE="${LOCAL_TOPO_PREVIEW_TILE_SCALE:-}"
+  # TileServer GL only reads the style registry at process start.
+  compose_args+=(--force-recreate gateway tileserver)
   printf 'Using explicit on-demand Tasmania style tiles from output/*.mbtiles with style %s\n' "$preview_style_id"
 elif [ -f "$static_tiles_probe_path" ]; then
   export LOCAL_TOPO_STATIC_TILE_ROOT="$(workspace_path_for_host_path "$static_tiles_root")"
@@ -53,7 +57,7 @@ else
   printf 'Using deterministic static smoke fixture because %s is missing\n' "$static_tiles_probe_path"
 fi
 
-docker compose -f "$stack_dir/docker-compose.yml" up -d
+docker compose -f "$stack_dir/docker-compose.yml" "${compose_args[@]}"
 
 base_url="http://127.0.0.1:${LOCAL_TOPO_PORT:-8090}"
 capabilities_url="$base_url/capabilities"
