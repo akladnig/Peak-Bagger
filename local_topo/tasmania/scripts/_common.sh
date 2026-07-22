@@ -65,6 +65,7 @@ prerender_bounds="${LOCAL_TOPO_PRERENDER_BOUNDS:-143.833,-43.643,148.482,-39.579
 prerender_concurrency="${LOCAL_TOPO_PRERENDER_CONCURRENCY:-8}"
 prerender_base_url="${LOCAL_TOPO_PRERENDER_BASE_URL:-}"
 prerender_port="${LOCAL_TOPO_PRERENDER_PORT:-18080}"
+prerender_resume="${LOCAL_TOPO_PRERENDER_RESUME:-0}"
 curl_bin="${LOCAL_TOPO_CURL_BIN:-curl}"
 docker_bin="${LOCAL_TOPO_DOCKER_BIN:-docker}"
 node_bin="${LOCAL_TOPO_NODE_BIN:-node}"
@@ -377,6 +378,7 @@ build_contour_artifacts() {
   run_command \
     "$dry_run" \
     "$gdal_contour_bin" \
+    -a elev \
     -i "$selected_contour_interval_meters" \
     "$selected_contour_dem_path" \
     "$contours_projected_geojson_path"
@@ -398,7 +400,7 @@ build_contour_artifacts() {
       -Z10 \
       -z16 \
       -l contours \
-      --exclude-all \
+      -y elev \
       --drop-densest-as-needed \
       --coalesce-densest-as-needed \
       --simplification=4 \
@@ -417,7 +419,7 @@ build_contour_artifacts() {
     ubuntu:24.04 \
     bash \
     -lc \
-    "apt-get update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tippecanoe >/dev/null && tippecanoe -o $(workspace_path_for_host_path "$output_dir/tasmania-contours.mbtiles") -Z10 -z16 -l contours --exclude-all --drop-densest-as-needed --coalesce-densest-as-needed --simplification=4 --simplify-only-low-zooms --force $(workspace_path_for_host_path "$contours_geojson_path")"
+    "apt-get update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tippecanoe >/dev/null && tippecanoe -o $(workspace_path_for_host_path "$output_dir/tasmania-contours.mbtiles") -Z10 -z16 -l contours -y elev --drop-densest-as-needed --coalesce-densest-as-needed --simplification=4 --simplify-only-low-zooms --force $(workspace_path_for_host_path "$contours_geojson_path")"
 }
 
 build_relief_artifacts() {
@@ -524,7 +526,9 @@ prerender_static_tiles() {
   local runtime_base_url="$prerender_base_url"
   local container_name=""
 
-  run_command "$dry_run" rm -rf "$static_tiles_layout_root"
+  if [ "$prerender_resume" != "1" ]; then
+    run_command "$dry_run" rm -rf "$static_tiles_layout_root"
+  fi
   run_command "$dry_run" mkdir -p "$static_tiles_layout_root"
 
   if [ -z "$runtime_base_url" ]; then
@@ -540,14 +544,15 @@ prerender_static_tiles() {
   run_command \
     "$dry_run" \
     env \
-    "LOCAL_TOPO_PRERENDER_BASE_URL=$runtime_base_url" \
-    "LOCAL_TOPO_PRERENDER_OUTPUT_ROOT=$static_tiles_layout_root" \
-    "LOCAL_TOPO_PRERENDER_MIN_ZOOM=$prerender_min_zoom" \
-    "LOCAL_TOPO_PRERENDER_MAX_ZOOM=$prerender_max_zoom" \
-    "LOCAL_TOPO_PRERENDER_BOUNDS=$prerender_bounds" \
-    "LOCAL_TOPO_PRERENDER_CONCURRENCY=$prerender_concurrency" \
-    "$node_bin" \
-    "$script_dir/prerender_tiles.mjs"
+      "LOCAL_TOPO_PRERENDER_BASE_URL=$runtime_base_url" \
+      "LOCAL_TOPO_PRERENDER_OUTPUT_ROOT=$static_tiles_layout_root" \
+      "LOCAL_TOPO_PRERENDER_MIN_ZOOM=$prerender_min_zoom" \
+      "LOCAL_TOPO_PRERENDER_MAX_ZOOM=$prerender_max_zoom" \
+      "LOCAL_TOPO_PRERENDER_BOUNDS=$prerender_bounds" \
+      "LOCAL_TOPO_PRERENDER_CONCURRENCY=$prerender_concurrency" \
+      "LOCAL_TOPO_PRERENDER_SKIP_EXISTING=$prerender_resume" \
+      "$node_bin" \
+      "$script_dir/prerender_tiles.mjs"
 
   if [ "$dry_run" -eq 0 ] && [ -n "$container_name" ]; then
     stop_prerender_tileserver "$container_name"

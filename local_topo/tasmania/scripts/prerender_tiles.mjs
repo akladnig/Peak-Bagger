@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { access, mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 function requireEnv(name) {
@@ -21,6 +21,23 @@ function parseIntegerEnv(name, fallback) {
   }
 
   return value;
+}
+
+function parseBooleanEnv(name, fallback = false) {
+  const raw = process.env[name]?.trim().toLowerCase();
+  if (raw == null || raw.length === 0) {
+    return fallback;
+  }
+
+  if (raw === '1' || raw === 'true' || raw === 'yes') {
+    return true;
+  }
+
+  if (raw === '0' || raw === 'false' || raw === 'no') {
+    return false;
+  }
+
+  throw new Error(`Invalid boolean for ${name}: ${raw}`);
 }
 
 function parseBounds(value) {
@@ -85,6 +102,7 @@ async function main() {
   const minZoom = parseIntegerEnv('LOCAL_TOPO_PRERENDER_MIN_ZOOM', 0);
   const maxZoom = parseIntegerEnv('LOCAL_TOPO_PRERENDER_MAX_ZOOM', 16);
   const concurrency = parseIntegerEnv('LOCAL_TOPO_PRERENDER_CONCURRENCY', 8);
+  const skipExisting = parseBooleanEnv('LOCAL_TOPO_PRERENDER_SKIP_EXISTING', false);
   const bounds = parseBounds(requireEnv('LOCAL_TOPO_PRERENDER_BOUNDS'));
 
   if (minZoom < 0 || maxZoom < minZoom) {
@@ -98,35 +116,52 @@ async function main() {
   const plans = buildTilePlans({ bounds, minZoom, maxZoom });
   const iterator = tileCoordinates(plans);
   let renderedCount = 0;
+  let skippedCount = 0;
 
-  async function renderNextTile() {
-    const next = iterator.next();
-    if (next.done) {
-      return;
+  async function fileExists(path) {
+    try {
+      await access(path);
+      return true;
+    } catch {
+      return false;
     }
+  }
 
-    const { z, x, y } = next.value;
-    const tileUrl = new URL(`/styles/tasmania-local-topo/${z}/${x}/${y}.png`, baseUrl);
-    const response = await fetch(tileUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to prerender ${tileUrl.pathname}: HTTP ${response.status}`);
+  async function renderTiles() {
+    while (true) {
+      const next = iterator.next();
+      if (next.done) {
+        return;
+      }
+
+      const { z, x, y } = next.value;
+      const outputPath = join(outputRoot, String(z), String(x), `${y}.png`);
+      if (skipExisting && (await fileExists(outputPath))) {
+        skippedCount += 1;
+        continue;
+      }
+
+      const tileUrl = new URL(`/styles/tasmania-local-topo/${z}/${x}/${y}.png`, baseUrl);
+      const response = await fetch(tileUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to prerender ${tileUrl.pathname}: HTTP ${response.status}`);
+      }
+
+      const body = Buffer.from(await response.arrayBuffer());
+      await mkdir(dirname(outputPath), { recursive: true });
+      await writeFile(outputPath, body);
+      renderedCount += 1;
     }
-
-    const body = Buffer.from(await response.arrayBuffer());
-    const outputPath = join(outputRoot, String(z), String(x), `${y}.png`);
-    await mkdir(dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, body);
-    renderedCount += 1;
-
-    await renderNextTile();
   }
 
   await Promise.all(
-    Array.from({ length: concurrency }, () => renderNextTile()),
+    Array.from({ length: concurrency }, () => renderTiles()),
   );
 
   process.stdout.write(
-    `Prerendered ${renderedCount} tiles into ${outputRoot} for zooms ${minZoom}-${maxZoom}\n`,
+    `Prerendered ${renderedCount} tiles into ${outputRoot} for zooms ${minZoom}-${maxZoom}` +
+      (skipExisting ? `, skipped ${skippedCount} existing tiles` : '') +
+      '\n',
   );
 }
 

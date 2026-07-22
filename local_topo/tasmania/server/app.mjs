@@ -19,9 +19,16 @@ function json(response, statusCode, body) {
   response.end(JSON.stringify(body));
 }
 
-function buildTileserverTileUrl({ tileserverInternalUrl, dataSetId, z, x, y }) {
+function buildTileserverTileUrl({
+  tileserverInternalUrl,
+  dataSetId,
+  z,
+  x,
+  y,
+  tileScale = '',
+}) {
   return new URL(
-    `/data/${dataSetId}/${z}/${x}/${y}.png`,
+    `/data/${dataSetId}/${z}/${x}/${y}${tileScale}.png`,
     tileserverInternalUrl,
   );
 }
@@ -32,9 +39,10 @@ function buildTileserverStyleTileUrl({
   z,
   x,
   y,
+  tileScale = '',
 }) {
   return new URL(
-    `/styles/${styleId}/${z}/${x}/${y}.png`,
+    `/styles/${styleId}/${z}/${x}/${y}${tileScale}.png`,
     tileserverInternalUrl,
   );
 }
@@ -87,10 +95,12 @@ export async function createApp({
   staticTileRoot = process.env.LOCAL_TOPO_STATIC_TILE_ROOT ?? '',
   dataSetId = process.env.TILESERVER_DATASET_ID ?? defaultDataSetId,
   styleId = process.env.TILESERVER_STYLE_ID ?? '',
+  tileScale = process.env.TILESERVER_TILE_SCALE ?? '',
 } = {}) {
   const resolvedCapabilities = capabilities ?? (await loadCapabilities());
   const trimmedStaticTileRoot = staticTileRoot.trim();
   const trimmedStyleId = styleId.trim();
+  const trimmedTileScale = tileScale.trim();
 
   return async function app(request, response) {
     const requestUrl = new URL(request.url ?? '/', 'http://localhost');
@@ -136,6 +146,7 @@ export async function createApp({
                 z,
                 x,
                 y,
+                tileScale: trimmedTileScale,
               })
             : buildTileserverStyleTileUrl({
                 tileserverInternalUrl,
@@ -143,6 +154,7 @@ export async function createApp({
                 z,
                 x,
                 y,
+                tileScale: trimmedTileScale,
               }),
       );
 

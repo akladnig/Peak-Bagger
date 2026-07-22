@@ -163,6 +163,43 @@
       }
     },
     {
+      "id": "contours-index-100m",
+      "type": "line",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 12,
+      "filter": [
+        "==",
+        ["%", ["to-number", ["get", "elev"]], 100],
+        0
+      ],
+      "paint": {
+        "line-color": "#6f4f2d",
+        "line-opacity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          12,
+          0.32,
+          14,
+          0.5,
+          16,
+          0.68
+        ],
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          12,
+          0.7,
+          14,
+          1.1,
+          16,
+          1.6
+        ]
+      }
+    },
+    {
       "id": "major-roads-casing",
       "type": "line",
       "source": "tasmania-osm",
@@ -322,6 +359,38 @@
           16,
           1.15
         ]
+      }
+    },
+    {
+      "id": "contour-labels-100m",
+      "type": "symbol",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 13,
+      "filter": [
+        "==",
+        ["%", ["to-number", ["get", "elev"]], 100],
+        0
+      ],
+      "layout": {
+        "symbol-placement": "line",
+        "text-field": ["concat", ["to-string", ["get", "elev"]], " m"],
+        "text-font": ["Roboto Regular"],
+        "text-size": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          13,
+          9,
+          16,
+          11
+        ],
+        "symbol-spacing": 300
+      },
+      "paint": {
+        "text-color": "#6f4f2d",
+        "text-halo-color": "rgba(245, 240, 228, 0.9)",
+        "text-halo-width": 1
       }
     },
     {
