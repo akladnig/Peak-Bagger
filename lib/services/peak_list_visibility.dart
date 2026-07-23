@@ -339,7 +339,10 @@ String? peakListFilterRegionKey(String? regionKey) {
 }
 
 String? canonicalPeakRegionKey(Peak peak) {
-  return canonicalRegionKey(peak.region);
+  final resolvedRegionKey = regionManifestCatalog.regionKeyForPoint(
+    LatLng(peak.latitude, peak.longitude),
+  );
+  return canonicalRegionKey(resolvedRegionKey ?? peak.region);
 }
 
 bool _isPeakWithinBounds({required Peak peak, required LatLngBounds bounds}) {

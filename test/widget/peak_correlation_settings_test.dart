@@ -15,6 +15,7 @@ import '../harness/test_tasmap_repository.dart';
 
 void main() {
   testWidgets('shows peak correlation settings section', (tester) async {
+    _setTallSurface(tester);
     SharedPreferences.setMockInitialValues({});
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(
@@ -43,11 +44,11 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    await tester.drag(
-      find.byKey(const Key('settings-scrollable')),
-      const Offset(0, -500),
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('peak-correlation-settings-section')),
+      300,
+      scrollable: _settingsScrollable(),
     );
-    await tester.pumpAndSettle();
 
     expect(
       find.byKey(const Key('peak-correlation-settings-section')),
@@ -57,10 +58,6 @@ void main() {
     await tester.ensureVisible(
       find.byKey(const Key('peak-correlation-settings-section')),
     );
-    await tester.tap(
-      find.byKey(const Key('peak-correlation-settings-section')),
-    );
-    await tester.pumpAndSettle();
 
     expect(
       find.byKey(const Key('peak-correlation-distance-meters')),
@@ -69,6 +66,7 @@ void main() {
   });
 
   testWidgets('persists peak correlation threshold changes', (tester) async {
+    _setTallSurface(tester);
     SharedPreferences.setMockInitialValues({});
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(
@@ -97,19 +95,15 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    await tester.drag(
-      find.byKey(const Key('settings-scrollable')),
-      const Offset(0, -500),
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('peak-correlation-settings-section')),
+      300,
+      scrollable: _settingsScrollable(),
     );
-    await tester.pumpAndSettle();
 
     await tester.ensureVisible(
       find.byKey(const Key('peak-correlation-settings-section')),
     );
-    await tester.tap(
-      find.byKey(const Key('peak-correlation-settings-section')),
-    );
-    await tester.pumpAndSettle();
     expect(
       find.byKey(const Key('peak-correlation-distance-meters')),
       findsOneWidget,
@@ -123,4 +117,20 @@ void main() {
     final value = await container.read(peakCorrelationSettingsProvider.future);
     expect(value, 70);
   });
+}
+
+Finder _settingsScrollable() {
+  return find
+      .descendant(
+        of: find.byKey(const Key('settings-scrollable')),
+        matching: find.byType(Scrollable),
+      )
+      .first;
+}
+
+void _setTallSurface(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1024, 1400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
 }

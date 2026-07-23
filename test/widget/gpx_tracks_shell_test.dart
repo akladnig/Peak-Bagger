@@ -6,11 +6,17 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_map_notifier.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('manual rescan shows no-GPX snackbar message', (tester) async {
+    _setTallSurface(tester);
     await _pumpApp(
       tester,
       TestMapNotifier(
@@ -33,6 +39,7 @@ void main() {
   testWidgets('startup backfill warning opens settings and shows detail', (
     tester,
   ) async {
+    _setTallSurface(tester);
     await _pumpApp(
       tester,
       TestMapNotifier(
@@ -68,7 +75,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('Failed to rebuild bagged peak history from stored tracks.'),
       300,
-      scrollable: find.byType(Scrollable).last,
+      scrollable: _settingsScrollable(),
     );
     expect(
       find.text('Failed to rebuild bagged peak history from stored tracks.'),
@@ -79,6 +86,7 @@ void main() {
   testWidgets('mixed result shows route-shell snackbar and settings warning', (
     tester,
   ) async {
+    _setTallSurface(tester);
     await _pumpApp(
       tester,
       TestMapNotifier(
@@ -117,7 +125,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.text('Some files need manual review. See import.log.'),
       300,
-      scrollable: find.byType(Scrollable).last,
+      scrollable: _settingsScrollable(),
     );
     expect(
       find.text('Some files need manual review. See import.log.'),
@@ -126,11 +134,17 @@ void main() {
   });
 
   testWidgets('reset track data shows result dialog', (tester) async {
+    _setTallSurface(tester);
     await _pumpApp(tester, TestMapNotifier(_baseState()));
 
     router.go('/settings');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('reset-track-data-tile')),
+      300,
+      scrollable: _settingsScrollable(),
+    );
 
     await tester.tap(find.byKey(const Key('reset-track-data-tile')));
     await tester.pumpAndSettle();
@@ -148,11 +162,17 @@ void main() {
   });
 
   testWidgets('reset track data shows failure dialog', (tester) async {
+    _setTallSurface(tester);
     await _pumpApp(tester, _ResetFailureMapNotifier(_baseState()));
 
     router.go('/settings');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('reset-track-data-tile')),
+      300,
+      scrollable: _settingsScrollable(),
+    );
 
     await tester.tap(find.byKey(const Key('reset-track-data-tile')));
     await tester.pumpAndSettle();
@@ -172,6 +192,7 @@ void main() {
   testWidgets('recalculate track statistics shows result dialog', (
     tester,
   ) async {
+    _setTallSurface(tester);
     await _pumpApp(
       tester,
       TestMapNotifier(
@@ -186,6 +207,11 @@ void main() {
     router.go('/settings');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('recalculate-track-statistics-tile')),
+      300,
+      scrollable: _settingsScrollable(),
+    );
 
     expect(
       find.descendant(
@@ -228,6 +254,7 @@ void main() {
   testWidgets('recalculate track statistics shows loading state', (
     tester,
   ) async {
+    _setTallSurface(tester);
     await _pumpApp(
       tester,
       TestMapNotifier(_baseState().copyWith(isLoadingTracks: true)),
@@ -236,6 +263,11 @@ void main() {
     router.go('/settings');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('recalculate-track-statistics-tile')),
+      300,
+      scrollable: _settingsScrollable(),
+    );
 
     final tile = tester.widget<ListTile>(
       find.byKey(const Key('recalculate-track-statistics-tile')),
@@ -265,11 +297,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
-    final settingsScrollable = find.byType(Scrollable).last;
     await tester.scrollUntilVisible(
       find.byKey(const Key('update-tassy-full-peak-list-tile')),
       200,
-      scrollable: settingsScrollable,
+      scrollable: _settingsScrollable(),
     );
 
     expect(
@@ -302,6 +333,22 @@ void main() {
     expect(find.byKey(const Key('app-bar-theme-action')), findsNothing);
     expect(find.byKey(const Key('map-info-fab')), findsOneWidget);
   });
+}
+
+Finder _settingsScrollable() {
+  return find
+      .descendant(
+        of: find.byKey(const Key('settings-scrollable')),
+        matching: find.byType(Scrollable),
+      )
+      .first;
+}
+
+void _setTallSurface(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1024, 1400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
 }
 
 Future<void> _pumpApp(WidgetTester tester, TestMapNotifier notifier) async {

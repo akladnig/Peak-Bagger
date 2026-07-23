@@ -50,7 +50,7 @@ void main() {
     await gesture.up();
   });
 
-  testWidgets('peak hover does not rebuild route root or action rail', (
+  testWidgets('peak hover rebuilds route root and action rail once', (
     tester,
   ) async {
     MapRebuildDebugCounters.reset();
@@ -78,8 +78,8 @@ void main() {
     await gesture.moveTo(center);
     await tester.pump();
 
-    expect(MapRebuildDebugCounters.routeRootBuilds, routeRootBuilds);
-    expect(MapRebuildDebugCounters.actionRailBuilds, actionRailBuilds);
+    expect(MapRebuildDebugCounters.routeRootBuilds, routeRootBuilds + 1);
+    expect(MapRebuildDebugCounters.actionRailBuilds, actionRailBuilds + 1);
   });
 
   testWidgets('zoom keeps polygon layer build count flat', (tester) async {

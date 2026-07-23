@@ -16,6 +16,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
+import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
@@ -249,14 +250,33 @@ void main() {
   ) async {
     await _pumpMap(
       tester,
-      _mapStateWithPeak(),
+      _mapStateWithPeak().copyWith(
+        peakListSelectionMode: PeakListSelectionMode.specificList,
+        selectedPeakListIds: {9, 2},
+        previousSpecificPeakListIds: {9, 2},
+      ),
+      peakListRepository: _peakListRepository([
+        (
+          peakList: PeakList(
+            peakListId: 9,
+            name: 'Abels',
+            colour: 0xFF4C8BF5,
+          ),
+          items: const [PeakListItem(peakOsmId: 6406, points: 0)],
+        ),
+        (
+          peakList: PeakList(
+            peakListId: 2,
+            name: 'HWC Peak Baggers',
+            colour: 0xFF6347EA,
+          ),
+          items: const [PeakListItem(peakOsmId: 6406, points: 0)],
+        ),
+      ]),
       overrides: [
-        peakOwnershipRingSegmentsProvider.overrideWithValue(const {
-          6406: [
-            PeakOwnershipRingSegment(peakListId: 9, colourValue: 0xFF4C8BF5),
-            PeakOwnershipRingSegment(peakListId: 2, colourValue: 0xFF6347EA),
-          ],
-        }),
+        peakOwnershipRingSettingsProvider.overrideWith(
+          _StaticPeakOwnershipRingNotifier.new,
+        ),
       ],
     );
 
@@ -1226,9 +1246,7 @@ void main() {
     expect(marker.mgrs, isNotEmpty);
   });
 
-  testWidgets('map startup restores persisted marker without moving camera', (
-    tester,
-  ) async {
+  test('map startup restores persisted marker without moving camera', () async {
     final tasmapRepository = await TestTasmapRepository.create();
     final routeRepository = RouteRepository.test(InMemoryRouteStorage());
     final waypointsRepository = WaypointsRepository.test(
@@ -1277,10 +1295,8 @@ void main() {
       const LatLng(-42.6, 146.6),
     );
 
-    await tester.runAsync(() async {
-      await Future<void>.delayed(Duration.zero);
-      await Future<void>.delayed(Duration.zero);
-    });
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
 
     final state = container.read(mapProvider);
 
@@ -1844,6 +1860,12 @@ class _StaticPeakMarkerInfoNotifier extends PeakMarkerInfoSettingsNotifier {
 
   @override
   bool build() => value;
+}
+
+class _StaticPeakOwnershipRingNotifier
+    extends PeakOwnershipRingSettingsNotifier {
+  @override
+  bool build() => true;
 }
 
 class _DelayedPeakRepository extends PeakRepository {

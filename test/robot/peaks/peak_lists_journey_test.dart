@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +9,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
+import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
@@ -269,6 +272,7 @@ void main() {
     tester,
   ) async {
     final robot = PeakListsRobot(tester);
+    final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
     final peakListRepository = PeakListRepository.test(
       InMemoryPeakListStorage([
         PeakList(name: 'Abels')..peakListId = 1,
@@ -278,6 +282,11 @@ void main() {
     await robot.pumpApp(
       filePicker: TestPeakListFilePicker(),
       repository: peakListRepository,
+      overrides: [
+        peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
+          scheduler.call,
+        ),
+      ],
     );
 
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Abels');
@@ -288,6 +297,8 @@ void main() {
     ProviderScope.containerOf(
       tester.element(robot.summaryPane),
     ).read(peakListRevisionProvider.notifier).increment();
+    await tester.pump();
+    await scheduler.runAllPending();
     await tester.pumpAndSettle();
 
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Abels Renamed');
@@ -304,6 +315,7 @@ void main() {
     tester,
   ) async {
     final robot = PeakListsRobot(tester);
+    final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([
         _buildPeak(
@@ -333,6 +345,11 @@ void main() {
       repository: peakListRepository,
       peakRepository: peakRepository,
       peaksBaggedRepository: peaksBaggedRepository,
+      overrides: [
+        peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
+          scheduler.call,
+        ),
+      ],
     );
 
     await peaksBaggedRepository.rebuildFromTracks([
@@ -355,6 +372,8 @@ void main() {
     ProviderScope.containerOf(
       tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
     ).read(peaksBaggedRevisionProvider.notifier).increment();
+    await tester.pump();
+    await scheduler.runAllPending();
     await tester.pumpAndSettle();
 
     expect(
@@ -369,6 +388,7 @@ void main() {
     tester,
   ) async {
     final robot = PeakListsRobot(tester);
+    final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
 
     final peak = _buildPeak(
       osmId: 101,
@@ -439,12 +459,19 @@ void main() {
         return peakListRepository.findByName(name) != null;
       },
       importRunner: importRunner,
+      overrides: [
+        peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
+          scheduler.call,
+        ),
+      ],
     );
 
     await robot.openImportDialog();
     await robot.chooseFile();
     await robot.enterName('Journey List');
     await robot.submitImport();
+    await tester.pump();
+    await scheduler.runAllPending();
     await tester.pumpAndSettle();
 
     expect(robot.importDialog, findsNothing);
@@ -466,6 +493,8 @@ void main() {
     );
 
     await tester.tap(robot.updateConfirm);
+    await tester.pump();
+    await scheduler.runAllPending();
     await tester.pumpAndSettle();
 
     expect(robot.importDialog, findsNothing);
@@ -840,6 +869,20 @@ Peak _buildPeak({
     easting: mgrs.easting,
     northing: mgrs.northing,
   );
+}
+
+class _ControlledPeakListsSummaryRefreshScheduler {
+  final _pendingTasks = <FutureOr<void> Function()>[];
+
+  Future<void> call(FutureOr<void> Function() task) async {
+    _pendingTasks.add(task);
+  }
+
+  Future<void> runAllPending() async {
+    while (_pendingTasks.isNotEmpty) {
+      await _pendingTasks.removeAt(0)();
+    }
+  }
 }
 
 Future<PeakListRepository> _peakListRepository({

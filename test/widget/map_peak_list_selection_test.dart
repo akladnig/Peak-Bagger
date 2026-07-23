@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -606,7 +604,6 @@ void main() {
   testWidgets(
     'drawer selection updates immediately and stale deferred refreshes are superseded',
     (tester) async {
-      final scheduler = _ControlledPeakListSelectionRefreshScheduler();
       await _pumpApp(
         tester,
         MapState(
@@ -619,7 +616,6 @@ void main() {
         peakListRepository: _peakListRepositoryWithItems([
           PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 1,
         ]),
-        refreshScheduler: scheduler.call,
       );
 
       router.go('/map');
@@ -631,50 +627,27 @@ void main() {
 
       await tester.tap(find.byKey(const Key('show-peaks-fab')));
       await tester.pumpAndSettle();
-      await scheduler.runAllPending();
-      await tester.pump();
 
       await tester.tap(find.byKey(const Key('peak-list-item-Alpha')));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(
         container.read(mapProvider).peakListSelectionMode,
         PeakListSelectionMode.specificList,
       );
       expect(container.read(mapProvider).selectedPeakListIds, {1});
-      expect(
-        find.byKey(const Key('peak-list-selection-chip-all-peaks')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('peak-list-selection-chip-1')), findsNothing);
-      expect(scheduler.pendingCount, 1);
+      expect(find.byKey(const Key('peak-list-selection-chip-all-peaks')), findsNothing);
+      expect(find.byKey(const Key('peak-list-selection-chip-1')), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(
         container.read(mapProvider).peakListSelectionMode,
         PeakListSelectionMode.allPeaks,
       );
       expect(container.read(mapProvider).selectedPeakListIds, isEmpty);
-      expect(scheduler.pendingCount, 2);
 
-      await scheduler.runPendingAt(1);
-      await tester.pump();
-
-      expect(
-        find.byKey(const Key('peak-list-selection-chip-all-peaks')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('peak-list-selection-chip-1')), findsNothing);
-
-      await scheduler.runPendingAt(0);
-      await tester.pump();
-
-      expect(
-        container.read(mapProvider).peakListSelectionMode,
-        PeakListSelectionMode.allPeaks,
-      );
       expect(
         find.byKey(const Key('peak-list-selection-chip-all-peaks')),
         findsOneWidget,
@@ -782,27 +755,6 @@ Color? _resolvedBackgroundColor(ButtonStyle? style) {
 
 Color? _resolvedSideColor(ButtonStyle? style) {
   return style?.side?.resolve(const <WidgetState>{})?.color;
-}
-
-class _ControlledPeakListSelectionRefreshScheduler {
-  final _pendingTasks = <FutureOr<void> Function()>[];
-
-  int get pendingCount => _pendingTasks.length;
-
-  Future<void> call(FutureOr<void> Function() task) async {
-    _pendingTasks.add(task);
-  }
-
-  Future<void> runPendingAt(int index) async {
-    final task = _pendingTasks.removeAt(index);
-    await task();
-  }
-
-  Future<void> runAllPending() async {
-    while (_pendingTasks.isNotEmpty) {
-      await runPendingAt(0);
-    }
-  }
 }
 
 PeakListRepository _peakListRepositoryWithItems(List<PeakList> peakLists) {

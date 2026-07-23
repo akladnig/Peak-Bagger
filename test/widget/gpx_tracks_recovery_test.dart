@@ -16,6 +16,11 @@ void main() {
   testWidgets(
     'recovery state shows banner and disables track switch in drawer',
     (tester) async {
+      tester.view.physicalSize = const Size(1024, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
       final state = MapState(
         center: const LatLng(-41.5, 146.5),
         zoom: 10,
@@ -49,6 +54,7 @@ void main() {
       expect(showTracksFab.onPressed, isNotNull);
       expect(importFab.onPressed, isNull);
 
+      await tester.ensureVisible(find.byKey(const Key('show-tracks-fab')));
       await tester.tap(find.byKey(const Key('show-tracks-fab')));
       await tester.pumpAndSettle();
 

@@ -60,10 +60,8 @@ typedef PeakListsSummaryRefreshScheduler =
 
 final peakListsSummaryRefreshSchedulerProvider =
     Provider<PeakListsSummaryRefreshScheduler>((ref) {
-      return (task) {
-        return Future<void>(() async {
-          await task();
-        });
+      return (task) async {
+        await task();
       };
     });
 

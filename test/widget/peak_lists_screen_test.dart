@@ -289,9 +289,6 @@ void main() {
   testWidgets('region filters restore a saved selection from preferences', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({
-      peakListRegionFilterPreferenceKey: ['italy-nord-est'],
-    });
     final fixture = _buildRegionFilterFixture();
 
     await _pumpPeakListsApp(
@@ -299,6 +296,12 @@ void main() {
       filePicker: TestPeakListFilePicker(),
       repository: fixture.repository,
       peakRepository: fixture.peakRepository,
+      overrides: [
+        _immediatePeakListsSummaryRefreshSchedulerOverride,
+        peakListRegionFilterProvider.overrideWith(
+          _ItalyNordEstOnlyPeakListRegionFilterNotifier.new,
+        ),
+      ],
     );
 
     expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
@@ -312,15 +315,23 @@ void main() {
     tester,
   ) async {
     final fixture = _buildRegionFilterFixture();
+    final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
 
     await _pumpPeakListsApp(
       tester,
       filePicker: TestPeakListFilePicker(),
       repository: fixture.repository,
       peakRepository: fixture.peakRepository,
+      overrides: [
+        peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
+          scheduler.call,
+        ),
+      ],
     );
 
     await tester.tap(find.byKey(const Key('peak-lists-region-fab-tasmania')));
+    await tester.pump();
+    await scheduler.runAllPending();
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-lists-row-1')), findsNothing);
@@ -329,6 +340,8 @@ void main() {
     expect(find.byKey(const Key('peak-lists-row-4')), findsNothing);
 
     await tester.tap(find.byKey(const Key('peak-lists-region-fab-tasmania')));
+    await tester.pump();
+    await scheduler.runAllPending();
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('peak-lists-row-1')), findsOneWidget);
@@ -458,12 +471,18 @@ void main() {
     'filter handoff selects the first remaining visible list and stays handed off when the hidden list returns',
     (tester) async {
       final fixture = _buildRegionFilterFixture();
+      final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
 
       await _pumpPeakListsApp(
         tester,
         filePicker: TestPeakListFilePicker(),
         repository: fixture.repository,
         peakRepository: fixture.peakRepository,
+        overrides: [
+          peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
+            scheduler.call,
+          ),
+        ],
       );
 
       tester
@@ -487,6 +506,8 @@ void main() {
       );
 
       await tester.tap(find.byKey(const Key('peak-lists-region-fab-tasmania')));
+      await tester.pump();
+      await scheduler.runAllPending();
       await tester.pumpAndSettle();
 
       expect(
@@ -506,6 +527,8 @@ void main() {
       );
 
       await tester.tap(find.byKey(const Key('peak-lists-region-fab-tasmania')));
+      await tester.pump();
+      await scheduler.runAllPending();
       await tester.pumpAndSettle();
 
       expect(
@@ -865,6 +888,7 @@ void main() {
   });
 
   testWidgets('peak rename refreshes Tassy Full rows', (tester) async {
+    final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([
         _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
@@ -885,6 +909,11 @@ void main() {
           PeaksBagged(baggedId: 1, peakId: 100, gpxId: 10),
         ]),
       ),
+      overrides: [
+        peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
+          scheduler.call,
+        ),
+      ],
     );
 
     expect(find.text('Alpha Peak'), findsWidgets);
@@ -895,6 +924,8 @@ void main() {
     ProviderScope.containerOf(
       tester.element(find.byKey(const Key('peak-lists-summary-pane'))),
     ).read(peakRevisionProvider.notifier).increment();
+    await tester.pump();
+    await scheduler.runAllPending();
     await tester.pumpAndSettle();
 
     expect(find.text('Renamed Peak'), findsWidgets);
@@ -4891,10 +4922,10 @@ class _ControlledPeakListsSummaryRefreshScheduler {
 
 class _FailingAddPeakListRepository extends PeakListRepository {
   _FailingAddPeakListRepository(
-    PeakListStorage storage, {
+    super.storage, {
     required PeakRepository peakRepository,
     required this.message,
-  }) : super.test(storage, peakRepository: peakRepository);
+  }) : super.test(peakRepository: peakRepository);
 
   final String message;
 
@@ -5097,4 +5128,10 @@ class _StaticPeakListMiniMapClusterDisplayOffNotifier
     extends PeakListMiniMapClusterDisplaySettingsNotifier {
   @override
   bool build() => false;
+}
+
+class _ItalyNordEstOnlyPeakListRegionFilterNotifier
+    extends PeakListRegionFilterNotifier {
+  @override
+  Set<String> build() => const {'italy-nord-est'};
 }

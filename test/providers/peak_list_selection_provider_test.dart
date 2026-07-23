@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_test/flutter_test.dart';
@@ -900,21 +898,6 @@ class _StaticPeakOwnershipRingSettingsNotifier
     extends PeakOwnershipRingSettingsNotifier {
   @override
   bool build() => true;
-}
-
-class _ControlledPeakListSelectionRefreshScheduler {
-  final _pendingTasks = <FutureOr<void> Function()>[];
-
-  int get pendingCount => _pendingTasks.length;
-
-  Future<void> call(FutureOr<void> Function() task) async {
-    _pendingTasks.add(task);
-  }
-
-  Future<void> runPendingAt(int index) async {
-    final task = _pendingTasks.removeAt(index);
-    await task();
-  }
 }
 
 PeakListRepository _peakListRepository({
