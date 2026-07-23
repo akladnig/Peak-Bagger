@@ -270,6 +270,10 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                       if (selectedPeakIds.isEmpty) {
                         return;
                       }
+                      await _refreshPeakListSelectionDependencies();
+                      if (!mounted) {
+                        return;
+                      }
                       setState(() {
                         _selectedPeakId = selectedPeakIds.first;
                       });
@@ -559,6 +563,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
               PeakListItem(peakOsmId: row.peakId, points: row.points),
           ],
           ascentRows: ascentRows,
+          refreshPeakListSelectionOnAddSuccess: false,
         );
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
@@ -573,6 +578,15 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
 
   Future<void> _refreshPeakListSelectionDependencies() async {
     ref.read(peakListMembershipRefreshRunnerProvider)();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _derivedSnapshot = null;
+      _settledDerivedRefreshKey = null;
+      _pendingDerivedRefreshKey = null;
+      _derivedRefreshSerial += 1;
+    });
   }
 
   List<_PeakListSummaryRow> _sortSummaryRows(List<_PeakListSummaryRow> rows) {

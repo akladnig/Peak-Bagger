@@ -1926,6 +1926,210 @@ void main() {
     },
   );
 
+  testWidgets(
+    'successful add refresh keeps the same selected list identity and combined memberships',
+    (tester) async {
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Existing Peak', -41.0, 146.0),
+          _buildPeak(200, 'Alpha Peak', -41.1, 146.1),
+          _buildPeak(300, 'Zulu Peak', -41.2, 146.2),
+        ]),
+      );
+      final peakList = PeakList(
+        peakListId: 1,
+        name: 'Tasmania',
+        colour: 0xFF224466,
+      );
+      _registeredPeakListItems[peakList] = const [
+        PeakListItem(peakOsmId: 100, points: 4),
+      ];
+      final peakListRepository = _peakListRepository(
+        [peakList],
+        peakRepository: peakRepository,
+      );
+      final beforeSavePeakList = peakListRepository.findByName('Tasmania')!;
+
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: peakListRepository,
+        peakRepository: peakRepository,
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage(),
+        ),
+        overrides: [
+          _immediatePeakListsSummaryRefreshSchedulerOverride,
+          _immediatePeakListSelectionRefreshSchedulerOverride,
+        ],
+      );
+
+      tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Tasmania',
+      );
+
+      await tester.tap(find.byKey(const Key('peak-lists-add-peak')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-300')));
+      await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-200')));
+      await tester.pump();
+
+      await tester.enterText(
+        find.byKey(const Key('peak-selected-points-300')),
+        '7',
+      );
+      await tester.enterText(
+        find.byKey(const Key('peak-selected-points-200')),
+        '3',
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      final afterSavePeakList = peakListRepository.findByName('Tasmania')!;
+      expect(afterSavePeakList.peakListId, beforeSavePeakList.peakListId);
+      expect(afterSavePeakList.name, beforeSavePeakList.name);
+      expect(afterSavePeakList.colour, beforeSavePeakList.colour);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Tasmania',
+      );
+      expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
+      expect(find.byKey(const Key('peak-lists-details-row-200')), findsOneWidget);
+      expect(find.byKey(const Key('peak-lists-details-row-300')), findsOneWidget);
+      expect(_storedMemberships(peakListRepository, 'Tasmania'), [
+        (100, 4),
+        (200, 3),
+        (300, 7),
+      ]);
+    },
+  );
+
+  testWidgets(
+    'forced add failure keeps the selected list and add session state for retry',
+    (tester) async {
+      final peakRepository = PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Existing Peak', -41.0, 146.0),
+          _buildPeak(200, 'Alpha Peak', -41.1, 146.1),
+          _buildPeak(300, 'Zulu Peak', -41.2, 146.2),
+        ]),
+      );
+      final peakList = PeakList(
+        peakListId: 1,
+        name: 'Tasmania',
+        colour: 0xFF224466,
+      );
+      _registeredPeakListItems[peakList] = const [
+        PeakListItem(peakOsmId: 100, points: 4),
+      ];
+      final peakListRepository = _peakListRepository(
+        [peakList],
+        peakRepository: peakRepository,
+      );
+      final failingMutationRepository = _FailingAddPeakListRepository(
+        peakListRepository.storage,
+        peakRepository: peakRepository,
+        message: 'forced add failure',
+      );
+
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: peakListRepository,
+        peakRepository: peakRepository,
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage(),
+        ),
+        overrides: [
+          peakListMutationRepositoryProvider.overrideWithValue(
+            failingMutationRepository,
+          ),
+        ],
+      );
+
+      tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Tasmania',
+      );
+
+      await tester.tap(find.byKey(const Key('peak-lists-add-peak')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-300')));
+      await tester.tap(find.byKey(const Key('peak-multi-select-checkbox-200')));
+      await tester.pump();
+
+      await tester.enterText(
+        find.byKey(const Key('peak-selected-points-300')),
+        '7',
+      );
+      await tester.enterText(
+        find.byKey(const Key('peak-selected-points-200')),
+        '3',
+      );
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byKey(const Key('peak-list-peak-dialog')), findsOneWidget);
+      expect(find.text('Peak List Update Failed'), findsOneWidget);
+      expect(find.text('Exception: forced add failure'), findsOneWidget);
+      expect(
+        find.byKey(const Key('peak-list-peak-failure-close')),
+        findsOneWidget,
+      );
+      expect(_storedMemberships(peakListRepository, 'Tasmania'), [(100, 4)]);
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('peak-lists-selected-title')))
+            .data,
+        'Tasmania',
+      );
+
+      await tester.tap(find.byKey(const Key('peak-list-peak-failure-close')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.byKey(const Key('peak-list-peak-dialog')), findsOneWidget);
+      expect(find.byKey(const Key('peak-selected-row-200')), findsOneWidget);
+      expect(find.byKey(const Key('peak-selected-row-300')), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('peak-selected-points-200')))
+            .controller!
+            .text,
+        '3',
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('peak-selected-points-300')))
+            .controller!
+            .text,
+        '7',
+      );
+      expect(_storedMemberships(peakListRepository, 'Tasmania'), [(100, 4)]);
+    },
+  );
+
   testWidgets('summary metrics use unique peak ids and latest ascent dates', (
     tester,
   ) async {
@@ -4682,6 +4886,24 @@ class _ControlledPeakListsSummaryRefreshScheduler {
     while (_pendingTasks.isNotEmpty) {
       await runPendingAt(0);
     }
+  }
+}
+
+class _FailingAddPeakListRepository extends PeakListRepository {
+  _FailingAddPeakListRepository(
+    PeakListStorage storage, {
+    required PeakRepository peakRepository,
+    required this.message,
+  }) : super.test(storage, peakRepository: peakRepository);
+
+  final String message;
+
+  @override
+  Future<PeakList> addPeakItems({
+    required int peakListId,
+    required List<PeakListItem> items,
+  }) {
+    throw Exception(message);
   }
 }
 
