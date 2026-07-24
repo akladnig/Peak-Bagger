@@ -268,7 +268,9 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                       if (selectedPeakIds.isEmpty) {
                         return;
                       }
-                      await _refreshPeakListSelectionDependencies();
+                      await _refreshPeakListSelectionDependencies(
+                        preserveSettledSummary: true,
+                      );
                       if (!mounted) {
                         return;
                       }
@@ -574,14 +576,18 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     );
   }
 
-  Future<void> _refreshPeakListSelectionDependencies() async {
+  Future<void> _refreshPeakListSelectionDependencies({
+    bool preserveSettledSummary = false,
+  }) async {
     ref.read(peakListMembershipRefreshRunnerProvider)();
     if (!mounted) {
       return;
     }
     setState(() {
-      _derivedSnapshot = null;
-      _settledDerivedRefreshKey = null;
+      if (!preserveSettledSummary) {
+        _derivedSnapshot = null;
+        _settledDerivedRefreshKey = null;
+      }
       _pendingDerivedRefreshKey = null;
       _derivedRefreshSerial += 1;
     });
@@ -3778,13 +3784,14 @@ class _PeakListsDerivedSnapshot {
       return row;
     }
 
-    return row.resolveDetails(
-      items: itemsByPeakListId[row.peakList.peakListId] ??
-          const <PeakListItem>[],
+    final resolvedRow = row.resolveDetails(
+      items:
+          itemsByPeakListId[row.peakList.peakListId] ?? const <PeakListItem>[],
       peaksById: peaksById,
       ascentCountsByPeakId: ascentCountsByPeakId,
       latestAscentDatesByPeakId: latestAscentDatesByPeakId,
     );
+    return resolvedRow;
   }
 }
 
@@ -3814,7 +3821,8 @@ _PeakListsDerivedBaseData _resolvePeakListsDerivedBaseData({
   };
   final peakRegionKeysByOsmId = <int, String?>{};
   for (final peakListId in mixedPeakListIds) {
-    for (final item in itemsByPeakListId[peakListId] ?? const <PeakListItem>[]) {
+    for (final item
+        in itemsByPeakListId[peakListId] ?? const <PeakListItem>[]) {
       peakRegionKeysByOsmId.putIfAbsent(item.peakOsmId, () {
         final peak = peaksById[item.peakOsmId];
         return peak == null ? null : canonicalPeakRegionKey(peak);
@@ -3873,18 +3881,20 @@ _PeakListsDerivedSnapshot _buildPeakListsDerivedSnapshot({
       filteredPeakLists.add(peakList);
     }
   }
-  final detailedPeakListId = filteredPeakLists.any(
-    (peakList) => peakList.peakListId == preferredSelectedPeakListId,
-  )
+  final detailedPeakListId =
+      filteredPeakLists.any(
+        (peakList) => peakList.peakListId == preferredSelectedPeakListId,
+      )
       ? preferredSelectedPeakListId
       : (filteredPeakLists.isEmpty ? null : filteredPeakLists.first.peakListId);
 
-  return _PeakListsDerivedSnapshot(
+  final snapshot = _PeakListsDerivedSnapshot(
     summaryRows: filteredPeakLists
         .map(
           (peakList) => _PeakListSummaryRow.fromPeakList(
             peakList,
-            items: baseData.itemsByPeakListId[peakList.peakListId] ??
+            items:
+                baseData.itemsByPeakListId[peakList.peakListId] ??
                 const <PeakListItem>[],
             peaksById: baseData.peaksById,
             ascentCountsByPeakId: baseData.ascentCountsByPeakId,
@@ -3898,6 +3908,7 @@ _PeakListsDerivedSnapshot _buildPeakListsDerivedSnapshot({
     ascentCountsByPeakId: baseData.ascentCountsByPeakId,
     latestAscentDatesByPeakId: baseData.latestAscentDatesByPeakId,
   );
+  return snapshot;
 }
 
 bool _sameRegionKeySet(Set<String> left, Set<String> right) {

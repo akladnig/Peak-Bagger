@@ -316,18 +316,26 @@ _PeakListSelectionDerivedState _buildDerivedState({
   final visibilityLookup = _PeakListMembershipLookup(repo: repo);
   final visibleRegionKeys = visibleRegionKeysForBounds(inputs.visibleBounds);
   final hasResolvedVisibleBounds = inputs.visibleBounds != null;
+  final peakRegionKeysByOsmId = {
+    for (final peak in inputs.peaks) peak.osmId: canonicalPeakRegionKey(peak),
+  };
+  final visibilityStateByPeakListId = _buildPeakListVisibilityStateByPeakListId(
+    inputs: inputs,
+    visibleRegionKeys: visibleRegionKeys,
+    peakRegionKeysByOsmId: peakRegionKeysByOsmId,
+    visibilityLookup: visibilityLookup,
+  );
 
   final summary = _buildPeakListSelectionSummary(
     inputs: inputs,
     peakListsById: peakListsById,
     visibleRegionKeys: visibleRegionKeys,
     hasResolvedVisibleBounds: hasResolvedVisibleBounds,
-    visibilityLookup: visibilityLookup,
+    visibilityStateByPeakListId: visibilityStateByPeakListId,
   );
   final drawerEntries = _buildMapPeakListDrawerEntries(
     inputs: inputs,
-    visibleRegionKeys: visibleRegionKeys,
-    visibilityLookup: visibilityLookup,
+    visibilityStateByPeakListId: visibilityStateByPeakListId,
   );
   final metadataFilterScopePeaks = switch (inputs.peakListSelectionMode) {
     PeakListSelectionMode.none => const <Peak>[],
@@ -347,6 +355,7 @@ _PeakListSelectionDerivedState _buildDerivedState({
     peaksById: peaksById,
     visibleRegionKeys: visibleRegionKeys,
     visibilityLookup: visibilityLookup,
+    visibilityStateByPeakListId: visibilityStateByPeakListId,
   );
 
   return _PeakListSelectionDerivedState(
@@ -363,7 +372,7 @@ PeakListSelectionSummary _buildPeakListSelectionSummary({
   required Map<int, PeakList> peakListsById,
   required Set<String> visibleRegionKeys,
   required bool hasResolvedVisibleBounds,
-  required _PeakListMembershipLookup visibilityLookup,
+  required Map<int, _PeakListVisibilityState> visibilityStateByPeakListId,
 }) {
   if (hasResolvedVisibleBounds && visibleRegionKeys.isEmpty) {
     return const PeakListSelectionSummary(chips: []);
@@ -381,34 +390,19 @@ PeakListSelectionSummary _buildPeakListSelectionSummary({
   final visiblePinnedPeakListIds = {
     for (final peakList in inputs.peakLists)
       if ((!hasResolvedVisibleBounds ||
-              peakListAppliesToVisibleRegions(
-                peakList,
-                visibleRegionKeys,
-                visibleBounds: inputs.visibleBounds,
-                peaks: inputs.peaks,
-                itemsLoader: visibilityLookup.itemsOrEmpty,
-              )) &&
-          peakListIsPinned(
-            peakList: peakList,
-            pinnedPeakListIdsByRegion: inputs.pinnedPeakListIdsByRegion,
-            peaks: inputs.peaks,
-            itemsLoader: visibilityLookup.itemsOrEmpty,
-          ))
+              (visibilityStateByPeakListId[peakList.peakListId]
+                      ?.appliesToVisibleRegions ??
+                  false)) &&
+          (visibilityStateByPeakListId[peakList.peakListId]?.isPinned ?? false))
         peakList.peakListId,
   };
   final visibleSelectedPeakListIds = hasResolvedVisibleBounds
       ? {
           for (final peakListId in inputs.selectedPeakListIds)
             if (() {
-              final peakList = peakListsById[peakListId];
-              return peakList != null &&
-                  peakListAppliesToVisibleRegions(
-                    peakList,
-                    visibleRegionKeys,
-                    visibleBounds: inputs.visibleBounds,
-                    peaks: inputs.peaks,
-                    itemsLoader: visibilityLookup.itemsOrEmpty,
-                  );
+              return visibilityStateByPeakListId[peakListId]
+                      ?.appliesToVisibleRegions ??
+                  false;
             }())
               peakListId,
         }
@@ -446,23 +440,17 @@ PeakListSelectionSummary _buildPeakListSelectionSummary({
 
 List<MapPeakListDrawerEntry> _buildMapPeakListDrawerEntries({
   required _PeakListSelectionRefreshInputs inputs,
-  required Set<String> visibleRegionKeys,
-  required _PeakListMembershipLookup visibilityLookup,
+  required Map<int, _PeakListVisibilityState> visibilityStateByPeakListId,
 }) {
   final visiblePeakLists = <MapPeakListDrawerEntry>[];
 
   for (final peakList in inputs.peakLists) {
-    if (!peakListAppliesToVisibleRegions(
-      peakList,
-      visibleRegionKeys,
-      visibleBounds: inputs.visibleBounds,
-      peaks: inputs.peaks,
-      itemsLoader: visibilityLookup.itemsOrEmpty,
-    )) {
+    final visibilityState = visibilityStateByPeakListId[peakList.peakListId];
+    if (visibilityState == null || !visibilityState.appliesToVisibleRegions) {
       continue;
     }
 
-    final items = visibilityLookup.itemsFor(peakList);
+    final items = visibilityState.items;
     if (items == null || items.isEmpty) {
       continue;
     }
@@ -471,12 +459,7 @@ List<MapPeakListDrawerEntry> _buildMapPeakListDrawerEntries({
       MapPeakListDrawerEntry(
         peakList: peakList,
         renderableCount: items.length,
-        isPinned: peakListIsPinned(
-          peakList: peakList,
-          pinnedPeakListIdsByRegion: inputs.pinnedPeakListIdsByRegion,
-          peaks: inputs.peaks,
-          itemsLoader: visibilityLookup.itemsOrEmpty,
-        ),
+        isPinned: visibilityState.isPinned,
       ),
     );
   }
@@ -499,6 +482,7 @@ _buildActiveOwnershipOutputs({
   required Map<int, Peak> peaksById,
   required Set<String> visibleRegionKeys,
   required _PeakListMembershipLookup visibilityLookup,
+  required Map<int, _PeakListVisibilityState> visibilityStateByPeakListId,
 }) {
   if (inputs.peakListSelectionMode != PeakListSelectionMode.specificList) {
     return (
@@ -508,14 +492,13 @@ _buildActiveOwnershipOutputs({
   }
 
   final activeSelectedPeakListIds = visibleRegionKeys.isNotEmpty
-      ? renderablePeakListIdsForVisibleRegions(
-          peakLists: inputs.peakLists,
-          selectedPeakListIds: inputs.selectedPeakListIds,
-          visibleRegionKeys: visibleRegionKeys,
-          visibleBounds: inputs.visibleBounds,
-          peaks: inputs.peaks,
-          itemsLoader: visibilityLookup.itemsOrEmpty,
-        )
+      ? {
+          for (final peakListId in inputs.selectedPeakListIds)
+            if (visibilityStateByPeakListId[peakListId]
+                    ?.appliesToVisibleRegions ??
+                false)
+              peakListId,
+        }
       : inputs.selectedPeakListIds.toSet();
   if (activeSelectedPeakListIds.isEmpty) {
     return (
@@ -599,6 +582,54 @@ class _PeakListMembershipLookup {
       }
     });
   }
+}
+
+Map<int, _PeakListVisibilityState> _buildPeakListVisibilityStateByPeakListId({
+  required _PeakListSelectionRefreshInputs inputs,
+  required Set<String> visibleRegionKeys,
+  required Map<int, String?> peakRegionKeysByOsmId,
+  required _PeakListMembershipLookup visibilityLookup,
+}) {
+  final states = <int, _PeakListVisibilityState>{};
+
+  for (final peakList in inputs.peakLists) {
+    final items = visibilityLookup.itemsFor(peakList);
+    final appliesToVisibleRegions = peakListAppliesToVisibleRegions(
+      peakList,
+      visibleRegionKeys,
+      visibleBounds: inputs.visibleBounds,
+      peaks: inputs.peaks,
+      peakRegionKeysByOsmId: peakRegionKeysByOsmId,
+      itemsLoader: visibilityLookup.itemsOrEmpty,
+    );
+    final isPinned = peakListIsPinned(
+      peakList: peakList,
+      pinnedPeakListIdsByRegion: inputs.pinnedPeakListIdsByRegion,
+      peaks: inputs.peaks,
+      peakRegionKeysByOsmId: peakRegionKeysByOsmId,
+      itemsLoader: visibilityLookup.itemsOrEmpty,
+    );
+
+    states[peakList.peakListId] = _PeakListVisibilityState(
+      items: items,
+      appliesToVisibleRegions: appliesToVisibleRegions,
+      isPinned: isPinned,
+    );
+  }
+
+  return Map<int, _PeakListVisibilityState>.unmodifiable(states);
+}
+
+class _PeakListVisibilityState {
+  const _PeakListVisibilityState({
+    required this.items,
+    required this.appliesToVisibleRegions,
+    required this.isPinned,
+  });
+
+  final List<PeakListItem>? items;
+  final bool appliesToVisibleRegions;
+  final bool isPinned;
 }
 
 List<Peak> _filterSpecificListPeaks({

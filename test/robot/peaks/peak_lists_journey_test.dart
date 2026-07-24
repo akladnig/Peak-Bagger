@@ -29,6 +29,7 @@ void main() {
     tester,
   ) async {
     final robot = PeakListsRobot(tester);
+    final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([
         _buildPeak(
@@ -65,6 +66,11 @@ void main() {
       filePicker: TestPeakListFilePicker(),
       repository: peakListRepository,
       peakRepository: peakRepository,
+      overrides: [
+        peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
+          scheduler.call,
+        ),
+      ],
     );
 
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Journey List');
@@ -82,6 +88,8 @@ void main() {
     await robot.enterAddPeakPoints(100, '3');
     await robot.enterAddPeakPoints(200, '5');
     await robot.submitAddPeakDialog();
+    await scheduler.runAllPending();
+    await tester.pumpAndSettle();
 
     final journeyList = peakListRepository.findByName('Journey List')!;
     expect(
@@ -737,6 +745,7 @@ void main() {
     tester,
   ) async {
     final robot = PeakListsRobot(tester);
+    final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([
         _buildPeak(
@@ -773,6 +782,11 @@ void main() {
       filePicker: TestPeakListFilePicker(),
       repository: peakListRepository,
       peakRepository: peakRepository,
+      overrides: [
+        peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
+          scheduler.call,
+        ),
+      ],
     );
 
     tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
@@ -794,6 +808,8 @@ void main() {
     await robot.enterAddPeakPoints(200, '5');
 
     await robot.submitAddPeakDialog();
+    await scheduler.runAllPending();
+    await tester.pumpAndSettle();
 
     final tasmania = peakListRepository.findByName('Tasmania')!;
     expect(
