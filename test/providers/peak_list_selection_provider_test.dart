@@ -16,6 +16,39 @@ import 'package:peak_bagger/services/peak_repository.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
+  test('canonicalPeakRegionKey prefers stored peak region over geometry', () {
+    expect(
+      canonicalPeakRegionKey(
+        Peak(
+          osmId: 1,
+          name: 'Stored Region Peak',
+          latitude: -33.7,
+          longitude: 149.0,
+          region: 'tasmania',
+        ),
+      ),
+      'tasmania',
+    );
+  });
+
+  test(
+    'canonicalPeakRegionKey falls back to geometry when region is missing',
+    () {
+      expect(
+        canonicalPeakRegionKey(
+          Peak(
+            osmId: 2,
+            name: 'Geometry Region Peak',
+            latitude: -43.0,
+            longitude: 147.0,
+            region: null,
+          ),
+        ),
+        'tasmania',
+      );
+    },
+  );
+
   test(
     'filteredPeaksProvider returns union of matching peaks for specific lists',
     () {

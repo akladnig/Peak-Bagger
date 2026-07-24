@@ -1,8 +1,6 @@
-import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
-import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
 typedef PeakListPeakResolver = Peak? Function(int peakOsmId);
 
@@ -84,13 +82,7 @@ PeakListDerivedData derivePeakListDerivedData({
       maxLng = peak.longitude;
     }
 
-    final region =
-        canonicalRegionKey(peak.region) ??
-        canonicalRegionKey(
-          regionManifestCatalog.regionKeyForPoint(
-            LatLng(peak.latitude, peak.longitude),
-          ),
-        );
+    final region = canonicalPeakRegionKey(peak);
     if (region != null) {
       canonicalRegions.add(region);
     }

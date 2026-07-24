@@ -4,9 +4,8 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 
-typedef PeakListVisibilityItemsLoader = List<PeakListItem> Function(
-  PeakList peakList,
-);
+typedef PeakListVisibilityItemsLoader =
+    List<PeakListItem> Function(PeakList peakList);
 
 Set<int> peakIdsForRegion({
   required Iterable<Peak> peaks,
@@ -221,13 +220,13 @@ Set<int> renderablePeakListIdsForVisibleRegions({
   for (final peakList in peakLists) {
     if (!selectedIds.contains(peakList.peakListId) ||
         !peakListAppliesToVisibleRegions(
-        peakList,
-        visibleRegionKeys,
-        visibleBounds: visibleBounds,
-        peaks: peaks,
-        peakRegionKeysByOsmId: peakRegionKeysByOsmId,
-        itemsLoader: itemsLoader,
-      )) {
+          peakList,
+          visibleRegionKeys,
+          visibleBounds: visibleBounds,
+          peaks: peaks,
+          peakRegionKeysByOsmId: peakRegionKeysByOsmId,
+          itemsLoader: itemsLoader,
+        )) {
       continue;
     }
     validPeakListIds.add(peakList.peakListId);
@@ -339,10 +338,15 @@ String? peakListFilterRegionKey(String? regionKey) {
 }
 
 String? canonicalPeakRegionKey(Peak peak) {
+  final storedRegionKey = canonicalRegionKey(peak.region);
+  if (storedRegionKey != null) {
+    return storedRegionKey;
+  }
+
   final resolvedRegionKey = regionManifestCatalog.regionKeyForPoint(
     LatLng(peak.latitude, peak.longitude),
   );
-  return canonicalRegionKey(resolvedRegionKey ?? peak.region);
+  return canonicalRegionKey(resolvedRegionKey);
 }
 
 bool _isPeakWithinBounds({required Peak peak, required LatLngBounds bounds}) {
