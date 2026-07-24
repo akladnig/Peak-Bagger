@@ -287,6 +287,142 @@ void main() {
     },
   );
 
+  for (final mode in [
+    PeakVisibilityMode.showPeakClusters,
+    PeakVisibilityMode.showPeaks,
+  ]) {
+    testWidgets(
+      'trackpad zoom in $mode defers peak-list-derived refresh and peak projection rebuild until motion settles',
+      (tester) async {
+        MapRebuildDebugCounters.reset();
+        final peakA = Peak(
+          osmId: 1,
+          name: 'Peak A',
+          latitude: -41.5,
+          longitude: 146.5,
+          region: 'tasmania',
+        );
+        final peakList = PeakList(
+          peakListId: 42,
+          name: 'Focus List',
+          region: 'tasmania',
+        );
+
+        await _pumpMapApp(
+          tester,
+          MapState(
+            center: const LatLng(-41.5, 146.5),
+            zoom: 12,
+            basemap: Basemap.tracestrack,
+            peakVisibilityMode: mode,
+            peaks: [peakA],
+            visibleBounds: _tasmaniaBounds,
+            peakListSelectionMode: PeakListSelectionMode.specificList,
+            selectedPeakListIds: {42},
+          ),
+          peakListRepository: PeakListRepository.test(
+            InMemoryPeakListStorage([peakList]),
+            itemStorage: InMemoryPeakListItemEntityStorage([
+              PeakListItemEntity(id: 1, points: 0)
+                ..peakList.target = peakList
+                ..peak.target = peakA,
+            ]),
+          ),
+        );
+
+        final initialRefreshes = MapRebuildDebugCounters.peakListDerivedRefreshes;
+        final initialBuilds = MapRebuildDebugCounters.peakProjectionBuilds;
+        final region = find.byKey(const Key('map-interaction-region'));
+        final gesture = await tester.startGesture(
+          tester.getCenter(region),
+          kind: PointerDeviceKind.trackpad,
+        );
+
+        await gesture.panZoomUpdate(
+          tester.getCenter(region),
+          pan: const Offset(0, 120),
+        );
+        await tester.pump();
+
+        expect(
+          MapRebuildDebugCounters.peakListDerivedRefreshes,
+          initialRefreshes,
+        );
+        expect(MapRebuildDebugCounters.peakProjectionBuilds, initialBuilds);
+
+        await gesture.up();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(
+          MapRebuildDebugCounters.peakListDerivedRefreshes,
+          greaterThan(initialRefreshes),
+        );
+        expect(
+          MapRebuildDebugCounters.peakProjectionBuilds,
+          greaterThan(initialBuilds),
+        );
+      },
+    );
+  }
+
+  testWidgets(
+    'hidden peak visibility mode keeps peak-derived counters flat during trackpad zoom',
+    (tester) async {
+      MapRebuildDebugCounters.reset();
+      final initialState = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 12,
+        basemap: Basemap.tracestrack,
+        peakVisibilityMode: PeakVisibilityMode.hidePeaks,
+        peakListSelectionMode: PeakListSelectionMode.none,
+        peaks: [
+          Peak(
+            osmId: 1,
+            name: 'Peak A',
+            latitude: -41.5,
+            longitude: 146.5,
+            region: 'tasmania',
+          ),
+        ],
+      );
+
+      await _pumpMapApp(tester, initialState);
+
+      final initialRefreshes = MapRebuildDebugCounters.peakListDerivedRefreshes;
+      final initialBuilds = MapRebuildDebugCounters.peakProjectionBuilds;
+      final region = find.byKey(const Key('map-interaction-region'));
+      final container = ProviderScope.containerOf(tester.element(region));
+      final gesture = await tester.startGesture(
+        tester.getCenter(region),
+        kind: PointerDeviceKind.trackpad,
+      );
+
+      await gesture.panZoomUpdate(
+        tester.getCenter(region),
+        pan: const Offset(0, 120),
+      );
+      await tester.pump();
+
+      expect(
+        MapRebuildDebugCounters.peakListDerivedRefreshes,
+        initialRefreshes,
+      );
+      expect(MapRebuildDebugCounters.peakProjectionBuilds, initialBuilds);
+
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(container.read(mapProvider).zoom, greaterThan(initialState.zoom));
+      expect(
+        MapRebuildDebugCounters.peakListDerivedRefreshes,
+        initialRefreshes,
+      );
+      expect(MapRebuildDebugCounters.peakProjectionBuilds, initialBuilds);
+    },
+  );
+
   testWidgets('polygon toggle hides and restores the layer', (tester) async {
     MapRebuildDebugCounters.reset();
     final notifier = TestMapNotifier(
@@ -403,13 +539,17 @@ final _tasmaniaBounds = LatLngBounds(
   const LatLng(-40.5, 148.5),
 );
 
-Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
+Future<void> _pumpMapApp(
+  WidgetTester tester,
+  MapState state, {
+  PeakListRepository? peakListRepository,
+}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
         mapProvider.overrideWith(() => TestMapNotifier(state)),
         peakListRepositoryProvider.overrideWithValue(
-          PeakListRepository.test(InMemoryPeakListStorage()),
+          peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
         ),
       ],
       child: const App(),

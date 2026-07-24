@@ -331,6 +331,28 @@ GoRouter createRouter() {
               }
 
               final backgroundJobsState = ref.watch(backgroundJobsProvider);
+              final mapSummaryChrome = currentDestination.branchIndex == 1
+                  ? ref.watch(
+                      mapProvider.select(
+                        (state) => (
+                          peakListSelectionMode: state.peakListSelectionMode,
+                          pinnedPeakListIdsByRegion:
+                              state.pinnedPeakListIdsByRegion,
+                        ),
+                      ),
+                    )
+                  : null;
+              final peakListSummary =
+                  mapSummaryChrome != null &&
+                      mapSummaryChrome.peakListSelectionMode ==
+                          PeakListSelectionMode.none &&
+                      mapSummaryChrome.pinnedPeakListIdsByRegion.values.every(
+                        (ids) => ids.isEmpty,
+                      )
+                  ? const PeakListSelectionSummary(
+                      chips: [PeakListSelectionChip.none()],
+                    )
+                  : ref.watch(peakListSelectionSummaryProvider);
 
               return Scaffold(
                 appBar: AppBar(
@@ -341,7 +363,7 @@ GoRouter createRouter() {
                   title: _SharedAppBarTitle(
                     currentDestination: currentDestination,
                     showSearch: currentDestination.branchIndex == 1,
-                    summary: ref.watch(peakListSelectionSummaryProvider),
+                    summary: peakListSummary,
                   ),
                   actions: [
                     if (backgroundJobsState.hasJobs)
