@@ -308,6 +308,7 @@ void main() {
         _candidate(osmId: 41, screenPosition: const Offset(530, 400)),
       ],
       screenPosition: const Offset(500, 400),
+      anchor: const LatLng(-43, 147),
     );
 
     expect(

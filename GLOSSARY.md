@@ -100,6 +100,14 @@ _Avoid_: using this term for static pre-rendered tile delivery in general, local
 The app-owned basemap label for the project-managed locally hosted topographic `XYZ` source rendered from the canonical style and region-scoped source data.
 _Avoid_: style editor, vector basemap, user-custom basemap
 
+**MapTiler Topo**:
+A planned future app-facing basemap label for the Tasmania-local visual port of the downloaded MapTiler `Topo` style, kept distinct from `Local Topo`.
+_Avoid_: calling this `Local Topo` or using `Topo` alone when the future picker label matters
+
+**MapTiler Outdoor**:
+A planned future app-facing basemap label for the Tasmania-local visual port of the downloaded MapTiler `Outdoor` style, kept distinct from `Local Topo`.
+_Avoid_: calling this `Local Topo` or using `Outdoor` alone when the future picker label matters
+
 **Terrain relief shading**:
 A raster shaded-relief treatment derived from DEM elevation and blended into `Local Topo` to create terrain depth in a north-up 2D basemap.
 _Avoid_: true 3D terrain, pitched map camera, extruded terrain
@@ -111,6 +119,18 @@ _Avoid_: hard-coded localhost, embedded server address
 **theLIST 25m DEM**:
 The Tasmania-specific elevation raster source used by this project for DEM-backed workflows when a Tasmania-local source of truth is required.
 _Avoid_: generic Tasmania DEM, OSM elevation data
+
+**ELVIS DEM**:
+The project's canonical higher-detail Tasmania DEM input stored outside git, preferred for `Local Topo` rebuild inputs and as the source for repo-managed runtime elevation derivatives.
+_Avoid_: treating the Flutter app as reading `/Volumes/Media/Elvis` directly at runtime, using `ELVIS` alone when the source-versus-derived distinction matters
+
+**ELVIS runtime DEM**:
+The repo-managed external Tasmania `10m` DEM derived from the full `ELVIS DEM` dataset for Flutter elevation sampling workflows.
+_Avoid_: raw ELVIS tile tree, bundled app asset when the external generated file contract matters
+
+**ELVIS topo DEM**:
+The repo-managed external DEM derivative under `elvis_topo` used by Tasmania `Local Topo` contour and terrain-relief build workflows.
+_Avoid_: assuming the Flutter app runtime DEM and topo-build DEM are the same artifact
 
 **Peak list mini-map**:
 The embedded map on `PeakListsScreen` that previews the selected peak list's geography.

@@ -68,7 +68,6 @@ class PeakListRegionFilterNotifier extends Notifier<Set<String>> {
         return;
       }
 
-      await Future<void>.delayed(Duration.zero);
       if (!ref.mounted || _hasUserOverride) {
         return;
       }

@@ -731,6 +731,9 @@ class _ThrowingPeakStorage implements PeakStorage {
   Peak? getById(int peakId) => null;
 
   @override
+  Peak? getByOsmId(int osmId) => null;
+
+  @override
   List<Peak> getByName(String query) {
     throw StateError(
       'Peak search should not execute for under-threshold popup queries',
@@ -777,6 +780,9 @@ class _PopupOnlyPeakStorage implements PeakStorage {
 
   @override
   Peak? getById(int peakId) => null;
+
+  @override
+  Peak? getByOsmId(int osmId) => null;
 
   @override
   List<Peak> getByName(String query) {

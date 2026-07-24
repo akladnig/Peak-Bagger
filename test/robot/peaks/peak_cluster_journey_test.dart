@@ -46,7 +46,7 @@ void main() {
     expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
   });
 
-  testWidgets('peak cluster journey toggles map clusters in settings', (
+  testWidgets('peak cluster journey no longer exposes a settings toggle', (
     tester,
   ) async {
     SharedPreferences.resetStatic();
@@ -80,13 +80,6 @@ void main() {
     expect(robot.peakClusterLayer, findsOneWidget);
 
     await robot.goToSettings();
-    await robot.scrollSettingsTo(robot.showMapPeakClustersTile);
-    await tester.tap(robot.showMapPeakClustersTile);
-    await tester.pumpAndSettle();
-
-    await robot.goToMap();
-
-    expect(robot.peakClusterLayer, findsNothing);
-    expect(find.byKey(const Key('peak-marker-layer')), findsOneWidget);
+    expect(robot.showMapPeakClustersTile, findsNothing);
   });
 }

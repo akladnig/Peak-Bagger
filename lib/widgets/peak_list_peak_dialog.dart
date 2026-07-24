@@ -52,6 +52,7 @@ class PeakListPeakDialog extends ConsumerStatefulWidget {
     required this.peakListRepository,
     required this.peakItems,
     required this.ascentRows,
+    this.refreshPeakListSelectionOnAddSuccess = true,
     this.peak,
     this.points,
     super.key,
@@ -62,6 +63,7 @@ class PeakListPeakDialog extends ConsumerStatefulWidget {
   final PeakListRepository peakListRepository;
   final List<PeakListItem> peakItems;
   final List<PeaksBagged> ascentRows;
+  final bool refreshPeakListSelectionOnAddSuccess;
   final Peak? peak;
   final int? points;
 
@@ -669,7 +671,9 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
           peakListId: widget.peakList.peakListId,
           items: itemsToAdd,
         );
-        await _refreshPeakListSelection();
+        if (widget.refreshPeakListSelectionOnAddSuccess) {
+          await _refreshPeakListSelection();
+        }
       }
 
       if (!mounted) {
@@ -724,7 +728,9 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
             ),
         ],
       );
-      await _refreshPeakListSelection();
+      if (widget.refreshPeakListSelectionOnAddSuccess) {
+        await _refreshPeakListSelection();
+      }
       if (!mounted) {
         return;
       }

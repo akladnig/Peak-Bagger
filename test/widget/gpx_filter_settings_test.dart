@@ -16,6 +16,7 @@ void main() {
   testWidgets('shows loading label before filter config resolves', (
     tester,
   ) async {
+    _setTallSurface(tester);
     SharedPreferences.setMockInitialValues({});
 
     final container = ProviderContainer(
@@ -47,6 +48,7 @@ void main() {
   testWidgets('expands filter section and persists settings changes', (
     tester,
   ) async {
+    _setTallSurface(tester);
     SharedPreferences.setMockInitialValues({});
 
     final container = ProviderContainer(
@@ -68,13 +70,14 @@ void main() {
       300,
       scrollable: _settingsScrollable(),
     );
+    await tester.ensureVisible(find.text('Track Filter'));
 
     expect(
       find.byKey(const Key('gpx-filter-settings-section')),
       findsOneWidget,
     );
 
-    await tester.tap(find.byKey(const Key('gpx-filter-settings-section')));
+    await tester.tap(find.text('Track Filter'));
     await tester.pumpAndSettle();
 
     await container.read(gpxFilterSettingsProvider.notifier).setHampelWindow(9);
@@ -85,6 +88,7 @@ void main() {
   });
 
   testWidgets('shows outlier filter and none options', (tester) async {
+    _setTallSurface(tester);
     SharedPreferences.setMockInitialValues({});
 
     final container = ProviderContainer(
@@ -106,8 +110,9 @@ void main() {
       300,
       scrollable: _settingsScrollable(),
     );
+    await tester.ensureVisible(find.text('Track Filter'));
 
-    await tester.tap(find.byKey(const Key('gpx-filter-settings-section')));
+    await tester.tap(find.text('Track Filter'));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('gpx-filter-outlier-filter')), findsOneWidget);
@@ -129,6 +134,7 @@ void main() {
   testWidgets('disables dependent windows when filters are none', (
     tester,
   ) async {
+    _setTallSurface(tester);
     SharedPreferences.setMockInitialValues({});
 
     final container = ProviderContainer(
@@ -150,8 +156,9 @@ void main() {
       300,
       scrollable: _settingsScrollable(),
     );
+    await tester.ensureVisible(find.text('Track Filter'));
 
-    await tester.tap(find.byKey(const Key('gpx-filter-settings-section')));
+    await tester.tap(find.text('Track Filter'));
     await tester.pumpAndSettle();
 
     await container
@@ -230,6 +237,13 @@ Finder _settingsScrollable() {
         matching: find.byType(Scrollable),
       )
       .first;
+}
+
+void _setTallSurface(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1024, 1400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
 }
 
 class _PendingGpxFilterSettingsNotifier extends GpxFilterSettingsNotifier {

@@ -31,9 +31,7 @@ import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
-import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
-import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
@@ -2424,66 +2422,33 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     final showPeakInfo = ref.watch(
                       peakMarkerInfoSettingsProvider,
                     );
-                    final showPeakOwnershipRings = ref.watch(
-                      peakOwnershipRingSettingsProvider,
-                    );
                     final showPolygons = ref.watch(
                       showPolygonsSettingsProvider,
                     );
                     final polygonAssets = showPolygons
                         ? ref.watch(polygonAssetsProvider)
                         : null;
-                    final peakViewportSelectionInputs = ref.watch(
-                      mapProvider.select(
-                        (state) => (
-                          peakListSelectionMode: state.peakListSelectionMode,
-                          selectedPeakListIds: state.selectedPeakListIds,
-                          pinnedPeakListIdsByRegion:
-                              state.pinnedPeakListIdsByRegion,
-                          peakClusteringEnabled: state.peakClusteringEnabled,
-                        ),
-                      ),
-                    );
-                    final peakLists = ref.watch(peakListsProvider);
-                    final peakListRepository = ref.read(
-                      peakListRepositoryProvider,
-                    );
                     final shouldBuildPeakViewport =
                         mapScene.showPeaks &&
                         mapScene.zoom >= MapConstants.peakMinZoom;
-                    final peakViewportSelectionData = shouldBuildPeakViewport
-                        ? buildPeakViewportSelectionData(
-                            peakListSelectionMode: peakViewportSelectionInputs
-                                .peakListSelectionMode,
-                            selectedPeakListIds:
-                                peakViewportSelectionInputs.selectedPeakListIds,
-                            pinnedPeakListIdsByRegion:
-                                peakViewportSelectionInputs
-                                    .pinnedPeakListIdsByRegion,
-                            visibleBounds: mapScene.visibleBounds,
-                            peaks: mapScene.peaks,
-                            peakLists: peakLists,
-                            ratingFilter: routeChrome.peakRatingFilter,
-                            difficultyFilter: routeChrome.peakDifficultyFilter,
-                            durationFilter: routeChrome.peakDurationFilter,
-                            showPeakOwnershipRings: showPeakOwnershipRings,
-                            repo: peakListRepository,
-                          )
-                        : null;
-                    final filteredPeaks =
-                        peakViewportSelectionData?.filteredPeaks ??
-                        const <Peak>[];
-                    final peakMarkerColours =
-                        peakViewportSelectionData?.peakMarkerColours ??
-                        const <int, int>{};
-                    final activeOwnershipSegments =
-                        peakViewportSelectionData?.activeOwnershipSegments ??
-                        const <int, List<PeakOwnershipRingSegment>>{};
-                    final ownershipRingSegments =
-                        peakViewportSelectionData?.ownershipRingSegments ??
-                        const <int, List<PeakOwnershipRingSegment>>{};
+                    final filteredPeaks = shouldBuildPeakViewport
+                        ? ref.watch(filteredPeaksProvider)
+                        : const <Peak>[];
+                    final peakMarkerColours = shouldBuildPeakViewport
+                        ? ref.watch(peakMarkerColourAssignmentsProvider)
+                        : const <int, int>{};
+                    final activeOwnershipSegments = shouldBuildPeakViewport
+                        ? ref.watch(peakActiveOwnershipSegmentsProvider)
+                        : const <int, List<PeakOwnershipRingSegment>>{};
+                    final ownershipRingSegments = shouldBuildPeakViewport
+                        ? ref.watch(peakOwnershipRingSegmentsProvider)
+                        : const <int, List<PeakOwnershipRingSegment>>{};
                     final clusteringEnabled = shouldBuildPeakViewport
-                        ? peakViewportSelectionInputs.peakClusteringEnabled
+                        ? ref.watch(
+                            mapProvider.select(
+                              (state) => state.peakClusteringEnabled,
+                            ),
+                          )
                         : false;
                     final routes = ref.watch(routeListProvider);
                     final routeDraftSourceRouteId = ref.watch(
@@ -2556,33 +2521,28 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           builder: (context, _, child) {
                             final displayZoom =
                                 _liveCamera?.zoom ?? mapScene.zoom;
-                            final trailPolylines =
-                                mapScene.showTrails &&
-                                    routeGraphAvailable &&
-                                    _mapReady &&
-                                    trailService != null &&
-                                    _mapController.camera.nonRotatedSize !=
-                                        MapCamera.kImpossibleSize
-                                ? trailService.buildVisibleTrails(
-                                    minLat: _mapController
-                                        .camera
-                                        .visibleBounds
-                                        .south,
-                                    minLon: _mapController
-                                        .camera
-                                        .visibleBounds
-                                        .west,
-                                    maxLat: _mapController
-                                        .camera
-                                        .visibleBounds
-                                        .north,
-                                    maxLon: _mapController
-                                        .camera
-                                        .visibleBounds
-                                        .east,
-                                    zoom: displayZoom,
-                                  )
-                                : const <Polyline>[];
+                            final trailPolylines = switch (mapScene
+                                    .showTrails &&
+                                routeGraphAvailable &&
+                                _mapReady &&
+                                trailService != null &&
+                                _mapController.camera.nonRotatedSize !=
+                                    MapCamera.kImpossibleSize) {
+                              true => () {
+                                return trailService!.buildVisibleTrails(
+                                  minLat:
+                                      _mapController.camera.visibleBounds.south,
+                                  minLon:
+                                      _mapController.camera.visibleBounds.west,
+                                  maxLat:
+                                      _mapController.camera.visibleBounds.north,
+                                  maxLon:
+                                      _mapController.camera.visibleBounds.east,
+                                  zoom: displayZoom,
+                                );
+                              }(),
+                              false => const <Polyline>[],
+                            };
                             GpxTrack? selectedTrack;
                             for (final track in mapScene.tracks) {
                               if (track.gpxTrackId ==

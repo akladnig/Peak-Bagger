@@ -20,8 +20,13 @@ class RecoveryRobot {
   Finder get resetButton => find.byKey(const Key('reset-track-data-confirm'));
   Finder get importFab => find.byKey(const Key('import-tracks-fab'));
   Finder get showTracksFab => find.byKey(const Key('show-tracks-fab'));
+  Finder get settingsScrollable => find.byKey(const Key('settings-scrollable'));
 
   Future<void> pumpApp() async {
+    tester.view.physicalSize = const Size(1024, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -44,6 +49,10 @@ class RecoveryRobot {
   }
 
   Future<void> resetTrackData() async {
+    for (var i = 0; i < 6 && resetTrackTile.evaluate().isEmpty; i++) {
+      await tester.drag(settingsScrollable, const Offset(0, -300));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
     await tester.tap(resetTrackTile);
     await tester.pumpAndSettle();
     await tester.tap(resetButton);
