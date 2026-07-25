@@ -55,17 +55,30 @@ npm run refresh:manual -- --dry-run
 npm run refresh:scheduled -- --dry-run
 ```
 
+Select a prepared DEM source explicitly when you need something other than the default `ELVIS topo DEM`:
+
+```bash
+npm run refresh:manual -- --dem-source=elvis-topo
+npm run refresh:manual -- --dem-source=thelist
+npm run refresh:manual -- --dem-source=copernicus
+npm run refresh:manual -- --dem-source=custom --dem-path=/absolute/path/to/tasmania-dem.tif
+```
+
 ## Real rebuild flow
 
 The real rebuild path is intentionally separate from the deterministic smoke fixtures and from the explicit preview-only on-demand path.
 
 - OSM cartographic features come from a local override extract when `LOCAL_TOPO_OSM_EXTRACT_OVERRIDE` is supplied, otherwise from the managed Tasmania `Geofabrik` extract cache.
 - Scheduled rebuilds refresh the managed `Geofabrik` extract only when it is older than `30` days, and they can continue with stale but still-usable local data if a due refresh fails.
-- Manual and scheduled rebuilds consume only pre-supplied local DEM inputs. They do not auto-download DEM data.
-- DEM selection prefers a readable higher-detail local DEM, otherwise falls back to the local `theLIST 25m DEM`, with `Copernicus GLO 30` kept reserve-only for cases where `theLIST 25m DEM` is unavailable.
-- Contours prefer `10m` output from the chosen higher-detail DEM when acceptable, otherwise fall back to `25m` contours from the local `theLIST 25m DEM`.
+- Manual and scheduled rebuilds stay shell-script entrypoints and consume only prepared DEM inputs. They do not run `dart run`, invoke `./elvis_dem.sh`, or rescan the raw `/Volumes/Media/Elvis/tas-elvis` source inline.
+- Rebuilds accept `--dem-source=elvis-topo|thelist|copernicus|custom` and default to `--dem-source=elvis-topo`.
+- `--dem-source=custom` requires `--dem-path` as an absolute path to a readable `EPSG:28355` GeoTIFF.
+- `elvis-topo` resolves to the prepared `ELVIS topo DEM` at `~/Documents/Bushwalking/DEM/Tasmania/elvis_topo/elvis_topo_5m.tif` when `~/Documents/Bushwalking` exists, otherwise `$HOME/DEM/Tasmania/elvis_topo/elvis_topo_5m.tif`. Override that path with `LOCAL_TOPO_ELVIS_TOPO_DEM_TIF` when needed.
+- `thelist` resolves only from `LOCAL_TOPO_THELIST_DEM_TIF`, and `copernicus` resolves only from `LOCAL_TOPO_COPERNICUS_DEM_TIF`.
+- Named sources and custom inputs must already be readable `EPSG:28355` GeoTIFFs for this slice. The rebuild scripts validate readability, do not inspect or reproject source CRS at runtime, and fail fast instead of auto-selecting or falling back to another DEM source.
+- Contours and terrain relief always use the explicitly selected DEM for that rebuild. `thelist` uses the fallback contour interval directly; other selected DEMs prefer `10m` contours and fall back to the configured contour interval on the same DEM when needed.
 - OSM vector tile artifacts are built with `Planetiler`.
-- Contour vector tile artifacts are built from the merged DEM with `gdal_contour` and `tippecanoe`.
+- Contour vector tile artifacts are built from the selected DEM with `gdal_contour` and `tippecanoe`.
 - DEM-derived `terrain relief shading` is built into `output/tasmania-relief.mbtiles` and blended into the richer `Local Topo` style during preview and prerender.
 - Production-serving PNG tiles are expected under `output/tiles/tasmania/local-topo/{z}/{x}/{y}.png`.
 - Each rebuild writes `output/tiles/tasmania/local-topo/source-metadata.json` beside the prerendered tiles to record which DEM source was used.

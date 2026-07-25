@@ -3,8 +3,6 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 stack_dir="$(cd "$script_dir/.." && pwd)"
-repo_root="$(cd "$stack_dir/../.." && pwd)"
-
 runtime_dir="${LOCAL_TOPO_RUNTIME_DIR:-$stack_dir/runtime}"
 input_dir="${LOCAL_TOPO_INPUT_DIR:-$stack_dir/input}"
 output_dir="${LOCAL_TOPO_OUTPUT_DIR:-$stack_dir/output}"
@@ -16,33 +14,16 @@ smoke_static_tile_root="$runtime_dir/static"
 smoke_static_tile_path="$smoke_static_tile_root/tasmania/local-topo/0/0/0.png"
 osm_dir="$input_dir/osm"
 planetiler_sources_dir="$input_dir/planetiler_sources"
-default_dem_tiff_path="$repo_root/assets/tasmania_dem_25m.tif"
-dem_source_srs="${LOCAL_TOPO_THELIST_DEM_SRS:-EPSG:28355}"
+dem_source_srs="EPSG:28355"
+elvis_topo_dem_label="ELVIS topo DEM"
 thelist_dem_label="theLIST 25m DEM"
-higher_detail_dem_label="${LOCAL_TOPO_HIGH_DETAIL_DEM_LABEL:-Higher Detail Local DEM}"
 copernicus_dem_label="Copernicus GLO 30"
+custom_dem_label="Custom DEM"
 
-default_shared_dem_dir="$HOME/Documents/Bushwalking/DEM/Tasmania/thelist_25m"
-configured_dem_dir="${LOCAL_TOPO_THELIST_DEM_DIR:-}"
+elvis_topo_dem_tiff_path="${LOCAL_TOPO_ELVIS_TOPO_DEM_TIF:-}"
 configured_dem_tiff_path="${LOCAL_TOPO_THELIST_DEM_TIF:-}"
-higher_detail_dem_tiff_path="${LOCAL_TOPO_HIGH_DETAIL_DEM_TIF:-}"
 copernicus_dem_tiff_path="${LOCAL_TOPO_COPERNICUS_DEM_TIF:-}"
-
-if [ -n "$configured_dem_dir" ]; then
-  dem_dir="$configured_dem_dir"
-elif [ -d "$default_shared_dem_dir/raw_zips" ] || [ -d "$default_shared_dem_dir/extracted" ]; then
-  dem_dir="$default_shared_dem_dir"
-else
-  dem_dir="$input_dir/dem/thelist_25m"
-fi
-
-if [ -n "$configured_dem_tiff_path" ]; then
-  dem_tiff_path="$configured_dem_tiff_path"
-elif [ -f "$default_dem_tiff_path" ]; then
-  dem_tiff_path="$default_dem_tiff_path"
-else
-  dem_tiff_path="$dem_dir/tasmania_dem_25m.tif"
-fi
+dem_tiff_path="$configured_dem_tiff_path"
 
 osm_extract_path="${LOCAL_TOPO_OSM_EXTRACT_PATH:-$osm_dir/tasmania-latest.osm.pbf}"
 osm_extract_override_path="${LOCAL_TOPO_OSM_EXTRACT_OVERRIDE:-}"
@@ -82,6 +63,7 @@ prerender_runtime_base_url=""
 selected_osm_extract_path=""
 selected_osm_source_kind=""
 build_osm_extract_path=""
+selected_dem_source_key=""
 selected_dem_path=""
 selected_dem_label=""
 selected_contour_dem_path=""
@@ -110,6 +92,21 @@ run_command() {
 fail() {
   printf '%s\n' "$*" >&2
   exit 1
+}
+
+resolve_tasmania_dem_root() {
+  local home_dir="${HOME:-}"
+  if [ -z "$home_dir" ]; then
+    fail "HOME is unavailable; cannot resolve the Tasmania DEM root."
+  fi
+
+  local bushwalking_root="$home_dir/Documents/Bushwalking"
+  if [ -d "$bushwalking_root" ]; then
+    printf '%s/DEM/Tasmania\n' "$bushwalking_root"
+    return 0
+  fi
+
+  printf '%s/DEM/Tasmania\n' "$home_dir"
 }
 
 current_time_epoch() {
@@ -194,26 +191,103 @@ is_scheduled_osm_refresh_due() {
 
 dem_is_accepted() {
   local path="$1"
-  if [ -z "$path" ] || [ ! -f "$path" ]; then
+  if [ -z "$path" ] || [ ! -f "$path" ] || [ ! -r "$path" ]; then
     return 1
   fi
+
+  case "$path" in
+    *.[Tt][Ii][Ff]|*.[Tt][Ii][Ff][Ff])
+      ;;
+    *)
+      return 1
+      ;;
+  esac
 
   "$gdalinfo_bin" "$path" >/dev/null 2>&1
 }
 
-select_dem_source() {
-  if dem_is_accepted "$higher_detail_dem_tiff_path"; then
-    selected_dem_path="$higher_detail_dem_tiff_path"
-    selected_dem_label="$higher_detail_dem_label"
-  elif dem_is_accepted "$dem_tiff_path"; then
-    selected_dem_path="$dem_tiff_path"
-    selected_dem_label="$thelist_dem_label"
-  elif dem_is_accepted "$copernicus_dem_tiff_path"; then
-    selected_dem_path="$copernicus_dem_tiff_path"
-    selected_dem_label="$copernicus_dem_label"
-  else
-    fail "No accepted local DEM is available. Provide a readable higher-detail local DEM, theLIST 25m DEM, or reserve-only Copernicus GLO 30 input."
+resolve_default_elvis_topo_dem_path() {
+  local tasmania_dem_root
+  tasmania_dem_root="$(resolve_tasmania_dem_root)"
+  printf '%s/elvis_topo/elvis_topo_5m.tif\n' "$tasmania_dem_root"
+}
+
+fail_invalid_dem_path() {
+  local source_key="$1"
+  local path="$2"
+  local guidance="$3"
+
+  if [ -z "$path" ]; then
+    fail "$guidance"
   fi
+
+  fail "Selected DEM source '$source_key' must point to a readable EPSG:28355 GeoTIFF for this slice: $path${guidance:+. $guidance}"
+}
+
+select_dem_source() {
+  local dem_source="$1"
+  local custom_dem_path="$2"
+
+  selected_dem_source_key="$dem_source"
+
+  case "$dem_source" in
+    elvis-topo)
+      selected_dem_path="$elvis_topo_dem_tiff_path"
+      if [ -z "$selected_dem_path" ]; then
+        selected_dem_path="$(resolve_default_elvis_topo_dem_path)"
+      fi
+      selected_dem_label="$elvis_topo_dem_label"
+      if ! dem_is_accepted "$selected_dem_path"; then
+        fail_invalid_dem_path \
+          "$dem_source" \
+          "$selected_dem_path" \
+          "Build or refresh the prepared artifact with ./elvis_dem.sh build-topo"
+      fi
+      ;;
+    thelist)
+      selected_dem_path="$dem_tiff_path"
+      selected_dem_label="$thelist_dem_label"
+      if ! dem_is_accepted "$selected_dem_path"; then
+        fail_invalid_dem_path \
+          "$dem_source" \
+          "$selected_dem_path" \
+          "Set LOCAL_TOPO_THELIST_DEM_TIF to a prepared EPSG:28355 GeoTIFF"
+      fi
+      ;;
+    copernicus)
+      selected_dem_path="$copernicus_dem_tiff_path"
+      selected_dem_label="$copernicus_dem_label"
+      if ! dem_is_accepted "$selected_dem_path"; then
+        fail_invalid_dem_path \
+          "$dem_source" \
+          "$selected_dem_path" \
+          "Set LOCAL_TOPO_COPERNICUS_DEM_TIF to a prepared EPSG:28355 GeoTIFF"
+      fi
+      ;;
+    custom)
+      selected_dem_path="$custom_dem_path"
+      selected_dem_label="$custom_dem_label"
+      if [ -z "$selected_dem_path" ]; then
+        fail "--dem-source=custom requires --dem-path"
+      fi
+      case "$selected_dem_path" in
+        /*)
+          ;;
+        *)
+          fail "--dem-path must be an absolute path to a readable EPSG:28355 GeoTIFF: $selected_dem_path"
+          ;;
+      esac
+      if ! dem_is_accepted "$selected_dem_path"; then
+        fail_invalid_dem_path \
+          "$dem_source" \
+          "$selected_dem_path" \
+          "Provide a readable prepared EPSG:28355 GeoTIFF"
+      fi
+      ;;
+    *)
+      fail "Unsupported DEM source: $dem_source"
+      ;;
+  esac
 
   printf 'Selected DEM source: %s (%s)\n' "$selected_dem_label" "$selected_dem_path"
 }
@@ -250,20 +324,15 @@ preferred_contours_supported() {
 }
 
 select_contour_plan() {
-  if [ "$selected_dem_label" = "$thelist_dem_label" ]; then
-    selected_contour_dem_path="$dem_tiff_path"
-    selected_contour_source_label="$thelist_dem_label"
+  selected_contour_dem_path="$selected_dem_path"
+  selected_contour_source_label="$selected_dem_label"
+
+  if [ "$selected_dem_source_key" = "thelist" ]; then
     selected_contour_interval_meters="$fallback_contour_interval_meters"
   elif preferred_contours_supported "$selected_dem_path"; then
-    selected_contour_dem_path="$selected_dem_path"
-    selected_contour_source_label="$selected_dem_label"
     selected_contour_interval_meters="$preferred_contour_interval_meters"
-  elif dem_is_accepted "$dem_tiff_path"; then
-    selected_contour_dem_path="$dem_tiff_path"
-    selected_contour_source_label="$thelist_dem_label"
-    selected_contour_interval_meters="$fallback_contour_interval_meters"
   else
-    fail "Preferred ${preferred_contour_interval_meters}m contours are not acceptable for $selected_dem_label, and theLIST 25m DEM is unavailable for the required ${fallback_contour_interval_meters}m fallback contours."
+    selected_contour_interval_meters="$fallback_contour_interval_meters"
   fi
 
   printf 'Contour plan: %sm from %s (%s)\n' \
@@ -565,6 +634,7 @@ write_source_metadata() {
 
   printf '{\n' > "$source_metadata_path"
   printf '  "demSource": {\n' >> "$source_metadata_path"
+  printf '    "key": "%s",\n' "$(json_escape "$selected_dem_source_key")" >> "$source_metadata_path"
   printf '    "label": "%s",\n' "$(json_escape "$selected_dem_label")" >> "$source_metadata_path"
   printf '    "path": "%s"\n' "$(json_escape "$selected_dem_path")" >> "$source_metadata_path"
   printf '  },\n' >> "$source_metadata_path"
@@ -582,5 +652,5 @@ write_source_metadata() {
 }
 
 ensure_stack_dirs() {
-  mkdir -p "$runtime_dir" "$input_dir" "$output_dir" "$static_tiles_root" "$osm_dir" "$input_dir/dem" "$dem_dir" "$planetiler_sources_dir"
+  mkdir -p "$runtime_dir" "$input_dir" "$output_dir" "$static_tiles_root" "$osm_dir" "$input_dir/dem" "$planetiler_sources_dir"
 }

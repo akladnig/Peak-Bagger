@@ -47,6 +47,12 @@ Settings includes both normal preferences and maintenance tools. It covers theme
 
 Peak Bagger also includes an in-app ObjectBox admin screen for power users. It supports inspecting stored entities, searching rows, viewing schema and data, editing peaks and routes, exporting GPX from stored tracks, deleting records, and sending selected data back to the main map.
 
+## Tasmania Maintainer Workflow
+
+For the consolidated ELVIS DEM, Tasmania Local Topo rebuild, and local stack commands, see:
+
+- `README.tasmania-elvis-local-topo.md`
+
 ## Route Planning
 
 Route planning is a core workflow, not a secondary feature. The route builder supports:
