@@ -12,13 +12,19 @@ const _runtimeArtifactName = 'elvis_runtime_10m.tif';
 const _runtimeMetadataName = 'elvis_runtime_10m.metadata.json';
 const _topoArtifactName = 'elvis_topo_5m.tif';
 const _topoMetadataName = 'elvis_topo_5m.metadata.json';
+const _topoHillshadeArtifactName = 'elvis_topo_5m.hillshade.tif';
+const _topoHillshadePreviewName = 'elvis_topo_5m.hillshade.preview.jpg';
 
 const _ignoredPayloadBasenames = <String>{'.DS_Store'};
 const _rasterExtensions = <String>{'.tif', '.tiff', '.img'};
+const _hillshadePreviewJpegWidthPixels = 2880;
 
 typedef ElvisDemCommandChecker = Future<void> Function(String command);
 typedef ElvisDemCommandRunner =
-    Future<void> Function(String executable, List<String> arguments);
+    Future<ElvisDemCommandResult> Function(
+      String executable,
+      List<String> arguments,
+    );
 typedef ElvisDemProgressWriter = void Function(String message);
 
 const _progressLogInterval = 5000;
@@ -42,10 +48,17 @@ extension on _ElvisDemCommand {
 }
 
 class _Invocation {
-  const _Invocation({required this.command, required this.showHelp});
+  const _Invocation({
+    required this.command,
+    required this.showHelp,
+    required this.validateBuildInputs,
+    required this.saveIntermediateVrt,
+  });
 
   final _ElvisDemCommand? command;
   final bool showHelp;
+  final bool validateBuildInputs;
+  final bool saveIntermediateVrt;
 }
 
 class _ManifestEntry {
@@ -248,11 +261,41 @@ class _BuildArtifactResult {
     required this.contract,
     required this.executedCommands,
     required this.rasterInputCount,
+    this.savedIntermediateVrtPath,
+    this.projectionGroupAuditPath,
   });
 
   final _ArtifactContract contract;
   final List<Map<String, Object>> executedCommands;
   final int rasterInputCount;
+  final String? savedIntermediateVrtPath;
+  final String? projectionGroupAuditPath;
+}
+
+class _BuildPreparation {
+  const _BuildPreparation({required this.manifest, this.validation});
+
+  final _Manifest manifest;
+  final _ValidationResult? validation;
+}
+
+class ElvisDemCommandResult {
+  const ElvisDemCommandResult({this.stdout = '', this.stderr = ''});
+
+  final String stdout;
+  final String stderr;
+}
+
+class _ProjectionDifferenceGroup {
+  const _ProjectionDifferenceGroup({
+    required this.expectedProjection,
+    required this.actualProjection,
+    required this.paths,
+  });
+
+  final String expectedProjection;
+  final String actualProjection;
+  final List<String> paths;
 }
 
 void main(List<String> args) async {
@@ -353,6 +396,8 @@ Future<int> runElvisDemTool({
     final contract = _runtimeContract(tasmaniaDemRoot);
     return _runBuildCommand(
       commandName: command.cliName,
+      validateBuildInputs: invocation.validateBuildInputs,
+      saveIntermediateVrt: invocation.saveIntermediateVrt,
       sourceRootPath: sourceRootPath,
       manifestPath: manifestPath,
       reportPath: reportPath,
@@ -361,11 +406,12 @@ Future<int> runElvisDemTool({
       progressWriter: stdoutLine,
       stdoutLine: stdoutLine,
       stderrLine: stderrLine,
-      action: (validation) async {
+      action: (preparation) async {
         return <_BuildArtifactResult>[
           await _buildArtifact(
-            validation: validation,
+            manifest: preparation.manifest,
             contract: contract,
+            saveIntermediateVrt: invocation.saveIntermediateVrt,
             commandChecker: commandRequirements,
             commandRunner: commandExecution,
             progressWriter: stdoutLine,
@@ -379,6 +425,8 @@ Future<int> runElvisDemTool({
     final contract = _topoContract(tasmaniaDemRoot);
     return _runBuildCommand(
       commandName: command.cliName,
+      validateBuildInputs: invocation.validateBuildInputs,
+      saveIntermediateVrt: invocation.saveIntermediateVrt,
       sourceRootPath: sourceRootPath,
       manifestPath: manifestPath,
       reportPath: reportPath,
@@ -387,11 +435,12 @@ Future<int> runElvisDemTool({
       progressWriter: stdoutLine,
       stdoutLine: stdoutLine,
       stderrLine: stderrLine,
-      action: (validation) async {
+      action: (preparation) async {
         return <_BuildArtifactResult>[
           await _buildArtifact(
-            validation: validation,
+            manifest: preparation.manifest,
             contract: contract,
+            saveIntermediateVrt: invocation.saveIntermediateVrt,
             commandChecker: commandRequirements,
             commandRunner: commandExecution,
             progressWriter: stdoutLine,
@@ -405,6 +454,8 @@ Future<int> runElvisDemTool({
   final topoContract = _topoContract(tasmaniaDemRoot);
   return _runBuildCommand(
     commandName: command.cliName,
+    validateBuildInputs: invocation.validateBuildInputs,
+    saveIntermediateVrt: invocation.saveIntermediateVrt,
     sourceRootPath: sourceRootPath,
     manifestPath: manifestPath,
     reportPath: reportPath,
@@ -413,18 +464,20 @@ Future<int> runElvisDemTool({
     progressWriter: stdoutLine,
     stdoutLine: stdoutLine,
     stderrLine: stderrLine,
-    action: (validation) async {
+    action: (preparation) async {
       return <_BuildArtifactResult>[
         await _buildArtifact(
-          validation: validation,
+          manifest: preparation.manifest,
           contract: runtimeContract,
+          saveIntermediateVrt: invocation.saveIntermediateVrt,
           commandChecker: commandRequirements,
           commandRunner: commandExecution,
           progressWriter: stdoutLine,
         ),
         await _buildArtifact(
-          validation: validation,
+          manifest: preparation.manifest,
           contract: topoContract,
+          saveIntermediateVrt: invocation.saveIntermediateVrt,
           commandChecker: commandRequirements,
           commandRunner: commandExecution,
           progressWriter: stdoutLine,
@@ -436,15 +489,32 @@ Future<int> runElvisDemTool({
 
 _Invocation _parseInvocation(List<String> args) {
   if (args.isEmpty) {
-    return const _Invocation(command: null, showHelp: false);
+    return const _Invocation(
+      command: null,
+      showHelp: false,
+      validateBuildInputs: false,
+      saveIntermediateVrt: false,
+    );
   }
 
   var showHelp = false;
+  var validateBuildInputs = false;
+  var saveIntermediateVrt = false;
   _ElvisDemCommand? command;
 
   for (final arg in args) {
     if (arg == '--help' || arg == '-h') {
       showHelp = true;
+      continue;
+    }
+
+    if (arg == '--validate') {
+      validateBuildInputs = true;
+      continue;
+    }
+
+    if (arg == '--save-vrt') {
+      saveIntermediateVrt = true;
       continue;
     }
 
@@ -462,7 +532,30 @@ _Invocation _parseInvocation(List<String> args) {
     }
   }
 
-  return _Invocation(command: command, showHelp: showHelp);
+  if (validateBuildInputs &&
+      command != _ElvisDemCommand.buildRuntime &&
+      command != _ElvisDemCommand.buildTopo &&
+      command != _ElvisDemCommand.buildAll) {
+    throw ArgumentError(
+      '--validate is only supported for build-runtime, build-topo, and build-all.',
+    );
+  }
+
+  if (saveIntermediateVrt &&
+      command != _ElvisDemCommand.buildRuntime &&
+      command != _ElvisDemCommand.buildTopo &&
+      command != _ElvisDemCommand.buildAll) {
+    throw ArgumentError(
+      '--save-vrt is only supported for build-runtime, build-topo, and build-all.',
+    );
+  }
+
+  return _Invocation(
+    command: command,
+    showHelp: showHelp,
+    validateBuildInputs: validateBuildInputs,
+    saveIntermediateVrt: saveIntermediateVrt,
+  );
 }
 
 String _usage() {
@@ -470,13 +563,19 @@ String _usage() {
 Usage:
   ./elvis_dem.sh bootstrap-manifest
   ./elvis_dem.sh validate-source
-  ./elvis_dem.sh build-runtime
-  ./elvis_dem.sh build-topo
-  ./elvis_dem.sh build-all
+  ./elvis_dem.sh build-runtime [--validate] [--save-vrt]
+  ./elvis_dem.sh build-topo [--validate] [--save-vrt]
+  ./elvis_dem.sh build-all [--validate] [--save-vrt]
 
 Contracts:
   raw source: $elvisDemCanonicalSourceRoot
   manifest: $elvisDemManifestPath
+
+Flags:
+  --validate  Validate the raw source against the frozen manifest before build.
+              Default: off.
+  --save-vrt  Save the generated intermediate VRT beside the built artifact.
+              Default: off.
 ''';
 }
 
@@ -543,6 +642,8 @@ Future<int> _runValidateCommand({
 
 Future<int> _runBuildCommand({
   required String commandName,
+  required bool validateBuildInputs,
+  required bool saveIntermediateVrt,
   required String sourceRootPath,
   required String manifestPath,
   required String reportPath,
@@ -551,22 +652,27 @@ Future<int> _runBuildCommand({
   required ElvisDemProgressWriter progressWriter,
   required void Function(String message) stdoutLine,
   required void Function(String message) stderrLine,
-  required Future<List<_BuildArtifactResult>> Function(
-    _ValidationResult validation,
-  )
+  required Future<List<_BuildArtifactResult>> Function(_BuildPreparation source)
   action,
 }) async {
   final artifactPaths = contracts
       .map((contract) => contract.artifactPath)
       .toList(growable: false);
   try {
-    final validation = await _loadAndValidateSource(
-      sourceRootPath: sourceRootPath,
-      manifestPath: manifestPath,
-      clock: clock,
-      progressWriter: progressWriter,
-    );
-    if (!validation.isSuccess) {
+    final preparation = validateBuildInputs
+        ? await _prepareValidatedBuild(
+            sourceRootPath: sourceRootPath,
+            manifestPath: manifestPath,
+            clock: clock,
+            progressWriter: progressWriter,
+          )
+        : await _prepareUncheckedBuild(
+            sourceRootPath: sourceRootPath,
+            manifestPath: manifestPath,
+            progressWriter: progressWriter,
+          );
+    final validation = preparation.validation;
+    if (validation != null && !validation.isSuccess) {
       await _writeReport(
         reportPath: reportPath,
         report: <String, Object>{
@@ -577,7 +683,11 @@ Future<int> _runBuildCommand({
           'artifacts': contracts
               .map(_artifactContractToJson)
               .toList(growable: false),
-          'validation': validation.toJson(),
+          'validation': _buildValidationSummary(
+            manifest: preparation.manifest,
+            validation: validation,
+            validateBuildInputs: true,
+          ),
           'error': validation.failureSummary(),
         },
       );
@@ -591,10 +701,13 @@ Future<int> _runBuildCommand({
       return 1;
     }
 
-    final buildResults = await action(validation);
+    final buildResults = await action(preparation);
     for (final result in buildResults) {
       await _writeArtifactMetadata(
+        manifest: preparation.manifest,
         validation: validation,
+        validateBuildInputs: validateBuildInputs,
+        saveIntermediateVrt: saveIntermediateVrt,
         buildResult: result,
         manifestPath: manifestPath,
         clock: clock,
@@ -611,7 +724,11 @@ Future<int> _runBuildCommand({
         'artifacts': buildResults
             .map(_buildResultToJson)
             .toList(growable: false),
-        'validation': validation.toJson(),
+        'validation': _buildValidationSummary(
+          manifest: preparation.manifest,
+          validation: validation,
+          validateBuildInputs: validateBuildInputs,
+        ),
       },
     );
     _printCommandSummary(
@@ -640,6 +757,37 @@ Future<int> _runBuildCommand({
     stderrLine(error.toString());
     return 1;
   }
+}
+
+Future<_BuildPreparation> _prepareValidatedBuild({
+  required String sourceRootPath,
+  required String manifestPath,
+  required DateTime Function() clock,
+  ElvisDemProgressWriter? progressWriter,
+}) async {
+  final validation = await _loadAndValidateSource(
+    sourceRootPath: sourceRootPath,
+    manifestPath: manifestPath,
+    clock: clock,
+    progressWriter: progressWriter,
+  );
+  return _BuildPreparation(
+    manifest: validation.manifest,
+    validation: validation,
+  );
+}
+
+Future<_BuildPreparation> _prepareUncheckedBuild({
+  required String sourceRootPath,
+  required String manifestPath,
+  ElvisDemProgressWriter? progressWriter,
+}) async {
+  final manifest = await _loadManifestForBuild(
+    sourceRootPath: sourceRootPath,
+    manifestPath: manifestPath,
+    progressWriter: progressWriter,
+  );
+  return _BuildPreparation(manifest: manifest);
 }
 
 Future<_Manifest> _createManifest({
@@ -817,22 +965,76 @@ Future<_ValidationResult> _loadAndValidateSource({
   );
 }
 
+Future<_Manifest> _loadManifestForBuild({
+  required String sourceRootPath,
+  required String manifestPath,
+  ElvisDemProgressWriter? progressWriter,
+}) async {
+  final manifestFile = File(manifestPath);
+  if (!await manifestFile.exists()) {
+    throw StateError('Missing required frozen manifest at $manifestPath.');
+  }
+
+  final sourceDirectory = Directory(sourceRootPath);
+  if (!await sourceDirectory.exists()) {
+    throw StateError('Raw ELVIS source does not exist at $sourceRootPath.');
+  }
+
+  progressWriter?.call('Loading frozen manifest: $manifestPath');
+  final manifest = _Manifest.fromJson(await _readJsonObject(manifestPath));
+  if (manifest.sourceRoot != sourceRootPath) {
+    throw StateError(
+      'Manifest sourceRoot ${manifest.sourceRoot} does not match $sourceRootPath.',
+    );
+  }
+
+  final manifestConsistencyErrors = _manifestConsistencyErrors(manifest);
+  if (manifestConsistencyErrors.isNotEmpty) {
+    throw StateError(manifestConsistencyErrors.first);
+  }
+
+  progressWriter?.call(
+    'Validation skipped; building from ${manifest.fileCount} manifest entries.',
+  );
+  return manifest;
+}
+
+List<String> _manifestConsistencyErrors(_Manifest manifest) {
+  final manifestConsistencyErrors = <String>[];
+  final declaredTotalBytes = manifest.files.fold<int>(
+    0,
+    (sum, entry) => sum + entry.bytes,
+  );
+  if (manifest.fileCount != manifest.files.length) {
+    manifestConsistencyErrors.add(
+      'Manifest fileCount ${manifest.fileCount} does not match ${manifest.files.length} file entries.',
+    );
+  }
+  if (manifest.totalBytes != declaredTotalBytes) {
+    manifestConsistencyErrors.add(
+      'Manifest totalBytes ${manifest.totalBytes} does not match declared file bytes $declaredTotalBytes.',
+    );
+  }
+  return manifestConsistencyErrors;
+}
+
 Future<_BuildArtifactResult> _buildArtifact({
-  required _ValidationResult validation,
+  required _Manifest manifest,
   required _ArtifactContract contract,
+  required bool saveIntermediateVrt,
   required ElvisDemCommandChecker commandChecker,
   required ElvisDemCommandRunner commandRunner,
   ElvisDemProgressWriter? progressWriter,
 }) async {
-  final inputFiles = validation.manifest.files
-      .where((entry) {
-        final extension = p.extension(entry.relativePath).toLowerCase();
-        return _rasterExtensions.contains(extension);
-      })
-      .map(
-        (entry) => p.join(validation.manifest.sourceRoot, entry.relativePath),
-      )
-      .toList(growable: false);
+  final inputFiles = _deduplicatePreservingOrder(
+    manifest.files
+        .where((entry) {
+          final extension = p.extension(entry.relativePath).toLowerCase();
+          return _rasterExtensions.contains(extension);
+        })
+        .map((entry) => p.join(manifest.sourceRoot, entry.relativePath))
+        .toList(growable: false),
+  );
   if (inputFiles.isEmpty) {
     throw StateError('Manifest does not contain any raster payload files.');
   }
@@ -846,59 +1048,307 @@ Future<_BuildArtifactResult> _buildArtifact({
 
   final outputFile = File(contract.artifactPath);
   await outputFile.parent.create(recursive: true);
+  final persistentInputListPath = p.join(outputFile.parent.path, 'inputs.txt');
+  final persistentVrtPath = p.join(
+    outputFile.parent.path,
+    '${p.basenameWithoutExtension(outputFile.path)}.vrt',
+  );
+  final stagedOutputPath = _stagedSiblingPath(outputFile.path);
 
   final tempDirectory = await Directory.systemTemp.createTemp(
     'elvis-dem-${contract.command}-',
   );
   final executedCommands = <Map<String, Object>>[];
+  Directory? persistentVrtPartsDirectory;
+  var buildSucceeded = false;
   try {
     final inputListPath = p.join(tempDirectory.path, 'inputs.txt');
-    await File(inputListPath).writeAsString('${inputFiles.join('\n')}\n');
-    final vrtPath = p.join(tempDirectory.path, '${contract.command}.vrt');
+    final inputListContents = '${inputFiles.join('\n')}\n';
+    await File(inputListPath).writeAsString(inputListContents);
+    if (contract.artifactType == 'elvis-topo-dem') {
+      await _writeTextFileAtomically(
+        persistentInputListPath,
+        inputListContents,
+      );
+    }
+    final tempVrtPath = p.join(tempDirectory.path, '${contract.command}.vrt');
 
     progressWriter?.call('Running gdalbuildvrt for ${contract.command}...');
-    await _runTrackedCommand(
+    final buildVrtResult = await _runTrackedCommand(
       commandRunner: commandRunner,
       executedCommands: executedCommands,
       executable: 'gdalbuildvrt',
-      arguments: ['-input_file_list', inputListPath, vrtPath],
+      arguments: ['-input_file_list', inputListPath, tempVrtPath],
     );
 
-    final warpArguments = <String>[
-      '-overwrite',
-      '-r',
-      'bilinear',
-      '-tr',
-      '${contract.resolutionMeters}',
-      '${contract.resolutionMeters}',
-      '-multi',
-      '-wo',
-      'NUM_THREADS=ALL_CPUS',
-      if (contract.targetSrs != null) ...['-t_srs', contract.targetSrs!],
-      '-of',
-      'GTiff',
-      '-co',
-      'TILED=YES',
-      '-co',
-      'COMPRESS=DEFLATE',
-      '-co',
-      'BIGTIFF=IF_SAFER',
-      vrtPath,
-      contract.artifactPath,
-    ];
+    final projectionDifferenceGroups = _parseProjectionDifferenceGroups(
+      buildVrtResult.stderr,
+    );
+    final primaryGroupPaths = await _readVrtSourcePaths(tempVrtPath);
+    final remainingProjectionGroupPaths = inputFiles
+        .where((path) => !primaryGroupPaths.contains(path))
+        .toList(growable: false);
+    if (remainingProjectionGroupPaths.isNotEmpty) {
+      progressWriter?.call(
+        'Detected at least ${projectionDifferenceGroups.length + 1} source projection groups for ${contract.command}; reprojecting groups before merge.',
+      );
+      if (contract.targetSrs == null) {
+        throw StateError(
+          'Mixed source projections require a target SRS for ${contract.command}.',
+        );
+      }
+
+      await commandChecker('gdal_translate');
+
+      if (saveIntermediateVrt) {
+        persistentVrtPartsDirectory = Directory(
+          p.join(
+            outputFile.parent.path,
+            '${p.basenameWithoutExtension(outputFile.path)}.vrt.parts',
+          ),
+        );
+        if (await persistentVrtPartsDirectory.exists()) {
+          await persistentVrtPartsDirectory.delete(recursive: true);
+        }
+        await persistentVrtPartsDirectory.create(recursive: true);
+      }
+
+      if (primaryGroupPaths.isEmpty) {
+        throw StateError(
+          'gdalbuildvrt skipped every raster input for ${contract.command}.',
+        );
+      }
+
+      final groupVrtPaths = <String>[
+        if (saveIntermediateVrt)
+          p.join(persistentVrtPartsDirectory!.path, 'projection-group-0.vrt')
+        else
+          tempVrtPath,
+      ];
+      final groupSourcePaths = <List<String>>[
+        _deduplicatePreservingOrder(primaryGroupPaths),
+      ];
+      if (saveIntermediateVrt) {
+        await _replaceFileAtomically(tempVrtPath, groupVrtPaths.first);
+      }
+      progressWriter?.call(
+        'Primary projection group captured ${primaryGroupPaths.length} inputs; ${remainingProjectionGroupPaths.length} inputs remain to partition.',
+      );
+      var remainingPaths = List<String>.from(remainingProjectionGroupPaths);
+      while (remainingPaths.isNotEmpty) {
+        final remainingBeforePass = remainingPaths.length;
+        final index = groupVrtPaths.length - 1;
+        final groupInputListPath = p.join(
+          tempDirectory.path,
+          'projection-group-$index-inputs.txt',
+        );
+        await File(
+          groupInputListPath,
+        ).writeAsString('${remainingPaths.join('\n')}\n');
+        final groupFileIndex = groupVrtPaths.length;
+        final groupVrtPath = p.join(
+          saveIntermediateVrt
+              ? persistentVrtPartsDirectory!.path
+              : tempDirectory.path,
+          'projection-group-$groupFileIndex.vrt',
+        );
+        final groupCountLabel = '${groupFileIndex + 1}/?';
+        progressWriter?.call(
+          'Running gdalbuildvrt for ${contract.command} projection group $groupCountLabel from $remainingBeforePass remaining inputs...',
+        );
+        await _runTrackedCommand(
+          commandRunner: commandRunner,
+          executedCommands: executedCommands,
+          executable: 'gdalbuildvrt',
+          arguments: ['-input_file_list', groupInputListPath, groupVrtPath],
+        );
+        final groupPaths = await _readVrtSourcePaths(groupVrtPath);
+        if (groupPaths.isEmpty) {
+          throw StateError(
+            'gdalbuildvrt skipped every remaining raster input for ${contract.command}.',
+          );
+        }
+        groupVrtPaths.add(groupVrtPath);
+        groupSourcePaths.add(_deduplicatePreservingOrder(groupPaths));
+        remainingPaths = remainingPaths
+            .where((path) => !groupPaths.contains(path))
+            .toList(growable: false);
+        progressWriter?.call(
+          'Projection group ${groupFileIndex + 1} captured ${groupPaths.length} inputs; ${remainingPaths.length} inputs remain unassigned.',
+        );
+      }
+
+      final recoveredSilentlyOmittedPaths = inputFiles
+          .where(
+            (path) =>
+                !primaryGroupPaths.contains(path) &&
+                !projectionDifferenceGroups.any(
+                  (group) => group.paths.contains(path),
+                ),
+          )
+          .where(
+            (path) =>
+                groupSourcePaths.any((groupPaths) => groupPaths.contains(path)),
+          )
+          .toList(growable: false);
+      if (recoveredSilentlyOmittedPaths.isNotEmpty) {
+        progressWriter?.call(
+          'Recovered ${recoveredSilentlyOmittedPaths.length} silently skipped raster inputs for ${contract.command} by repartitioning remaining inputs.',
+        );
+      }
+
+      final reprojectedGroupPaths = <String>[];
+      for (var index = 0; index < groupVrtPaths.length; index += 1) {
+        final groupOutputPath = p.join(
+          persistentVrtPartsDirectory?.path ?? tempDirectory.path,
+          'projection-group-$index.tif',
+        );
+        progressWriter?.call(
+          'Running gdalwarp for ${contract.command} projection group ${index + 1}/${groupVrtPaths.length}...',
+        );
+        await _runTrackedCommand(
+          commandRunner: commandRunner,
+          executedCommands: executedCommands,
+          executable: 'gdalwarp',
+          arguments: _warpArguments(
+            contract: contract,
+            inputPath: groupVrtPaths[index],
+            outputPath: groupOutputPath,
+          ),
+        );
+        reprojectedGroupPaths.add(groupOutputPath);
+      }
+
+      if (persistentVrtPartsDirectory != null) {
+        await _writeProjectionGroupHillshadePreviewArtifacts(
+          contract: contract,
+          groupRasterPaths: reprojectedGroupPaths,
+          scratchDirectoryPath: tempDirectory.path,
+          commandChecker: commandChecker,
+          commandRunner: commandRunner,
+          executedCommands: executedCommands,
+          progressWriter: progressWriter,
+        );
+      }
+
+      final projectionGroupAuditPath = persistentVrtPartsDirectory == null
+          ? null
+          : await _writeProjectionGroupAudit(
+              contract: contract,
+              inputFiles: inputFiles,
+              groupVrtPaths: groupVrtPaths,
+              recoveredSilentlyOmittedPaths: recoveredSilentlyOmittedPaths,
+              auditDirectoryPath: persistentVrtPartsDirectory.path,
+              progressWriter: progressWriter,
+            );
+
+      final mergedInputListPath = p.join(
+        tempDirectory.path,
+        'merged-inputs.txt',
+      );
+      await File(
+        mergedInputListPath,
+      ).writeAsString('${reprojectedGroupPaths.join('\n')}\n');
+      final mergedVrtPath = saveIntermediateVrt
+          ? persistentVrtPath
+          : tempVrtPath;
+      progressWriter?.call(
+        'Running gdalbuildvrt merge for ${contract.command}...',
+      );
+      await _runTrackedCommand(
+        commandRunner: commandRunner,
+        executedCommands: executedCommands,
+        executable: 'gdalbuildvrt',
+        arguments: ['-input_file_list', mergedInputListPath, mergedVrtPath],
+      );
+
+      progressWriter?.call('Running gdal_translate for ${contract.command}...');
+      await _runTrackedCommand(
+        commandRunner: commandRunner,
+        executedCommands: executedCommands,
+        executable: 'gdal_translate',
+        arguments: _translateArguments(mergedVrtPath, stagedOutputPath),
+      );
+
+      if (!await File(stagedOutputPath).exists()) {
+        throw StateError(
+          'Expected staged output artifact was not created: $stagedOutputPath',
+        );
+      }
+
+      await _replaceFileAtomically(stagedOutputPath, outputFile.path);
+
+      if (!await outputFile.exists()) {
+        throw StateError(
+          'Expected output artifact was not created: ${outputFile.path}',
+        );
+      }
+
+      await _writeTopoHillshadePreviewArtifacts(
+        contract: contract,
+        commandChecker: commandChecker,
+        commandRunner: commandRunner,
+        executedCommands: executedCommands,
+        progressWriter: progressWriter,
+      );
+
+      buildSucceeded = true;
+
+      progressWriter?.call(
+        'Finished ${contract.command}: ${contract.artifactPath}',
+      );
+
+      return _BuildArtifactResult(
+        contract: contract,
+        executedCommands: executedCommands,
+        rasterInputCount: inputFiles.length,
+        savedIntermediateVrtPath: saveIntermediateVrt
+            ? persistentVrtPath
+            : null,
+        projectionGroupAuditPath: projectionGroupAuditPath,
+      );
+    }
+
+    final warpInputPath = saveIntermediateVrt ? persistentVrtPath : tempVrtPath;
+    if (saveIntermediateVrt) {
+      await _replaceFileAtomically(tempVrtPath, persistentVrtPath);
+    }
+
     progressWriter?.call('Running gdalwarp for ${contract.command}...');
     await _runTrackedCommand(
       commandRunner: commandRunner,
       executedCommands: executedCommands,
       executable: 'gdalwarp',
-      arguments: warpArguments,
+      arguments: _warpArguments(
+        contract: contract,
+        inputPath: warpInputPath,
+        outputPath: stagedOutputPath,
+      ),
     );
+
+    if (!await File(stagedOutputPath).exists()) {
+      throw StateError(
+        'Expected staged output artifact was not created: $stagedOutputPath',
+      );
+    }
+
+    await _replaceFileAtomically(stagedOutputPath, outputFile.path);
 
     if (!await outputFile.exists()) {
       throw StateError(
         'Expected output artifact was not created: ${outputFile.path}',
       );
     }
+
+    await _writeTopoHillshadePreviewArtifacts(
+      contract: contract,
+      commandChecker: commandChecker,
+      commandRunner: commandRunner,
+      executedCommands: executedCommands,
+      progressWriter: progressWriter,
+    );
+
+    buildSucceeded = true;
 
     progressWriter?.call(
       'Finished ${contract.command}: ${contract.artifactPath}',
@@ -908,8 +1358,19 @@ Future<_BuildArtifactResult> _buildArtifact({
       contract: contract,
       executedCommands: executedCommands,
       rasterInputCount: inputFiles.length,
+      savedIntermediateVrtPath: saveIntermediateVrt ? persistentVrtPath : null,
+      projectionGroupAuditPath: null,
     );
   } finally {
+    if (!buildSucceeded && persistentVrtPartsDirectory != null) {
+      if (await persistentVrtPartsDirectory.exists()) {
+        await persistentVrtPartsDirectory.delete(recursive: true);
+      }
+    }
+    final stagedOutputFile = File(stagedOutputPath);
+    if (await stagedOutputFile.exists()) {
+      await stagedOutputFile.delete();
+    }
     if (await tempDirectory.exists()) {
       await tempDirectory.delete(recursive: true);
     }
@@ -917,7 +1378,10 @@ Future<_BuildArtifactResult> _buildArtifact({
 }
 
 Future<void> _writeArtifactMetadata({
-  required _ValidationResult validation,
+  required _Manifest manifest,
+  required _ValidationResult? validation,
+  required bool validateBuildInputs,
+  required bool saveIntermediateVrt,
   required _BuildArtifactResult buildResult,
   required String manifestPath,
   required DateTime Function() clock,
@@ -926,26 +1390,73 @@ Future<void> _writeArtifactMetadata({
     'artifactType': buildResult.contract.artifactType,
     'artifactPath': buildResult.contract.artifactPath,
     'generatedAtUtc': clock().toUtc().toIso8601String(),
-    'sourceCompleteness': <String, Object>{
-      'state': 'validated',
-      'sourceRoot': validation.manifest.sourceRoot,
-      'manifestPath': manifestPath,
-      'validatedAtUtc': validation.validatedAtUtc,
-      'fileCount': validation.manifest.fileCount,
-      'totalBytes': validation.manifest.totalBytes,
-    },
+    'sourceCompleteness': _buildSourceCompletenessMetadata(
+      manifest: manifest,
+      validation: validation,
+      manifestPath: manifestPath,
+      validateBuildInputs: validateBuildInputs,
+    ),
     'derivation': <String, Object?>{
       'command': buildResult.contract.command,
       'resolutionMeters': buildResult.contract.resolutionMeters,
       'targetSrs': buildResult.contract.targetSrs,
       'resampling': 'bilinear',
+      'saveIntermediateVrt': saveIntermediateVrt,
+      'savedIntermediateVrtPath': buildResult.savedIntermediateVrtPath,
+      'projectionGroupAuditPath': buildResult.projectionGroupAuditPath,
       'rasterInputCount': buildResult.rasterInputCount,
       'commands': buildResult.executedCommands,
     },
   });
 }
 
-Future<void> _runTrackedCommand({
+Map<String, Object> _buildValidationSummary({
+  required _Manifest manifest,
+  required _ValidationResult? validation,
+  required bool validateBuildInputs,
+}) {
+  if (validation != null) {
+    return validation.toJson();
+  }
+
+  return <String, Object>{
+    'state': 'skipped',
+    'validationEnabled': validateBuildInputs,
+    'sourceRoot': manifest.sourceRoot,
+    'manifest': manifest.toJson(),
+  };
+}
+
+Map<String, Object> _buildSourceCompletenessMetadata({
+  required _Manifest manifest,
+  required _ValidationResult? validation,
+  required String manifestPath,
+  required bool validateBuildInputs,
+}) {
+  if (validation != null) {
+    return <String, Object>{
+      'state': 'validated',
+      'validationEnabled': validateBuildInputs,
+      'sourceRoot': validation.manifest.sourceRoot,
+      'manifestPath': manifestPath,
+      'validatedAtUtc': validation.validatedAtUtc,
+      'fileCount': validation.manifest.fileCount,
+      'totalBytes': validation.manifest.totalBytes,
+    };
+  }
+
+  return <String, Object>{
+    'state': 'skipped',
+    'validationEnabled': validateBuildInputs,
+    'sourceRoot': manifest.sourceRoot,
+    'manifestPath': manifestPath,
+    'manifestGeneratedAtUtc': manifest.generatedAtUtc,
+    'fileCount': manifest.fileCount,
+    'totalBytes': manifest.totalBytes,
+  };
+}
+
+Future<ElvisDemCommandResult> _runTrackedCommand({
   required ElvisDemCommandRunner commandRunner,
   required List<Map<String, Object>> executedCommands,
   required String executable,
@@ -955,7 +1466,490 @@ Future<void> _runTrackedCommand({
     'executable': executable,
     'arguments': arguments,
   });
-  await commandRunner(executable, arguments);
+  return commandRunner(executable, arguments);
+}
+
+Future<void> _writeTopoHillshadePreviewArtifacts({
+  required _ArtifactContract contract,
+  required ElvisDemCommandChecker commandChecker,
+  required ElvisDemCommandRunner commandRunner,
+  required List<Map<String, Object>> executedCommands,
+  ElvisDemProgressWriter? progressWriter,
+}) async {
+  if (contract.artifactType != 'elvis-topo-dem') {
+    return;
+  }
+
+  await commandChecker('gdaldem');
+  await commandChecker('gdal_translate');
+
+  final hillshadePath = p.join(
+    p.dirname(contract.artifactPath),
+    _topoHillshadeArtifactName,
+  );
+  final hillshadePreviewPath = p.join(
+    p.dirname(contract.artifactPath),
+    _topoHillshadePreviewName,
+  );
+  final stagedHillshadePath = _stagedSiblingPath(hillshadePath);
+  final stagedHillshadePreviewPath = _stagedSiblingPath(hillshadePreviewPath);
+
+  try {
+    progressWriter?.call(
+      'Running gdaldem hillshade for ${contract.command}...',
+    );
+    await _runTrackedCommand(
+      commandRunner: commandRunner,
+      executedCommands: executedCommands,
+      executable: 'gdaldem',
+      arguments: _hillshadeArguments(
+        inputPath: contract.artifactPath,
+        outputPath: stagedHillshadePath,
+      ),
+    );
+
+    if (!await File(stagedHillshadePath).exists()) {
+      throw StateError(
+        'Expected staged hillshade artifact was not created: $stagedHillshadePath',
+      );
+    }
+
+    await _replaceFileAtomically(stagedHillshadePath, hillshadePath);
+
+    progressWriter?.call(
+      'Running gdal_translate hillshade preview for ${contract.command}...',
+    );
+    await _runTrackedCommand(
+      commandRunner: commandRunner,
+      executedCommands: executedCommands,
+      executable: 'gdal_translate',
+      arguments: _jpegPreviewArguments(
+        inputPath: hillshadePath,
+        outputPath: stagedHillshadePreviewPath,
+      ),
+    );
+
+    if (!await File(stagedHillshadePreviewPath).exists()) {
+      throw StateError(
+        'Expected staged hillshade preview artifact was not created: $stagedHillshadePreviewPath',
+      );
+    }
+
+    await _replaceFileAtomically(
+      stagedHillshadePreviewPath,
+      hillshadePreviewPath,
+    );
+  } finally {
+    final stagedHillshadeFile = File(stagedHillshadePath);
+    if (await stagedHillshadeFile.exists()) {
+      await stagedHillshadeFile.delete();
+    }
+    final stagedHillshadePreviewFile = File(stagedHillshadePreviewPath);
+    if (await stagedHillshadePreviewFile.exists()) {
+      await stagedHillshadePreviewFile.delete();
+    }
+  }
+}
+
+Future<void> _writeProjectionGroupHillshadePreviewArtifacts({
+  required _ArtifactContract contract,
+  required List<String> groupRasterPaths,
+  required String scratchDirectoryPath,
+  required ElvisDemCommandChecker commandChecker,
+  required ElvisDemCommandRunner commandRunner,
+  required List<Map<String, Object>> executedCommands,
+  ElvisDemProgressWriter? progressWriter,
+}) async {
+  if (contract.artifactType != 'elvis-topo-dem' || groupRasterPaths.isEmpty) {
+    return;
+  }
+
+  await commandChecker('gdaldem');
+  await commandChecker('gdal_translate');
+
+  for (var index = 0; index < groupRasterPaths.length; index += 1) {
+    final groupRasterPath = groupRasterPaths[index];
+    final groupBasename = p.basenameWithoutExtension(groupRasterPath);
+    final scratchHillshadePath = p.join(
+      scratchDirectoryPath,
+      '$groupBasename.hillshade.tif',
+    );
+    final previewPath = p.join(
+      p.dirname(groupRasterPath),
+      '$groupBasename.hillshade.preview.jpg',
+    );
+    final stagedPreviewPath = _stagedSiblingPath(previewPath);
+
+    try {
+      progressWriter?.call(
+        'Running gdaldem hillshade for ${contract.command} projection group ${index + 1}/${groupRasterPaths.length}...',
+      );
+      await _runTrackedCommand(
+        commandRunner: commandRunner,
+        executedCommands: executedCommands,
+        executable: 'gdaldem',
+        arguments: _hillshadeArguments(
+          inputPath: groupRasterPath,
+          outputPath: scratchHillshadePath,
+        ),
+      );
+
+      if (!await File(scratchHillshadePath).exists()) {
+        throw StateError(
+          'Expected projection group hillshade artifact was not created: $scratchHillshadePath',
+        );
+      }
+
+      progressWriter?.call(
+        'Running gdal_translate hillshade preview for ${contract.command} projection group ${index + 1}/${groupRasterPaths.length}...',
+      );
+      await _runTrackedCommand(
+        commandRunner: commandRunner,
+        executedCommands: executedCommands,
+        executable: 'gdal_translate',
+        arguments: _jpegPreviewArguments(
+          inputPath: scratchHillshadePath,
+          outputPath: stagedPreviewPath,
+        ),
+      );
+
+      if (!await File(stagedPreviewPath).exists()) {
+        throw StateError(
+          'Expected projection group hillshade preview artifact was not created: $stagedPreviewPath',
+        );
+      }
+
+      await _replaceFileAtomically(stagedPreviewPath, previewPath);
+    } finally {
+      final scratchHillshadeFile = File(scratchHillshadePath);
+      if (await scratchHillshadeFile.exists()) {
+        await scratchHillshadeFile.delete();
+      }
+      final stagedPreviewFile = File(stagedPreviewPath);
+      if (await stagedPreviewFile.exists()) {
+        await stagedPreviewFile.delete();
+      }
+    }
+  }
+}
+
+Future<String> _writeProjectionGroupAudit({
+  required _ArtifactContract contract,
+  required List<String> inputFiles,
+  required List<String> groupVrtPaths,
+  required List<String> recoveredSilentlyOmittedPaths,
+  required String auditDirectoryPath,
+  ElvisDemProgressWriter? progressWriter,
+}) async {
+  progressWriter?.call(
+    'Writing projection-group audit for ${contract.command}...',
+  );
+
+  final inputFileSet = inputFiles.toSet();
+  final coveredPaths = <String>{};
+  final groups = <Map<String, Object>>[];
+
+  for (var index = 0; index < groupVrtPaths.length; index += 1) {
+    final sourcePaths = _deduplicatePreservingOrder(
+      await _readVrtSourcePaths(groupVrtPaths[index]),
+    );
+    coveredPaths.addAll(sourcePaths);
+    groups.add(<String, Object>{
+      'index': index,
+      'vrtPath': groupVrtPaths[index],
+      'sourceCount': sourcePaths.length,
+    });
+  }
+
+  final missingInputPaths = inputFiles
+      .where((path) => !coveredPaths.contains(path))
+      .toList(growable: false);
+  final unexpectedGroupSourcePaths =
+      coveredPaths
+          .where((path) => !inputFileSet.contains(path))
+          .toList(growable: false)
+        ..sort();
+  final auditPath = p.join(auditDirectoryPath, 'audit.json');
+  await _writeJsonFile(auditPath, <String, Object>{
+    'command': contract.command,
+    'artifactPath': contract.artifactPath,
+    'inputRasterCount': inputFiles.length,
+    'groupCount': groupVrtPaths.length,
+    'groups': groups,
+    'recoveredSilentlyOmittedCount': recoveredSilentlyOmittedPaths.length,
+    'recoveredSilentlyOmittedPaths': recoveredSilentlyOmittedPaths,
+    'missingInputCount': missingInputPaths.length,
+    'missingInputPaths': missingInputPaths,
+    'unexpectedGroupSourceCount': unexpectedGroupSourcePaths.length,
+    'unexpectedGroupSourcePaths': unexpectedGroupSourcePaths,
+  });
+  return auditPath;
+}
+
+List<String> _silentlyOmittedInputPaths({
+  required List<String> inputFiles,
+  required List<String> primaryGroupPaths,
+  required List<_ProjectionDifferenceGroup> projectionDifferenceGroups,
+}) {
+  final accountedPaths = <String>{...primaryGroupPaths};
+  for (final group in projectionDifferenceGroups) {
+    accountedPaths.addAll(group.paths);
+  }
+  return inputFiles
+      .where((path) => !accountedPaths.contains(path))
+      .toList(growable: false);
+}
+
+Future<List<_ProjectionDifferenceGroup>> _recoverSilentlyOmittedPaths({
+  required List<String> omittedPaths,
+  required String expectedProjection,
+  required ElvisDemCommandChecker commandChecker,
+  required ElvisDemCommandRunner commandRunner,
+  required List<Map<String, Object>> executedCommands,
+}) async {
+  if (omittedPaths.isEmpty) {
+    return const <_ProjectionDifferenceGroup>[];
+  }
+
+  await commandChecker('gdalinfo');
+  final groups = <String, _ProjectionDifferenceGroup>{};
+  final normalizedExpectedProjection = _normalizeProjectionName(
+    expectedProjection,
+  );
+  for (final path in omittedPaths) {
+    final result = await _runTrackedCommand(
+      commandRunner: commandRunner,
+      executedCommands: executedCommands,
+      executable: 'gdalinfo',
+      arguments: [path],
+    );
+    final actualProjection = _parseProjectionNameFromGdalInfo(result.stdout);
+    if (actualProjection == null) {
+      throw StateError(
+        'Unable to determine source projection for silently skipped raster input: $path',
+      );
+    }
+    final existing = groups[actualProjection];
+    if (existing == null) {
+      groups[actualProjection] = _ProjectionDifferenceGroup(
+        expectedProjection: normalizedExpectedProjection,
+        actualProjection: actualProjection,
+        paths: <String>[path],
+      );
+      continue;
+    }
+    existing.paths.add(path);
+  }
+
+  return groups.values.toList(growable: false);
+}
+
+List<_ProjectionDifferenceGroup> _mergeProjectionDifferenceGroups(
+  List<_ProjectionDifferenceGroup> baseGroups,
+  List<_ProjectionDifferenceGroup> supplementalGroups,
+) {
+  if (supplementalGroups.isEmpty) {
+    return baseGroups;
+  }
+
+  final mergedGroups = <_ProjectionDifferenceGroup>[
+    for (final group in baseGroups)
+      _ProjectionDifferenceGroup(
+        expectedProjection: group.expectedProjection,
+        actualProjection: group.actualProjection,
+        paths: List<String>.from(group.paths),
+      ),
+  ];
+  final indexByProjection = <String, int>{
+    for (var index = 0; index < mergedGroups.length; index += 1)
+      mergedGroups[index].actualProjection: index,
+  };
+
+  for (final group in supplementalGroups) {
+    final existingIndex = indexByProjection[group.actualProjection];
+    if (existingIndex == null) {
+      mergedGroups.add(group);
+      indexByProjection[group.actualProjection] = mergedGroups.length - 1;
+      continue;
+    }
+    mergedGroups[existingIndex].paths.addAll(group.paths);
+  }
+
+  return mergedGroups;
+}
+
+Future<List<String>> _readVrtSourcePaths(String vrtPath) async {
+  final contents = await File(vrtPath).readAsString();
+  return RegExp(r'<SourceFilename[^>]*>(.*?)</SourceFilename>', dotAll: true)
+      .allMatches(contents)
+      .map((match) => match.group(1)!.trim())
+      .toList(growable: false);
+}
+
+String? _parseProjectionNameFromGdalInfo(String stdout) {
+  final projCrsMatch = RegExp(r'PROJCRS\["([^"]+)"').firstMatch(stdout);
+  if (projCrsMatch != null) {
+    return _normalizeProjectionName(projCrsMatch.group(1)?.trim());
+  }
+  final projCsMatch = RegExp(r'PROJCS\["([^"]+)"').firstMatch(stdout);
+  return _normalizeProjectionName(projCsMatch?.group(1)?.trim());
+}
+
+String _normalizeProjectionName(String? projectionName) {
+  final trimmed = projectionName?.trim();
+  if (trimmed == null || trimmed.isEmpty) {
+    return '';
+  }
+
+  final normalized = trimmed.toLowerCase();
+  if (normalized.contains('gda2020') && normalized.contains('zone 55')) {
+    return 'GDA2020 / MGA zone 55';
+  }
+  if (normalized.contains('gda94 / mga zone 55') ||
+      normalized.contains('gda_1994_utm_zone_55s')) {
+    return 'GDA94 / MGA zone 55';
+  }
+  if (normalized.contains('gda_1994_transverse_mercator') ||
+      normalized == 'transverse_mercator') {
+    return 'GDA_1994_Transverse_Mercator';
+  }
+  return trimmed;
+}
+
+List<String> _deduplicatePreservingOrder(List<String> values) {
+  final seen = <String>{};
+  final unique = <String>[];
+  for (final value in values) {
+    if (seen.add(value)) {
+      unique.add(value);
+    }
+  }
+  return unique;
+}
+
+List<_ProjectionDifferenceGroup> _parseProjectionDifferenceGroups(
+  String stderr,
+) {
+  final matches = RegExp(
+    r'Warning 1: gdalbuildvrt does not support heterogeneous projection: expected (.*?), got (.*?)\. Skipping (.+?)(?:\r?\n|$)',
+    dotAll: true,
+    multiLine: true,
+  ).allMatches(stderr);
+  if (matches.isEmpty) {
+    return const <_ProjectionDifferenceGroup>[];
+  }
+
+  final groups = <String, _ProjectionDifferenceGroup>{};
+  for (final match in matches) {
+    final expectedProjection = match.group(1)?.trim();
+    final actualProjection = match.group(2)?.trim();
+    final path = match.group(3)?.trim();
+    if (expectedProjection == null ||
+        expectedProjection.isEmpty ||
+        actualProjection == null ||
+        actualProjection.isEmpty ||
+        path == null ||
+        path.isEmpty) {
+      continue;
+    }
+
+    final normalizedExpectedProjection = _normalizeProjectionName(
+      expectedProjection,
+    );
+    final normalizedActualProjection = _normalizeProjectionName(
+      actualProjection,
+    );
+
+    final existing = groups[normalizedActualProjection];
+    if (existing == null) {
+      groups[normalizedActualProjection] = _ProjectionDifferenceGroup(
+        expectedProjection: normalizedExpectedProjection,
+        actualProjection: normalizedActualProjection,
+        paths: <String>[path],
+      );
+      continue;
+    }
+
+    existing.paths.add(path);
+  }
+
+  return groups.values.toList(growable: false);
+}
+
+List<String> _warpArguments({
+  required _ArtifactContract contract,
+  required String inputPath,
+  required String outputPath,
+}) {
+  return <String>[
+    '-overwrite',
+    '-r',
+    'bilinear',
+    '-tr',
+    '${contract.resolutionMeters}',
+    '${contract.resolutionMeters}',
+    '-multi',
+    '-wo',
+    'NUM_THREADS=ALL_CPUS',
+    if (contract.targetSrs != null) ...['-t_srs', contract.targetSrs!],
+    '-of',
+    'GTiff',
+    '-co',
+    'TILED=YES',
+    '-co',
+    'COMPRESS=DEFLATE',
+    '-co',
+    'BIGTIFF=IF_SAFER',
+    inputPath,
+    outputPath,
+  ];
+}
+
+List<String> _translateArguments(String inputPath, String outputPath) {
+  return <String>[
+    '-of',
+    'GTiff',
+    '-co',
+    'TILED=YES',
+    '-co',
+    'COMPRESS=DEFLATE',
+    '-co',
+    'BIGTIFF=IF_SAFER',
+    inputPath,
+    outputPath,
+  ];
+}
+
+List<String> _hillshadeArguments({
+  required String inputPath,
+  required String outputPath,
+}) {
+  return <String>[
+    'hillshade',
+    inputPath,
+    outputPath,
+    '-of',
+    'GTiff',
+    '-compute_edges',
+    '-multidirectional',
+  ];
+}
+
+List<String> _jpegPreviewArguments({
+  required String inputPath,
+  required String outputPath,
+}) {
+  return <String>[
+    '-of',
+    'JPEG',
+    '-outsize',
+    '$_hillshadePreviewJpegWidthPixels',
+    '0',
+    '-co',
+    'QUALITY=90',
+    inputPath,
+    outputPath,
+  ];
 }
 
 Future<List<_PayloadFile>> _collectPayloadFiles(String sourceRootPath) async {
@@ -1071,6 +2065,8 @@ Map<String, Object?> _buildResultToJson(_BuildArtifactResult result) {
   return <String, Object?>{
     ..._artifactContractToJson(result.contract),
     'rasterInputCount': result.rasterInputCount,
+    'savedIntermediateVrtPath': result.savedIntermediateVrtPath,
+    'projectionGroupAuditPath': result.projectionGroupAuditPath,
     'commands': result.executedCommands,
   };
 }
@@ -1082,6 +2078,7 @@ _ArtifactContract _runtimeContract(String tasmaniaDemRoot) {
     artifactPath: p.join(tasmaniaDemRoot, _runtimeArtifactName),
     metadataPath: p.join(tasmaniaDemRoot, _runtimeMetadataName),
     resolutionMeters: 10,
+    targetSrs: 'EPSG:7855',
   );
 }
 
@@ -1136,10 +2133,40 @@ Future<void> _writeFailureReport({
 }
 
 Future<void> _writeJsonFile(String path, Map<String, Object?> json) async {
+  final contents = const JsonEncoder.withIndent('  ').convert(json);
+  await _writeTextFileAtomically(path, '$contents\n');
+}
+
+Future<void> _writeTextFileAtomically(String path, String contents) async {
   final file = File(path);
   await file.parent.create(recursive: true);
-  final contents = const JsonEncoder.withIndent('  ').convert(json);
-  await file.writeAsString('$contents\n');
+  final tempPath = _stagedSiblingPath(path);
+  final tempFile = File(tempPath);
+  await tempFile.writeAsString(contents);
+  await _replaceFileAtomically(tempPath, file.path);
+}
+
+String _stagedSiblingPath(String path) {
+  final directory = p.dirname(path);
+  final extension = p.extension(path);
+  final basenameWithoutExtension = p.basenameWithoutExtension(path);
+  final timestamp = DateTime.now().microsecondsSinceEpoch;
+  return p.join(
+    directory,
+    '$basenameWithoutExtension.$timestamp.tmp$extension',
+  );
+}
+
+Future<void> _replaceFileAtomically(
+  String stagedPath,
+  String destinationPath,
+) async {
+  final destinationFile = File(destinationPath);
+  await destinationFile.parent.create(recursive: true);
+  if (await destinationFile.exists()) {
+    await destinationFile.delete();
+  }
+  await File(stagedPath).rename(destinationPath);
 }
 
 Future<void> _requireCommand(String command) async {
@@ -1149,10 +2176,16 @@ Future<void> _requireCommand(String command) async {
   }
 }
 
-Future<void> _runCommand(String executable, List<String> arguments) async {
+Future<ElvisDemCommandResult> _runCommand(
+  String executable,
+  List<String> arguments,
+) async {
   final result = await Process.run(executable, arguments);
   if (result.exitCode == 0) {
-    return;
+    return ElvisDemCommandResult(
+      stdout: result.stdout.toString(),
+      stderr: result.stderr.toString(),
+    );
   }
 
   final stderrOutput = result.stderr.toString().trim();

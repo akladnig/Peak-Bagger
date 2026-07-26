@@ -234,7 +234,7 @@ void main() {
   });
 
   test(
-    'build-all plans runtime and topo artifacts and writes metadata sidecars',
+    'build-all skips source validation by default and writes metadata sidecars',
     () async {
       final sourceRoot = await _createFixtureSourceRoot();
       final manifestFile = File(
@@ -263,8 +263,14 @@ void main() {
         },
         commandRunner: (executable, arguments) async {
           recordedCommands.add((executable, arguments));
-          await File(arguments.last).parent.create(recursive: true);
-          await File(arguments.last).writeAsString('$executable output');
+          final outputPath = _fakeCommandOutputPath(executable, arguments);
+          await File(outputPath).parent.create(recursive: true);
+          if (executable == 'gdalbuildvrt') {
+            await _writeFakeVrtFromInputList(outputPath, arguments[1]);
+            return const ElvisDemCommandResult();
+          }
+          await File(outputPath).writeAsString('$executable output');
+          return const ElvisDemCommandResult();
         },
         stdoutWriter: stdoutLines.add,
         stderrWriter: stderrLines.add,
@@ -289,6 +295,26 @@ void main() {
         'elvis_topo',
         'elvis_topo_5m.metadata.json',
       );
+      final topoHillshadePath = p.join(
+        tasmaniaDemRoot,
+        'elvis_topo',
+        'elvis_topo_5m.hillshade.tif',
+      );
+      final topoHillshadePreviewPath = p.join(
+        tasmaniaDemRoot,
+        'elvis_topo',
+        'elvis_topo_5m.hillshade.preview.jpg',
+      );
+      final topoInputsPath = p.join(
+        tasmaniaDemRoot,
+        'elvis_topo',
+        'inputs.txt',
+      );
+      final topoVrtPath = p.join(
+        tasmaniaDemRoot,
+        'elvis_topo',
+        'elvis_topo_5m.vrt',
+      );
       final reportPath = p.join(
         tasmaniaDemRoot,
         'elvis_reports',
@@ -302,15 +328,27 @@ void main() {
         'gdalwarp',
         'gdalbuildvrt',
         'gdalwarp',
+        'gdaldem',
+        'gdal_translate',
       ]);
-      expect(recordedCommands, hasLength(4));
+      expect(recordedCommands, hasLength(6));
+      expect(
+        stdoutLines,
+        contains('Validation skipped; building from 2 manifest entries.'),
+      );
+      expect(
+        stdoutLines.where(
+          (line) => line.contains('Validating 2 manifest entries against'),
+        ),
+        isEmpty,
+      );
       expect(
         recordedCommands
             .where((entry) => entry.$1 == 'gdalwarp')
             .map((entry) => entry.$2),
         contains(
           allOf(
-            contains(runtimeArtifactPath),
+            isNot(contains(runtimeArtifactPath)),
             containsAll(['-tr', '10', '10']),
           ),
         ),
@@ -321,7 +359,7 @@ void main() {
             .map((entry) => entry.$2),
         contains(
           allOf(
-            contains(topoArtifactPath),
+            isNot(contains(topoArtifactPath)),
             containsAll(['-t_srs', 'EPSG:28355']),
             containsAll(['-tr', '5', '5']),
           ),
@@ -331,6 +369,14 @@ void main() {
       expect(stdoutLines, contains('Artifact: $topoArtifactPath'));
       expect(File(runtimeArtifactPath).existsSync(), isTrue);
       expect(File(topoArtifactPath).existsSync(), isTrue);
+      expect(File(topoHillshadePath).existsSync(), isTrue);
+      expect(File(topoHillshadePreviewPath).existsSync(), isTrue);
+      expect(File(topoInputsPath).existsSync(), isTrue);
+      expect(File(topoVrtPath).existsSync(), isFalse);
+      expect(File(topoInputsPath).readAsLinesSync(), [
+        p.join(sourceRoot.path, 'elevation', '1m-dem', 'tile_a.tif'),
+        p.join(sourceRoot.path, 'elevation', '2m-dem', 'tile_b.tif'),
+      ]);
 
       final runtimeMetadata = _readJsonFile(runtimeMetadataPath);
       final topoMetadata = _readJsonFile(topoMetadataPath);
@@ -340,7 +386,12 @@ void main() {
       expect(
         (runtimeMetadata['sourceCompleteness']
             as Map<String, dynamic>)['state'],
-        'validated',
+        'skipped',
+      );
+      expect(
+        (runtimeMetadata['sourceCompleteness']
+            as Map<String, dynamic>)['validationEnabled'],
+        false,
       );
       expect(
         (runtimeMetadata['derivation']
@@ -352,8 +403,457 @@ void main() {
         (topoMetadata['derivation'] as Map<String, dynamic>)['targetSrs'],
         'EPSG:28355',
       );
+      expect(
+        (topoMetadata['derivation']
+            as Map<String, dynamic>)['saveIntermediateVrt'],
+        false,
+      );
+      expect(
+        (topoMetadata['derivation']
+            as Map<String, dynamic>)['savedIntermediateVrtPath'],
+        isNull,
+      );
+      expect(
+        (topoMetadata['derivation']
+            as Map<String, dynamic>)['projectionGroupAuditPath'],
+        isNull,
+      );
       expect(report['status'], 'success');
       expect((report['artifacts'] as List), hasLength(2));
+      expect(
+        (report['validation'] as Map<String, dynamic>)['state'],
+        'skipped',
+      );
+    },
+  );
+
+  test('build-topo saves a debugging VRT when --save-vrt is passed', () async {
+    final sourceRoot = await _createFixtureSourceRoot();
+    final manifestFile = File(p.join(sourceRoot.parent.path, 'manifest.json'));
+    final home = await Directory.systemTemp.createTemp('elvis-dem-topo-home');
+    addTearDown(() => home.deleteSync(recursive: true));
+    await _bootstrapFixtureManifest(
+      sourceRoot: sourceRoot,
+      manifestFile: manifestFile,
+    );
+
+    final recordedCommands = <(String executable, List<String> arguments)>[];
+
+    final exitCode = await runElvisDemTool(
+      args: const ['build-topo', '--validate', '--save-vrt'],
+      sourceRootPath: sourceRoot.path,
+      manifestPath: manifestFile.path,
+      homeDirectory: home.path,
+      commandChecker: (_) async {},
+      commandRunner: (executable, arguments) async {
+        recordedCommands.add((executable, arguments));
+        final outputPath = _fakeCommandOutputPath(executable, arguments);
+        await File(outputPath).parent.create(recursive: true);
+        if (executable == 'gdalbuildvrt') {
+          await _writeFakeVrtFromInputList(outputPath, arguments[1]);
+          return const ElvisDemCommandResult();
+        }
+        await File(outputPath).writeAsString('$executable output');
+        return const ElvisDemCommandResult();
+      },
+      stdoutWriter: stdoutLines.add,
+      stderrWriter: stderrLines.add,
+    );
+
+    final topoMetadataPath = p.join(
+      home.path,
+      'DEM',
+      'Tasmania',
+      'elvis_topo',
+      'elvis_topo_5m.metadata.json',
+    );
+    final topoVrtPath = p.join(
+      home.path,
+      'DEM',
+      'Tasmania',
+      'elvis_topo',
+      'elvis_topo_5m.vrt',
+    );
+    final hillshadePreviewPath = p.join(
+      home.path,
+      'DEM',
+      'Tasmania',
+      'elvis_topo',
+      'elvis_topo_5m.hillshade.preview.jpg',
+    );
+    final topoMetadata = _readJsonFile(topoMetadataPath);
+
+    expect(exitCode, 0);
+    expect(stderrLines, isEmpty);
+    expect(
+      stdoutLines,
+      contains('Validating 2 manifest entries against ${sourceRoot.path}'),
+    );
+    expect(stdoutLines, contains('Validation progress: 2/2'));
+    expect(
+      (topoMetadata['sourceCompleteness'] as Map<String, dynamic>)['state'],
+      'validated',
+    );
+    expect(File(topoVrtPath).existsSync(), isTrue);
+    expect(
+      File(topoVrtPath).readAsStringSync(),
+      contains('<SourceFilename relativeToVRT="0">'),
+    );
+    expect(File(hillshadePreviewPath).existsSync(), isTrue);
+    expect(
+      recordedCommands.where((entry) => entry.$1 == 'gdalwarp').single.$2,
+      contains(topoVrtPath),
+    );
+    expect(
+      recordedCommands.where((entry) => entry.$1 == 'gdal_translate').single.$2,
+      containsAll(['-outsize', '2880', '0']),
+    );
+    expect(
+      (topoMetadata['sourceCompleteness']
+          as Map<String, dynamic>)['validationEnabled'],
+      true,
+    );
+    expect(
+      (topoMetadata['derivation']
+          as Map<String, dynamic>)['saveIntermediateVrt'],
+      true,
+    );
+    expect(
+      (topoMetadata['derivation']
+          as Map<String, dynamic>)['savedIntermediateVrtPath'],
+      topoVrtPath,
+    );
+    expect(
+      (topoMetadata['derivation']
+          as Map<String, dynamic>)['projectionGroupAuditPath'],
+      isNull,
+    );
+  });
+
+  test(
+    'build-topo merges skipped projection groups instead of dropping them',
+    () async {
+      final sourceRoot = await _createFixtureSourceRoot();
+      final fiveMeterDir = Directory(
+        p.join(sourceRoot.path, 'elevation', '5m-dem'),
+      );
+      fiveMeterDir.createSync(recursive: true);
+      File(
+        p.join(fiveMeterDir.path, 'tile_c.tif'),
+      ).writeAsStringSync('tile-c-3');
+      final manifestFile = File(
+        p.join(sourceRoot.parent.path, 'manifest.json'),
+      );
+      final home = await Directory.systemTemp.createTemp(
+        'elvis-dem-mixed-home',
+      );
+      addTearDown(() => home.deleteSync(recursive: true));
+      await _bootstrapFixtureManifest(
+        sourceRoot: sourceRoot,
+        manifestFile: manifestFile,
+      );
+
+      final requiredCommands = <String>[];
+      final recordedCommands = <(String executable, List<String> arguments)>[];
+      var gdalbuildvrtCallCount = 0;
+      final tileAPath = p.join(
+        sourceRoot.path,
+        'elevation',
+        '1m-dem',
+        'tile_a.tif',
+      );
+      final tileBPath = p.join(
+        sourceRoot.path,
+        'elevation',
+        '2m-dem',
+        'tile_b.tif',
+      );
+      final tileCPath = p.join(
+        sourceRoot.path,
+        'elevation',
+        '5m-dem',
+        'tile_c.tif',
+      );
+
+      final exitCode = await runElvisDemTool(
+        args: const ['build-topo', '--save-vrt'],
+        sourceRootPath: sourceRoot.path,
+        manifestPath: manifestFile.path,
+        homeDirectory: home.path,
+        commandChecker: (command) async {
+          requiredCommands.add(command);
+        },
+        commandRunner: (executable, arguments) async {
+          recordedCommands.add((executable, arguments));
+          if (executable == 'gdalbuildvrt') {
+            final outputPath = _fakeCommandOutputPath(executable, arguments);
+            await File(outputPath).parent.create(recursive: true);
+            final inputPaths = File(
+              arguments[1],
+            ).readAsLinesSync().where((line) => line.isNotEmpty);
+            final buffer = StringBuffer('<VRTDataset>\n');
+            final sourcePaths = switch (gdalbuildvrtCallCount) {
+              0 => inputPaths.where((inputPath) => inputPath == tileAPath),
+              1 => inputPaths.where((inputPath) => inputPath == tileCPath),
+              _ => inputPaths,
+            };
+            for (final inputPath in sourcePaths) {
+              buffer.writeln(
+                '  <SourceFilename relativeToVRT="0">$inputPath</SourceFilename>',
+              );
+            }
+            buffer.write('</VRTDataset>\n');
+            await File(outputPath).writeAsString(buffer.toString());
+            gdalbuildvrtCallCount += 1;
+            if (gdalbuildvrtCallCount == 1) {
+              return ElvisDemCommandResult(
+                stderr:
+                    'Warning 1: gdalbuildvrt does not support heterogeneous projection: expected GDA2020 / MGA zone 55, got GDA94 / MGA zone 55. Skipping $tileCPath\n',
+              );
+            }
+            return const ElvisDemCommandResult();
+          }
+          final outputPath = _fakeCommandOutputPath(executable, arguments);
+          await File(outputPath).parent.create(recursive: true);
+          await File(outputPath).writeAsString('$executable output');
+          return const ElvisDemCommandResult();
+        },
+        stdoutWriter: stdoutLines.add,
+        stderrWriter: stderrLines.add,
+      );
+
+      final topoArtifactPath = p.join(
+        home.path,
+        'DEM',
+        'Tasmania',
+        'elvis_topo',
+        'elvis_topo_5m.tif',
+      );
+      final topoVrtPath = p.join(
+        home.path,
+        'DEM',
+        'Tasmania',
+        'elvis_topo',
+        'elvis_topo_5m.vrt',
+      );
+      final topoMetadataPath = p.join(
+        home.path,
+        'DEM',
+        'Tasmania',
+        'elvis_topo',
+        'elvis_topo_5m.metadata.json',
+      );
+      final topoMetadata = _readJsonFile(topoMetadataPath);
+      final groupAuditPath = p.join(
+        home.path,
+        'DEM',
+        'Tasmania',
+        'elvis_topo',
+        'elvis_topo_5m.vrt.parts',
+        'audit.json',
+      );
+      final groupAudit = _readJsonFile(groupAuditPath);
+      final groupHillshadePreviewPaths = List<String>.generate(
+        3,
+        (index) => p.join(
+          home.path,
+          'DEM',
+          'Tasmania',
+          'elvis_topo',
+          'elvis_topo_5m.vrt.parts',
+          'projection-group-$index.hillshade.preview.jpg',
+        ),
+      );
+
+      expect(exitCode, 0);
+      expect(stderrLines, isEmpty);
+      expect(requiredCommands, contains('gdal_translate'));
+      expect(
+        stdoutLines,
+        contains(
+          'Detected at least 2 source projection groups for build-topo; reprojecting groups before merge.',
+        ),
+      );
+      expect(
+        stdoutLines,
+        contains(
+          'Recovered 1 silently skipped raster inputs for build-topo by repartitioning remaining inputs.',
+        ),
+      );
+      expect(File(topoArtifactPath).existsSync(), isTrue);
+      expect(File(topoVrtPath).existsSync(), isTrue);
+      expect(File(groupAuditPath).existsSync(), isTrue);
+      for (final previewPath in groupHillshadePreviewPaths) {
+        expect(File(previewPath).existsSync(), isTrue);
+      }
+      expect(
+        recordedCommands.map((entry) => entry.$1).toList(growable: false),
+        [
+          'gdalbuildvrt',
+          'gdalbuildvrt',
+          'gdalbuildvrt',
+          'gdalwarp',
+          'gdalwarp',
+          'gdalwarp',
+          'gdaldem',
+          'gdal_translate',
+          'gdaldem',
+          'gdal_translate',
+          'gdaldem',
+          'gdal_translate',
+          'gdalbuildvrt',
+          'gdal_translate',
+          'gdaldem',
+          'gdal_translate',
+        ],
+      );
+      expect(
+        recordedCommands
+            .where((entry) => entry.$1 == 'gdal_translate')
+            .where((entry) => entry.$2.last.endsWith('.jpg'))
+            .map((entry) => entry.$2)
+            .toList(growable: false),
+        hasLength(4),
+      );
+      expect(
+        recordedCommands
+            .where((entry) => entry.$1 == 'gdal_translate')
+            .where((entry) => entry.$2.last.endsWith('.jpg'))
+            .map((entry) => entry.$2),
+        everyElement(containsAll(['-outsize', '2880', '0'])),
+      );
+      expect(
+        recordedCommands.where((entry) => entry.$1 == 'gdalwarp').first.$2.last,
+        contains('.vrt.parts${Platform.pathSeparator}projection-group-0.tif'),
+      );
+      expect(
+        recordedCommands.where((entry) => entry.$1 == 'gdalwarp').first.$2,
+        contains(
+          p.join(
+            home.path,
+            'DEM',
+            'Tasmania',
+            'elvis_topo',
+            'elvis_topo_5m.vrt.parts',
+            'projection-group-0.vrt',
+          ),
+        ),
+      );
+      expect(
+        (topoMetadata['derivation']
+            as Map<String, dynamic>)['savedIntermediateVrtPath'],
+        topoVrtPath,
+      );
+      expect(
+        (topoMetadata['derivation']
+            as Map<String, dynamic>)['projectionGroupAuditPath'],
+        groupAuditPath,
+      );
+      expect(groupAudit['groupCount'], 3);
+      expect(groupAudit['missingInputCount'], 0);
+      expect(groupAudit['missingInputPaths'], isEmpty);
+      expect(groupAudit['recoveredSilentlyOmittedCount'], 1);
+      expect(groupAudit['recoveredSilentlyOmittedPaths'], [tileBPath]);
+
+      final savedVrt = File(topoVrtPath).readAsStringSync();
+      final sourcePaths = RegExp(
+        r'<SourceFilename[^>]*>(.*?)</SourceFilename>',
+      ).allMatches(savedVrt).map((match) => match.group(1)!).toList();
+      expect(sourcePaths, isNotEmpty);
+      expect(
+        sourcePaths,
+        everyElement(contains('.vrt.parts${Platform.pathSeparator}')),
+      );
+      for (final sourcePath in sourcePaths) {
+        expect(File(sourcePath).existsSync(), isTrue);
+      }
+      final group1VrtPath = p.join(
+        home.path,
+        'DEM',
+        'Tasmania',
+        'elvis_topo',
+        'elvis_topo_5m.vrt.parts',
+        'projection-group-1.vrt',
+      );
+      final group2VrtPath = p.join(
+        home.path,
+        'DEM',
+        'Tasmania',
+        'elvis_topo',
+        'elvis_topo_5m.vrt.parts',
+        'projection-group-2.vrt',
+      );
+      final groupVrtContents = [
+        File(group1VrtPath).readAsStringSync(),
+        File(group2VrtPath).readAsStringSync(),
+      ];
+      expect(
+        groupVrtContents.where((contents) => contents.contains(tileBPath)),
+        hasLength(1),
+      );
+      expect(
+        groupVrtContents.where((contents) => contents.contains(tileCPath)),
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
+    'build-topo stages artifact replacement before publishing output',
+    () async {
+      final sourceRoot = await _createFixtureSourceRoot();
+      final manifestFile = File(
+        p.join(sourceRoot.parent.path, 'manifest.json'),
+      );
+      final home = await Directory.systemTemp.createTemp(
+        'elvis-dem-stage-home',
+      );
+      addTearDown(() => home.deleteSync(recursive: true));
+      await _bootstrapFixtureManifest(
+        sourceRoot: sourceRoot,
+        manifestFile: manifestFile,
+      );
+
+      final topoArtifactPath = p.join(
+        home.path,
+        'DEM',
+        'Tasmania',
+        'elvis_topo',
+        'elvis_topo_5m.tif',
+      );
+      await File(topoArtifactPath).create(recursive: true);
+      await File(topoArtifactPath).writeAsString('old output');
+
+      final recordedCommands = <(String executable, List<String> arguments)>[];
+
+      final exitCode = await runElvisDemTool(
+        args: const ['build-topo'],
+        sourceRootPath: sourceRoot.path,
+        manifestPath: manifestFile.path,
+        homeDirectory: home.path,
+        commandChecker: (_) async {},
+        commandRunner: (executable, arguments) async {
+          recordedCommands.add((executable, arguments));
+          final outputPath = _fakeCommandOutputPath(executable, arguments);
+          await File(outputPath).parent.create(recursive: true);
+          if (executable == 'gdalbuildvrt') {
+            await _writeFakeVrtFromInputList(outputPath, arguments[1]);
+            return const ElvisDemCommandResult();
+          }
+          await File(outputPath).writeAsString('$executable output');
+          return const ElvisDemCommandResult();
+        },
+        stdoutWriter: stdoutLines.add,
+        stderrWriter: stderrLines.add,
+      );
+
+      expect(exitCode, 0);
+      expect(stderrLines, isEmpty);
+      expect(File(topoArtifactPath).readAsStringSync(), 'gdalwarp output');
+      expect(
+        recordedCommands.where((entry) => entry.$1 == 'gdalwarp').single.$2,
+        isNot(contains(topoArtifactPath)),
+      );
     },
   );
 
@@ -375,7 +875,7 @@ void main() {
       final scriptPath = p.join(Directory.current.path, 'elvis_dem.sh');
       final result = await Process.run(
         '/bin/bash',
-        [scriptPath, 'build-topo', '--help'],
+        [scriptPath, 'build-topo', '--validate', '--save-vrt', '--help'],
         environment: {
           ...Platform.environment,
           'PEAK_BAGGER_ELVIS_DEM_TOOL_BINARY': fakeBinary.path,
@@ -383,7 +883,12 @@ void main() {
       );
 
       expect(result.exitCode, 0);
-      expect(argsFile.readAsLinesSync(), ['build-topo', '--help']);
+      expect(argsFile.readAsLinesSync(), [
+        'build-topo',
+        '--validate',
+        '--save-vrt',
+        '--help',
+      ]);
     },
   );
 }
@@ -428,4 +933,28 @@ Map<String, dynamic> _readJsonFile(String path) {
 String _sha256Hex(String input) {
   final bytes = utf8.encode(input);
   return sha256.convert(bytes).toString();
+}
+
+String _fakeCommandOutputPath(String executable, List<String> arguments) {
+  return switch (executable) {
+    'gdaldem' => arguments[2],
+    _ => arguments.last,
+  };
+}
+
+Future<void> _writeFakeVrtFromInputList(
+  String outputPath,
+  String inputListPath,
+) async {
+  final inputPaths = File(
+    inputListPath,
+  ).readAsLinesSync().where((line) => line.isNotEmpty);
+  final buffer = StringBuffer('<VRTDataset>\n');
+  for (final inputPath in inputPaths) {
+    buffer.writeln(
+      '  <SourceFilename relativeToVRT="0">$inputPath</SourceFilename>',
+    );
+  }
+  buffer.write('</VRTDataset>\n');
+  await File(outputPath).writeAsString(buffer.toString());
 }
