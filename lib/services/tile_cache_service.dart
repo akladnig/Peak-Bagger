@@ -1,8 +1,12 @@
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:peak_bagger/services/directory_migration.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
 import 'package:peak_bagger/services/tile_cache_download_scope.dart';
@@ -33,7 +37,10 @@ class TileCacheService {
 
   static Future<void> initialize() async {
     final backend = FMTCObjectBoxBackend();
-    await backend.initialise();
+    final backendRootDirectory = await prepareBackendRootDirectory(
+      log: (message) => developer.log(message, name: 'TileCacheService'),
+    );
+    await backend.initialise(rootDirectory: backendRootDirectory);
 
     for (final storeName in storeNames) {
       final store = FMTCStore(storeName);
@@ -48,6 +55,51 @@ class TileCacheService {
 
   static FMTCStore? getStoreForBasemap(Basemap basemap) {
     return _stores[basemap.name];
+  }
+
+  @visibleForTesting
+  static Future<String?> resolveBackendRootDirectory({
+    bool? isMacOS,
+    DirectoryPathLoader? applicationSupportDirectoryPathLoader,
+  }) async {
+    if (!(isMacOS ?? Platform.isMacOS)) {
+      return null;
+    }
+
+    // Avoid macOS Documents/File Provider storage for the tile-cache database.
+    return applicationSupportDirectoryPathLoader?.call() ??
+        (await getApplicationSupportDirectory()).path;
+  }
+
+  @visibleForTesting
+  static Future<String?> prepareBackendRootDirectory({
+    bool? isMacOS,
+    DirectoryPathLoader? applicationSupportDirectoryPathLoader,
+    DirectoryPathLoader? applicationDocumentsDirectoryPathLoader,
+    void Function(String message)? log,
+  }) async {
+    final rootDirectory = await resolveBackendRootDirectory(
+      isMacOS: isMacOS,
+      applicationSupportDirectoryPathLoader:
+          applicationSupportDirectoryPathLoader,
+    );
+    if (rootDirectory == null) {
+      return null;
+    }
+
+    final loadApplicationDocumentsDirectoryPath =
+        applicationDocumentsDirectoryPathLoader ??
+        () async => (await getApplicationDocumentsDirectory()).path;
+    await prepareMacosDirectoryCopyMigration(
+      legacyDirectory: p.join(
+        await loadApplicationDocumentsDirectoryPath(),
+        'fmtc',
+      ),
+      targetDirectory: p.join(rootDirectory, 'fmtc'),
+      directoryLabel: 'Tile cache store',
+      log: log,
+    );
+    return rootDirectory;
   }
 
   static String transformBrowseUrl(Basemap basemap, String url) {

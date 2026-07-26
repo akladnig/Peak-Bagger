@@ -33,7 +33,7 @@ final routeGraphReadinessProvider =
 class RouteGraphReadinessNotifier extends Notifier<RouteGraphReadinessState> {
   @override
   RouteGraphReadinessState build() {
-    return const RouteGraphReadinessState.ready();
+    return const RouteGraphReadinessState.preloading();
   }
 
   void markPreloading() {
@@ -63,7 +63,6 @@ class RouteGraphReadinessNotifier extends Notifier<RouteGraphReadinessState> {
 
 final routeGraphBootstrapProvider = FutureProvider<void>((ref) async {
   final readiness = ref.read(routeGraphReadinessProvider.notifier);
-  readiness.markPreloading();
 
   try {
     await ref.read(routeGraphStoreProvider).bootstrapData();
