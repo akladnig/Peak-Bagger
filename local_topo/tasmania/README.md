@@ -53,6 +53,7 @@ Preview the scheduled and manual rebuild paths without downloading or building r
 ```bash
 npm run refresh:manual -- --dry-run
 npm run refresh:scheduled -- --dry-run
+npm run refresh:manual -- --dry-run --skip-prerender
 ```
 
 Select a prepared DEM source explicitly when you need something other than the default `ELVIS topo DEM`:
@@ -62,6 +63,7 @@ npm run refresh:manual -- --dem-source=elvis-topo
 npm run refresh:manual -- --dem-source=thelist
 npm run refresh:manual -- --dem-source=copernicus
 npm run refresh:manual -- --dem-source=custom --dem-path=/absolute/path/to/tasmania-dem.tif
+npm run refresh:manual -- --skip-prerender
 ```
 
 ## Real rebuild flow
@@ -70,8 +72,9 @@ The real rebuild path is intentionally separate from the deterministic smoke fix
 
 - OSM cartographic features come from a local override extract when `LOCAL_TOPO_OSM_EXTRACT_OVERRIDE` is supplied, otherwise from the managed Tasmania `Geofabrik` extract cache.
 - Scheduled rebuilds refresh the managed `Geofabrik` extract only when it is older than `30` days, and they can continue with stale but still-usable local data if a due refresh fails.
-- Manual and scheduled rebuilds stay shell-script entrypoints and consume only prepared DEM inputs. They do not run `dart run`, invoke `./elvis_dem.sh`, or rescan the raw `/Volumes/Media/Elvis/tas-elvis` source inline.
+- Manual and scheduled rebuilds stay shell-script entrypoints and consume only prepared DEM inputs. They do not run `dart run`, invoke `./elvis_dem.sh`, or rescan the raw `Elvis 2m DEM` source TIFF inline.
 - Rebuilds accept `--dem-source=elvis-topo|thelist|copernicus|custom` and default to `--dem-source=elvis-topo`.
+- `--skip-prerender` keeps the MBTiles rebuild but skips `output/tiles/tasmania/local-topo/{z}/{x}/{y}.png` static PNG generation.
 - `--dem-source=custom` requires `--dem-path` as an absolute path to a readable `EPSG:28355` GeoTIFF.
 - `elvis-topo` resolves to the prepared `ELVIS topo DEM` at `~/Documents/Bushwalking/DEM/Tasmania/elvis_topo/elvis_topo_5m.tif` when `~/Documents/Bushwalking` exists, otherwise `$HOME/DEM/Tasmania/elvis_topo/elvis_topo_5m.tif`. Override that path with `LOCAL_TOPO_ELVIS_TOPO_DEM_TIF` when needed.
 - `thelist` resolves only from `LOCAL_TOPO_THELIST_DEM_TIF`, and `copernicus` resolves only from `LOCAL_TOPO_COPERNICUS_DEM_TIF`.

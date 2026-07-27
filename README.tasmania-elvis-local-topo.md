@@ -11,7 +11,7 @@ This README is for maintainers who need to:
 
 Raw source:
 
-- `/Volumes/Media/Elvis/tas-elvis`
+- `Elvis 2m DEM`: `/Volumes/Media/Elvis/tas-elvis/elevation/2m-dem/z55/mosaics/Tasmania_Statewide_2m_DEM_14-08-2021.tif`
 
 Prepared ELVIS outputs:
 
@@ -44,7 +44,29 @@ From the repo root:
 ./elvis_dem.sh build-all
 ```
 
-`./elvis_dem.sh` auto-builds the macOS maintainer binary on first run.
+`./elvis_dem.sh` auto-builds a standalone CLI binary on first run.
+
+The supported ELVIS maintainer subcommands are exactly `validate-source`,
+`build-runtime`, `build-topo`, and `build-all`. `bootstrap-manifest` is
+removed from the active single-file workflow.
+
+Build commands skip raw-source validation by default. If you want a build to
+re-run exact-file validation against the canonical `Elvis 2m DEM` TIFF first,
+add `--validate`:
+
+```bash
+./elvis_dem.sh build-topo --validate
+./elvis_dem.sh build-all --validate
+```
+
+`--validate` is the only supported build flag. In this workflow it checks that
+the exact canonical TIFF exists, is readable, and can be opened by GDAL before
+the build starts. `--save-vrt` is not part of the active single-file workflow.
+
+`validate-source`, `build-runtime`, `build-topo`, and `build-all` all use that
+exact TIFF path directly. The active workflow does not scan `mosaics/` for
+alternate filenames and does not fall back to any alternate raw ELVIS location
+such as `/Volumes/Elvis/tas-elvis`.
 
 If you only need one artifact:
 
