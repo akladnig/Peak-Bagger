@@ -13,14 +13,13 @@ Downloads and merges theLIST Tasmania 25m DEM municipality zips.
 What it does:
 - fetches theLIST open-data manifest
 - discovers all LIST_DEM_25M_*.zip municipality archives
-- downloads them under your Bushwalking root
+- downloads them under your Tasmania DEM root
 - extracts them
 - builds a statewide VRT
 - optionally writes a merged GeoTIFF
 
 Default output:
-- ~/Documents/Bushwalking/DEM/Tasmania/thelist_25m
-- falls back to your home dir if Documents/Bushwalking does not exist
+- ~/DEM/Tasmania/thelist_25m
 
 Usage:
   dart run tool/download_tasmania_thelist_dem.dart
@@ -54,7 +53,7 @@ Future<void> main(List<String> args) async {
 
   final outputDirectory =
       options.outputDirectory ??
-      p.join(resolveBushwalkingRoot(), 'DEM', 'Tasmania', 'thelist_25m');
+      p.join(resolveTasmaniaDemRoot(), 'thelist_25m');
 
   final workspace = _Workspace.fromRoot(outputDirectory);
   await workspace.ensureExists();

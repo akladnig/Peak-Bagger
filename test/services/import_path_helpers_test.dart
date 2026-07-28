@@ -47,4 +47,47 @@ void main() {
       );
     });
   });
+
+  group('resolveTasmaniaDemRoot', () {
+    test(
+      'uses HOME/DEM/Tasmania even when Documents/Bushwalking exists',
+      () async {
+        final home = await Directory.systemTemp.createTemp('tas-dem-root-home');
+        addTearDown(() => home.deleteSync(recursive: true));
+        Directory(
+          p.join(home.path, 'Documents', 'Bushwalking'),
+        ).createSync(recursive: true);
+
+        expect(
+          resolveTasmaniaDemRoot(homeDirectory: home.path),
+          p.join(home.path, 'DEM', 'Tasmania'),
+        );
+      },
+    );
+
+    test('uses HOME/DEM/Tasmania when Bushwalking does not exist', () async {
+      final home = await Directory.systemTemp.createTemp(
+        'tas-dem-home-fallback',
+      );
+      addTearDown(() => home.deleteSync(recursive: true));
+
+      expect(
+        resolveTasmaniaDemRoot(homeDirectory: home.path),
+        p.join(home.path, 'DEM', 'Tasmania'),
+      );
+    });
+
+    test('fails clearly when HOME is unavailable', () {
+      expect(
+        () => resolveTasmaniaDemRoot(homeDirectory: ''),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            contains('HOME is unavailable'),
+          ),
+        ),
+      );
+    });
+  });
 }

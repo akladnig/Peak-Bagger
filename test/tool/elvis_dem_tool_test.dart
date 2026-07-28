@@ -35,10 +35,7 @@ void main() {
       expect(stdoutLines.single, contains(elvisDemCanonicalSourcePath));
       expect(stdoutLines.single, isNot(contains('bootstrap-manifest')));
       expect(stdoutLines.single, isNot(contains('--save-vrt')));
-      expect(
-        stdoutLines.single,
-        isNot(contains('/Volumes/Elvis/tas-elvis')),
-      );
+      expect(stdoutLines.single, isNot(contains('/Volumes/Elvis/tas-elvis')));
     },
   );
 
@@ -106,8 +103,6 @@ void main() {
 
       final reportPath = p.join(
         home.path,
-        'Documents',
-        'Bushwalking',
         'DEM',
         'Tasmania',
         'elvis_reports',

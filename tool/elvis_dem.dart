@@ -125,7 +125,6 @@ Future<int> runElvisDemTool({
   ElvisDemCommandChecker? commandChecker,
   ElvisDemCommandRunner? commandRunner,
   String? homeDirectory,
-  bool Function(String path)? directoryExists,
   DateTime Function()? clock,
   Future<void> Function(String path)? sourceReadableChecker,
   void Function(String message)? stdoutWriter,
@@ -163,10 +162,7 @@ Future<int> runElvisDemTool({
 
   late final String tasmaniaDemRoot;
   try {
-    tasmaniaDemRoot = resolveTasmaniaDemRoot(
-      homeDirectory: homeDirectory,
-      directoryExists: directoryExists,
-    );
+    tasmaniaDemRoot = resolveTasmaniaDemRoot(homeDirectory: homeDirectory);
   } on Object catch (error) {
     stderrLine(_errorMessage(error));
     return 1;
