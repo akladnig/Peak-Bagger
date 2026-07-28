@@ -24,11 +24,33 @@ const previewStyleVariants = [
     decisionsPath: 'styles/local-topo/maptiler-outdoor.port-decisions.json',
   },
 ];
+const martinRequiredSourceLayers = [
+  'boundary',
+  'building',
+  'landcover',
+  'landuse',
+  'park',
+  'place',
+  'transportation',
+  'transportation_name',
+  'water',
+  'water_name',
+  'waterway',
+];
+const martinDeferredSourceLayers = new Set([
+  'aerodrome_label',
+  'aeroway',
+  'housenumber',
+  'mountain_peak',
+  'poi',
+]);
 const localPreviewSourceUrls = new Set([
   'mbtiles://{tasmania-osm}',
   'mbtiles://{tasmania-contours}',
   'mbtiles://{tasmania-relief}',
 ]);
+const martinOpenmaptilesSourceUrl =
+  'http://martin:3000/boundary,building,landcover,landuse,park,place,transportation,transportation_name,water,water_name,waterway';
 const allowedPortDecisionIssueTypes = new Set([
   'source_remap',
   'font_rewrite',
@@ -197,4 +219,71 @@ test('openstreetmap preview style includes local contour overlays and is registe
     config.styles['tasmania-openstreetmap-contours']?.style,
     'local-topo/openstreetmap.json',
   );
+});
+
+test('all supported LOCAL_TOPO_STYLE preview ids are registered in tileserver config', async () => {
+  const config = await loadJson('config/tileserver-config.json');
+
+  assert.deepEqual(
+    {
+      'tasmania-openstreetmap-contours-martin': config.styles['tasmania-openstreetmap-contours-martin']?.style,
+      'tasmania-openstreetmap-contours': config.styles['tasmania-openstreetmap-contours']?.style,
+      'tasmania-maptiler-topo': config.styles['tasmania-maptiler-topo']?.style,
+      'tasmania-maptiler-outdoor': config.styles['tasmania-maptiler-outdoor']?.style,
+    },
+    {
+      'tasmania-openstreetmap-contours-martin': 'local-topo/openstreetmap-martin.json',
+      'tasmania-openstreetmap-contours': 'local-topo/openstreetmap.json',
+      'tasmania-maptiler-topo': 'local-topo/maptiler-topo.json',
+      'tasmania-maptiler-outdoor': 'local-topo/maptiler-outdoor.json',
+    },
+  );
+});
+
+test('Martin openstreetmap preview style stays within the first-slice compatibility boundary', async () => {
+  const legacyStyle = await loadJson('styles/local-topo/openstreetmap.json');
+  const martinStyle = await loadJson('styles/local-topo/openstreetmap-martin.json');
+  const config = await loadJson('config/tileserver-config.json');
+
+  assert.equal(
+    config.styles['tasmania-openstreetmap-contours-martin']?.style,
+    'local-topo/openstreetmap-martin.json',
+  );
+
+  const legacyLayers = new Map(legacyStyle.layers.map((layer) => [layer.id, layer]));
+  const martinLayers = new Map(martinStyle.layers.map((layer) => [layer.id, layer]));
+
+  assert.deepEqual(Object.keys(martinStyle.sources).sort(), Object.keys(legacyStyle.sources).sort());
+  assert.deepEqual(martinStyle.sources['openmaptiles'], {
+    type: 'vector',
+    url: martinOpenmaptilesSourceUrl,
+  });
+  assert.deepEqual(legacyStyle.sources['openmaptiles'], {
+    type: 'vector',
+    url: 'mbtiles://{tasmania-osm}',
+  });
+  assert.deepEqual(martinStyle.sources['tasmania-contours'], legacyStyle.sources['tasmania-contours']);
+  assert.deepEqual(martinStyle.sources['tasmania-relief'], legacyStyle.sources['tasmania-relief']);
+
+  for (const [layerId, legacyLayer] of legacyLayers) {
+    if (martinDeferredSourceLayers.has(legacyLayer['source-layer'])) {
+      assert.equal(martinLayers.has(layerId), false);
+      continue;
+    }
+
+    assert.deepEqual(martinLayers.get(layerId), legacyLayer);
+  }
+
+  const martinOpenmaptilesSourceLayers = [...new Set(
+    martinStyle.layers
+      .filter((layer) => layer.source === 'openmaptiles')
+      .map((layer) => layer['source-layer'])
+      .filter((value) => typeof value === 'string'),
+  )].sort();
+  assert.deepEqual(martinOpenmaptilesSourceLayers, martinRequiredSourceLayers);
+
+  const metadataLayerIds = martinStyle.metadata.maptiler.groups.flatMap((group) => group.layers);
+  for (const layerId of metadataLayerIds) {
+    assert.equal(martinLayers.has(layerId), true);
+  }
 });
