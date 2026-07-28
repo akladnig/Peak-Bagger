@@ -354,6 +354,97 @@ void main() {
     expect(lineChart.data.maxX, greaterThan(initialMaxX));
   });
 
+  testWidgets('route sheet shows the exact non-Tasmania elevation message', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftName: 'Draft route',
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftCommittedPoints: const [
+          LatLng(-33.865143, 151.2099),
+          LatLng(-33.87, 151.21),
+        ],
+        routeDraftDistanceMeters: 750,
+        routeDraftElevationError: RouteElevationMessages.regionUnavailable,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [mapProvider.overrideWith(() => notifier)],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(width: 640, child: RouteDraftGraphOverlay()),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-elevation-error-text')), findsOneWidget);
+    expect(
+      find.byKey(const Key('elevation-profile-error-state')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(RouteElevationMessages.regionUnavailable),
+      findsNWidgets(2),
+    );
+  });
+
+  testWidgets('route sheet shows the exact Tasmania device DEM message', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftName: 'Draft route',
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+        ],
+        routeDraftDistanceMeters: 750,
+        routeDraftElevationError:
+            RouteElevationMessages.tasmaniaDataUnavailable,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [mapProvider.overrideWith(() => notifier)],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(width: 640, child: RouteDraftGraphOverlay()),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-elevation-error-text')), findsOneWidget);
+    expect(
+      find.byKey(const Key('elevation-profile-error-state')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(RouteElevationMessages.tasmaniaDataUnavailable),
+      findsNWidgets(2),
+    );
+  });
+
   testWidgets('route to peak stays disabled without a captured peak target', (
     tester,
   ) async {

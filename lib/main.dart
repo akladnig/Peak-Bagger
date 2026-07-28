@@ -12,6 +12,7 @@ import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/objectbox_schema_guard.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
+import 'package:peak_bagger/services/objectbox_store_directory.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/route_graph_import_service.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
@@ -30,19 +31,62 @@ late final Store objectboxStore;
 
 const _objectBoxMaxDbSizeInKB = 8 * 1024 * 1024;
 
+void _logStartup(String message) {
+  debugPrint('[startup ${DateTime.now().toIso8601String()}] $message');
+}
+
+Future<T> _runStartupPhase<T>(String label, Future<T> Function() action) async {
+  final stopwatch = Stopwatch()..start();
+  _logStartup('Starting $label');
+  try {
+    final result = await action();
+    _logStartup('Finished $label in ${stopwatch.elapsedMilliseconds}ms');
+    return result;
+  } catch (error) {
+    _logStartup(
+      'Failed $label after ${stopwatch.elapsedMilliseconds}ms: $error',
+    );
+    rethrow;
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  _logStartup('Widgets binding initialized');
 
   registerLocalTopoRegionKeyValidator(
     (regionKey) => regionManifestCatalog.regionByKey(regionKey) != null,
   );
-  await localTopoRuntime.restore();
-  await TileCacheService.initialize();
+  _logStartup('Registered local topo region key validator');
+  await _runStartupPhase('local topo runtime restore', () {
+    return localTopoRuntime.restore();
+  });
+  await _runStartupPhase('tile cache initialization', () {
+    return TileCacheService.initialize();
+  });
   unawaited(TileCacheService.ensureLowZoomWarmup());
+  _logStartup('Scheduled low zoom tile warmup');
 
-  final store = await openStore(maxDBSizeInKB: _objectBoxMaxDbSizeInKB);
+  final primaryObjectBoxDirectory = await _runStartupPhase(
+    'ObjectBox directory prepare',
+    () {
+      return preparePrimaryObjectBoxDirectory(log: _logStartup);
+    },
+  );
+  _logStartup(
+    'Primary ObjectBox directory: '
+    '${primaryObjectBoxDirectory ?? '<ObjectBox default>'}',
+  );
+  final store = await _runStartupPhase('ObjectBox store open', () {
+    return openStore(
+      directory: primaryObjectBoxDirectory,
+      maxDBSizeInKB: _objectBoxMaxDbSizeInKB,
+    );
+  });
   try {
-    await ObjectBoxSchemaGuard().verify();
+    await _runStartupPhase('ObjectBox schema verification', () {
+      return ObjectBoxSchemaGuard().verify();
+    });
     objectboxStore = store;
   } catch (_) {
     store.close();
@@ -70,12 +114,19 @@ void main() async {
   );
   final tasmapRepo = TasmapRepository(objectboxStore);
   try {
-    await tasmapRepo.loadFromCsvIfEmpty('assets/tasmap50k.csv');
+    await _runStartupPhase('Tasmap CSV bootstrap', () {
+      return tasmapRepo.loadFromCsvIfEmpty('assets/tasmap50k.csv');
+    });
   } catch (_) {
     // Continue with an empty database if the import fails.
+    _logStartup('Tasmap CSV bootstrap failed; continuing with empty database');
   }
 
-  final themePreferences = await SharedPreferences.getInstance();
+  final themePreferences = await _runStartupPhase('SharedPreferences load', () {
+    return SharedPreferences.getInstance();
+  });
+
+  _logStartup('Calling runApp');
 
   runApp(
     ProviderScope(
@@ -100,4 +151,6 @@ void main() async {
       child: const App(),
     ),
   );
+
+  _logStartup('runApp completed');
 }

@@ -16,6 +16,42 @@ _Avoid_: route when referring to historical walk data
 A planned path saved in the app for future use, separate from a completed imported walk.
 _Avoid_: track when referring to planned geometry
 
+**Route point**:
+An umbrella term for a point that defines a route in draft or saved form.
+_Avoid_: using waypoint for every route-defining point, using this term for every geometry vertex
+
+**Start route point**:
+The first route-defining point in a route.
+_Avoid_: waypoint when referring to the starting point by default
+
+**End route point**:
+The last route-defining point in an open route.
+_Avoid_: treating the closed-loop return-to-start point as a separate normal end route point
+
+**Route path**:
+The full drawn line for the whole route.
+_Avoid_: using route alone when only the drawn line is meant
+
+**Route segment**:
+The drawn line between two adjacent route points.
+_Avoid_: using this term for the full route path
+
+**Plain route point**:
+An unnamed route-defining point that is not a waypoint, including imported or auto-routed points without saved semantic meaning.
+_Avoid_: default route point, standard route point, basic route point
+
+**Numbered route point**:
+A draft-only intermediate route point shown with a number during interactive route creation or editing.
+_Avoid_: waypoint when referring to a draft-only numbered point
+
+**Hover point**:
+A temporary point shown while hovering over an editable route segment, which can be committed into the draft as a numbered route point.
+_Avoid_: waypoint, saved route point
+
+**Waypoint**:
+A saved named route point persisted with a route, used for meaningful named stops such as a peak-derived point rather than every numbered route point.
+_Avoid_: numbered route point, unnamed draft point
+
 **Track type**:
 The classification of a walked segment derived from app-owned map or trail metadata, rather than a free-text user label.
 _Avoid_: user-entered category, manual label
@@ -120,12 +156,20 @@ _Avoid_: hard-coded localhost, embedded server address
 The Tasmania-specific elevation raster source used by this project for DEM-backed workflows when a Tasmania-local source of truth is required.
 _Avoid_: generic Tasmania DEM, OSM elevation data
 
-**ELVIS DEM**:
-The project's canonical higher-detail Tasmania DEM input stored outside git, preferred for `Local Topo` rebuild inputs and as the source for repo-managed runtime elevation derivatives.
-_Avoid_: treating the Flutter app as reading `/Volumes/Media/Elvis` directly at runtime, using `ELVIS` alone when the source-versus-derived distinction matters
+**Tasmania DEM source**:
+The maintainer-managed selected Tasmania DEM input family shared by DEM-consuming workflows in this project, such as runtime elevation sampling and `Local Topo` rebuilds.
+_Avoid_: per-feature DEM selector, in-app DEM picker
+
+**DEM missing-data report**:
+A maintainer-facing per-run report that records unresolved missing-data coverage in a prepared Tasmania DEM artifact or source workflow.
+_Avoid_: import log, user-facing error log
+
+**Elvis 2m DEM**:
+The project's canonical statewide Tasmania raw DEM source stored outside git at the exact TIFF path `/Volumes/Media/Elvis/tas-elvis/elevation/2m-dem/z55/mosaics/Tasmania_Statewide_2m_DEM_14-08-2021.tif`, used as the source for repo-managed elevation derivatives. The containing `mosaics/` directory is only the storage location of that TIFF, not the active workflow contract.
+_Avoid_: `ELVIS DEM`, treating the Flutter app as reading the raw source path directly at runtime, using `ELVIS` alone when the source-versus-derived distinction matters
 
 **ELVIS runtime DEM**:
-The repo-managed external Tasmania `10m` DEM derived from the full `ELVIS DEM` dataset for Flutter elevation sampling workflows.
+The repo-managed external Tasmania `10m` DEM derived from the full `Elvis 2m DEM` dataset for Flutter elevation sampling workflows.
 _Avoid_: raw ELVIS tile tree, bundled app asset when the external generated file contract matters
 
 **ELVIS topo DEM**:

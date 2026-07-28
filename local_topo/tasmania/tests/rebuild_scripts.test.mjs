@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process';
 import { chmod, mkdtemp, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { promisify } from 'node:util';
 
@@ -20,6 +20,16 @@ async function runScript(scriptName, args = [], options = {}) {
 async function makeExecutableScript(path, contents) {
   await writeFile(path, contents);
   await chmod(path, 0o755);
+}
+
+async function writeFixture(path, contents) {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, contents);
+}
+
+async function cleanupWorkspace(workspace) {
+  await rm(workspace.root, { force: true, recursive: true });
+  await rm(workspace.scratchRoot, { force: true, recursive: true });
 }
 
 async function makeTestWorkspace() {
@@ -262,24 +272,37 @@ async function withRenderServer(fn) {
   }
 }
 
-test('manual refresh dry-run uses a local OSM override and plans prerendered PNG output', async () => {
+test('manual refresh dry-run defaults to elvis-topo without invoking ELVIS derivation inline', async () => {
   const workspace = await makeTestWorkspace();
   const overrideOsmPath = join(workspace.root, 'tasmania-local.osm.pbf');
-  const demPath = join(workspace.root, 'thelist.tif');
-  await writeFile(overrideOsmPath, '1234567890abcdef');
-  await writeFile(demPath, 'dem');
+  const homeRoot = join(workspace.root, 'home');
+  const elvisTopoPath = join(
+    homeRoot,
+    'Documents',
+    'Bushwalking',
+    'DEM',
+    'Tasmania',
+    'elvis_topo',
+    'elvis_topo_5m.tif',
+  );
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await writeFixture(elvisTopoPath, 'dem');
 
   const { stdout } = await runScript('manual_refresh.sh', ['--dry-run'], {
     env: {
       ...process.env,
       ...workspace.env,
+      HOME: homeRoot,
       LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
-      LOCAL_TOPO_THELIST_DEM_TIF: demPath,
     },
   });
 
   assert.match(stdout, /Using local OSM override:/);
+  assert.match(stdout, /Selected DEM source: ELVIS topo DEM/);
+  assert.ok(stdout.includes(elvisTopoPath));
   assert.doesNotMatch(stdout, /download\.geofabrik\.de/);
+  assert.doesNotMatch(stdout, /elvis_dem\.sh/);
+  assert.doesNotMatch(stdout, /\/Volumes\/Media\/Elvis\/tas-elvis/);
   assert.match(stdout, /ghcr\.io\/onthegomap\/planetiler:latest/);
   assert.match(stdout, /gdaldem/);
   assert.match(stdout, /gdal_translate/);
@@ -290,16 +313,16 @@ test('manual refresh dry-run uses a local OSM override and plans prerendered PNG
   assert.match(stdout, /prerender_tiles\.mjs/);
   assert.match(stdout, /tasmania\/local-topo/);
 
-  await rm(workspace.root, { force: true, recursive: true });
-  await rm(workspace.scratchRoot, { force: true, recursive: true });
+  await cleanupWorkspace(workspace);
 });
 
 test('scheduled refresh dry-run only fetches Geofabrik data when the managed extract is older than 30 days', async () => {
   const workspace = await makeTestWorkspace();
   const managedOsmPath = join(workspace.inputDir, 'osm', 'tasmania-latest.osm.pbf');
-  const demPath = join(workspace.root, 'thelist.tif');
-  await writeFile(managedOsmPath, '1234567890abcdef');
-  await writeFile(demPath, 'dem');
+  const homeRoot = join(workspace.root, 'home');
+  const elvisTopoPath = join(homeRoot, 'Documents', 'Bushwalking', 'DEM', 'Tasmania', 'elvis_topo', 'elvis_topo_5m.tif');
+  await writeFixture(managedOsmPath, '1234567890abcdef');
+  await writeFixture(elvisTopoPath, 'dem');
 
   const freshEpoch = 1735603200;
   await utimes(managedOsmPath, freshEpoch, freshEpoch);
@@ -307,7 +330,7 @@ test('scheduled refresh dry-run only fetches Geofabrik data when the managed ext
     env: {
       ...process.env,
       ...workspace.env,
-      LOCAL_TOPO_THELIST_DEM_TIF: demPath,
+      HOME: homeRoot,
     },
   });
 
@@ -320,39 +343,34 @@ test('scheduled refresh dry-run only fetches Geofabrik data when the managed ext
     env: {
       ...process.env,
       ...workspace.env,
-      LOCAL_TOPO_THELIST_DEM_TIF: demPath,
+      HOME: homeRoot,
     },
   });
 
   assert.match(staleRun.stdout, /download\.geofabrik\.de\/australia-oceania\/australia\/tasmania-latest\.osm\.pbf/);
 
-  await rm(workspace.root, { force: true, recursive: true });
-  await rm(workspace.scratchRoot, { force: true, recursive: true });
+  await cleanupWorkspace(workspace);
 });
 
-test('rebuild prefers higher-detail DEMs, falls back to theLIST 25m contours, and writes source metadata', async () => {
+test('rebuild uses the explicitly selected thelist DEM and writes source metadata', async () => {
   const workspace = await makeTestWorkspace();
   const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
-  const highDetailDemPath = join(workspace.root, 'higher-detail.tif');
   const thelistDemPath = join(workspace.root, 'thelist.tif');
-  await writeFile(overrideOsmPath, '1234567890abcdef');
-  await writeFile(highDetailDemPath, 'dem');
-  await writeFile(thelistDemPath, 'dem');
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await writeFixture(thelistDemPath, 'dem');
 
   await withRenderServer(async (baseUrl) => {
-    const run = await runScript('rebuild_stack.sh', ['--mode', 'manual'], {
+    const run = await runScript('rebuild_stack.sh', ['--mode', 'manual', '--dem-source', 'thelist'], {
       env: {
         ...process.env,
         ...workspace.env,
-        FAKE_CONTOUR_FAIL_INTERVAL: '10',
-        FAKE_CONTOUR_FAIL_MATCH: 'higher-detail',
         LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
-        LOCAL_TOPO_HIGH_DETAIL_DEM_TIF: highDetailDemPath,
         LOCAL_TOPO_THELIST_DEM_TIF: thelistDemPath,
         LOCAL_TOPO_PRERENDER_BASE_URL: baseUrl,
       },
     });
 
+    assert.match(run.stdout, /Selected DEM source: theLIST 25m DEM/);
     assert.match(run.stdout, /gdal_contour -a elev -i 25 /);
     assert.match(run.stdout, /tippecanoe .* -l contours -y elev /);
   });
@@ -369,36 +387,76 @@ test('rebuild prefers higher-detail DEMs, falls back to theLIST 25m contours, an
   const contoursGeojsonPath = join(workspace.outputDir, 'tasmania-contours.geojson');
   const contoursGeojson = JSON.parse(await readFile(contoursGeojsonPath, 'utf8'));
 
-  assert.equal(metadata.demSource.label, 'Higher Detail Local DEM');
+  assert.equal(metadata.demSource.key, 'thelist');
+  assert.equal(metadata.demSource.label, 'theLIST 25m DEM');
+  assert.equal(metadata.demSource.path, thelistDemPath);
   assert.equal(metadata.contours.intervalMeters, 25);
   assert.equal(metadata.contours.sourceLabel, 'theLIST 25m DEM');
+  assert.equal(metadata.contours.sourcePath, thelistDemPath);
   assert.equal(contoursGeojson.features[0]?.properties?.elev, 100);
   assert.equal(await readFile(reliefPath, 'utf8'), 'mbtiles');
 
-  await rm(workspace.root, { force: true, recursive: true });
-  await rm(workspace.scratchRoot, { force: true, recursive: true });
+  await cleanupWorkspace(workspace);
 });
 
-test('rebuild keeps theLIST ahead of reserve-only Copernicus when higher-detail DEMs are unavailable', async () => {
+test('rebuild keeps copernicus fully explicit and does not auto-fallback to thelist for contours', async () => {
   const workspace = await makeTestWorkspace();
   const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
-  const unreadableHighDetailDemPath = join(workspace.root, 'higher-detail-unreadable.tif');
   const thelistDemPath = join(workspace.root, 'thelist.tif');
   const copernicusDemPath = join(workspace.root, 'copernicus.tif');
-  await writeFile(overrideOsmPath, '1234567890abcdef');
-  await writeFile(unreadableHighDetailDemPath, 'dem');
-  await writeFile(thelistDemPath, 'dem');
-  await writeFile(copernicusDemPath, 'dem');
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await writeFixture(thelistDemPath, 'dem');
+  await writeFixture(copernicusDemPath, 'dem');
 
   await withRenderServer(async (baseUrl) => {
-    await runScript('rebuild_stack.sh', ['--mode', 'manual'], {
+    const run = await runScript('rebuild_stack.sh', ['--mode', 'manual', '--dem-source', 'copernicus'], {
+      env: {
+        ...process.env,
+        ...workspace.env,
+        FAKE_CONTOUR_FAIL_INTERVAL: '10',
+        FAKE_CONTOUR_FAIL_MATCH: 'copernicus',
+        LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
+        LOCAL_TOPO_THELIST_DEM_TIF: thelistDemPath,
+        LOCAL_TOPO_COPERNICUS_DEM_TIF: copernicusDemPath,
+        LOCAL_TOPO_PRERENDER_BASE_URL: baseUrl,
+      },
+    });
+
+    assert.match(run.stdout, /Selected DEM source: Copernicus GLO 30/);
+    assert.match(run.stdout, /Contour plan: 25m from Copernicus GLO 30/);
+  });
+
+  const metadataPath = join(
+    workspace.outputDir,
+    'tiles',
+    'tasmania',
+    'local-topo',
+    'source-metadata.json',
+  );
+  const metadata = JSON.parse(await readFile(metadataPath, 'utf8'));
+
+  assert.equal(metadata.demSource.key, 'copernicus');
+  assert.equal(metadata.demSource.path, copernicusDemPath);
+  assert.equal(metadata.contours.intervalMeters, 25);
+  assert.equal(metadata.contours.sourceLabel, 'Copernicus GLO 30');
+  assert.equal(metadata.contours.sourcePath, copernicusDemPath);
+
+  await cleanupWorkspace(workspace);
+});
+
+test('rebuild accepts a custom absolute DEM path when explicitly requested', async () => {
+  const workspace = await makeTestWorkspace();
+  const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
+  const customDemPath = join(workspace.root, 'custom.tif');
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await writeFixture(customDemPath, 'dem');
+
+  await withRenderServer(async (baseUrl) => {
+    await runScript('rebuild_stack.sh', ['--mode', 'manual', '--dem-source', 'custom', '--dem-path', customDemPath], {
       env: {
         ...process.env,
         ...workspace.env,
         LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
-        LOCAL_TOPO_HIGH_DETAIL_DEM_TIF: unreadableHighDetailDemPath,
-        LOCAL_TOPO_THELIST_DEM_TIF: thelistDemPath,
-        LOCAL_TOPO_COPERNICUS_DEM_TIF: copernicusDemPath,
         LOCAL_TOPO_PRERENDER_BASE_URL: baseUrl,
       },
     });
@@ -413,18 +471,92 @@ test('rebuild keeps theLIST ahead of reserve-only Copernicus when higher-detail 
   );
   const metadata = JSON.parse(await readFile(metadataPath, 'utf8'));
 
-  assert.equal(metadata.demSource.label, 'theLIST 25m DEM');
+  assert.equal(metadata.demSource.key, 'custom');
+  assert.equal(metadata.demSource.label, 'Custom DEM');
+  assert.equal(metadata.demSource.path, customDemPath);
 
-  await rm(workspace.root, { force: true, recursive: true });
-  await rm(workspace.scratchRoot, { force: true, recursive: true });
+  await cleanupWorkspace(workspace);
+});
+
+test('custom DEM selection requires --dem-path', async () => {
+  const workspace = await makeTestWorkspace();
+  const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+
+  await assert.rejects(
+    runScript('rebuild_stack.sh', ['--mode', 'manual', '--dem-source', 'custom'], {
+      env: {
+        ...process.env,
+        ...workspace.env,
+        LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
+      },
+    }),
+    (error) => {
+      assert.match(error.stderr, /--dem-source=custom requires --dem-path/);
+      return true;
+    },
+  );
+
+  await cleanupWorkspace(workspace);
+});
+
+test('default elvis-topo selection fails fast with maintainer guidance when the prepared artifact is missing', async () => {
+  const workspace = await makeTestWorkspace();
+  const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
+  const homeRoot = join(workspace.root, 'home');
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await mkdir(join(homeRoot, 'Documents', 'Bushwalking'), { recursive: true });
+
+  await assert.rejects(
+    runScript('manual_refresh.sh', [], {
+      env: {
+        ...process.env,
+        ...workspace.env,
+        HOME: homeRoot,
+        LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
+      },
+    }),
+    (error) => {
+      assert.match(error.stderr, /Selected DEM source 'elvis-topo'/);
+      assert.match(error.stderr, /\.\/elvis_dem\.sh build-topo/);
+      return true;
+    },
+  );
+
+  await cleanupWorkspace(workspace);
+});
+
+test('rebuild rejects DEM inputs that are not accepted as readable EPSG:28355 GeoTIFFs for this slice', async () => {
+  const workspace = await makeTestWorkspace();
+  const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
+  const customDemPath = join(workspace.root, 'custom.txt');
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await writeFixture(customDemPath, 'not-a-tiff');
+
+  await assert.rejects(
+    runScript('rebuild_stack.sh', ['--mode', 'manual', '--dem-source', 'custom', '--dem-path', customDemPath], {
+      env: {
+        ...process.env,
+        ...workspace.env,
+        LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
+      },
+    }),
+    (error) => {
+      assert.match(error.stderr, /readable EPSG:28355 GeoTIFF/);
+      return true;
+    },
+  );
+
+  await cleanupWorkspace(workspace);
 });
 
 test('scheduled rebuild falls back to stale but valid OSM data when refresh download fails', async () => {
   const workspace = await makeTestWorkspace();
   const managedOsmPath = join(workspace.inputDir, 'osm', 'tasmania-latest.osm.pbf');
-  const thelistDemPath = join(workspace.root, 'thelist.tif');
-  await writeFile(managedOsmPath, '1234567890abcdef');
-  await writeFile(thelistDemPath, 'dem');
+  const homeRoot = join(workspace.root, 'home');
+  const elvisTopoPath = join(homeRoot, 'Documents', 'Bushwalking', 'DEM', 'Tasmania', 'elvis_topo', 'elvis_topo_5m.tif');
+  await writeFixture(managedOsmPath, '1234567890abcdef');
+  await writeFixture(elvisTopoPath, 'dem');
   const staleEpoch = 1732406400;
   await utimes(managedOsmPath, staleEpoch, staleEpoch);
 
@@ -435,7 +567,7 @@ test('scheduled rebuild falls back to stale but valid OSM data when refresh down
         ...process.env,
         ...workspace.env,
         FAKE_CURL_FAIL: '1',
-        LOCAL_TOPO_THELIST_DEM_TIF: thelistDemPath,
+        HOME: homeRoot,
         LOCAL_TOPO_PRERENDER_BASE_URL: baseUrl,
       },
     });
@@ -452,8 +584,24 @@ test('scheduled rebuild falls back to stale but valid OSM data when refresh down
   const metadata = JSON.parse(await readFile(metadataPath, 'utf8'));
 
   assert.match(stdout, /using stale OSM data/i);
+  assert.equal(metadata.demSource.key, 'elvis-topo');
   assert.equal(metadata.osmSource.usedStaleFallback, 1);
 
-  await rm(workspace.root, { force: true, recursive: true });
-  await rm(workspace.scratchRoot, { force: true, recursive: true });
+  await cleanupWorkspace(workspace);
+});
+
+test('help output and README document the explicit DEM source contract', async () => {
+  const { stdout } = await runScript('manual_refresh.sh', ['--help']);
+  const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8');
+
+  assert.match(stdout, /--dem-source SOURCE/);
+  assert.match(stdout, /elvis-topo, thelist, copernicus, or custom/);
+  assert.match(stdout, /--dem-path ABSOLUTE_PATH/);
+  assert.doesNotMatch(stdout, /higher-detail/i);
+
+  assert.match(readme, /--dem-source=elvis-topo/);
+  assert.match(readme, /LOCAL_TOPO_ELVIS_TOPO_DEM_TIF/);
+  assert.match(readme, /LOCAL_TOPO_THELIST_DEM_TIF/);
+  assert.match(readme, /LOCAL_TOPO_COPERNICUS_DEM_TIF/);
+  assert.doesNotMatch(readme, /DEM selection prefers a readable higher-detail local DEM/);
 });

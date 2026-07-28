@@ -1,13 +1,45 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 
 void main() {
+  test('region resolver uses fixed ELVIS runtime path for Tasmania routes', () {
+    final resolver = RouteElevationDemResolver(
+      tasmaniaDemRootResolver: () => '/tmp/tasmania-dem',
+    );
+
+    final resolution = resolver.resolveForPoints(const [
+      LatLng(-41.5, 146.5),
+      LatLng(-41.55, 146.55),
+    ]);
+
+    expect(resolution.kind, RouteElevationDemKind.tasmaniaElvisRuntime);
+    expect(resolution.datasetPath, '/tmp/tasmania-dem/elvis_runtime_10m.tif');
+  });
+
+  test(
+    'region resolver returns none when any route point is outside Tasmania',
+    () {
+      final resolver = RouteElevationDemResolver(
+        tasmaniaDemRootResolver: () => '/tmp/tasmania-dem',
+      );
+
+      final resolution = resolver.resolveForPoints(const [
+        LatLng(-41.5, 146.5),
+        LatLng(-33.865143, 151.2099),
+      ]);
+
+      expect(resolution.kind, RouteElevationDemKind.none);
+      expect(resolution.datasetPath, isNull);
+    },
+  );
+
   test('known polyline summary uses densified DEM samples', () async {
-    final sampler = BundledDemRouteElevationSampler(
-      source: DemConstants.selectedConfig,
-      assetCache: _FakeDemAssetCache('/tmp/thelist.tif'),
+    final sampler = RegionAwareRouteElevationSampler(
+      demResolver: RouteElevationDemResolver(
+        regionKeyForPoint: (_) => 'tasmania',
+        tasmaniaDemRootResolver: () => '/tmp/tasmania-dem',
+      ),
       datasetOpener: _FakeDemDatasetOpener(
         _LookupDemDataset((point) {
           final sampleIndex = (point.longitude * 1000).round();
@@ -20,6 +52,7 @@ void main() {
           };
         }),
       ),
+      fileExists: (_) => true,
       sampleSpacingMetres: 100,
     );
 
@@ -41,9 +74,13 @@ void main() {
   });
 
   test('short route returns zero summary', () async {
-    final sampler = BundledDemRouteElevationSampler(
-      assetCache: _FakeDemAssetCache('/tmp/thelist.tif'),
+    final sampler = RegionAwareRouteElevationSampler(
+      demResolver: RouteElevationDemResolver(
+        regionKeyForPoint: (_) => 'tasmania',
+        tasmaniaDemRootResolver: () => '/tmp/tasmania-dem',
+      ),
       datasetOpener: _FakeDemDatasetOpener(_LookupDemDataset((_) => 100)),
+      fileExists: (_) => true,
     );
 
     final summary = await sampler.sampleRoute(
@@ -58,11 +95,15 @@ void main() {
   });
 
   test('missing DEM sample falls back to zero elevation', () async {
-    final sampler = BundledDemRouteElevationSampler(
-      assetCache: _FakeDemAssetCache('/tmp/thelist.tif'),
+    final sampler = RegionAwareRouteElevationSampler(
+      demResolver: RouteElevationDemResolver(
+        regionKeyForPoint: (_) => 'tasmania',
+        tasmaniaDemRootResolver: () => '/tmp/tasmania-dem',
+      ),
       datasetOpener: _FakeDemDatasetOpener(
         _LookupDemDataset((point) => point.longitude == 0 ? null : 20),
       ),
+      fileExists: (_) => true,
       sampleSpacingMetres: 1000,
     );
 
@@ -82,11 +123,14 @@ void main() {
   });
 
   test('dataset bootstrap is cached across requests', () async {
-    final assetCache = _FakeDemAssetCache('/tmp/thelist.tif');
     final datasetOpener = _FakeDemDatasetOpener(_LookupDemDataset((_) => 100));
-    final sampler = BundledDemRouteElevationSampler(
-      assetCache: assetCache,
+    final sampler = RegionAwareRouteElevationSampler(
+      demResolver: RouteElevationDemResolver(
+        regionKeyForPoint: (_) => 'tasmania',
+        tasmaniaDemRootResolver: () => '/tmp/tasmania-dem',
+      ),
       datasetOpener: datasetOpener,
+      fileExists: (_) => true,
     );
 
     await sampler.sampleRoute(
@@ -100,22 +144,83 @@ void main() {
       geometryVersion: 2,
     );
 
-    expect(assetCache.calls, 1);
     expect(datasetOpener.calls, 1);
   });
-}
 
-class _FakeDemAssetCache implements DemAssetCache {
-  _FakeDemAssetCache(this.path);
+  test(
+    'non-Tasmania point sampling short-circuits without opening a dataset',
+    () async {
+      final datasetOpener = _FakeDemDatasetOpener(
+        _LookupDemDataset((_) => 100),
+      );
+      final sampler = RegionAwareRouteElevationSampler(
+        demResolver: RouteElevationDemResolver(
+          regionKeyForPoint: (_) => null,
+          tasmaniaDemRootResolver: () => '/tmp/tasmania-dem',
+        ),
+        datasetOpener: datasetOpener,
+        fileExists: (_) => true,
+      );
 
-  final String path;
-  int calls = 0;
+      final elevations = await sampler.samplePointElevations(const [
+        LatLng(-33.865143, 151.2099),
+        LatLng(-33.87, 151.21),
+      ]);
 
-  @override
-  Future<String> localPathForAsset(String assetPath) async {
-    calls += 1;
-    return path;
-  }
+      expect(elevations, [null, null]);
+      expect(datasetOpener.calls, 0);
+    },
+  );
+
+  test('non-Tasmania route summary reports region unavailable', () async {
+    final sampler = RegionAwareRouteElevationSampler(
+      demResolver: RouteElevationDemResolver(
+        regionKeyForPoint: (_) => null,
+        tasmaniaDemRootResolver: () => '/tmp/tasmania-dem',
+      ),
+      fileExists: (_) => true,
+    );
+
+    await expectLater(
+      () => sampler.sampleRoute(
+        points: const [LatLng(-33.865143, 151.2099), LatLng(-33.87, 151.21)],
+        requestId: 1,
+        geometryVersion: 1,
+      ),
+      throwsA(
+        isA<RouteElevationSamplingException>().having(
+          (error) => error.message,
+          'message',
+          RouteElevationMessages.regionUnavailable,
+        ),
+      ),
+    );
+  });
+
+  test('missing Tasmania runtime DEM reports the exact device error', () async {
+    final sampler = RegionAwareRouteElevationSampler(
+      demResolver: RouteElevationDemResolver(
+        regionKeyForPoint: (_) => 'tasmania',
+        tasmaniaDemRootResolver: () => '/tmp/tasmania-dem',
+      ),
+      fileExists: (_) => false,
+    );
+
+    await expectLater(
+      () => sampler.sampleRoute(
+        points: const [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+        requestId: 1,
+        geometryVersion: 1,
+      ),
+      throwsA(
+        isA<RouteElevationSamplingException>().having(
+          (error) => error.message,
+          'message',
+          RouteElevationMessages.tasmaniaDataUnavailable,
+        ),
+      ),
+    );
+  });
 }
 
 class _FakeDemDatasetOpener implements DemDatasetOpener {

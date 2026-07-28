@@ -1359,7 +1359,7 @@ typedef _PersistedPeakListSelectionState = ({
 });
 
 final routeElevationSamplerProvider = Provider<RouteElevationSampler>((ref) {
-  return BundledDemRouteElevationSampler();
+  return RegionAwareRouteElevationSampler();
 });
 
 final gpxTrackRepositoryProvider = Provider<GpxTrackRepository>((ref) {
@@ -4739,6 +4739,19 @@ class MapNotifier extends Notifier<MapState> {
         routeDraftElevationLoading: false,
         clearRouteDraftElevationError: true,
       );
+    } on RouteElevationSamplingException catch (error) {
+      if (!_isActiveRouteDraftElevationRequest(
+        requestId: requestId,
+        geometryVersion: geometryVersion,
+      )) {
+        return;
+      }
+
+      state = state.copyWith(
+        clearRouteDraftElevationSummary: true,
+        routeDraftElevationLoading: false,
+        routeDraftElevationError: error.message,
+      );
     } on GdalException catch (error, stackTrace) {
       if (!_isActiveRouteDraftElevationRequest(
         requestId: requestId,
@@ -4758,7 +4771,8 @@ class MapNotifier extends Notifier<MapState> {
       state = state.copyWith(
         clearRouteDraftElevationSummary: true,
         routeDraftElevationLoading: false,
-        clearRouteDraftElevationError: true,
+        routeDraftElevationError:
+            RouteElevationMessages.tasmaniaDataUnavailable,
       );
     } catch (error) {
       if (!_isActiveRouteDraftElevationRequest(
