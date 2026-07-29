@@ -90,15 +90,22 @@ String get fvgTopoDebugTileUrl {
   return 'http://127.0.0.1:8081/fvg-topo/{z}/{x}/{y}.png';
 }
 
+TileProvider buildNetworkTileProviderForBasemap(Basemap basemap) {
+  return NetworkTileProvider(
+    headers: mapTileHeaders(basemap),
+    cachingProvider:
+        basemap == Basemap.localTopo
+            ? const DisabledMapCachingProvider()
+            : null,
+  );
+}
+
 TileLayer buildBasemapTileLayer(
   Basemap basemap, {
   TileProvider? tileProvider,
   String? userAgentPackageName,
 }) {
-  final headers = mapTileHeaders(basemap);
-  final resolvedTileProvider =
-      tileProvider ??
-      (headers.isEmpty ? null : NetworkTileProvider(headers: headers));
+  final resolvedTileProvider = tileProvider ?? buildNetworkTileProviderForBasemap(basemap);
 
   return userAgentPackageName == null
       ? TileLayer(

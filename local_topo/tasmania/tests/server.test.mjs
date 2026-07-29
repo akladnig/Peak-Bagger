@@ -97,6 +97,7 @@ test('Tasmania tile route proxies to the deterministic tileserver path without a
 
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type') ?? '', /^image\/png/);
+    assert.equal(response.headers.get('cache-control'), 'public, max-age=300');
     await response.arrayBuffer();
 
     assert.equal(seenPath, '/data/tasmania-local-topo-smoke/0/0/0.png');
@@ -138,6 +139,7 @@ test('Tasmania tile route can proxy rendered style tiles without auth', async ()
 
     assert.equal(response.status, 200);
     assert.match(response.headers.get('content-type') ?? '', /^image\/png/);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
     await response.arrayBuffer();
 
     assert.equal(
@@ -180,6 +182,7 @@ test('Tasmania tile route can proxy rendered retina style tiles without auth', a
     );
 
     assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
     await response.arrayBuffer();
 
     assert.equal(
@@ -224,6 +227,7 @@ test('Tasmania tile route keeps the preview route stable for both OSM comparison
       const response = await fetch(new URL('/tasmania/local-topo/15/29781/20716.png', baseUrl));
 
       assert.equal(response.status, 200);
+      assert.equal(response.headers.get('cache-control'), 'no-store');
       await response.arrayBuffer();
       assert.equal(seenPath, `/styles/${styleId}/15/29781/20716.png`);
     } finally {
@@ -262,6 +266,7 @@ test('Tasmania tile route keeps the preview route stable for the MapTiler previe
       const response = await fetch(new URL('/tasmania/local-topo/15/29781/20716.png', baseUrl));
 
       assert.equal(response.status, 200);
+      assert.equal(response.headers.get('cache-control'), 'no-store');
       await response.arrayBuffer();
       assert.equal(seenPath, `/styles/${styleId}/15/29781/20716.png`);
     } finally {

@@ -1081,7 +1081,17 @@
         "all",
         [
           "==",
-          "subclass",
+          [
+            "coalesce",
+            [
+              "get",
+              "subclass"
+            ],
+            [
+              "get",
+              "class"
+            ]
+          ],
           "wood"
         ]
       ],
@@ -1148,7 +1158,17 @@
         "all",
         [
           "==",
-          "subclass",
+          [
+            "coalesce",
+            [
+              "get",
+              "subclass"
+            ],
+            [
+              "get",
+              "class"
+            ]
+          ],
           "scree"
         ]
       ],
@@ -1395,7 +1415,17 @@
         "all",
         [
           "==",
-          "subclass",
+          [
+            "coalesce",
+            [
+              "get",
+              "subclass"
+            ],
+            [
+              "get",
+              "class"
+            ]
+          ],
           "scrub"
         ]
       ],
@@ -1461,7 +1491,17 @@
         "all",
         [
           "==",
-          "subclass",
+          [
+            "coalesce",
+            [
+              "get",
+              "subclass"
+            ],
+            [
+              "get",
+              "class"
+            ]
+          ],
           "bare_rock"
         ]
       ],
@@ -1955,38 +1995,53 @@
         "all",
         [
           "in",
-          "subclass",
-          "allotments",
-          "bare_rock",
-          "beach",
-          "bog",
-          "dune",
-          "scrub",
-          "farm",
-          "farmland",
-          "forest",
-          "grass",
-          "grassland",
-          "golf_course",
-          "heath",
-          "mangrove",
-          "marsh",
-          "meadow",
-          "orchard",
-          "park",
-          "plant_nursery",
-          "recreation_ground",
-          "reedbed",
-          "saltern",
-          "saltmarsh",
-          "sand",
-          "scree",
-          "swamp",
-          "village_green",
-          "vineyard",
-          "wet_meadow",
-          "wetland",
-          "wood"
+          [
+            "coalesce",
+            [
+              "get",
+              "subclass"
+            ],
+            [
+              "get",
+              "class"
+            ]
+          ],
+          [
+            "literal",
+            [
+              "allotments",
+              "bare_rock",
+              "beach",
+              "bog",
+              "dune",
+              "scrub",
+              "farm",
+              "farmland",
+              "forest",
+              "grass",
+              "grassland",
+              "golf_course",
+              "heath",
+              "mangrove",
+              "marsh",
+              "meadow",
+              "orchard",
+              "park",
+              "plant_nursery",
+              "recreation_ground",
+              "reedbed",
+              "saltern",
+              "saltmarsh",
+              "sand",
+              "scree",
+              "swamp",
+              "village_green",
+              "vineyard",
+              "wet_meadow",
+              "wetland",
+              "wood"
+            ]
+          ]
         ]
       ],
       "layout": {
@@ -1996,8 +2051,15 @@
         "fill-opacity": [
           "match",
           [
-            "get",
-            "subclass"
+            "coalesce",
+            [
+              "get",
+              "subclass"
+            ],
+            [
+              "get",
+              "class"
+            ]
           ],
           "beach",
           0.4,
@@ -2016,8 +2078,15 @@
         "fill-pattern": [
           "match",
           [
-            "get",
-            "subclass"
+            "coalesce",
+            [
+              "get",
+              "subclass"
+            ],
+            [
+              "get",
+              "class"
+            ]
           ],
           "allotments",
           "allotments",

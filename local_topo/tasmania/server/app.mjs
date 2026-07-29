@@ -161,11 +161,14 @@ export async function createApp({
       const body = Buffer.from(await tileResponse.arrayBuffer());
       const contentType =
         tileResponse.headers.get('content-type') ?? 'application/octet-stream';
+      const cacheControl =
+        trimmedStyleId.length === 0
+          ? tileResponse.headers.get('cache-control') ?? 'public, max-age=300'
+          : 'no-store';
 
       response.writeHead(tileResponse.status, {
         'content-type': contentType,
-        'cache-control':
-          tileResponse.headers.get('cache-control') ?? 'public, max-age=300',
+        'cache-control': cacheControl,
       });
       response.end(body);
     } catch (error) {

@@ -35,6 +35,13 @@ class TileCacheService {
   static final Map<String, FMTCStore> _stores = {};
   static Future<void>? _lowZoomWarmupFuture;
 
+  static Future<FMTCStore> _ensureStoreExists(String storeName) async {
+    final store = _stores[storeName] ?? FMTCStore(storeName);
+    await store.manage.create();
+    _stores[storeName] = store;
+    return store;
+  }
+
   static Future<void> initialize() async {
     final backend = FMTCObjectBoxBackend();
     final backendRootDirectory = await prepareBackendRootDirectory(
@@ -43,9 +50,7 @@ class TileCacheService {
     await backend.initialise(rootDirectory: backendRootDirectory);
 
     for (final storeName in storeNames) {
-      final store = FMTCStore(storeName);
-      await store.manage.create();
-      _stores[storeName] = store;
+      await _ensureStoreExists(storeName);
     }
   }
 
@@ -161,15 +166,14 @@ class TileCacheService {
   }
 
   static Future<void> clearStore(String storeName) async {
-    final store = _stores[storeName];
-    if (store != null) {
-      await store.manage.delete();
-    }
+    final store = _stores[storeName] ?? FMTCStore(storeName);
+    await store.manage.delete();
+    await _ensureStoreExists(storeName);
   }
 
   static Future<void> clearAllStores() async {
-    for (final store in _stores.values) {
-      await store.manage.delete();
+    for (final storeName in _stores.keys.toList(growable: false)) {
+      await clearStore(storeName);
     }
   }
 

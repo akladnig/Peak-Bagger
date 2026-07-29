@@ -27,16 +27,14 @@ const previewStyleVariants = [
 const martinRequiredSourceLayers = [
   'boundary',
   'building',
-  'landcover',
   'landuse',
   'park',
   'place',
   'transportation',
   'transportation_name',
-  'water',
-  'water_name',
-  'waterway',
 ];
+const martinWaterExceptionSourceLayers = ['water', 'water_name', 'waterway'];
+const martinLandcoverExceptionSourceLayers = ['landcover'];
 const martinDeferredSourceLayers = new Set([
   'aerodrome_label',
   'aeroway',
@@ -51,6 +49,63 @@ const localPreviewSourceUrls = new Set([
 ]);
 const martinOpenmaptilesSourceUrl =
   'http://martin:3000/boundary,building,landcover,landuse,park,place,transportation,transportation_name,water,water_name,waterway';
+const legacyOpenmaptilesSourceUrl = 'mbtiles://{tasmania-osm}';
+const openStreetMapComparisonVariants = [
+  {
+    styleId: 'tasmania-openstreetmap-contours-martin',
+    stylePath: 'styles/local-topo/openstreetmap-martin.json',
+    openmaptilesSource: {
+      type: 'vector',
+      url: martinOpenmaptilesSourceUrl,
+    },
+  },
+  {
+    styleId: 'tasmania-openstreetmap-contours',
+    stylePath: 'styles/local-topo/openstreetmap.json',
+    openmaptilesSource: {
+      type: 'vector',
+      url: 'mbtiles://{tasmania-osm}',
+    },
+  },
+];
+const landcoverClassFallback = [
+  'coalesce',
+  ['get', 'subclass'],
+  ['get', 'class'],
+];
+const landcoverPatternClasses = [
+  'allotments',
+  'bare_rock',
+  'beach',
+  'bog',
+  'dune',
+  'scrub',
+  'farm',
+  'farmland',
+  'forest',
+  'grass',
+  'grassland',
+  'golf_course',
+  'heath',
+  'mangrove',
+  'marsh',
+  'meadow',
+  'orchard',
+  'park',
+  'plant_nursery',
+  'recreation_ground',
+  'reedbed',
+  'saltern',
+  'saltmarsh',
+  'sand',
+  'scree',
+  'swamp',
+  'village_green',
+  'vineyard',
+  'wet_meadow',
+  'wetland',
+  'wood',
+];
 const allowedPortDecisionIssueTypes = new Set([
   'source_remap',
   'font_rewrite',
@@ -68,6 +123,25 @@ async function assertLocalSpriteBundleExists() {
   await Promise.all(
     localSpriteFiles.map((relativePath) => access(join(stackRoot, relativePath))),
   );
+}
+
+function getMatchExpressionValue(expression, input) {
+  assert.equal(Array.isArray(expression), true);
+  assert.equal(expression[0], 'match');
+
+  for (let index = 2; index < expression.length - 1; index += 2) {
+    if (expression[index] === input) {
+      return expression[index + 1];
+    }
+  }
+
+  return expression.at(-1);
+}
+
+function getInExpressionValues(expression) {
+  assert.equal(Array.isArray(expression), true);
+  assert.equal(expression[0], 'in');
+  return expression[2]?.[1];
 }
 
 test('canonical richer Local Topo style includes relief, labels, and no mountain peak labels', async () => {
@@ -221,6 +295,94 @@ test('openstreetmap preview style includes local contour overlays and is registe
   );
 });
 
+test('OpenStreetMap comparison preview styles keep local sprite contract and targeted water and scrub wiring', async () => {
+  const config = await loadJson('config/tileserver-config.json');
+  await assertLocalSpriteBundleExists();
+
+  for (const variant of openStreetMapComparisonVariants) {
+    const style = await loadJson(variant.stylePath);
+    const layers = new Map(style.layers.map((layer) => [layer.id, layer]));
+
+    assert.equal(config.styles[variant.styleId]?.style, variant.stylePath.replace('styles/', ''));
+    assert.equal(style.sprite, localSpriteBase);
+    assert.equal(style.glyphs, localGlyphsPath);
+    assert.deepEqual(style.sources.openmaptiles, variant.openmaptilesSource);
+
+    const expectedWaterSource =
+      variant.styleId === 'tasmania-openstreetmap-contours-martin'
+        ? 'openmaptiles-water'
+        : 'openmaptiles';
+    const expectedLandcoverSource =
+      variant.styleId === 'tasmania-openstreetmap-contours-martin'
+        ? 'openmaptiles-landcover'
+        : 'openmaptiles';
+    if (variant.styleId === 'tasmania-openstreetmap-contours-martin') {
+      assert.deepEqual(style.sources['openmaptiles-water'], {
+        type: 'vector',
+        url: legacyOpenmaptilesSourceUrl,
+      });
+      assert.deepEqual(style.sources['openmaptiles-landcover'], {
+        type: 'vector',
+        url: legacyOpenmaptilesSourceUrl,
+      });
+    }
+
+    assert.deepEqual(layers.get('Scrub')?.paint, {
+      'fill-antialias': true,
+      'fill-color': 'hsl(80, 35%, 76%)',
+    });
+    assert.equal(layers.get('Scrub')?.source, expectedLandcoverSource);
+    assert.deepEqual(layers.get('Scrub')?.filter?.[1], ['==', landcoverClassFallback, 'scrub']);
+    assert.equal(layers.get('Wood')?.source, expectedLandcoverSource);
+    assert.deepEqual(layers.get('Wood')?.filter?.[1], ['==', landcoverClassFallback, 'wood']);
+    assert.equal(layers.get('Scree')?.source, expectedLandcoverSource);
+    assert.deepEqual(layers.get('Scree')?.filter?.[1], ['==', landcoverClassFallback, 'scree']);
+    assert.equal(layers.get('Bare rock')?.source, expectedLandcoverSource);
+    assert.deepEqual(layers.get('Bare rock')?.filter?.[1], [
+      '==',
+      landcoverClassFallback,
+      'bare_rock',
+    ]);
+    assert.deepEqual(layers.get('Water intermittent')?.paint, {
+      'fill-color': 'hsl(205, 91%, 83%)',
+      'fill-opacity': 0.85,
+    });
+    assert.equal(layers.get('River tunnel')?.source, expectedWaterSource);
+    assert.equal(layers.get('River')?.source, expectedWaterSource);
+    assert.equal(layers.get('River intermittent')?.source, expectedWaterSource);
+    assert.equal(layers.get('Other waterway')?.source, expectedWaterSource);
+    assert.equal(layers.get('Other waterway intermittent')?.source, expectedWaterSource);
+    assert.equal(layers.get('Water intermittent')?.source, expectedWaterSource);
+    assert.equal(layers.get('Water')?.source, expectedWaterSource);
+    assert.deepEqual(layers.get('Water')?.paint, {
+      'fill-color': 'hsl(194, 45%, 77%)',
+    });
+    assert.equal(layers.get('River tunnel')?.paint?.['line-color'], 'hsl(210, 73%, 78%)');
+    assert.equal(layers.get('River')?.paint?.['line-color'], 'hsl(210, 73%, 78%)');
+    assert.equal(layers.get('River intermittent')?.paint?.['line-color'], 'hsl(210, 73%, 78%)');
+    assert.equal(layers.get('Other waterway')?.paint?.['line-color'], 'hsl(210, 73%, 78%)');
+    assert.equal(
+      layers.get('Other waterway intermittent')?.paint?.['line-color'],
+      'hsl(210, 73%, 78%)',
+    );
+
+    const landcoverPatterns = layers.get('Landcover patterns');
+    assert.equal(landcoverPatterns?.source, expectedLandcoverSource);
+    assert.deepEqual(landcoverPatterns?.filter?.[1]?.[1], landcoverClassFallback);
+    assert.deepEqual(getInExpressionValues(landcoverPatterns?.filter?.[1]), landcoverPatternClasses);
+    assert.equal(
+      getMatchExpressionValue(landcoverPatterns?.paint?.['fill-opacity'], 'scrub'),
+      0.6,
+    );
+    assert.deepEqual(landcoverPatterns?.paint?.['fill-opacity']?.[1], landcoverClassFallback);
+    assert.equal(
+      getMatchExpressionValue(landcoverPatterns?.paint?.['fill-pattern'], 'scrub'),
+      'scrub',
+    );
+    assert.deepEqual(landcoverPatterns?.paint?.['fill-pattern']?.[1], landcoverClassFallback);
+  }
+});
+
 test('all supported LOCAL_TOPO_STYLE preview ids are registered in tileserver config', async () => {
   const config = await loadJson('config/tileserver-config.json');
 
@@ -253,14 +415,26 @@ test('Martin openstreetmap preview style stays within the first-slice compatibil
   const legacyLayers = new Map(legacyStyle.layers.map((layer) => [layer.id, layer]));
   const martinLayers = new Map(martinStyle.layers.map((layer) => [layer.id, layer]));
 
-  assert.deepEqual(Object.keys(martinStyle.sources).sort(), Object.keys(legacyStyle.sources).sort());
+  assert.deepEqual(Object.keys(martinStyle.sources).sort(), [
+    ...Object.keys(legacyStyle.sources),
+    'openmaptiles-landcover',
+    'openmaptiles-water',
+  ].sort());
   assert.deepEqual(martinStyle.sources['openmaptiles'], {
     type: 'vector',
     url: martinOpenmaptilesSourceUrl,
   });
+  assert.deepEqual(martinStyle.sources['openmaptiles-water'], {
+    type: 'vector',
+    url: legacyOpenmaptilesSourceUrl,
+  });
+  assert.deepEqual(martinStyle.sources['openmaptiles-landcover'], {
+    type: 'vector',
+    url: legacyOpenmaptilesSourceUrl,
+  });
   assert.deepEqual(legacyStyle.sources['openmaptiles'], {
     type: 'vector',
-    url: 'mbtiles://{tasmania-osm}',
+    url: legacyOpenmaptilesSourceUrl,
   });
   assert.deepEqual(martinStyle.sources['tasmania-contours'], legacyStyle.sources['tasmania-contours']);
   assert.deepEqual(martinStyle.sources['tasmania-relief'], legacyStyle.sources['tasmania-relief']);
@@ -268,6 +442,22 @@ test('Martin openstreetmap preview style stays within the first-slice compatibil
   for (const [layerId, legacyLayer] of legacyLayers) {
     if (martinDeferredSourceLayers.has(legacyLayer['source-layer'])) {
       assert.equal(martinLayers.has(layerId), false);
+      continue;
+    }
+
+    if (martinLandcoverExceptionSourceLayers.includes(legacyLayer['source-layer'])) {
+      assert.deepEqual(martinLayers.get(layerId), {
+        ...legacyLayer,
+        source: 'openmaptiles-landcover',
+      });
+      continue;
+    }
+
+    if (martinWaterExceptionSourceLayers.includes(legacyLayer['source-layer'])) {
+      assert.deepEqual(martinLayers.get(layerId), {
+        ...legacyLayer,
+        source: 'openmaptiles-water',
+      });
       continue;
     }
 
@@ -281,6 +471,22 @@ test('Martin openstreetmap preview style stays within the first-slice compatibil
       .filter((value) => typeof value === 'string'),
   )].sort();
   assert.deepEqual(martinOpenmaptilesSourceLayers, martinRequiredSourceLayers);
+
+  const martinLegacyWaterSourceLayers = [...new Set(
+    martinStyle.layers
+      .filter((layer) => layer.source === 'openmaptiles-water')
+      .map((layer) => layer['source-layer'])
+      .filter((value) => typeof value === 'string'),
+  )].sort();
+  assert.deepEqual(martinLegacyWaterSourceLayers, martinWaterExceptionSourceLayers);
+
+  const martinLegacyLandcoverSourceLayers = [...new Set(
+    martinStyle.layers
+      .filter((layer) => layer.source === 'openmaptiles-landcover')
+      .map((layer) => layer['source-layer'])
+      .filter((value) => typeof value === 'string'),
+  )].sort();
+  assert.deepEqual(martinLegacyLandcoverSourceLayers, martinLandcoverExceptionSourceLayers);
 
   const metadataLayerIds = martinStyle.metadata.maptiler.groups.flatMap((group) => group.layers);
   for (const layerId of metadataLayerIds) {
