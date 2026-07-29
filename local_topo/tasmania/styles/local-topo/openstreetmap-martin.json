@@ -11144,7 +11144,7 @@
       "type": "line",
       "source": "tasmania-contours",
       "source-layer": "contours",
-      "minzoom": 14,
+      "minzoom": 12,
       "filter": [
         "all",
         [
@@ -11211,7 +11211,7 @@
       "type": "line",
       "source": "tasmania-contours",
       "source-layer": "contours",
-      "minzoom": 13,
+      "minzoom": 11,
       "filter": [
         "==",
         [
@@ -11268,7 +11268,7 @@
       "type": "line",
       "source": "tasmania-contours",
       "source-layer": "contours",
-      "minzoom": 12,
+      "minzoom": 11,
       "filter": [
         "==",
         [
@@ -11321,6 +11321,65 @@
       }
     },
     {
+      "id": "Contour labels 50m",
+      "type": "symbol",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 13,
+      "filter": [
+        "==",
+        [
+          "%",
+          [
+            "to-number",
+            [
+              "get",
+              "elev"
+            ]
+          ],
+          100
+        ],
+        50
+      ],
+      "layout": {
+        "symbol-placement": "line",
+        "symbol-spacing": 340,
+        "text-keep-upright": false,
+        "text-field": [
+          "concat",
+          [
+            "to-string",
+            [
+              "get",
+              "elev"
+            ]
+          ],
+          " m"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-size": {
+          "stops": [
+            [
+              13,
+              9
+            ],
+            [
+              16,
+              11
+            ]
+          ]
+        },
+        "visibility": "visible"
+      },
+      "paint": {
+        "text-color": "#7c6547",
+        "text-halo-color": "rgba(245, 240, 228, 0.9)",
+        "text-halo-width": 1.1
+      }
+    },
+    {
       "id": "Contour labels 100m",
       "type": "symbol",
       "source": "tasmania-contours",
@@ -11344,6 +11403,7 @@
       "layout": {
         "symbol-placement": "line",
         "symbol-spacing": 340,
+        "text-keep-upright": false,
         "text-field": [
           "concat",
           [

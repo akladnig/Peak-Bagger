@@ -144,8 +144,37 @@ function getInExpressionValues(expression) {
   return expression[2]?.[1];
 }
 
+function getStopPairs(value) {
+  if (Array.isArray(value)) {
+    assert.equal(value[0], 'interpolate');
+    const stops = [];
+
+    for (let index = 3; index < value.length; index += 2) {
+      stops.push([value[index], value[index + 1]]);
+    }
+
+    return stops;
+  }
+
+  assert.equal(Array.isArray(value?.stops), true);
+  return value.stops;
+}
+
+function assertStrongerSharedStops({ strongerLayer, weakerLayer, paintKey }) {
+  const strongerStops = new Map(getStopPairs(strongerLayer?.paint?.[paintKey]));
+  const weakerStops = new Map(getStopPairs(weakerLayer?.paint?.[paintKey]));
+  const sharedZooms = [...strongerStops.keys()].filter((zoom) => weakerStops.has(zoom));
+
+  assert.equal(sharedZooms.length > 0, true);
+
+  for (const zoom of sharedZooms) {
+    assert.equal(strongerStops.get(zoom) > weakerStops.get(zoom), true);
+  }
+}
+
 test('canonical richer Local Topo style includes relief, labels, and no mountain peak labels', async () => {
   const style = await loadJson('styles/local-topo/style.json');
+  const contourModuloFilter = ['%', ['to-number', ['get', 'elev']], 100];
 
   assert.equal(style.glyphs, localGlyphsPath);
   assert.equal(style.sources['tasmania-relief']?.type, 'raster');
@@ -157,18 +186,64 @@ test('canonical richer Local Topo style includes relief, labels, and no mountain
   assert.ok(layers.has('waterway-labels'));
   assert.ok(layers.has('road-labels'));
   assert.ok(layers.has('path-labels'));
+  assert.ok(layers.has('contours-intermediate-50m'));
   assert.ok(layers.has('contours-index-100m'));
+  assert.ok(layers.has('contour-labels-50m'));
   assert.ok(layers.has('contour-labels-100m'));
 
   const contourLayer = layers.get('contours');
-  assert.equal(contourLayer?.minzoom, 12);
+  assert.equal(contourLayer?.minzoom, 13);
+  assert.deepEqual(contourLayer?.filter, [
+    'all',
+    ['!=', contourModuloFilter, 0],
+    ['!=', contourModuloFilter, 50],
+  ]);
+
+  const contourIntermediateLayer = layers.get('contours-intermediate-50m');
+  assert.equal(contourIntermediateLayer?.minzoom, 12);
+  assert.deepEqual(contourIntermediateLayer?.filter, ['==', contourModuloFilter, 50]);
 
   const contourIndexLayer = layers.get('contours-index-100m');
+  assert.equal(contourIndexLayer?.minzoom, 12);
+  assert.deepEqual(contourIndexLayer?.filter, ['==', contourModuloFilter, 0]);
   assert.equal(contourIndexLayer?.paint?.['line-color'], '#6f4f2d');
+  assert.equal(contourIntermediateLayer?.paint?.['line-color'], '#7d5c37');
+  assertStrongerSharedStops({
+    strongerLayer: contourIndexLayer,
+    weakerLayer: contourIntermediateLayer,
+    paintKey: 'line-opacity',
+  });
+  assertStrongerSharedStops({
+    strongerLayer: contourIndexLayer,
+    weakerLayer: contourIntermediateLayer,
+    paintKey: 'line-width',
+  });
+
+  const contourIntermediateLabelLayer = layers.get('contour-labels-50m');
+  assert.equal(contourIntermediateLabelLayer?.minzoom, 13);
+  assert.equal(contourIntermediateLabelLayer?.layout?.['symbol-placement'], 'line');
+  assert.equal(contourIntermediateLabelLayer?.layout?.['text-keep-upright'], false);
+  assert.deepEqual(contourIntermediateLabelLayer?.filter, ['==', contourModuloFilter, 50]);
+  assert.deepEqual(contourIntermediateLabelLayer?.layout?.['text-font'], ['Roboto Regular']);
+  assert.deepEqual(contourIntermediateLabelLayer?.layout?.['text-field'], [
+    'concat',
+    ['to-string', ['get', 'elev']],
+    ' m',
+  ]);
 
   const contourLabelLayer = layers.get('contour-labels-100m');
+  assert.equal(contourLabelLayer?.minzoom, 13);
   assert.equal(contourLabelLayer?.layout?.['symbol-placement'], 'line');
+  assert.equal(contourLabelLayer?.layout?.['text-keep-upright'], false);
+  assert.deepEqual(contourLabelLayer?.filter, ['==', contourModuloFilter, 0]);
   assert.deepEqual(contourLabelLayer?.layout?.['text-font'], ['Roboto Regular']);
+  assert.deepEqual(contourLabelLayer?.layout?.['text-field'], [
+    'concat',
+    ['to-string', ['get', 'elev']],
+    ' m',
+  ]);
+  assert.equal(contourIntermediateLabelLayer?.paint?.['text-color'], '#7d5c37');
+  assert.equal(contourLabelLayer?.paint?.['text-color'], '#6f4f2d');
 
   const sourceLayers = style.layers
     .map((layer) => layer['source-layer'])
@@ -252,13 +327,11 @@ test('cartography review fixture covers low, mid, and high representative tiles 
   const fixture = await loadJson('fixtures/cartography-review.json');
   const styleReviews = fixture.styleReviews;
 
-  assert.deepEqual(
-    Object.keys(styleReviews).sort(),
-    ['tasmania-maptiler-outdoor', 'tasmania-maptiler-topo'],
-  );
+  for (const styleId of ['tasmania-maptiler-topo', 'tasmania-maptiler-outdoor']) {
+    const styleReview = styleReviews[styleId];
 
-  for (const [styleId, styleReview] of Object.entries(styleReviews)) {
     assert.equal(typeof styleId, 'string');
+    assert.notEqual(styleReview, undefined);
     assert.equal(Array.isArray(styleReview.variantExpectations), true);
     assert.equal(styleReview.variantExpectations.length > 0, true);
 
@@ -272,27 +345,96 @@ test('cartography review fixture covers low, mid, and high representative tiles 
   }
 });
 
-test('openstreetmap preview style includes local contour overlays and is registered in tileserver config', async () => {
-  const style = await loadJson('styles/local-topo/openstreetmap.json');
-  const config = await loadJson('config/tileserver-config.json');
+test('cartography review fixture includes the supported Martin contour review path at zooms 12 and 13', async () => {
+  const fixture = await loadJson('fixtures/cartography-review.json');
+  const styleReview = fixture.styleReviews['tasmania-openstreetmap-contours-martin'];
 
-  assert.equal(style.sources['tasmania-contours']?.type, 'vector');
-
-  const layers = new Map(style.layers.map((layer) => [layer.id, layer]));
-  assert.ok(layers.has('Contours'));
-  assert.ok(layers.has('Contours intermediate 50m'));
-  assert.ok(layers.has('Contours index 100m'));
-  assert.ok(layers.has('Contour labels 100m'));
-  assert.equal(layers.get('Contours index 100m')?.paint?.['line-color'], '#6b5337');
+  assert.notEqual(styleReview, undefined);
+  assert.equal(fixture.styleReviews['tasmania-openstreetmap-contours'], undefined);
+  assert.equal(Array.isArray(styleReview.variantExpectations), true);
+  assert.equal(styleReview.variantExpectations.length > 0, true);
   assert.deepEqual(
-    layers.get('Contour labels 100m')?.layout?.['text-font'],
-    ['Roboto Regular'],
+    styleReview.tiles.map((tile) => tile.z).sort((left, right) => left - right),
+    [12, 13],
   );
 
-  assert.equal(
-    config.styles['tasmania-openstreetmap-contours']?.style,
-    'local-topo/openstreetmap.json',
-  );
+  const expectations = styleReview.tiles.flatMap((tile) => tile.expectations);
+  assert.equal(expectations.some((expectation) => expectation.includes('50 m contour')), true);
+  assert.equal(expectations.some((expectation) => expectation.includes('100 m contour')), true);
+  assert.equal(expectations.some((expectation) => expectation.includes('minor contour line')), true);
+  assert.equal(expectations.some((expectation) => expectation.includes('follow line direction')), true);
+});
+
+test('openstreetmap preview styles include aligned local contour overlays and are registered in tileserver config', async () => {
+  const config = await loadJson('config/tileserver-config.json');
+  const contourModuloFilter = ['%', ['to-number', ['get', 'elev']], 100];
+
+  for (const variant of openStreetMapComparisonVariants) {
+    const style = await loadJson(variant.stylePath);
+    const layers = new Map(style.layers.map((layer) => [layer.id, layer]));
+
+    assert.equal(style.sources['tasmania-contours']?.type, 'vector');
+    assert.ok(layers.has('Contours'));
+    assert.ok(layers.has('Contours intermediate 50m'));
+    assert.ok(layers.has('Contours index 100m'));
+    assert.ok(layers.has('Contour labels 50m'));
+    assert.ok(layers.has('Contour labels 100m'));
+
+    assert.equal(layers.get('Contours')?.minzoom, 13);
+    assert.deepEqual(layers.get('Contours')?.filter, [
+      'all',
+      ['!=', contourModuloFilter, 0],
+      ['!=', contourModuloFilter, 50],
+    ]);
+    assert.equal(layers.get('Contours intermediate 50m')?.minzoom, 12);
+    assert.deepEqual(layers.get('Contours intermediate 50m')?.filter, [
+      '==',
+      contourModuloFilter,
+      50,
+    ]);
+    assert.equal(layers.get('Contours index 100m')?.minzoom, 12);
+    assert.deepEqual(layers.get('Contours index 100m')?.filter, ['==', contourModuloFilter, 0]);
+    assert.equal(layers.get('Contours index 100m')?.paint?.['line-color'], '#6b5337');
+    assert.equal(layers.get('Contours intermediate 50m')?.paint?.['line-color'], '#7c6547');
+    assertStrongerSharedStops({
+      strongerLayer: layers.get('Contours index 100m'),
+      weakerLayer: layers.get('Contours intermediate 50m'),
+      paintKey: 'line-opacity',
+    });
+    assertStrongerSharedStops({
+      strongerLayer: layers.get('Contours index 100m'),
+      weakerLayer: layers.get('Contours intermediate 50m'),
+      paintKey: 'line-width',
+    });
+
+    assert.deepEqual(layers.get('Contour labels 50m')?.layout?.['text-font'], ['Roboto Regular']);
+    assert.deepEqual(layers.get('Contour labels 50m')?.layout?.['text-field'], [
+      'concat',
+      ['to-string', ['get', 'elev']],
+      ' m',
+    ]);
+    assert.equal(layers.get('Contour labels 50m')?.layout?.['symbol-placement'], 'line');
+    assert.equal(layers.get('Contour labels 50m')?.layout?.['text-keep-upright'], false);
+    assert.equal(layers.get('Contour labels 50m')?.minzoom, 13);
+    assert.deepEqual(layers.get('Contour labels 50m')?.filter, ['==', contourModuloFilter, 50]);
+
+    assert.deepEqual(layers.get('Contour labels 100m')?.layout?.['text-font'], ['Roboto Regular']);
+    assert.deepEqual(layers.get('Contour labels 100m')?.layout?.['text-field'], [
+      'concat',
+      ['to-string', ['get', 'elev']],
+      ' m',
+    ]);
+    assert.equal(layers.get('Contour labels 100m')?.layout?.['symbol-placement'], 'line');
+    assert.equal(layers.get('Contour labels 100m')?.layout?.['text-keep-upright'], false);
+    assert.equal(layers.get('Contour labels 100m')?.minzoom, 13);
+    assert.deepEqual(layers.get('Contour labels 100m')?.filter, ['==', contourModuloFilter, 0]);
+    assert.equal(layers.get('Contour labels 50m')?.paint?.['text-color'], '#7c6547');
+    assert.equal(layers.get('Contour labels 100m')?.paint?.['text-color'], '#6b5337');
+    assert.equal(
+      config.styles[variant.styleId]?.style,
+      variant.stylePath.replace('styles/', ''),
+    );
+  }
 });
 
 test('OpenStreetMap comparison preview styles keep local sprite contract and targeted water and scrub wiring', async () => {

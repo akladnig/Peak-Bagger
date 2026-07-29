@@ -135,15 +135,28 @@
       "type": "line",
       "source": "tasmania-contours",
       "source-layer": "contours",
-      "minzoom": 12,
+      "minzoom": 13,
+      "filter": [
+        "all",
+        [
+          "!=",
+          ["%", ["to-number", ["get", "elev"]], 100],
+          0
+        ],
+        [
+          "!=",
+          ["%", ["to-number", ["get", "elev"]], 100],
+          50
+        ]
+      ],
       "paint": {
         "line-color": "#8c6a43",
         "line-opacity": [
           "interpolate",
           ["linear"],
           ["zoom"],
-          12,
-          0.18,
+          13,
+          0.22,
           14,
           0.3,
           16,
@@ -153,12 +166,49 @@
           "interpolate",
           ["linear"],
           ["zoom"],
-          12,
-          0.35,
+          13,
+          0.4,
           14,
           0.55,
           16,
           0.85
+        ]
+      }
+    },
+    {
+      "id": "contours-intermediate-50m",
+      "type": "line",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 12,
+      "filter": [
+        "==",
+        ["%", ["to-number", ["get", "elev"]], 100],
+        50
+      ],
+      "paint": {
+        "line-color": "#7d5c37",
+        "line-opacity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          12,
+          0.26,
+          14,
+          0.4,
+          16,
+          0.56
+        ],
+        "line-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          12,
+          0.5,
+          14,
+          0.8,
+          16,
+          1.15
         ]
       }
     },
@@ -362,6 +412,39 @@
       }
     },
     {
+      "id": "contour-labels-50m",
+      "type": "symbol",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 13,
+      "filter": [
+        "==",
+        ["%", ["to-number", ["get", "elev"]], 100],
+        50
+      ],
+      "layout": {
+        "symbol-placement": "line",
+        "text-keep-upright": false,
+        "text-field": ["concat", ["to-string", ["get", "elev"]], " m"],
+        "text-font": ["Roboto Regular"],
+        "text-size": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          13,
+          9,
+          16,
+          11
+        ],
+        "symbol-spacing": 300
+      },
+      "paint": {
+        "text-color": "#7d5c37",
+        "text-halo-color": "rgba(245, 240, 228, 0.9)",
+        "text-halo-width": 1
+      }
+    },
+    {
       "id": "contour-labels-100m",
       "type": "symbol",
       "source": "tasmania-contours",
@@ -374,6 +457,7 @@
       ],
       "layout": {
         "symbol-placement": "line",
+        "text-keep-upright": false,
         "text-field": ["concat", ["to-string", ["get", "elev"]], " m"],
         "text-font": ["Roboto Regular"],
         "text-size": [

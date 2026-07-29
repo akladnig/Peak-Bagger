@@ -99,6 +99,15 @@ To preview the localized MapTiler Outdoor variant, run:
 LOCAL_TOPO_STYLE=tasmania-maptiler-outdoor npm run stack:up:preview
 ```
 
+To run the supported manual contour-cartography verification path, start the default Martin-backed comparison preview and capture the committed zoom `12` and zoom `13` review tiles:
+
+```bash
+LOCAL_TOPO_STYLE=tasmania-openstreetmap-contours-martin npm run stack:up:preview
+npm run review:cartography -- --style-id=tasmania-openstreetmap-contours-martin
+```
+
+Review those captures for the emphasized `50 m contour` and `100 m contour` tiers, the delayed `minor contour line` threshold, and contour labels that follow line direction instead of staying viewport-upright.
+
 To capture the committed representative cartography review tiles for either localized MapTiler preview variant without overwriting the other variant's output, run the matching review command after preview startup:
 
 ```bash
