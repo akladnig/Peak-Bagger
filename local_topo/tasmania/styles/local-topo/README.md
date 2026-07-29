@@ -68,27 +68,35 @@ Preview mode renders the committed style on demand from the existing rebuilt MBT
 From `local_topo/tasmania/` run:
 
 ```bash
-npm run stack:up:preview
+npm run stack:up
 ```
 
 Then open the local stack at `http://127.0.0.1:8090` through the normal app or tile endpoints.
 
-To preview the OpenStreetMap-based style variant with local contour overlays instead, run:
+The default preview path uses `LOCAL_TOPO_STYLE=tasmania-openstreetmap-contours-martin` and `LOCAL_TOPO_TILESERVER=martin`.
+
+The explicit preview alias remains available:
 
 ```bash
-LOCAL_TOPO_PREVIEW_STYLE_ID=tasmania-openstreetmap-contours npm run stack:up:preview
+npm run stack:up:preview
+```
+
+To preview the legacy OpenStreetMap-based comparison style with the legacy TileServer-backed OSM source instead, run:
+
+```bash
+LOCAL_TOPO_STYLE=tasmania-openstreetmap-contours LOCAL_TOPO_TILESERVER=tileserver npm run stack:up:preview
 ```
 
 To preview the localized MapTiler Topo variant, run:
 
 ```bash
-LOCAL_TOPO_PREVIEW_STYLE_ID=tasmania-maptiler-topo npm run stack:up:preview
+LOCAL_TOPO_STYLE=tasmania-maptiler-topo npm run stack:up:preview
 ```
 
 To preview the localized MapTiler Outdoor variant, run:
 
 ```bash
-LOCAL_TOPO_PREVIEW_STYLE_ID=tasmania-maptiler-outdoor npm run stack:up:preview
+LOCAL_TOPO_STYLE=tasmania-maptiler-outdoor npm run stack:up:preview
 ```
 
 To capture the committed representative cartography review tiles for either localized MapTiler preview variant without overwriting the other variant's output, run the matching review command after preview startup:
@@ -101,7 +109,8 @@ npm run review:cartography -- --style-id=tasmania-maptiler-outdoor
 Notes:
 
 - Preview mode requires `output/tasmania-osm.mbtiles`, `output/tasmania-relief.mbtiles`, and `output/tasmania-contours.mbtiles` to already exist.
-- Phase 1 preview switching stays startup-scoped through `LOCAL_TOPO_PREVIEW_STYLE_ID`; the app-facing `Local Topo` route and capabilities contract stay unchanged.
+- Preview style switching stays startup-scoped through `LOCAL_TOPO_STYLE`; the app-facing `Local Topo` route and capabilities contract stay unchanged.
+- `LOCAL_TOPO_TILESERVER=martin|tileserver` applies only to the OSM-backed preview styles and does not retarget the MapTiler-derived variants.
 - If preview is already running, restart it after changing `style.json`:
 
 ```bash
@@ -113,7 +122,7 @@ npm run stack:up:preview
 
 ## Update The Static Stack
 
-The default stack serves pre-rendered PNG tiles from `output/tiles/tasmania/local-topo/{z}/{x}/{y}.png`.
+The explicit static stack serves pre-rendered PNG tiles from `output/tiles/tasmania/local-topo/{z}/{x}/{y}.png`.
 
 Changing `style.json` does not update those static PNGs by itself. To bake a new style into the static stack, rerun the manual refresh from `local_topo/tasmania/`:
 
@@ -121,16 +130,16 @@ Changing `style.json` does not update those static PNGs by itself. To bake a new
 npm run refresh:manual
 ```
 
-That rebuild path also prerenders the static tile tree used by the default stack.
+That rebuild path also prerenders the static tile tree used by the explicit static stack.
 
 After the refresh completes, start or restart the default static stack:
 
 ```bash
 npm run stack:down
-npm run stack:up
+npm run stack:up:static
 ```
 
 ## Practical Rule
 
-- Use `npm run stack:up:preview` while iterating on style changes.
+- Use `npm run stack:up` or `npm run stack:up:preview` while iterating on preview style changes.
 - Use `npm run refresh:manual` when you want the normal static stack to serve the new style.

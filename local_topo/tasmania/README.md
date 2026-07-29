@@ -28,12 +28,18 @@ Start the local stack on `http://127.0.0.1:8090`:
 npm run stack:up
 ```
 
-This default stack mode keeps the public HTTP contract static. It prefers pre-rendered PNG tiles under `output/tiles/tasmania/local-topo/{z}/{x}/{y}.png` and otherwise uses the committed deterministic smoke fixture under the same route layout. It does not fall back from missing static tiles to on-demand rendering.
+This default stack mode starts preview rendering. It requires rebuilt `output/tasmania-osm.mbtiles`, `output/tasmania-relief.mbtiles`, and `output/tasmania-contours.mbtiles`, defaults `LOCAL_TOPO_STYLE` to `tasmania-openstreetmap-contours-martin`, defaults `LOCAL_TOPO_TILESERVER` to `martin`, and fails fast instead of silently falling back to static tiles or smoke fixtures.
 
-Start the explicit preview stack that renders the committed style on demand from rebuilt `output/*.mbtiles` inputs:
+Start the explicit preview alias that renders the committed style on demand from rebuilt `output/*.mbtiles` inputs:
 
 ```bash
 npm run stack:up:preview
+```
+
+Start the explicit static stack for the previous pre-rendered behavior:
+
+```bash
+npm run stack:up:static
 ```
 
 Run the committed smoke verification against the running stack:
@@ -76,7 +82,7 @@ The real rebuild path is intentionally separate from the deterministic smoke fix
 - Rebuilds accept `--dem-source=elvis-topo|thelist|copernicus|custom` and default to `--dem-source=elvis-topo`.
 - `--skip-prerender` keeps the MBTiles rebuild but skips `output/tiles/tasmania/local-topo/{z}/{x}/{y}.png` static PNG generation.
 - `--dem-source=custom` requires `--dem-path` as an absolute path to a readable `EPSG:28355` GeoTIFF.
-- `elvis-topo` resolves to the prepared `ELVIS topo DEM` at `~/Documents/Bushwalking/DEM/Tasmania/elvis_topo/elvis_topo_5m.tif` when `~/Documents/Bushwalking` exists, otherwise `$HOME/DEM/Tasmania/elvis_topo/elvis_topo_5m.tif`. Override that path with `LOCAL_TOPO_ELVIS_TOPO_DEM_TIF` when needed.
+- `elvis-topo` resolves to the prepared `ELVIS topo DEM` at `$HOME/DEM/Tasmania/elvis_topo/elvis_topo_5m.tif`. Override that path with `LOCAL_TOPO_ELVIS_TOPO_DEM_TIF` when needed.
 - `thelist` resolves only from `LOCAL_TOPO_THELIST_DEM_TIF`, and `copernicus` resolves only from `LOCAL_TOPO_COPERNICUS_DEM_TIF`.
 - Named sources and custom inputs must already be readable `EPSG:28355` GeoTIFFs for this slice. The rebuild scripts validate readability, do not inspect or reproject source CRS at runtime, and fail fast instead of auto-selecting or falling back to another DEM source.
 - Contours and terrain relief always use the explicitly selected DEM for that rebuild. `thelist` uses the fallback contour interval directly; other selected DEMs prefer `10m` contours and fall back to the configured contour interval on the same DEM when needed.
@@ -106,10 +112,10 @@ The richer style now uses committed `Roboto Regular` glyph assets for labels whi
 Run each localized MapTiler preview style in preview mode, capture the representative review tiles, and compare them against the committed variant-scoped expectations:
 
 ```bash
-LOCAL_TOPO_PREVIEW_STYLE_ID=tasmania-maptiler-topo npm run stack:up:preview
+LOCAL_TOPO_STYLE=tasmania-maptiler-topo npm run stack:up:preview
 npm run review:cartography -- --style-id=tasmania-maptiler-topo
 
-LOCAL_TOPO_PREVIEW_STYLE_ID=tasmania-maptiler-outdoor npm run stack:up:preview
+LOCAL_TOPO_STYLE=tasmania-maptiler-outdoor npm run stack:up:preview
 npm run review:cartography -- --style-id=tasmania-maptiler-outdoor
 ```
 

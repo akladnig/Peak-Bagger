@@ -40,6 +40,7 @@ async function makeTestWorkspace() {
   const outputDir = join(scratchRoot, 'output');
   const runtimeDir = join(scratchRoot, 'runtime');
   const binDir = join(root, 'bin');
+  const dockerLogPath = join(root, 'docker.log');
   await mkdir(join(inputDir, 'osm'), { recursive: true });
   await mkdir(join(outputDir), { recursive: true });
   await mkdir(join(runtimeDir), { recursive: true });
@@ -169,10 +170,9 @@ printf 'mbtiles' > "$output"
     curlPath,
     `#!/usr/bin/env bash
 set -euo pipefail
-if [ "\${FAKE_CURL_FAIL:-0}" = "1" ]; then
-  exit 1
-fi
+args="$*"
 output=""
+url=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     -o)
@@ -180,8 +180,12 @@ while [ "$#" -gt 0 ]; do
       output="$1"
       ;;
   esac
+  url="$1"
   shift
 done
+if [ "\${FAKE_CURL_FAIL:-0}" = "1" ] && [[ "$args" == *"download.geofabrik.de"* ]]; then
+  exit 1
+fi
 mkdir -p "$(dirname "$output")"
 printf '1234567890abcdef' > "$output"
 `,
@@ -192,9 +196,17 @@ printf '1234567890abcdef' > "$output"
     `#!/usr/bin/env bash
 set -euo pipefail
 stack_dir="${stackRoot}"
+log_path=${JSON.stringify(dockerLogPath)}
+printf 'argv=%s\n' "$*" >> "$log_path"
 command="$1"
 shift
 if [ "$command" = "run" ]; then
+  if [ "\${FAKE_DOCKER_FAIL_OSM_IMPORT:-0}" = "1" ] && [[ "$*" == *"osm2pgsql"* ]]; then
+    exit 1
+  fi
+  if [ "\${FAKE_DOCKER_FAIL_STAGE_MARTIN_VALIDATION:-0}" = "1" ] && [[ "$*" == *"ghcr.io/maplibre/martin:latest"* ]]; then
+    exit 1
+  fi
   for arg in "$@"; do
     case "$arg" in
       --output=/workspace/*)
@@ -204,6 +216,26 @@ if [ "$command" = "run" ]; then
         ;;
     esac
   done
+  exit 0
+fi
+if [ "$command" = "compose" ]; then
+  if [ "$1" = "-f" ]; then
+    shift 2
+  fi
+  subcommand="$1"
+  shift
+  if [ "$subcommand" = "exec" ]; then
+    if [ "\${FAKE_DOCKER_FAIL_STAGE_VALIDATION:-0}" = "1" ] && [[ "$*" == *"validate_preview_stage_required_layers.sql"* ]]; then
+      exit 1
+    fi
+    if [ "\${FAKE_DOCKER_FAIL_PROMOTION:-0}" = "1" ] && [[ "$*" == *"promote_preview_stage.sql"* ]]; then
+      exit 1
+    fi
+    exit 0
+  fi
+  if [ "$subcommand" = "restart" ] && [ "\${FAKE_DOCKER_FAIL_MARTIN_RESTART:-0}" = "1" ] && [[ "$*" == *"martin"* ]]; then
+    exit 1
+  fi
   exit 0
 fi
 if [ "$command" = "rm" ]; then
@@ -218,10 +250,11 @@ exit 0
     scratchRoot,
     inputDir,
     outputDir,
-    runtimeDir,
-    env: {
-      LOCAL_TOPO_INPUT_DIR: inputDir,
-      LOCAL_TOPO_OUTPUT_DIR: outputDir,
+      runtimeDir,
+      dockerLogPath,
+      env: {
+        LOCAL_TOPO_INPUT_DIR: inputDir,
+        LOCAL_TOPO_OUTPUT_DIR: outputDir,
       LOCAL_TOPO_RUNTIME_DIR: runtimeDir,
       LOCAL_TOPO_GDALINFO_BIN: gdalinfoPath,
       LOCAL_TOPO_GDALDEM_BIN: gdaldemPath,
@@ -240,6 +273,10 @@ exit 0
       LOCAL_TOPO_CURRENT_TIME_EPOCH: '1735689600',
     },
   };
+}
+
+async function readDockerLog(workspace) {
+  return readFile(workspace.dockerLogPath, 'utf8');
 }
 
 async function withRenderServer(fn) {
@@ -278,8 +315,6 @@ test('manual refresh dry-run defaults to elvis-topo without invoking ELVIS deriv
   const homeRoot = join(workspace.root, 'home');
   const elvisTopoPath = join(
     homeRoot,
-    'Documents',
-    'Bushwalking',
     'DEM',
     'Tasmania',
     'elvis_topo',
@@ -304,14 +339,64 @@ test('manual refresh dry-run defaults to elvis-topo without invoking ELVIS deriv
   assert.doesNotMatch(stdout, /elvis_dem\.sh/);
   assert.doesNotMatch(stdout, /\/Volumes\/Media\/Elvis\/tas-elvis/);
   assert.match(stdout, /ghcr\.io\/onthegomap\/planetiler:latest/);
+  assert.match(stdout, /compose .* up -d postgis/);
+  assert.match(stdout, /ubuntu:24\.04 bash -lc .*osm2pgsql/);
+  assert.match(stdout, /validate_preview_stage_required_layers\.sql/);
+  assert.match(stdout, /config\/martin-preview\.yaml/);
+  assert.match(stdout, /restart martin/);
   assert.match(stdout, /gdaldem/);
   assert.match(stdout, /gdal_translate/);
   assert.match(stdout, /gdaladdo/);
   assert.match(stdout, /gdal_contour/);
   assert.match(stdout, /ogr2ogr/);
+  assert.match(stdout, /OGR_GEOJSON_MAX_OBJ_SIZE=0/);
   assert.match(stdout, /tippecanoe/);
   assert.match(stdout, /prerender_tiles\.mjs/);
   assert.match(stdout, /tasmania\/local-topo/);
+
+  await cleanupWorkspace(workspace);
+});
+
+test('manual refresh dry-run skips prerender commands when --skip-prerender is passed', async () => {
+  const workspace = await makeTestWorkspace();
+  const overrideOsmPath = join(workspace.root, 'tasmania-local.osm.pbf');
+  const homeRoot = join(workspace.root, 'home');
+  const elvisTopoPath = join(
+    homeRoot,
+    'DEM',
+    'Tasmania',
+    'elvis_topo',
+    'elvis_topo_5m.tif',
+  );
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await writeFixture(elvisTopoPath, 'dem');
+
+  const { stdout } = await runScript(
+    'manual_refresh.sh',
+    ['--dry-run', '--skip-prerender'],
+    {
+      env: {
+        ...process.env,
+        ...workspace.env,
+        HOME: homeRoot,
+        LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
+      },
+    },
+  );
+
+  assert.doesNotMatch(stdout, /prerender_tiles\.mjs/);
+  assert.doesNotMatch(stdout, /tasmania\/local-topo/);
+  assert.match(stdout, /ghcr\.io\/onthegomap\/planetiler:latest/);
+  assert.match(stdout, /ubuntu:24\.04 bash -lc .*osm2pgsql/);
+  assert.match(stdout, /validate_preview_stage_required_layers\.sql/);
+  assert.match(stdout, /config\/martin-preview\.yaml/);
+  assert.match(stdout, /gdaldem/);
+  assert.match(stdout, /gdal_translate/);
+  assert.match(stdout, /gdaladdo/);
+  assert.match(stdout, /gdal_contour/);
+  assert.match(stdout, /ogr2ogr/);
+  assert.match(stdout, /OGR_GEOJSON_MAX_OBJ_SIZE=0/);
+  assert.match(stdout, /tippecanoe/);
 
   await cleanupWorkspace(workspace);
 });
@@ -320,7 +405,7 @@ test('scheduled refresh dry-run only fetches Geofabrik data when the managed ext
   const workspace = await makeTestWorkspace();
   const managedOsmPath = join(workspace.inputDir, 'osm', 'tasmania-latest.osm.pbf');
   const homeRoot = join(workspace.root, 'home');
-  const elvisTopoPath = join(homeRoot, 'Documents', 'Bushwalking', 'DEM', 'Tasmania', 'elvis_topo', 'elvis_topo_5m.tif');
+  const elvisTopoPath = join(homeRoot, 'DEM', 'Tasmania', 'elvis_topo', 'elvis_topo_5m.tif');
   await writeFixture(managedOsmPath, '1234567890abcdef');
   await writeFixture(elvisTopoPath, 'dem');
 
@@ -395,6 +480,234 @@ test('rebuild uses the explicitly selected thelist DEM and writes source metadat
   assert.equal(metadata.contours.sourcePath, thelistDemPath);
   assert.equal(contoursGeojson.features[0]?.properties?.elev, 100);
   assert.equal(await readFile(reliefPath, 'utf8'), 'mbtiles');
+
+  await cleanupWorkspace(workspace);
+});
+
+test('rebuild stages preview import, validates Martin readability, and publishes through martin restart', async () => {
+  const workspace = await makeTestWorkspace();
+  const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
+  const homeRoot = join(workspace.root, 'home');
+  const elvisTopoPath = join(
+    homeRoot,
+    'DEM',
+    'Tasmania',
+    'elvis_topo',
+    'elvis_topo_5m.tif',
+  );
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await writeFixture(elvisTopoPath, 'dem');
+
+  await runScript('rebuild_stack.sh', ['--mode', 'manual', '--skip-prerender'], {
+    env: {
+      ...process.env,
+      ...workspace.env,
+      HOME: homeRoot,
+      LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
+    },
+  });
+
+  const dockerLog = await readDockerLog(workspace);
+  assert.match(dockerLog, /argv=compose -f .*docker-compose\.yml up -d postgis/);
+  assert.match(dockerLog, /argv=compose -f .* -f \/workspace\/sql\/ensure_preview_runtime\.sql/);
+  assert.match(dockerLog, /argv=compose -f .* -f \/workspace\/sql\/reset_preview_stage\.sql/);
+  assert.match(
+    dockerLog,
+    /argv=run --rm --network tasmania_default .*ubuntu:24\.04 bash -lc .*apt-get install -y --no-install-recommends osm2pgsql.*--schema=local_topo_preview_stage .*tasmania-build-input\.osm\.pbf/,
+  );
+  assert.match(dockerLog, /argv=compose -f .* -f \/workspace\/sql\/validate_preview_stage_required_layers\.sql/);
+  assert.match(
+    dockerLog,
+    /argv=run -d --rm --name peak-bagger-local-topo-stage-validation-.*ghcr\.io\/maplibre\/martin:latest --config \/workspace\/config\/martin-preview\.yaml/,
+  );
+  assert.match(dockerLog, /argv=compose -f .* -f \/workspace\/sql\/promote_preview_stage\.sql/);
+  assert.match(dockerLog, /argv=compose -f .*docker-compose\.yml up -d martin/);
+  assert.match(dockerLog, /argv=compose -f .*docker-compose\.yml restart martin/);
+
+  await cleanupWorkspace(workspace);
+});
+
+test('rebuild can skip prerender and still write source metadata', async () => {
+  const workspace = await makeTestWorkspace();
+  const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
+  const homeRoot = join(workspace.root, 'home');
+  const elvisTopoPath = join(
+    homeRoot,
+    'DEM',
+    'Tasmania',
+    'elvis_topo',
+    'elvis_topo_5m.tif',
+  );
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await writeFixture(elvisTopoPath, 'dem');
+
+  const run = await runScript(
+    'rebuild_stack.sh',
+    ['--mode', 'manual', '--skip-prerender'],
+    {
+      env: {
+        ...process.env,
+        ...workspace.env,
+        HOME: homeRoot,
+        LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
+      },
+    },
+  );
+
+  assert.match(run.stdout, /Finished manual rebuild path with ELVIS topo DEM and 10m contours\./);
+
+  const metadataPath = join(
+    workspace.outputDir,
+    'tiles',
+    'tasmania',
+    'local-topo',
+    'source-metadata.json',
+  );
+  const metadata = JSON.parse(await readFile(metadataPath, 'utf8'));
+
+  assert.equal(metadata.demSource.key, 'elvis-topo');
+  assert.equal(metadata.demSource.path, elvisTopoPath);
+  await assert.rejects(readFile(join(workspace.outputDir, 'tiles', 'tasmania', 'local-topo', '0', '0', '0.png')));
+
+  await cleanupWorkspace(workspace);
+});
+
+test('rebuild keeps the last published preview dataset when staged import fails', async () => {
+  const workspace = await makeTestWorkspace();
+  const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
+  const homeRoot = join(workspace.root, 'home');
+  const elvisTopoPath = join(
+    homeRoot,
+    'DEM',
+    'Tasmania',
+    'elvis_topo',
+    'elvis_topo_5m.tif',
+  );
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await writeFixture(elvisTopoPath, 'dem');
+
+  await assert.rejects(
+    runScript('rebuild_stack.sh', ['--mode', 'manual', '--skip-prerender'], {
+      env: {
+        ...process.env,
+        ...workspace.env,
+        FAKE_DOCKER_FAIL_OSM_IMPORT: '1',
+        HOME: homeRoot,
+        LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
+      },
+    }),
+  );
+
+  const dockerLog = await readDockerLog(workspace);
+  assert.match(dockerLog, /ubuntu:24\.04 bash -lc .*apt-get install -y --no-install-recommends osm2pgsql/);
+  assert.doesNotMatch(dockerLog, /promote_preview_stage\.sql/);
+  assert.doesNotMatch(dockerLog, /restart martin/);
+
+  await cleanupWorkspace(workspace);
+});
+
+test('rebuild keeps the last published preview dataset when staged validation fails', async () => {
+  const workspace = await makeTestWorkspace();
+  const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
+  const homeRoot = join(workspace.root, 'home');
+  const elvisTopoPath = join(
+    homeRoot,
+    'DEM',
+    'Tasmania',
+    'elvis_topo',
+    'elvis_topo_5m.tif',
+  );
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await writeFixture(elvisTopoPath, 'dem');
+
+  await assert.rejects(
+    runScript('rebuild_stack.sh', ['--mode', 'manual', '--skip-prerender'], {
+      env: {
+        ...process.env,
+        ...workspace.env,
+        FAKE_DOCKER_FAIL_STAGE_VALIDATION: '1',
+        HOME: homeRoot,
+        LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
+      },
+    }),
+  );
+
+  const dockerLog = await readDockerLog(workspace);
+  assert.match(dockerLog, /validate_preview_stage_required_layers\.sql/);
+  assert.doesNotMatch(dockerLog, /promote_preview_stage\.sql/);
+  assert.doesNotMatch(dockerLog, /restart martin/);
+
+  await cleanupWorkspace(workspace);
+});
+
+test('rebuild keeps the last published preview dataset when promotion fails', async () => {
+  const workspace = await makeTestWorkspace();
+  const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
+  const homeRoot = join(workspace.root, 'home');
+  const elvisTopoPath = join(
+    homeRoot,
+    'DEM',
+    'Tasmania',
+    'elvis_topo',
+    'elvis_topo_5m.tif',
+  );
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await writeFixture(elvisTopoPath, 'dem');
+
+  await assert.rejects(
+    runScript('rebuild_stack.sh', ['--mode', 'manual', '--skip-prerender'], {
+      env: {
+        ...process.env,
+        ...workspace.env,
+        FAKE_DOCKER_FAIL_PROMOTION: '1',
+        HOME: homeRoot,
+        LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
+      },
+    }),
+  );
+
+  const dockerLog = await readDockerLog(workspace);
+  assert.match(dockerLog, /promote_preview_stage\.sql/);
+  assert.doesNotMatch(dockerLog, /restore_preview_active_after_restart_failure\.sql/);
+  assert.doesNotMatch(dockerLog, /restart martin/);
+
+  await cleanupWorkspace(workspace);
+});
+
+test('rebuild restores the previous active preview schema when martin restart fails after promotion', async () => {
+  const workspace = await makeTestWorkspace();
+  const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
+  const homeRoot = join(workspace.root, 'home');
+  const elvisTopoPath = join(
+    homeRoot,
+    'DEM',
+    'Tasmania',
+    'elvis_topo',
+    'elvis_topo_5m.tif',
+  );
+  await writeFixture(overrideOsmPath, '1234567890abcdef');
+  await writeFixture(elvisTopoPath, 'dem');
+
+  await assert.rejects(
+    runScript('rebuild_stack.sh', ['--mode', 'manual', '--skip-prerender'], {
+      env: {
+        ...process.env,
+        ...workspace.env,
+        FAKE_DOCKER_FAIL_MARTIN_RESTART: '1',
+        HOME: homeRoot,
+        LOCAL_TOPO_OSM_EXTRACT_OVERRIDE: overrideOsmPath,
+      },
+    }),
+    (error) => {
+      assert.match(error.stderr, /restored the previous active preview schema/i);
+      return true;
+    },
+  );
+
+  const dockerLog = await readDockerLog(workspace);
+  assert.match(dockerLog, /promote_preview_stage\.sql/);
+  assert.match(dockerLog, /restart martin/);
+  assert.match(dockerLog, /restore_preview_active_after_restart_failure\.sql/);
 
   await cleanupWorkspace(workspace);
 });
@@ -505,8 +818,6 @@ test('default elvis-topo selection fails fast with maintainer guidance when the 
   const overrideOsmPath = join(workspace.root, 'override.osm.pbf');
   const homeRoot = join(workspace.root, 'home');
   await writeFixture(overrideOsmPath, '1234567890abcdef');
-  await mkdir(join(homeRoot, 'Documents', 'Bushwalking'), { recursive: true });
-
   await assert.rejects(
     runScript('manual_refresh.sh', [], {
       env: {
@@ -554,7 +865,7 @@ test('scheduled rebuild falls back to stale but valid OSM data when refresh down
   const workspace = await makeTestWorkspace();
   const managedOsmPath = join(workspace.inputDir, 'osm', 'tasmania-latest.osm.pbf');
   const homeRoot = join(workspace.root, 'home');
-  const elvisTopoPath = join(homeRoot, 'Documents', 'Bushwalking', 'DEM', 'Tasmania', 'elvis_topo', 'elvis_topo_5m.tif');
+  const elvisTopoPath = join(homeRoot, 'DEM', 'Tasmania', 'elvis_topo', 'elvis_topo_5m.tif');
   await writeFixture(managedOsmPath, '1234567890abcdef');
   await writeFixture(elvisTopoPath, 'dem');
   const staleEpoch = 1732406400;
@@ -595,11 +906,13 @@ test('help output and README document the explicit DEM source contract', async (
   const readme = await readFile(new URL('../README.md', import.meta.url), 'utf8');
 
   assert.match(stdout, /--dem-source SOURCE/);
+  assert.match(stdout, /--skip-prerender/);
   assert.match(stdout, /elvis-topo, thelist, copernicus, or custom/);
   assert.match(stdout, /--dem-path ABSOLUTE_PATH/);
   assert.doesNotMatch(stdout, /higher-detail/i);
 
   assert.match(readme, /--dem-source=elvis-topo/);
+  assert.match(readme, /--skip-prerender/);
   assert.match(readme, /LOCAL_TOPO_ELVIS_TOPO_DEM_TIF/);
   assert.match(readme, /LOCAL_TOPO_THELIST_DEM_TIF/);
   assert.match(readme, /LOCAL_TOPO_COPERNICUS_DEM_TIF/);

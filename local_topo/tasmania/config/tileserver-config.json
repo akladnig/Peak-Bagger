@@ -20,6 +20,9 @@
     },
     "tasmania-openstreetmap-contours": {
       "style": "local-topo/openstreetmap.json"
+    },
+    "tasmania-openstreetmap-contours-martin": {
+      "style": "local-topo/openstreetmap-martin.json"
     }
   },
   "data": {

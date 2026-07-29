@@ -56,11 +56,7 @@ else
 fi
 
 if ! local_topo_is_ready; then
-  if [ -f "$local_topo_dir/output/tasmania-osm.mbtiles" ] && [ -f "$local_topo_dir/output/tasmania-relief.mbtiles" ] && [ -f "$local_topo_dir/output/tasmania-contours.mbtiles" ]; then
-    npm run stack:up:preview --prefix "$local_topo_dir"
-  else
-    npm run stack:up --prefix "$local_topo_dir"
-  fi
+  npm run stack:up --prefix "$local_topo_dir"
   started_local_topo_stack=1
 else
   printf 'Using existing Tasmania local topo stack at %s\n' "$local_topo_base_url"

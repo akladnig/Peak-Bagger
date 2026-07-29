@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/maplibre/martin/main/schemas/config.json
+listen_addresses: 0.0.0.0:3000
+on_invalid: abort
+postgres:
+  connection_string: ${LOCAL_TOPO_PREVIEW_DATABASE_URL:-postgresql://postgres:postgres@postgis:5432/local_topo_preview}
+  auto_bounds: skip
+  auto_publish:
+    tables:
+      from_schemas:
+        - ${LOCAL_TOPO_PREVIEW_SCHEMA:-local_topo_preview_active}

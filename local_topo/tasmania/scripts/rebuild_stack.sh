@@ -9,6 +9,7 @@ mode="manual"
 force_source_refresh=0
 dem_source="elvis-topo"
 custom_dem_path=""
+skip_prerender=0
 
 print_usage() {
   cat <<'EOF'
@@ -19,6 +20,7 @@ Rebuild the Tasmania Local Topo stack from prepared artifacts only.
 Options:
   --mode manual|scheduled      Select rebuild mode.
   --dry-run                    Print commands without executing them.
+  --skip-prerender             Build MBTiles only and skip static PNG prerender output.
   --force-source-refresh       Force a managed OSM refresh.
   --dem-source SOURCE          Select DEM source: elvis-topo, thelist, copernicus, or custom.
   --dem-path ABSOLUTE_PATH     Required with --dem-source=custom; must point to a readable EPSG:28355 GeoTIFF.
@@ -37,6 +39,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --dry-run)
       dry_run=1
+      ;;
+    --skip-prerender)
+      skip_prerender=1
       ;;
     --mode=*)
       mode="${1#--mode=}"
@@ -101,7 +106,10 @@ prepare_osm_extract_for_build "$dry_run"
 build_osm_mbtiles "$dry_run"
 build_relief_artifacts "$dry_run"
 build_contour_artifacts "$dry_run"
-prerender_static_tiles "$dry_run"
+build_preview_osm_runtime "$dry_run"
+if [ "$skip_prerender" -eq 0 ]; then
+  prerender_static_tiles "$dry_run"
+fi
 
 if [ "$dry_run" -eq 0 ]; then
   write_source_metadata

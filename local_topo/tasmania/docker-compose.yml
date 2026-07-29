@@ -28,3 +28,38 @@ services:
       - "1"
     volumes:
       - .:/data
+
+  postgis:
+    image: postgis/postgis:16-3.4
+    platform: linux/amd64
+    environment:
+      POSTGRES_DB: "${LOCAL_TOPO_PREVIEW_DB_NAME:-local_topo_preview}"
+      POSTGRES_PASSWORD: "${LOCAL_TOPO_PREVIEW_DB_PASSWORD:-postgres}"
+      POSTGRES_USER: "${LOCAL_TOPO_PREVIEW_DB_USER:-postgres}"
+    volumes:
+      - postgis-data:/var/lib/postgresql/data
+      - .:/workspace
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${LOCAL_TOPO_PREVIEW_DB_USER:-postgres} -d ${LOCAL_TOPO_PREVIEW_DB_NAME:-local_topo_preview}
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  martin:
+    image: ghcr.io/maplibre/martin:latest
+    command:
+      - "--config"
+      - "/workspace/config/martin-preview.yaml"
+    environment:
+      LOCAL_TOPO_PREVIEW_DATABASE_URL: "${LOCAL_TOPO_PREVIEW_DATABASE_URL:-postgresql://postgres:postgres@postgis:5432/local_topo_preview}"
+      LOCAL_TOPO_PREVIEW_SCHEMA: "local_topo_preview_active"
+    volumes:
+      - .:/workspace
+    depends_on:
+      postgis:
+        condition: service_healthy
+
+volumes:
+  postgis-data:

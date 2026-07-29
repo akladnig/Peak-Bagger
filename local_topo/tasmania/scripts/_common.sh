@@ -6,6 +6,7 @@ stack_dir="$(cd "$script_dir/.." && pwd)"
 runtime_dir="${LOCAL_TOPO_RUNTIME_DIR:-$stack_dir/runtime}"
 input_dir="${LOCAL_TOPO_INPUT_DIR:-$stack_dir/input}"
 output_dir="${LOCAL_TOPO_OUTPUT_DIR:-$stack_dir/output}"
+sql_dir="$stack_dir/sql"
 static_tiles_root="$output_dir/tiles"
 static_tiles_layout_root="$static_tiles_root/tasmania/local-topo"
 static_tiles_probe_path="$static_tiles_root/tasmania/local-topo/0/0/0.png"
@@ -14,6 +15,25 @@ smoke_static_tile_root="$runtime_dir/static"
 smoke_static_tile_path="$smoke_static_tile_root/tasmania/local-topo/0/0/0.png"
 osm_dir="$input_dir/osm"
 planetiler_sources_dir="$input_dir/planetiler_sources"
+preview_active_schema="local_topo_preview_active"
+preview_stage_schema="local_topo_preview_stage"
+preview_retired_schema="local_topo_preview_retired"
+preview_required_layers_csv="landcover,landuse,water,water_name,waterway,transportation,transportation_name,building,place,park,boundary"
+preview_database_name="${LOCAL_TOPO_PREVIEW_DB_NAME:-local_topo_preview}"
+preview_database_user="${LOCAL_TOPO_PREVIEW_DB_USER:-postgres}"
+preview_database_password="${LOCAL_TOPO_PREVIEW_DB_PASSWORD:-postgres}"
+preview_database_host="${LOCAL_TOPO_PREVIEW_DB_HOST:-postgis}"
+preview_database_port="${LOCAL_TOPO_PREVIEW_DB_PORT:-5432}"
+preview_database_url="${LOCAL_TOPO_PREVIEW_DATABASE_URL:-postgresql://$preview_database_user:$preview_database_password@$preview_database_host:$preview_database_port/$preview_database_name}"
+preview_stage_validation_port="${LOCAL_TOPO_PREVIEW_STAGE_VALIDATION_PORT:-18181}"
+preview_postgis_service="postgis"
+preview_martin_service="martin"
+preview_osm2pgsql_image="${LOCAL_TOPO_OSM2PGSQL_IMAGE:-}"
+preview_martin_image="${LOCAL_TOPO_MARTIN_IMAGE:-ghcr.io/maplibre/martin:latest}"
+preview_martin_config_path="$stack_dir/config/martin-preview.yaml"
+preview_osm2pgsql_style_path="$stack_dir/config/osm2pgsql/preview-flex.lua"
+preview_compose_project_name="${COMPOSE_PROJECT_NAME:-$(basename "$stack_dir")}"
+preview_compose_network="${preview_compose_project_name}_default"
 dem_source_srs="EPSG:28355"
 elvis_topo_dem_label="ELVIS topo DEM"
 thelist_dem_label="theLIST 25m DEM"
@@ -57,6 +77,7 @@ gdal_translate_bin="${LOCAL_TOPO_GDAL_TRANSLATE_BIN:-gdal_translate}"
 gdaladdo_bin="${LOCAL_TOPO_GDALADDO_BIN:-gdaladdo}"
 ogr2ogr_bin="${LOCAL_TOPO_OGR2OGR_BIN:-ogr2ogr}"
 tippecanoe_bin="${LOCAL_TOPO_TIPPECANOE_BIN:-tippecanoe}"
+ogr_geojson_max_obj_size="${LOCAL_TOPO_OGR_GEOJSON_MAX_OBJ_SIZE:-0}"
 smoke_png_hex="89504E470D0A1A0A0000000D4948445200000001000000010804000000B51C0C020000000B4944415478DA63FCFF1F0003030200EDA5610D0000000049454E44AE426082"
 prerender_runtime_base_url=""
 
@@ -89,6 +110,10 @@ run_command() {
   "$@"
 }
 
+compose_command() {
+  "$docker_bin" compose -f "$stack_dir/docker-compose.yml" "$@"
+}
+
 fail() {
   printf '%s\n' "$*" >&2
   exit 1
@@ -98,12 +123,6 @@ resolve_tasmania_dem_root() {
   local home_dir="${HOME:-}"
   if [ -z "$home_dir" ]; then
     fail "HOME is unavailable; cannot resolve the Tasmania DEM root."
-  fi
-
-  local bushwalking_root="$home_dir/Documents/Bushwalking"
-  if [ -d "$bushwalking_root" ]; then
-    printf '%s/DEM/Tasmania\n' "$bushwalking_root"
-    return 0
   fi
 
   printf '%s/DEM/Tasmania\n' "$home_dir"
@@ -441,6 +460,201 @@ build_osm_mbtiles() {
     --force
 }
 
+ensure_preview_postgis_service() {
+  local dry_run="$1"
+
+  run_command \
+    "$dry_run" \
+    "$docker_bin" \
+    compose \
+    -f "$stack_dir/docker-compose.yml" \
+    up \
+    -d \
+    "$preview_postgis_service"
+
+  print_command \
+    "$docker_bin" \
+    compose \
+    -f "$stack_dir/docker-compose.yml" \
+    exec \
+    -T \
+    "$preview_postgis_service" \
+    pg_isready \
+    -U "$preview_database_user" \
+    -d "$preview_database_name"
+
+  if [ "$dry_run" -eq 1 ]; then
+    return 0
+  fi
+
+  local attempt
+  for attempt in $(seq 1 30); do
+    if compose_command exec -T "$preview_postgis_service" pg_isready -U "$preview_database_user" -d "$preview_database_name" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+
+  fail "Timed out waiting for the preview PostGIS service to become ready."
+}
+
+run_preview_postgis_sql() {
+  local dry_run="$1"
+  local sql_file_path="$2"
+
+  run_command \
+    "$dry_run" \
+    "$docker_bin" \
+    compose \
+    -f "$stack_dir/docker-compose.yml" \
+    exec \
+    -T \
+    "$preview_postgis_service" \
+    psql \
+    "$preview_database_url" \
+    -v ON_ERROR_STOP=1 \
+    -f "$(workspace_path_for_host_path "$sql_file_path")"
+}
+
+import_preview_osm_stage() {
+  local dry_run="$1"
+  local style_workspace_path="$(workspace_path_for_host_path "$preview_osm2pgsql_style_path")"
+  local extract_workspace_path="$(workspace_path_for_host_path "$build_osm_extract_path")"
+
+  run_preview_postgis_sql "$dry_run" "$sql_dir/ensure_preview_runtime.sql"
+  run_preview_postgis_sql "$dry_run" "$sql_dir/reset_preview_stage.sql"
+
+  if [ -n "$preview_osm2pgsql_image" ]; then
+    run_command \
+      "$dry_run" \
+      "$docker_bin" \
+      run \
+      --rm \
+      --network "$preview_compose_network" \
+      -e "LOCAL_TOPO_PREVIEW_IMPORT_SCHEMA=$preview_stage_schema" \
+      -v "$stack_dir:/workspace" \
+      "$preview_osm2pgsql_image" \
+      -O flex \
+      -S "$style_workspace_path" \
+      --create \
+      --slim \
+      --drop \
+      "--database=$preview_database_url" \
+      "--schema=$preview_stage_schema" \
+      "--middle-schema=$preview_stage_schema" \
+      "$extract_workspace_path"
+    return 0
+  fi
+
+  run_command \
+    "$dry_run" \
+    "$docker_bin" \
+    run \
+    --rm \
+    --network "$preview_compose_network" \
+    -e "LOCAL_TOPO_PREVIEW_IMPORT_SCHEMA=$preview_stage_schema" \
+    -v "$stack_dir:/workspace" \
+    ubuntu:24.04 \
+    bash \
+    -lc \
+    "apt-get update >/dev/null && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends osm2pgsql >/dev/null && osm2pgsql -O flex -S $style_workspace_path --create --slim --drop --database=$preview_database_url --schema=$preview_stage_schema --middle-schema=$preview_stage_schema $extract_workspace_path"
+}
+
+validate_preview_stage_martin() {
+  local dry_run="$1"
+  local container_name="peak-bagger-local-topo-stage-validation-$$-$RANDOM"
+  local validation_url="http://127.0.0.1:$preview_stage_validation_port/$preview_required_layers_csv"
+
+  print_command \
+    "$docker_bin" \
+    run \
+    -d \
+    --rm \
+    --name "$container_name" \
+    --network "$preview_compose_network" \
+    -p "127.0.0.1:${preview_stage_validation_port}:3000" \
+    -e "LOCAL_TOPO_PREVIEW_DATABASE_URL=$preview_database_url" \
+    -e "LOCAL_TOPO_PREVIEW_SCHEMA=$preview_stage_schema" \
+    -v "$stack_dir:/workspace" \
+    "$preview_martin_image" \
+    --config "$(workspace_path_for_host_path "$preview_martin_config_path")"
+  print_command "$curl_bin" -fsS "$validation_url" -o /dev/null
+  print_command "$docker_bin" rm -f "$container_name"
+
+  if [ "$dry_run" -eq 1 ]; then
+    return 0
+  fi
+
+  "$docker_bin" run -d --rm --name "$container_name" --network "$preview_compose_network" -p "127.0.0.1:${preview_stage_validation_port}:3000" -e "LOCAL_TOPO_PREVIEW_DATABASE_URL=$preview_database_url" -e "LOCAL_TOPO_PREVIEW_SCHEMA=$preview_stage_schema" -v "$stack_dir:/workspace" "$preview_martin_image" --config "$(workspace_path_for_host_path "$preview_martin_config_path")" >/dev/null
+
+  local attempt
+  for attempt in $(seq 1 30); do
+    if "$curl_bin" -fsS "$validation_url" -o /dev/null >/dev/null 2>&1; then
+      "$docker_bin" rm -f "$container_name" >/dev/null 2>&1 || true
+      return 0
+    fi
+    sleep 1
+  done
+
+  "$docker_bin" rm -f "$container_name" >/dev/null 2>&1 || true
+  fail "Timed out waiting for the staged Martin validation seam to become ready."
+}
+
+validate_preview_osm_stage() {
+  local dry_run="$1"
+
+  run_preview_postgis_sql "$dry_run" "$sql_dir/validate_preview_stage_required_layers.sql"
+  validate_preview_stage_martin "$dry_run"
+}
+
+restore_preview_active_after_martin_failure() {
+  run_preview_postgis_sql 0 "$sql_dir/restore_preview_active_after_restart_failure.sql" || true
+}
+
+promote_preview_osm_stage() {
+  local dry_run="$1"
+
+  run_preview_postgis_sql "$dry_run" "$sql_dir/promote_preview_stage.sql"
+
+  if [ "$dry_run" -eq 1 ]; then
+    run_command \
+      1 \
+      "$docker_bin" \
+      compose \
+      -f "$stack_dir/docker-compose.yml" \
+      up \
+      -d \
+      "$preview_martin_service"
+    run_command \
+      1 \
+      "$docker_bin" \
+      compose \
+      -f "$stack_dir/docker-compose.yml" \
+      restart \
+      "$preview_martin_service"
+    return 0
+  fi
+
+  if ! run_command 0 "$docker_bin" compose -f "$stack_dir/docker-compose.yml" up -d "$preview_martin_service"; then
+    restore_preview_active_after_martin_failure
+    fail "Published staged preview schema but failed to start Martin; restored the previous active preview schema."
+  fi
+
+  if ! run_command 0 "$docker_bin" compose -f "$stack_dir/docker-compose.yml" restart "$preview_martin_service"; then
+    restore_preview_active_after_martin_failure
+    fail "Published staged preview schema but Martin restart failed; restored the previous active preview schema."
+  fi
+}
+
+build_preview_osm_runtime() {
+  local dry_run="$1"
+
+  ensure_preview_postgis_service "$dry_run"
+  import_preview_osm_stage "$dry_run"
+  validate_preview_osm_stage "$dry_run"
+  promote_preview_osm_stage "$dry_run"
+}
+
 build_contour_artifacts() {
   local dry_run="$1"
 
@@ -454,6 +668,8 @@ build_contour_artifacts() {
 
   run_command \
     "$dry_run" \
+    env \
+    "OGR_GEOJSON_MAX_OBJ_SIZE=$ogr_geojson_max_obj_size" \
     "$ogr2ogr_bin" \
     -f GeoJSON \
     -s_srs "$dem_source_srs" \

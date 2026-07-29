@@ -15,12 +15,8 @@ Raw source:
 
 Prepared ELVIS outputs:
 
-- `~/Documents/Bushwalking/DEM/Tasmania/elvis_runtime_10m.tif`
-- `~/Documents/Bushwalking/DEM/Tasmania/elvis_topo/elvis_topo_5m.tif`
-
-If `~/Documents/Bushwalking` does not exist, the outputs go under:
-
-- `$HOME/DEM/Tasmania/`
+- `$HOME/DEM/Tasmania/elvis_runtime_10m.tif`
+- `$HOME/DEM/Tasmania/elvis_topo/elvis_topo_5m.tif`
 
 Tasmania Local Topo output:
 
@@ -143,10 +139,24 @@ From `local_topo/tasmania`:
 npm run stack:up
 ```
 
-Preview mode:
+This starts preview mode by default. It requires rebuilt preview MBTiles inputs, defaults `LOCAL_TOPO_STYLE` to `tasmania-openstreetmap-contours-martin`, defaults `LOCAL_TOPO_TILESERVER` to `martin`, and fails fast instead of silently falling back to static tiles or smoke fixtures.
+
+Explicit preview alias:
 
 ```bash
 npm run stack:up:preview
+```
+
+Explicit static startup command:
+
+```bash
+npm run stack:up:static
+```
+
+Legacy TileServer-backed OSM comparison path:
+
+```bash
+LOCAL_TOPO_STYLE=tasmania-openstreetmap-contours LOCAL_TOPO_TILESERVER=tileserver npm run stack:up:preview
 ```
 
 Smoke test:
