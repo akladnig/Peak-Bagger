@@ -960,6 +960,32 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
   }
 
+  Future<void> _createRouteDraftWaypoint(String markerId) async {
+    _dismissRouteDraftMarkerDeletePopup();
+    final name = await showRouteTextPromptDialog(
+      context,
+      title: 'Create Waypoint',
+      initialValue: '',
+      blankErrorText: 'A Waypoint name must be entered',
+      dialogKey: const Key('route-waypoint-name-dialog'),
+      inputKey: const Key('route-waypoint-name-input'),
+      cancelKey: const Key('route-waypoint-name-cancel'),
+      saveKey: const Key('route-waypoint-name-save'),
+      saveLabel: 'Create',
+    );
+    if (name == null) {
+      if (mounted) {
+        _mapFocusNode.requestFocus();
+      }
+      return;
+    }
+
+    ref.read(mapProvider.notifier).createRouteDraftWaypoint(markerId, name);
+    if (mounted) {
+      _mapFocusNode.requestFocus();
+    }
+  }
+
   MouseCursor _mouseCursor({
     required String? hoveredRouteDraftMarkerId,
     required int? hoveredRouteDraftSegmentIndex,
@@ -2239,8 +2265,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
             if (mapState.isRouteDrafting &&
                 event is KeyDownEvent &&
-                (HardwareKeyboard.instance.isMetaPressed ||
-                    HardwareKeyboard.instance.isControlPressed) &&
+                HardwareKeyboard.instance.isMetaPressed &&
                 key == LogicalKeyboardKey.keyZ &&
                 mapState.routeDraftStage != RouteDraftStage.routingSegment &&
                 !mapState.isSavingRoute) {
@@ -4062,7 +4087,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
       popupSize: popupSize,
       markerSize: switch (marker.kind) {
         RouteMarkerKind.numbered => RouteUI.markerNumberedSize,
-        RouteMarkerKind.circle || RouteMarkerKind.target => RouteUI.markerSize,
+        RouteMarkerKind.circle ||
+        RouteMarkerKind.target ||
+        RouteMarkerKind.waypoint => RouteUI.markerSize,
       },
     );
     if (!placement.isAnchorable) {
@@ -4081,6 +4108,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
         width: popupSize.width,
         child: RouteDraftMarkerDeletePopupCard(
           key: const Key('route-draft-delete-popup'),
+          onCreateWaypoint: () {
+            unawaited(_createRouteDraftWaypoint(markerId));
+          },
           onDelete: () {
             unawaited(_deleteRouteDraftMarker(markerId));
           },

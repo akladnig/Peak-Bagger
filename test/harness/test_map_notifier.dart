@@ -791,6 +791,80 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
+  bool routeNameExists(String value, {int? excludingRouteId}) {
+    final existingRoute = routeRepository?.findByNormalizedName(value);
+    return existingRoute != null && existingRoute.id != excludingRouteId;
+  }
+
+  @override
+  Future<void> saveRouteDraftAs(String routeName) async {
+    final repository = routeRepository;
+    final trimmedName = routeName.trim();
+    if (repository == null ||
+        trimmedName.isEmpty ||
+        state.routeDraftCommittedPoints.length < 2 ||
+        routeNameExists(trimmedName)) {
+      return;
+    }
+
+    final sourceRouteId = state.sourceRouteId;
+    final existingRoute = sourceRouteId == null
+        ? null
+        : repository.findById(sourceRouteId);
+    state = state.copyWith(isSavingRoute: true, clearRouteDraftNameError: true);
+    try {
+      final savedRoute = repository.saveRoute(
+        Route(
+          name: trimmedName,
+          desc: existingRoute?.desc ?? '',
+          gpxRoute: List<LatLng>.from(
+            state.routeDraftCommittedPoints,
+            growable: false,
+          ),
+          gpxRouteElevations:
+              existingRoute?.gpxRouteElevations ??
+              List<int?>.filled(
+                state.routeDraftCommittedPoints.length,
+                null,
+                growable: false,
+              ),
+          routeWaypoints: existingRoute?.routeWaypoints ?? const [],
+          displayRoutePointsByZoom:
+              existingRoute?.displayRoutePointsByZoom ??
+              TrackDisplayCacheBuilder.buildJson([
+                List<LatLng>.from(
+                  state.routeDraftCommittedPoints,
+                  growable: false,
+                ),
+              ]),
+          colour: state.routeDraftColour,
+          visible: existingRoute?.visible ?? true,
+          distance2d: state.routeDraftDistanceMeters,
+          distance3d:
+              existingRoute?.distance3d ?? state.routeDraftDistanceMeters,
+          ascent: existingRoute?.ascent ?? 0,
+          descent: existingRoute?.descent ?? 0,
+          startElevation: existingRoute?.startElevation ?? 0,
+          endElevation: existingRoute?.endElevation ?? 0,
+          lowestElevation: existingRoute?.lowestElevation ?? 0,
+          highestElevation: existingRoute?.highestElevation ?? 0,
+          walkingSpeedKmh: existingRoute?.walkingSpeedKmh,
+        ),
+      );
+      ref.read(routeRevisionProvider.notifier).increment();
+      state = state.copyWith(showRoutes: true);
+      endRouteDraft();
+      state = state.copyWith(
+        selectedRouteId: savedRoute.id,
+        selectedRouteFocusSerial: state.selectedRouteFocusSerial + 1,
+      );
+    } catch (error) {
+      _routeSnackbarMessage = 'Failed to save route: $error';
+      state = state.copyWith(isSavingRoute: false);
+    }
+  }
+
+  @override
   String? consumeRouteSnackbarMessage() {
     final message = _routeSnackbarMessage;
     _routeSnackbarMessage = null;

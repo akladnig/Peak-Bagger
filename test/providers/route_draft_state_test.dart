@@ -203,47 +203,26 @@ void main() {
     },
   );
 
-  test('route edit shows only saved waypoints and endpoints', () async {
-    final route = Route(
-      id: 8,
-      name: 'Visible Waypoints',
-      gpxRoute: const [
-        LatLng(-41.5, 146.5),
-        LatLng(-41.52, 146.52),
-        LatLng(-41.54, 146.54),
-        LatLng(-41.56, 146.56),
-        LatLng(-41.58, 146.58),
-      ],
-      gpxRouteElevations: const [100, 110, 120, 130, 140],
-      routeWaypoints: const [
-        RouteWaypoint(
-          latitude: -41.54,
-          longitude: 146.54,
-          label: 'Bonnet Hill',
-          sequence: 1,
-          isPeakDerived: true,
-          peakOsmId: 42,
-          peakName: 'Bonnet Hill',
-        ),
-        RouteWaypoint(
-          latitude: -41.58,
-          longitude: 146.58,
-          label: 'Waypoint 1',
-          sequence: 2,
-          isPeakDerived: false,
-        ),
-      ],
-      colour: 0xFF112233,
-      distance2d: 17450,
-      distance3d: 17920,
-      ascent: 912,
-      descent: 456,
+  test('route edit save preserves desc and walkingSpeedKmh', () async {
+    final sourceRoute = Route(
+      id: 41,
+      name: 'Source Route',
+      desc: 'Keep this description',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+      gpxRouteElevations: const [100, 120],
+      walkingSpeedKmh: 4.8,
+      distance2d: 1000,
+      distance3d: 1100,
+      ascent: 40,
+      descent: 20,
       startElevation: 100,
-      endElevation: 140,
-      lowestElevation: 90,
-      highestElevation: 150,
+      endElevation: 120,
+      lowestElevation: 100,
+      highestElevation: 130,
     );
-    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([sourceRoute]),
+    );
     final realNotifier = await _buildRouteTestNotifier(
       routePlanner: const _ImmediateStraightRoutePlanner(),
       routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
@@ -253,24 +232,594 @@ void main() {
       overrides: [mapProvider.overrideWith(() => realNotifier)],
     );
     addTearDown(container.dispose);
-    container.read(mapProvider.notifier).state = MapState(
+
+    final notifier = container.read(mapProvider.notifier);
+    notifier.state = MapState(
       center: const LatLng(-41.5, 146.5),
       zoom: 15,
       basemap: Basemap.tracestrack,
       showRoutes: true,
-      selectedRouteId: 8,
+      selectedRouteId: 41,
+    );
+    notifier.beginRouteEdit(sourceRoute);
+    notifier.setRouteDraftName('Updated Route');
+
+    await notifier.saveRouteDraft();
+
+    final savedRoute = routeRepository.findById(41)!;
+    expect(savedRoute.name, 'Updated Route');
+    expect(savedRoute.desc, 'Keep this description');
+    expect(savedRoute.walkingSpeedKmh, 4.8);
+  });
+
+  test('saveRouteDraftAs creates a new saved route copy', () async {
+    final sourceRoute = Route(
+      id: 42,
+      name: 'Original Route',
+      desc: 'Original description',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+      gpxRouteElevations: const [100, 120],
+      walkingSpeedKmh: 5.1,
+      distance2d: 1000,
+      distance3d: 1100,
+      ascent: 40,
+      descent: 20,
+      startElevation: 100,
+      endElevation: 120,
+      lowestElevation: 100,
+      highestElevation: 130,
+    );
+    final routeRepository = RouteRepository.test(
+      InMemoryRouteStorage([sourceRoute]),
+    );
+    final realNotifier = await _buildRouteTestNotifier(
+      routePlanner: const _ImmediateStraightRoutePlanner(),
+      routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+      routeRepository: routeRepository,
+    );
+    final container = ProviderContainer(
+      overrides: [mapProvider.overrideWith(() => realNotifier)],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(mapProvider.notifier);
+    notifier.state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      showRoutes: true,
+      selectedRouteId: 42,
+    );
+    notifier.beginRouteEdit(sourceRoute);
+
+    await notifier.saveRouteDraftAs('Copied Route');
+
+    final savedRoutes = routeRepository.getAllRoutes();
+    expect(savedRoutes, hasLength(2));
+    expect(routeRepository.findById(42)!.name, 'Original Route');
+    final copiedRoute = savedRoutes.singleWhere((route) => route.id != 42);
+    expect(copiedRoute.name, 'Copied Route');
+    expect(copiedRoute.desc, 'Original description');
+    expect(copiedRoute.walkingSpeedKmh, 5.1);
+    expect(container.read(mapProvider).selectedRouteId, copiedRoute.id);
+    expect(container.read(mapProvider).sourceRouteId, isNull);
+    expect(container.read(mapProvider).isRouteDrafting, isFalse);
+  });
+
+  test(
+    'save persists unnamed intermediate points only as route geometry',
+    () async {
+      final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: const _ImmediateStraightRoutePlanner(),
+        routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+        routeRepository: routeRepository,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      );
+      notifier.beginRouteDraft();
+      notifier.setRouteDraftName('Geometry Only');
+      notifier.setRouteDraftMode(RouteMode.straightLine);
+      notifier.addRouteDraftMarker(
+        const LatLng(-41.5, 146.5),
+        straightLine: true,
+      );
+      notifier.addRouteDraftMarker(
+        const LatLng(-41.55, 146.55),
+        straightLine: true,
+      );
+      notifier.addRouteDraftMarker(
+        const LatLng(-41.6, 146.6),
+        straightLine: true,
+      );
+
+      await notifier.saveRouteDraft();
+
+      final savedRoute = routeRepository.getAllRoutes().single;
+      expect(savedRoute.gpxRoute, hasLength(3));
+      expect(savedRoute.routeWaypoints, isEmpty);
+    },
+  );
+
+  test('createRouteDraftWaypoint persists a named semantic waypoint', () async {
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final realNotifier = await _buildRouteTestNotifier(
+      routePlanner: const _ImmediateStraightRoutePlanner(),
+      routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+      routeRepository: routeRepository,
+    );
+    final container = ProviderContainer(
+      overrides: [mapProvider.overrideWith(() => realNotifier)],
+    );
+    addTearDown(container.dispose);
+
+    final notifier = container.read(mapProvider.notifier);
+    notifier.state = MapState(
+      center: const LatLng(-41.5, 146.5),
+      zoom: 15,
+      basemap: Basemap.tracestrack,
+      isRouteDrafting: true,
+      routeDraftName: 'Named Waypoint Route',
+      routeDraftMode: RouteMode.straightLine,
+      routeDraftStage: RouteDraftStage.awaitingNextPoint,
+      routeDraftControlEndpoints: const [
+        RouteDraftControlEndpoint(
+          id: '0',
+          point: LatLng(-41.5, 146.5),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+        RouteDraftControlEndpoint(
+          id: '1',
+          point: LatLng(-41.55, 146.55),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+        RouteDraftControlEndpoint(
+          id: '2',
+          point: LatLng(-41.6, 146.6),
+          kind: RouteDraftEndpointKind.tapped,
+        ),
+      ],
+      routeDraftDisplayMarkers: const [
+        RouteDraftDisplayMarker(
+          id: '0',
+          point: LatLng(-41.5, 146.5),
+          kind: RouteMarkerKind.circle,
+        ),
+        RouteDraftDisplayMarker(
+          id: '1',
+          point: LatLng(-41.55, 146.55),
+          kind: RouteMarkerKind.numbered,
+          number: 1,
+        ),
+        RouteDraftDisplayMarker(
+          id: '2',
+          point: LatLng(-41.6, 146.6),
+          kind: RouteMarkerKind.target,
+        ),
+      ],
+      routeDraftMarkers: const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.55, 146.55),
+        LatLng(-41.6, 146.6),
+      ],
+      routeDraftCommittedPoints: const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.55, 146.55),
+        LatLng(-41.6, 146.6),
+      ],
+      routeDraftDistanceMeters: 1000,
     );
 
-    container.read(mapProvider.notifier).beginRouteEdit(route);
+    notifier.createRouteDraftWaypoint('1', '  Camp  ');
 
-    final state = container.read(mapProvider);
-    expect(state.routeDraftControlEndpoints, hasLength(3));
-    expect(state.routeDraftDisplayMarkers, hasLength(3));
-    expect(state.routeDraftDisplayMarkers[0].kind, RouteMarkerKind.circle);
-    expect(state.routeDraftDisplayMarkers[1].kind, RouteMarkerKind.target);
-    expect(state.routeDraftDisplayMarkers[2].kind, RouteMarkerKind.target);
-    expect(state.routeDraftCommittedPoints, route.gpxRoute);
+    expect(
+      container.read(mapProvider).routeDraftDisplayMarkers[1].kind,
+      RouteMarkerKind.waypoint,
+    );
+
+    await notifier.saveRouteDraft();
+
+    final savedRoute = routeRepository.getAllRoutes().single;
+    expect(savedRoute.routeWaypoints, hasLength(1));
+    expect(savedRoute.routeWaypoints.single.label, 'Camp');
+    expect(savedRoute.routeWaypoints.single.isPeakDerived, isFalse);
   });
+
+  test(
+    'createRouteDraftWaypoint renders a named start point as a waypoint',
+    () async {
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: const _ImmediateStraightRoutePlanner(),
+        routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftName: 'Named Start Waypoint Route',
+        routeDraftMode: RouteMode.straightLine,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '1',
+            point: LatLng(-41.55, 146.55),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteMarkerKind.circle,
+          ),
+          RouteDraftDisplayMarker(
+            id: '1',
+            point: LatLng(-41.55, 146.55),
+            kind: RouteMarkerKind.target,
+          ),
+        ],
+        routeDraftMarkers: const [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+        ],
+        routeDraftDistanceMeters: 1000,
+      );
+
+      notifier.createRouteDraftWaypoint('0', '  Camp  ');
+
+      final state = container.read(mapProvider);
+      expect(state.routeDraftControlEndpoints.first.waypointLabel, 'Camp');
+      expect(
+        state.routeDraftDisplayMarkers.first.kind,
+        RouteMarkerKind.waypoint,
+      );
+    },
+  );
+
+  test(
+    'save allows duplicate named waypoint labels within the same route',
+    () async {
+      final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: const _ImmediateStraightRoutePlanner(),
+        routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+        routeRepository: routeRepository,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftName: 'Duplicate Waypoints Route',
+        routeDraftMode: RouteMode.straightLine,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '1',
+            point: LatLng(-41.55, 146.55),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '2',
+            point: LatLng(-41.6, 146.6),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteMarkerKind.circle,
+          ),
+          RouteDraftDisplayMarker(
+            id: '1',
+            point: LatLng(-41.55, 146.55),
+            kind: RouteMarkerKind.numbered,
+            number: 1,
+          ),
+          RouteDraftDisplayMarker(
+            id: '2',
+            point: LatLng(-41.6, 146.6),
+            kind: RouteMarkerKind.target,
+          ),
+        ],
+        routeDraftMarkers: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+          LatLng(-41.6, 146.6),
+        ],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+          LatLng(-41.6, 146.6),
+        ],
+        routeDraftDistanceMeters: 1000,
+      );
+
+      notifier.createRouteDraftWaypoint('1', 'Camp');
+      notifier.createRouteDraftWaypoint('2', 'Camp');
+
+      await notifier.saveRouteDraft();
+
+      final savedRoute = routeRepository.getAllRoutes().single;
+      expect(savedRoute.routeWaypoints, hasLength(2));
+      expect(
+        savedRoute.routeWaypoints.map((waypoint) => waypoint.label).toList(),
+        ['Camp', 'Camp'],
+      );
+    },
+  );
+
+  test(
+    'save rounds route geometry and named waypoint coordinates to six decimals',
+    () async {
+      final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: const _ImmediateStraightRoutePlanner(),
+        routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+        routeRepository: routeRepository,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftName: 'Rounded Route',
+        routeDraftMode: RouteMode.straightLine,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5000004, 146.5000004),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '1',
+            point: LatLng(-41.55555555, 146.55555555),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '2',
+            point: LatLng(-41.66666666, 146.66666666),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5000004, 146.5000004),
+            kind: RouteMarkerKind.circle,
+          ),
+          RouteDraftDisplayMarker(
+            id: '1',
+            point: LatLng(-41.55555555, 146.55555555),
+            kind: RouteMarkerKind.numbered,
+            number: 1,
+          ),
+          RouteDraftDisplayMarker(
+            id: '2',
+            point: LatLng(-41.66666666, 146.66666666),
+            kind: RouteMarkerKind.target,
+          ),
+        ],
+        routeDraftMarkers: const [
+          LatLng(-41.5000004, 146.5000004),
+          LatLng(-41.55555555, 146.55555555),
+          LatLng(-41.66666666, 146.66666666),
+        ],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5000004, 146.5000004),
+          LatLng(-41.55555555, 146.55555555),
+          LatLng(-41.66666666, 146.66666666),
+        ],
+        routeDraftDistanceMeters: 1000,
+      );
+
+      notifier.createRouteDraftWaypoint('1', 'Camp');
+
+      await notifier.saveRouteDraft();
+
+      final savedRoute = routeRepository.getAllRoutes().single;
+      expect(savedRoute.gpxRoute, const [
+        LatLng(-41.5, 146.5),
+        LatLng(-41.555556, 146.555556),
+        LatLng(-41.666667, 146.666667),
+      ]);
+      expect(savedRoute.routeWaypoints, const [
+        RouteWaypoint(
+          latitude: -41.555556,
+          longitude: 146.555556,
+          label: 'Camp',
+          sequence: 1,
+          isPeakDerived: false,
+        ),
+      ]);
+    },
+  );
+
+  test(
+    'route edit rehydrates the full saved geometry as editable points',
+    () async {
+      final route = Route(
+        id: 8,
+        name: 'Visible Waypoints',
+        gpxRoute: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.52, 146.52),
+          LatLng(-41.54, 146.54),
+          LatLng(-41.56, 146.56),
+          LatLng(-41.58, 146.58),
+        ],
+        gpxRouteElevations: const [100, 110, 120, 130, 140],
+        routeWaypoints: const [
+          RouteWaypoint(
+            latitude: -41.54,
+            longitude: 146.54,
+            label: 'Bonnet Hill',
+            sequence: 1,
+            isPeakDerived: true,
+            peakOsmId: 42,
+            peakName: 'Bonnet Hill',
+          ),
+          RouteWaypoint(
+            latitude: -41.58,
+            longitude: 146.58,
+            label: 'Waypoint 1',
+            sequence: 2,
+            isPeakDerived: false,
+          ),
+        ],
+        colour: 0xFF112233,
+        distance2d: 17450,
+        distance3d: 17920,
+        ascent: 912,
+        descent: 456,
+        startElevation: 100,
+        endElevation: 140,
+        lowestElevation: 90,
+        highestElevation: 150,
+      );
+      final routeRepository = RouteRepository.test(
+        InMemoryRouteStorage([route]),
+      );
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: const _ImmediateStraightRoutePlanner(),
+        routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+        routeRepository: routeRepository,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      container.read(mapProvider.notifier).state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        selectedRouteId: 8,
+      );
+
+      container.read(mapProvider.notifier).beginRouteEdit(route);
+
+      final state = container.read(mapProvider);
+      expect(state.routeDraftControlEndpoints, hasLength(5));
+      expect(state.routeDraftDisplayMarkers, hasLength(5));
+      expect(state.routeDraftDisplayMarkers[0].kind, RouteMarkerKind.circle);
+      expect(state.routeDraftDisplayMarkers[1].kind, RouteMarkerKind.numbered);
+      expect(state.routeDraftDisplayMarkers[2].kind, RouteMarkerKind.target);
+      expect(state.routeDraftDisplayMarkers[3].kind, RouteMarkerKind.numbered);
+      expect(state.routeDraftDisplayMarkers[4].kind, RouteMarkerKind.target);
+      expect(state.routeDraftCommittedPoints, route.gpxRoute);
+    },
+  );
+
+  test(
+    'legacy generic route waypoints reopen as plain points and are removed on the next save',
+    () async {
+      final route = Route(
+        id: 8,
+        name: 'Legacy Route',
+        gpxRoute: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+          LatLng(-41.6, 146.6),
+        ],
+        gpxRouteElevations: const [100, 110, 120],
+        routeWaypoints: const [
+          RouteWaypoint(
+            latitude: -41.55,
+            longitude: 146.55,
+            label: 'Waypoint 1',
+            sequence: 1,
+            isPeakDerived: false,
+          ),
+        ],
+        distance2d: 17450,
+        distance3d: 17920,
+        ascent: 912,
+        descent: 456,
+        startElevation: 100,
+        endElevation: 120,
+        lowestElevation: 90,
+        highestElevation: 130,
+      );
+      final routeRepository = RouteRepository.test(
+        InMemoryRouteStorage([route]),
+      );
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: const _ImmediateStraightRoutePlanner(),
+        routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+        routeRepository: routeRepository,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        selectedRouteId: 8,
+      );
+
+      notifier.beginRouteEdit(route);
+
+      final editState = container.read(mapProvider);
+      expect(editState.routeDraftControlEndpoints[1].waypointLabel, isNull);
+      expect(
+        editState.routeDraftDisplayMarkers[1].kind,
+        RouteMarkerKind.numbered,
+      );
+
+      await notifier.saveRouteDraft();
+
+      final savedRoute = routeRepository.findById(8)!;
+      expect(savedRoute.gpxRoute, route.gpxRoute);
+      expect(savedRoute.routeWaypoints, isEmpty);
+    },
+  );
 
   test('route draft markers append in tap order', () async {
     final realNotifier = await _buildRouteTestNotifier(
@@ -1546,7 +2095,7 @@ void main() {
     },
   );
 
-  test('identical next point is rejected before planner dispatch', () async {
+  test('identical next point is ignored before planner dispatch', () async {
     final routePlanner = _ControlledRoutePlanner();
     final realNotifier = await _buildRouteTestNotifier(
       routePlanner: routePlanner,
@@ -1569,9 +2118,9 @@ void main() {
 
     final state = container.read(mapProvider);
     expect(routePlanner.requests, isEmpty);
-    expect(state.routeDraftStage, RouteDraftStage.segmentFailure);
-    expect(state.routeDraftMarkers, const [point, point]);
-    expect(state.routeDraftError, isNotNull);
+    expect(state.routeDraftStage, RouteDraftStage.awaitingNextPoint);
+    expect(state.routeDraftMarkers, const [point]);
+    expect(state.routeDraftError, isNull);
   });
 
   test(
@@ -2073,10 +2622,7 @@ void main() {
       await notifier.saveRouteDraft();
 
       final savedRoute = routeRepository.getAllRoutes().single;
-      expect(savedRoute.routeWaypoints, hasLength(1));
-      expect(savedRoute.routeWaypoints.single.latitude, -41.7);
-      expect(savedRoute.routeWaypoints.single.longitude, 146.7);
-      expect(savedRoute.routeWaypoints.single.label, 'Waypoint 1');
+      expect(savedRoute.routeWaypoints, isEmpty);
       expect(container.read(mapProvider).isRouteDrafting, isFalse);
     },
   );
@@ -2826,6 +3372,11 @@ class _FailOnceRouteStorage implements RouteStorage {
 
   @override
   Route? getById(int id) => _delegate.getById(id);
+
+  @override
+  Route? getByNameNormalized(String normalizedName) {
+    return _delegate.getByNameNormalized(normalizedName);
+  }
 
   @override
   int save(Route route) {

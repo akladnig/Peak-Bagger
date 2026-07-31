@@ -348,6 +348,11 @@ class _CountingRouteStorage implements RouteStorage {
   Route? getById(int id) => _storage.getById(id);
 
   @override
+  Route? getByNameNormalized(String normalizedName) {
+    return _storage.getByNameNormalized(normalizedName);
+  }
+
+  @override
   List<Route> getAll() => _storage.getAll();
 
   @override

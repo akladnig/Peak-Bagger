@@ -473,7 +473,9 @@ String _routeDraftMarkerKey(String markerId, Map<String, int> markerKeyCounts) {
 double _routeDraftMarkerSize(RouteMarkerKind kind, bool hovered) {
   final baseSize = switch (kind) {
     RouteMarkerKind.numbered => RouteUI.markerNumberedSize,
-    RouteMarkerKind.circle || RouteMarkerKind.target => RouteUI.markerSize,
+    RouteMarkerKind.circle ||
+    RouteMarkerKind.target ||
+    RouteMarkerKind.waypoint => RouteUI.markerSize,
   };
   return hovered ? baseSize * RouteUI.markerZoom : baseSize;
 }

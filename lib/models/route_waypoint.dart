@@ -1,3 +1,5 @@
+import 'package:peak_bagger/core/constants.dart';
+
 class RouteWaypoint {
   const RouteWaypoint({
     required this.latitude,
@@ -19,8 +21,8 @@ class RouteWaypoint {
 
   Map<String, Object?> toJson() {
     return {
-      'latitude': latitude,
-      'longitude': longitude,
+      'latitude': _roundCoordinate(latitude),
+      'longitude': _roundCoordinate(longitude),
       'label': label,
       'sequence': sequence,
       'isPeakDerived': isPeakDerived,
@@ -83,4 +85,8 @@ class RouteWaypoint {
     peakOsmId,
     peakName,
   );
+
+  static double _roundCoordinate(double value) {
+    return double.parse(value.toStringAsFixed(GpxConstants.precision));
+  }
 }

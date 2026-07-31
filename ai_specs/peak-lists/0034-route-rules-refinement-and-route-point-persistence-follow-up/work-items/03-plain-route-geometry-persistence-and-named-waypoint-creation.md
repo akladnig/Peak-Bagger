@@ -18,13 +18,13 @@ Separate plain saved route geometry from semantic saved waypoints as one vertica
 
 ## Acceptance criteria
 
-- [ ] Behavior-first TDD starts with failing repository-backed provider or service coverage for unnamed-intermediate non-persistence, legacy generic `Waypoint N` reopen and next-save conversion, and the explicit named-waypoint creation path before implementation changes are made.
-- [ ] Interactive save persists generic unnamed intermediate draft points only as plain route geometry in `gpxRoute` and any derived geometry caches, not as semantic saved `RouteWaypoint` records.
-- [ ] Existing saved generic `Waypoint N` entries reopen as plain route points in the editor and stop re-persisting as semantic saved waypoints on the next interactive save unless the user explicitly converts a point through `Create Waypoint`.
-- [ ] Clicking a route point still opens the point popup, the popup adds `Create Waypoint` above `Delete`, `Create Waypoint` opens a naming prompt immediately, submitted names are trimmed before save, blank trimmed names are rejected, cancel leaves the point as a plain route point, and duplicate waypoint names within the same route remain allowed.
-- [ ] Named waypoints render with `Icons.location_pin` and save as semantic waypoints distinct from plain route geometry.
-- [ ] `Out and Back` and `Close Loop` do not auto-create generic semantic turnaround or loop waypoints; peak-derived points remain persistable semantic waypoints under the existing peak-derived rules.
-- [ ] Widget or robot coverage for the changed popup and waypoint journeys uses stable app-owned selectors and deterministic seams.
+- [x] Behavior-first TDD starts with failing repository-backed provider or service coverage for unnamed-intermediate non-persistence, legacy generic `Waypoint N` reopen and next-save conversion, and the explicit named-waypoint creation path before implementation changes are made.
+- [x] Interactive save persists generic unnamed intermediate draft points only as plain route geometry in `gpxRoute` and any derived geometry caches, not as semantic saved `RouteWaypoint` records.
+- [x] Existing saved generic `Waypoint N` entries reopen as plain route points in the editor and stop re-persisting as semantic saved waypoints on the next interactive save unless the user explicitly converts a point through `Create Waypoint`.
+- [x] Clicking a route point still opens the point popup, the popup adds `Create Waypoint` above `Delete`, `Create Waypoint` opens a naming prompt immediately, submitted names are trimmed before save, blank trimmed names are rejected, cancel leaves the point as a plain route point, and duplicate waypoint names within the same route remain allowed.
+- [x] Named waypoints render with `Icons.location_pin` and save as semantic waypoints distinct from plain route geometry.
+- [x] `Out and Back` and `Close Loop` do not auto-create generic semantic turnaround or loop waypoints; peak-derived points remain persistable semantic waypoints under the existing peak-derived rules.
+- [x] Widget or robot coverage for the changed popup and waypoint journeys uses stable app-owned selectors and deterministic seams.
 
 ## Covers
 

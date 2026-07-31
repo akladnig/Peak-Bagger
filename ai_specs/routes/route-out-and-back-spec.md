@@ -3,6 +3,9 @@ Add a one-shot `Out and Back` action to the route draft sheet so a user can mark
 This is for hikers using the route editor to build turn-around routes without manually tracing the return leg.
 </goal>
 
+> Superseded in part by `../peak-lists/0034-route-rules-refinement-and-route-point-persistence-follow-up/spec.md`.
+> `Out and Back` remains a geometry transform, not an implicit semantic-waypoint creation path. Generic turnaround points now save as plain route geometry unless the user explicitly uses `Create Waypoint` or the point remains peak-derived.
+
 <background>
 Current route drafting already supports `Snap to Trail`, `Straight Line`, and `Route to Peak` in `./lib/widgets/map_route_bottom_sheet.dart` and `./lib/providers/map_provider.dart`.
 Routes are persisted through ObjectBox in `./lib/models/route.dart`, `./lib/services/route_repository.dart`, and `./lib/providers/route_repository_provider.dart`.

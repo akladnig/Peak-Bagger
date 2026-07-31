@@ -102,7 +102,7 @@ void main() {
     },
   );
 
-  testWidgets('route journey out-and-backs and saves a waypoint route', (
+  testWidgets('route journey out-and-backs and saves plain route geometry', (
     tester,
   ) async {
     final robot = MapRouteRobot(
@@ -140,11 +140,7 @@ void main() {
 
     robot.expectRouteDraftOverlaysHidden();
     expect(robot.savedRoutes(), hasLength(1));
-    expect(robot.savedRoutes().single.routeWaypoints, hasLength(1));
-    expect(
-      robot.savedRoutes().single.routeWaypoints.single.label,
-      'Waypoint 1',
-    );
+    expect(robot.savedRoutes().single.routeWaypoints, isEmpty);
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
   });
 
@@ -236,7 +232,7 @@ void main() {
     expect(find.byKey(const Key('route-draft-segment-hover-0')), findsNothing);
   });
 
-  testWidgets('route journey close-loops and saves a waypoint route', (
+  testWidgets('route journey close-loops and saves plain route geometry', (
     tester,
   ) async {
     final robot = MapRouteRobot(
@@ -301,11 +297,7 @@ void main() {
     robot.expectRouteDraftOverlaysHidden();
     expect(robot.savedRoutes(), hasLength(1));
     expect(robot.savedRoutes().single.gpxRoute, hasLength(greaterThan(5)));
-    expect(robot.savedRoutes().single.routeWaypoints, hasLength(1));
-    expect(
-      robot.savedRoutes().single.routeWaypoints.single.label,
-      'Waypoint 1',
-    );
+    expect(robot.savedRoutes().single.routeWaypoints, isEmpty);
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
   });
 

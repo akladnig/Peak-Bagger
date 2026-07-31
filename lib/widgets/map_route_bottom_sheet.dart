@@ -8,6 +8,7 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/elevation_profile_series_builder.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
@@ -181,6 +182,7 @@ class _RouteDraftControlsOverlayState
       :isSavingRoute,
       :routeDraftCanUndo,
       :routeDraftCanRedo,
+      :sourceRouteId,
     ) = ref.watch(
       mapProvider.select(
         (state) => (
@@ -195,6 +197,7 @@ class _RouteDraftControlsOverlayState
           isSavingRoute: state.isSavingRoute,
           routeDraftCanUndo: state.routeDraftCanUndo,
           routeDraftCanRedo: state.routeDraftCanRedo,
+          sourceRouteId: state.sourceRouteId,
         ),
       ),
     );
@@ -239,6 +242,30 @@ class _RouteDraftControlsOverlayState
                 ),
                 const SizedBox(width: 12),
                 _RouteActionsGroup(
+                  onSaveAs: sourceRouteId == null
+                      ? null
+                      : () async {
+                          final name = await showRouteTextPromptDialog(
+                            context,
+                            title: 'Save Route As',
+                            initialValue: routeDraftName,
+                            blankErrorText: 'A Route name must be entered',
+                            dialogKey: const Key('route-save-as-dialog'),
+                            inputKey: const Key('route-save-as-input'),
+                            cancelKey: const Key('route-save-as-cancel'),
+                            saveKey: const Key('route-save-as-save'),
+                            validator: (trimmedName) {
+                              return notifier.routeNameExists(trimmedName)
+                                  ? 'A route with this name already exists'
+                                  : null;
+                            },
+                            saveLabel: 'Save As',
+                          );
+                          if (name == null) {
+                            return;
+                          }
+                          await notifier.saveRouteDraftAs(name);
+                        },
                   onCancel: notifier.cancelRouteDraft,
                   onSave: notifier.saveRouteDraft,
                   canSave:
@@ -759,12 +786,14 @@ class _RouteActionButton extends StatelessWidget {
 
 class _RouteActionsGroup extends StatelessWidget {
   const _RouteActionsGroup({
+    required this.onSaveAs,
     required this.onCancel,
     required this.onSave,
     required this.canSave,
     required this.isSaving,
   });
 
+  final Future<void> Function()? onSaveAs;
   final VoidCallback onCancel;
   final Future<void> Function() onSave;
   final bool canSave;
@@ -784,6 +813,14 @@ class _RouteActionsGroup extends StatelessWidget {
               onPressed: onCancel,
               child: const Text('Cancel'),
             ),
+            if (onSaveAs != null) ...[
+              const SizedBox(width: 8),
+              FilledButton(
+                key: const Key('route-save-as-button'),
+                onPressed: canSave && !isSaving ? () => onSaveAs!() : null,
+                child: const Text('Save As'),
+              ),
+            ],
             const SizedBox(width: 8),
             FilledButton(
               key: const Key('route-save-button'),

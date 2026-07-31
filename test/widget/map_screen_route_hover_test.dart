@@ -362,6 +362,314 @@ void main() {
     );
   });
 
+  testWidgets('point popup shows Create Waypoint above Delete', (tester) async {
+    SharedPreferences.setMockInitialValues({'show_routes': true});
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftMode: RouteMode.straightLine,
+        routeDraftNextMarkerId: 2,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '1',
+            point: LatLng(-41.5, 146.53),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteMarkerKind.circle,
+          ),
+          RouteDraftDisplayMarker(
+            id: '1',
+            point: LatLng(-41.5, 146.53),
+            kind: RouteMarkerKind.target,
+          ),
+        ],
+        routeDraftMarkers: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.53)],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.5, 146.53),
+        ],
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      tasmapRepository: tasmapRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('route-draft-marker-hitbox-0')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final createAction = find.byKey(
+      const Key('route-draft-create-waypoint-action'),
+    );
+    final deleteAction = find.byKey(const Key('route-draft-delete-action'));
+    expect(createAction, findsOneWidget);
+    expect(deleteAction, findsOneWidget);
+    expect(
+      tester.getTopLeft(createAction).dy,
+      lessThan(tester.getTopLeft(deleteAction).dy),
+    );
+  });
+
+  testWidgets('create waypoint action opens the naming prompt', (tester) async {
+    SharedPreferences.setMockInitialValues({'show_routes': true});
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftMode: RouteMode.straightLine,
+        routeDraftNextMarkerId: 2,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '1',
+            point: LatLng(-41.5, 146.53),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteMarkerKind.circle,
+          ),
+          RouteDraftDisplayMarker(
+            id: '1',
+            point: LatLng(-41.5, 146.53),
+            kind: RouteMarkerKind.target,
+          ),
+        ],
+        routeDraftMarkers: const [LatLng(-41.5, 146.5), LatLng(-41.5, 146.53)],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.5, 146.53),
+        ],
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      tasmapRepository: tasmapRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('route-draft-marker-hitbox-0')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.byKey(const Key('route-draft-create-waypoint-action')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.byKey(const Key('route-draft-create-waypoint-action')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-waypoint-name-dialog')), findsOneWidget);
+  });
+
+  testWidgets(
+    'create waypoint prompt rejects a blank trimmed name and stays open',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'show_routes': true});
+      final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+      final tasmapRepository = await TestTasmapRepository.create();
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          isRouteDrafting: true,
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          routeDraftMode: RouteMode.straightLine,
+          routeDraftNextMarkerId: 2,
+          routeDraftControlEndpoints: const [
+            RouteDraftControlEndpoint(
+              id: '0',
+              point: LatLng(-41.5, 146.5),
+              kind: RouteDraftEndpointKind.tapped,
+            ),
+            RouteDraftControlEndpoint(
+              id: '1',
+              point: LatLng(-41.5, 146.53),
+              kind: RouteDraftEndpointKind.tapped,
+            ),
+          ],
+          routeDraftDisplayMarkers: const [
+            RouteDraftDisplayMarker(
+              id: '0',
+              point: LatLng(-41.5, 146.5),
+              kind: RouteMarkerKind.circle,
+            ),
+            RouteDraftDisplayMarker(
+              id: '1',
+              point: LatLng(-41.5, 146.53),
+              kind: RouteMarkerKind.target,
+            ),
+          ],
+          routeDraftMarkers: const [
+            LatLng(-41.5, 146.5),
+            LatLng(-41.5, 146.53),
+          ],
+          routeDraftCommittedPoints: const [
+            LatLng(-41.5, 146.5),
+            LatLng(-41.5, 146.53),
+          ],
+        ),
+        routeRepository: routeRepository,
+      );
+
+      await _pumpMapScreen(
+        tester,
+        notifier,
+        routeRepository,
+        tasmapRepository: tasmapRepository,
+      );
+
+      await tester.tap(find.byKey(const Key('route-draft-marker-hitbox-0')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(
+        find.byKey(const Key('route-draft-create-waypoint-action')),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('route-waypoint-name-input')),
+        '   ',
+      );
+      await tester.tap(find.byKey(const Key('route-waypoint-name-save')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('route-waypoint-name-dialog')),
+        findsOneWidget,
+      );
+      expect(find.text('A Waypoint name must be entered'), findsOneWidget);
+    },
+  );
+
+  testWidgets('create waypoint cancel keeps the point plain', (tester) async {
+    SharedPreferences.setMockInitialValues({'show_routes': true});
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftMode: RouteMode.straightLine,
+        routeDraftNextMarkerId: 3,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '1',
+            point: LatLng(-41.55, 146.55),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+          RouteDraftControlEndpoint(
+            id: '2',
+            point: LatLng(-41.6, 146.6),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteMarkerKind.circle,
+          ),
+          RouteDraftDisplayMarker(
+            id: '1',
+            point: LatLng(-41.55, 146.55),
+            kind: RouteMarkerKind.numbered,
+            number: 1,
+          ),
+          RouteDraftDisplayMarker(
+            id: '2',
+            point: LatLng(-41.6, 146.6),
+            kind: RouteMarkerKind.target,
+          ),
+        ],
+        routeDraftMarkers: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+          LatLng(-41.6, 146.6),
+        ],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.5),
+          LatLng(-41.55, 146.55),
+          LatLng(-41.6, 146.6),
+        ],
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMapScreen(
+      tester,
+      notifier,
+      routeRepository,
+      tasmapRepository: tasmapRepository,
+    );
+
+    await tester.tap(find.byKey(const Key('route-draft-marker-hitbox-0')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(
+      find.byKey(const Key('route-draft-create-waypoint-action')),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('route-waypoint-name-cancel')));
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    final state = container.read(mapProvider);
+    expect(find.byKey(const Key('route-waypoint-name-dialog')), findsNothing);
+    expect(state.routeDraftControlEndpoints.first.waypointLabel, isNull);
+    expect(state.routeDraftDisplayMarkers.first.kind, RouteMarkerKind.circle);
+  });
+
   testWidgets(
     'dragging a draft marker moves it without opening the delete popup',
     (tester) async {
