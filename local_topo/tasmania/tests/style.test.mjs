@@ -58,6 +58,11 @@ const openStreetMapComparisonVariants = [
       type: 'vector',
       url: martinOpenmaptilesSourceUrl,
     },
+    contourMinzoomByLayerId: {
+      Contours: 12,
+      'Contours intermediate 50m': 11,
+      'Contours index 100m': 11,
+    },
   },
   {
     styleId: 'tasmania-openstreetmap-contours',
@@ -66,8 +71,60 @@ const openStreetMapComparisonVariants = [
       type: 'vector',
       url: 'mbtiles://{tasmania-osm}',
     },
+    contourMinzoomByLayerId: {
+      Contours: 13,
+      'Contours intermediate 50m': 12,
+      'Contours index 100m': 12,
+    },
   },
 ];
+const martinLayerOverrides = new Map([
+  ['Contours', { minzoom: 12 }],
+  ['Contours intermediate 50m', { minzoom: 11 }],
+  ['Contours index 100m', { minzoom: 11 }],
+]);
+const martinRoadWidthOverrideLayerIds = new Set([
+  'Service road outline',
+  'Track road outline',
+  'Tertiary road link outline',
+  'Secondary road link outline',
+  'Primary road link outline',
+  'Trunk road link outline',
+  'Highway link outline',
+  'Minor road outline',
+  'Tertiary road outline',
+  'Secondary road outline',
+  'Trunk road outline',
+  'Primary road outline',
+  'Highway road outline',
+  'Service road under construction',
+  'Minor road under construction',
+  'Minor road under construction dash',
+  'Tertiary road under construction',
+  'Tertiary road under construction dash',
+  'Secondary road under construction',
+  'Secondary road under construction dash',
+  'Primary road under construction',
+  'Primary road under construction dash',
+  'Trunk road under construction',
+  'Trunk road under construction dash',
+  'Highway road under construction',
+  'Highway road under construction dash',
+  'Tertiary road link',
+  'Secondary road link',
+  'Primary road link',
+  'Trunk road link',
+  'Highway road link',
+  'Service road',
+  'Track road',
+  'Minor road',
+  'Tertiary road',
+  'Secondary road',
+  'Primary road',
+  'Trunk road',
+  'Highway road',
+  'Raceway road',
+]);
 const landcoverClassFallback = [
   'coalesce',
   ['get', 'subclass'],
@@ -172,6 +229,78 @@ function assertStrongerSharedStops({ strongerLayer, weakerLayer, paintKey }) {
   }
 }
 
+function assertLayerOrder({ layerIndexes, lowerIds, higherIds }) {
+  for (const lowerId of lowerIds) {
+    assert.notEqual(layerIndexes.get(lowerId), undefined);
+
+    for (const higherId of higherIds) {
+      assert.notEqual(layerIndexes.get(higherId), undefined);
+      assert.equal(layerIndexes.get(lowerId) < layerIndexes.get(higherId), true);
+    }
+  }
+}
+
+function withMartinLineWidthOverride(layerId, expectedLayer, martinLayer) {
+  if (!martinRoadWidthOverrideLayerIds.has(layerId)) {
+    return expectedLayer;
+  }
+
+  return {
+    ...expectedLayer,
+    paint: {
+      ...expectedLayer.paint,
+      'line-width': martinLayer?.paint?.['line-width'],
+    },
+  };
+}
+
+function assertStandingWaterMaskLayers({
+  style,
+  maskLayerIds,
+  contourLineLayerIds,
+  contourLabelLayerIds,
+  waterLabelLayerIds,
+  waterwayLineLayerIds,
+  expectedLayers,
+}) {
+  const layers = new Map(style.layers.map((layer) => [layer.id, layer]));
+  const layerIndexes = new Map(style.layers.map((layer, index) => [layer.id, index]));
+
+  for (let index = 0; index < maskLayerIds.length; index += 1) {
+    const layerId = maskLayerIds[index];
+    const layer = layers.get(layerId);
+    const expectedLayer = expectedLayers[index];
+
+    assert.notEqual(layer, undefined);
+    assert.equal(layer?.type, 'fill');
+    assert.equal(layer?.source, expectedLayer.source);
+    assert.equal(layer?.['source-layer'], 'water');
+    assert.deepEqual(layer?.filter, expectedLayer.filter);
+    assert.deepEqual(layer?.paint, expectedLayer.paint);
+  }
+
+  assertLayerOrder({
+    layerIndexes,
+    lowerIds: contourLineLayerIds,
+    higherIds: maskLayerIds,
+  });
+  assertLayerOrder({
+    layerIndexes,
+    lowerIds: contourLabelLayerIds,
+    higherIds: maskLayerIds,
+  });
+  assertLayerOrder({
+    layerIndexes,
+    lowerIds: maskLayerIds,
+    higherIds: waterLabelLayerIds,
+  });
+  assertLayerOrder({
+    layerIndexes,
+    lowerIds: waterwayLineLayerIds,
+    higherIds: contourLabelLayerIds,
+  });
+}
+
 test('canonical richer Local Topo style includes relief, labels, and no mountain peak labels', async () => {
   const style = await loadJson('styles/local-topo/style.json');
   const contourModuloFilter = ['%', ['to-number', ['get', 'elev']], 100];
@@ -222,7 +351,8 @@ test('canonical richer Local Topo style includes relief, labels, and no mountain
   const contourIntermediateLabelLayer = layers.get('contour-labels-50m');
   assert.equal(contourIntermediateLabelLayer?.minzoom, 13);
   assert.equal(contourIntermediateLabelLayer?.layout?.['symbol-placement'], 'line');
-  assert.equal(contourIntermediateLabelLayer?.layout?.['text-keep-upright'], false);
+  assert.equal(contourIntermediateLabelLayer?.layout?.['text-rotate'], 0);
+  assert.equal(contourIntermediateLabelLayer?.layout?.['text-keep-upright'], true);
   assert.deepEqual(contourIntermediateLabelLayer?.filter, ['==', contourModuloFilter, 50]);
   assert.deepEqual(contourIntermediateLabelLayer?.layout?.['text-font'], ['Roboto Regular']);
   assert.deepEqual(contourIntermediateLabelLayer?.layout?.['text-field'], [
@@ -234,7 +364,8 @@ test('canonical richer Local Topo style includes relief, labels, and no mountain
   const contourLabelLayer = layers.get('contour-labels-100m');
   assert.equal(contourLabelLayer?.minzoom, 13);
   assert.equal(contourLabelLayer?.layout?.['symbol-placement'], 'line');
-  assert.equal(contourLabelLayer?.layout?.['text-keep-upright'], false);
+  assert.equal(contourLabelLayer?.layout?.['text-rotate'], 0);
+  assert.equal(contourLabelLayer?.layout?.['text-keep-upright'], true);
   assert.deepEqual(contourLabelLayer?.filter, ['==', contourModuloFilter, 0]);
   assert.deepEqual(contourLabelLayer?.layout?.['text-font'], ['Roboto Regular']);
   assert.deepEqual(contourLabelLayer?.layout?.['text-field'], [
@@ -244,6 +375,40 @@ test('canonical richer Local Topo style includes relief, labels, and no mountain
   ]);
   assert.equal(contourIntermediateLabelLayer?.paint?.['text-color'], '#7d5c37');
   assert.equal(contourLabelLayer?.paint?.['text-color'], '#6f4f2d');
+  assertStandingWaterMaskLayers({
+    style,
+    maskLayerIds: ['standing-water-mask-intermittent', 'standing-water-mask'],
+    contourLineLayerIds: ['contours', 'contours-intermediate-50m', 'contours-index-100m'],
+    contourLabelLayerIds: ['contour-labels-50m', 'contour-labels-100m'],
+    waterLabelLayerIds: ['water-name-labels'],
+    waterwayLineLayerIds: ['waterway'],
+    expectedLayers: [
+      {
+        source: 'tasmania-osm',
+        filter: [
+          'all',
+          ['match', ['get', 'class'], ['lake', 'pond'], true, false],
+          ['==', ['get', 'intermittent'], 1],
+        ],
+        paint: {
+          'fill-color': '#9fd2f3',
+          'fill-opacity': 0.9,
+        },
+      },
+      {
+        source: 'tasmania-osm',
+        filter: [
+          'all',
+          ['match', ['get', 'class'], ['lake', 'pond'], true, false],
+          ['!=', ['get', 'intermittent'], 1],
+        ],
+        paint: {
+          'fill-color': '#9fd2f3',
+          'fill-opacity': 0.9,
+        },
+      },
+    ],
+  });
 
   const sourceLayers = style.layers
     .map((layer) => layer['source-layer'])
@@ -362,7 +527,9 @@ test('cartography review fixture includes the supported Martin contour review pa
   assert.equal(expectations.some((expectation) => expectation.includes('50 m contour')), true);
   assert.equal(expectations.some((expectation) => expectation.includes('100 m contour')), true);
   assert.equal(expectations.some((expectation) => expectation.includes('minor contour line')), true);
-  assert.equal(expectations.some((expectation) => expectation.includes('follow line direction')), true);
+  assert.equal(expectations.some((expectation) => expectation.includes('rendering upside-down')), true);
+  assert.equal(expectations.some((expectation) => expectation.includes('contour lines or contour labels inside')), true);
+  assert.equal(expectations.some((expectation) => expectation.includes('shoreline')), true);
 });
 
 test('openstreetmap preview styles include aligned local contour overlays and are registered in tileserver config', async () => {
@@ -380,19 +547,28 @@ test('openstreetmap preview styles include aligned local contour overlays and ar
     assert.ok(layers.has('Contour labels 50m'));
     assert.ok(layers.has('Contour labels 100m'));
 
-    assert.equal(layers.get('Contours')?.minzoom, 13);
+    assert.equal(
+      layers.get('Contours')?.minzoom,
+      variant.contourMinzoomByLayerId['Contours'],
+    );
     assert.deepEqual(layers.get('Contours')?.filter, [
       'all',
       ['!=', contourModuloFilter, 0],
       ['!=', contourModuloFilter, 50],
     ]);
-    assert.equal(layers.get('Contours intermediate 50m')?.minzoom, 12);
+    assert.equal(
+      layers.get('Contours intermediate 50m')?.minzoom,
+      variant.contourMinzoomByLayerId['Contours intermediate 50m'],
+    );
     assert.deepEqual(layers.get('Contours intermediate 50m')?.filter, [
       '==',
       contourModuloFilter,
       50,
     ]);
-    assert.equal(layers.get('Contours index 100m')?.minzoom, 12);
+    assert.equal(
+      layers.get('Contours index 100m')?.minzoom,
+      variant.contourMinzoomByLayerId['Contours index 100m'],
+    );
     assert.deepEqual(layers.get('Contours index 100m')?.filter, ['==', contourModuloFilter, 0]);
     assert.equal(layers.get('Contours index 100m')?.paint?.['line-color'], '#6b5337');
     assert.equal(layers.get('Contours intermediate 50m')?.paint?.['line-color'], '#7c6547');
@@ -414,7 +590,8 @@ test('openstreetmap preview styles include aligned local contour overlays and ar
       ' m',
     ]);
     assert.equal(layers.get('Contour labels 50m')?.layout?.['symbol-placement'], 'line');
-    assert.equal(layers.get('Contour labels 50m')?.layout?.['text-keep-upright'], false);
+    assert.equal(layers.get('Contour labels 50m')?.layout?.['text-rotate'], 0);
+    assert.equal(layers.get('Contour labels 50m')?.layout?.['text-keep-upright'], true);
     assert.equal(layers.get('Contour labels 50m')?.minzoom, 13);
     assert.deepEqual(layers.get('Contour labels 50m')?.filter, ['==', contourModuloFilter, 50]);
 
@@ -425,11 +602,56 @@ test('openstreetmap preview styles include aligned local contour overlays and ar
       ' m',
     ]);
     assert.equal(layers.get('Contour labels 100m')?.layout?.['symbol-placement'], 'line');
-    assert.equal(layers.get('Contour labels 100m')?.layout?.['text-keep-upright'], false);
+    assert.equal(layers.get('Contour labels 100m')?.layout?.['text-rotate'], 0);
+    assert.equal(layers.get('Contour labels 100m')?.layout?.['text-keep-upright'], true);
     assert.equal(layers.get('Contour labels 100m')?.minzoom, 13);
     assert.deepEqual(layers.get('Contour labels 100m')?.filter, ['==', contourModuloFilter, 0]);
     assert.equal(layers.get('Contour labels 50m')?.paint?.['text-color'], '#7c6547');
     assert.equal(layers.get('Contour labels 100m')?.paint?.['text-color'], '#6b5337');
+    assertStandingWaterMaskLayers({
+      style,
+      maskLayerIds: ['Standing water mask intermittent', 'Standing water mask'],
+      contourLineLayerIds: ['Contours', 'Contours intermediate 50m', 'Contours index 100m'],
+      contourLabelLayerIds: ['Contour labels 50m', 'Contour labels 100m'],
+      waterLabelLayerIds: ['Lakeline labels', 'Water labels'],
+      waterwayLineLayerIds: [
+        'River tunnel',
+        'River',
+        'River intermittent',
+        'Other waterway',
+        'Other waterway intermittent',
+      ],
+      expectedLayers: [
+        {
+          source: variant.styleId === 'tasmania-openstreetmap-contours-martin'
+            ? 'openmaptiles-water'
+            : 'openmaptiles',
+          filter: [
+            'all',
+            ['in', 'class', 'lake', 'pond'],
+            ['==', 'intermittent', 1],
+          ],
+          paint: {
+            'fill-color': 'hsl(205, 91%, 83%)',
+            'fill-opacity': 0.85,
+          },
+        },
+        {
+          source: variant.styleId === 'tasmania-openstreetmap-contours-martin'
+            ? 'openmaptiles-water'
+            : 'openmaptiles',
+          filter: [
+            'all',
+            ['in', 'class', 'lake', 'pond'],
+            ['!=', 'intermittent', 1],
+            ['!=', 'brunnel', 'tunnel'],
+          ],
+          paint: {
+            'fill-color': 'hsl(194, 45%, 77%)',
+          },
+        },
+      ],
+    });
     assert.equal(
       config.styles[variant.styleId]?.style,
       variant.stylePath.replace('styles/', ''),
@@ -499,13 +721,13 @@ test('OpenStreetMap comparison preview styles keep local sprite contract and tar
     assert.deepEqual(layers.get('Water')?.paint, {
       'fill-color': 'hsl(194, 45%, 77%)',
     });
-    assert.equal(layers.get('River tunnel')?.paint?.['line-color'], 'hsl(210, 73%, 78%)');
-    assert.equal(layers.get('River')?.paint?.['line-color'], 'hsl(210, 73%, 78%)');
-    assert.equal(layers.get('River intermittent')?.paint?.['line-color'], 'hsl(210, 73%, 78%)');
-    assert.equal(layers.get('Other waterway')?.paint?.['line-color'], 'hsl(210, 73%, 78%)');
+    assert.equal(layers.get('River tunnel')?.paint?.['line-color'], 'hsl(200, 78%, 78%)');
+    assert.equal(layers.get('River')?.paint?.['line-color'], 'hsl(200, 78%, 78%)');
+    assert.equal(layers.get('River intermittent')?.paint?.['line-color'], 'hsl(200, 78%, 78%)');
+    assert.equal(layers.get('Other waterway')?.paint?.['line-color'], 'hsl(200, 78%, 78%)');
     assert.equal(
       layers.get('Other waterway intermittent')?.paint?.['line-color'],
-      'hsl(210, 73%, 78%)',
+      'hsl(200, 78%, 78%)',
     );
 
     const landcoverPatterns = layers.get('Landcover patterns');
@@ -519,7 +741,7 @@ test('OpenStreetMap comparison preview styles keep local sprite contract and tar
     assert.deepEqual(landcoverPatterns?.paint?.['fill-opacity']?.[1], landcoverClassFallback);
     assert.equal(
       getMatchExpressionValue(landcoverPatterns?.paint?.['fill-pattern'], 'scrub'),
-      'scrub',
+      variant.styleId === 'tasmania-openstreetmap-contours-martin' ? 'scrub_coarse' : 'scrub',
     );
     assert.deepEqual(landcoverPatterns?.paint?.['fill-pattern']?.[1], landcoverClassFallback);
   }
@@ -582,28 +804,61 @@ test('Martin openstreetmap preview style stays within the first-slice compatibil
   assert.deepEqual(martinStyle.sources['tasmania-relief'], legacyStyle.sources['tasmania-relief']);
 
   for (const [layerId, legacyLayer] of legacyLayers) {
+    const martinLayerOverride = martinLayerOverrides.get(layerId) ?? {};
+
     if (martinDeferredSourceLayers.has(legacyLayer['source-layer'])) {
       assert.equal(martinLayers.has(layerId), false);
       continue;
     }
 
     if (martinLandcoverExceptionSourceLayers.includes(legacyLayer['source-layer'])) {
-      assert.deepEqual(martinLayers.get(layerId), {
+      if (layerId === 'Landcover patterns') {
+        const expectedMartinLayer = withMartinLineWidthOverride(layerId, {
+          ...legacyLayer,
+          source: 'openmaptiles-landcover',
+          ...martinLayerOverride,
+        }, martinLayers.get(layerId));
+        expectedMartinLayer.paint = {
+          ...expectedMartinLayer.paint,
+          'fill-pattern': [...expectedMartinLayer.paint['fill-pattern']],
+        };
+
+        for (
+          let index = 2;
+          index < expectedMartinLayer.paint['fill-pattern'].length - 1;
+          index += 2
+        ) {
+          if (expectedMartinLayer.paint['fill-pattern'][index] === 'scrub') {
+            expectedMartinLayer.paint['fill-pattern'][index + 1] = 'scrub_coarse';
+            break;
+          }
+        }
+
+        assert.deepEqual(martinLayers.get(layerId), expectedMartinLayer);
+        continue;
+      }
+
+      assert.deepEqual(martinLayers.get(layerId), withMartinLineWidthOverride(layerId, {
         ...legacyLayer,
         source: 'openmaptiles-landcover',
-      });
+        ...martinLayerOverride,
+      }, martinLayers.get(layerId)));
       continue;
     }
 
     if (martinWaterExceptionSourceLayers.includes(legacyLayer['source-layer'])) {
-      assert.deepEqual(martinLayers.get(layerId), {
+      assert.deepEqual(martinLayers.get(layerId), withMartinLineWidthOverride(layerId, {
         ...legacyLayer,
         source: 'openmaptiles-water',
-      });
+        ...martinLayerOverride,
+      }, martinLayers.get(layerId)));
       continue;
     }
 
-    assert.deepEqual(martinLayers.get(layerId), legacyLayer);
+    assert.deepEqual(martinLayers.get(layerId), withMartinLineWidthOverride(layerId, {
+      ...legacyLayer,
+      ...martinLayerOverride,
+    }, martinLayers.get(layerId)));
   }
 
   const martinOpenmaptilesSourceLayers = [...new Set(
