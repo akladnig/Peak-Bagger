@@ -242,7 +242,8 @@ void main() {
 
     expect(find.byKey(const Key('route-save-as-dialog')), findsOneWidget);
     expect(
-      tester.widget<TextField>(find.byKey(const Key('route-save-as-input')))
+      tester
+          .widget<TextField>(find.byKey(const Key('route-save-as-input')))
           .controller!
           .text,
       'Seed Route',
@@ -264,55 +265,64 @@ void main() {
     final savedRoutes = routeRepository.getAllRoutes();
     expect(savedRoutes, hasLength(2));
     expect(routeRepository.findById(1)!.name, 'Seed Route');
-    expect(savedRoutes.any((savedRoute) => savedRoute.name == 'Copied Route'), isTrue);
+    expect(
+      savedRoutes.any((savedRoute) => savedRoute.name == 'Copied Route'),
+      isTrue,
+    );
     expect(_container(tester).read(mapProvider).isRouteDrafting, isFalse);
   });
 
-  testWidgets('Save As rejects a blank trimmed name and keeps the prompt open', (
-    tester,
-  ) async {
-    final route = app_route.Route(
-      id: 1,
-      name: 'Seed Route',
-      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
-      gpxRouteElevations: const [100, 120],
-      distance2d: 17450,
-      distance3d: 17920,
-      ascent: 912,
-      descent: 456,
-      startElevation: 100,
-      endElevation: 120,
-      lowestElevation: 90,
-      highestElevation: 130,
-    );
-    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
-    final notifier = TestMapNotifier(
-      MapState(
-        center: const LatLng(-41.5, 146.5),
-        zoom: 15,
-        basemap: Basemap.tracestrack,
-        showRoutes: true,
-        selectedRouteId: 1,
-      ),
-      routeRepository: routeRepository,
-    );
+  testWidgets(
+    'Save As rejects a blank trimmed name and keeps the prompt open',
+    (tester) async {
+      final route = app_route.Route(
+        id: 1,
+        name: 'Seed Route',
+        gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+        gpxRouteElevations: const [100, 120],
+        distance2d: 17450,
+        distance3d: 17920,
+        ascent: 912,
+        descent: 456,
+        startElevation: 100,
+        endElevation: 120,
+        lowestElevation: 90,
+        highestElevation: 130,
+      );
+      final routeRepository = RouteRepository.test(
+        InMemoryRouteStorage([route]),
+      );
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showRoutes: true,
+          selectedRouteId: 1,
+        ),
+        routeRepository: routeRepository,
+      );
 
-    await _pumpMap(tester, notifier, routeRepository: routeRepository);
-    await tester.tap(find.byKey(const Key('track-info-panel-edit-button')));
-    await tester.pumpAndSettle();
+      await _pumpMap(tester, notifier, routeRepository: routeRepository);
+      await tester.tap(find.byKey(const Key('track-info-panel-edit-button')));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('route-save-as-button')));
-    await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('route-save-as-button')));
+      await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('route-save-as-input')), '   ');
-    await tester.tap(find.byKey(const Key('route-save-as-save')));
-    await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const Key('route-save-as-input')),
+        '   ',
+      );
+      await tester.tap(find.byKey(const Key('route-save-as-save')));
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('route-save-as-dialog')), findsOneWidget);
-    expect(find.text('A Route name must be entered'), findsOneWidget);
-    expect(_container(tester).read(mapProvider).isRouteDrafting, isTrue);
-    expect(routeRepository.getAllRoutes(), hasLength(1));
-  });
+      expect(find.byKey(const Key('route-save-as-dialog')), findsOneWidget);
+      expect(find.text('A Route name must be entered'), findsOneWidget);
+      expect(_container(tester).read(mapProvider).isRouteDrafting, isTrue);
+      expect(routeRepository.getAllRoutes(), hasLength(1));
+    },
+  );
 
   testWidgets('Save As cancel keeps the active edit session unchanged', (
     tester,

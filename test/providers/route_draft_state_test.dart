@@ -2316,6 +2316,77 @@ void main() {
   });
 
   test(
+    'resolved duplicate next point is a no-op and does not enter segment failure',
+    () async {
+      final routePlanner = _ControlledRoutePlanner();
+      final routeElevationSampler = _ControlledRouteElevationSampler();
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: routePlanner,
+        routeElevationSampler: routeElevationSampler,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftMode: RouteMode.snapToTrail,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteMarkerKind.circle,
+          ),
+        ],
+        routeDraftMarkers: const [LatLng(-41.5, 146.5)],
+        routeDraftCommittedPoints: const [LatLng(-41.5, 146.5)],
+      );
+
+      const duplicateTap = LatLng(-41.5002, 146.5002);
+      notifier.addRouteDraftMarker(duplicateTap);
+      await Future<void>.delayed(Duration.zero);
+
+      routePlanner.completeResult(
+        const RoutePlanningResult(
+          status: RoutePlanningStatus.routed,
+          points: [LatLng(-41.5, 146.5)],
+          distanceMeters: 0,
+          startAnchor: RouteEndpointAnchor(
+            point: LatLng(-41.5, 146.5),
+            type: RouteEndpointAnchorType.node,
+          ),
+          endAnchor: RouteEndpointAnchor(
+            point: LatLng(-41.5, 146.5),
+            type: RouteEndpointAnchorType.node,
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(mapProvider);
+      expect(state.routeDraftStage, RouteDraftStage.awaitingNextPoint);
+      expect(state.routeDraftError, isNull);
+      expect(state.routeDraftControlEndpoints, hasLength(1));
+      expect(state.routeDraftDisplayMarkers, hasLength(1));
+      expect(state.routeDraftMarkers, const [LatLng(-41.5, 146.5)]);
+      expect(state.routeDraftCommittedPoints, const [LatLng(-41.5, 146.5)]);
+      expect(routeElevationSampler.requests, isEmpty);
+    },
+  );
+
+  test(
     'committed geometry changes trigger resample and stale elevation results are ignored',
     () async {
       final routeElevationSampler = _ControlledRouteElevationSampler();
@@ -2378,6 +2449,48 @@ void main() {
       expect(state.routeDraftElevationSummary?.descent, 210);
       expect(state.routeDraftPointElevations, hasLength(3));
       expect(state.routeDraftPointElevations, everyElement(isNotNull));
+    },
+  );
+
+  test(
+    'outside Tasmania route drafts skip elevation sampling and stay distance only',
+    () async {
+      final routeElevationSampler = _ControlledRouteElevationSampler();
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: _ControlledRoutePlanner(),
+        routeElevationSampler: routeElevationSampler,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-33.865143, 151.2099),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      );
+
+      notifier.beginRouteDraft();
+      notifier.addRouteDraftMarker(
+        const LatLng(-33.865143, 151.2099),
+        straightLine: true,
+      );
+      notifier.addRouteDraftMarker(
+        const LatLng(-33.87, 151.21),
+        straightLine: true,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      final state = container.read(mapProvider);
+      expect(routeElevationSampler.requests, isEmpty);
+      expect(state.routeDraftElevationLoading, isFalse);
+      expect(state.routeDraftElevationSummary, isNull);
+      expect(state.routeDraftElevationError, isNull);
+      expect(state.routeDraftPointElevations, isEmpty);
+      expect(state.routeDraftDistanceMeters, greaterThan(0));
+      expect(state.routeDraftGeometryVersion, 1);
+      expect(state.routeDraftElevationRequestId, 1);
     },
   );
 

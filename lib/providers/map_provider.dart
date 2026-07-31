@@ -1398,6 +1398,11 @@ typedef _RouteDraftSnapshot = ({
   bool routeDraftCanRedo,
 });
 
+typedef _RouteDraftHistoryState = ({
+  List<_RouteDraftSnapshot> undoStack,
+  List<_RouteDraftSnapshot> redoStack,
+});
+
 typedef _PersistedPeakListSelectionState = ({
   PeakListSelectionMode mode,
   Set<int> selectedPeakListIds,
@@ -3356,6 +3361,13 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  _RouteDraftHistoryState _captureRouteDraftHistoryState() {
+    return (
+      undoStack: List<_RouteDraftSnapshot>.from(_routeDraftUndoStack),
+      redoStack: List<_RouteDraftSnapshot>.from(_routeDraftRedoStack),
+    );
+  }
+
   void _syncRouteDraftHistoryAvailability() {
     state = state.copyWith(
       routeDraftCanUndo: _routeDraftUndoStack.isNotEmpty,
@@ -3373,7 +3385,10 @@ class MapNotifier extends Notifier<MapState> {
     _syncRouteDraftHistoryAvailability();
   }
 
-  void _restoreRouteDraftSnapshot(_RouteDraftSnapshot snapshot) {
+  void _restoreRouteDraftSnapshot(
+    _RouteDraftSnapshot snapshot, {
+    bool resample = true,
+  }) {
     final requestIdFloor = math.max(
       state.routeDraftRequestId,
       snapshot.routeDraftRequestId,
@@ -3424,7 +3439,23 @@ class MapNotifier extends Notifier<MapState> {
       _isRestoringRouteDraftHistory = false;
     }
 
-    _resampleRouteDraftElevation();
+    if (resample) {
+      _resampleRouteDraftElevation();
+    }
+  }
+
+  void _restoreDuplicateRouteDraftNoOp({
+    required _RouteDraftSnapshot snapshot,
+    required _RouteDraftHistoryState historyState,
+  }) {
+    _routeDraftUndoStack
+      ..clear()
+      ..addAll(historyState.undoStack);
+    _routeDraftRedoStack
+      ..clear()
+      ..addAll(historyState.redoStack);
+    _restoreRouteDraftSnapshot(snapshot, resample: false);
+    _syncRouteDraftHistoryAvailability();
   }
 
   void undoRouteDraftEdit() {
@@ -3447,6 +3478,14 @@ class MapNotifier extends Notifier<MapState> {
     final snapshot = _routeDraftRedoStack.removeLast();
     _restoreRouteDraftSnapshot(snapshot);
     _syncRouteDraftHistoryAvailability();
+  }
+
+  bool _hasDuplicateTerminalRouteDraftEndpoint(
+    List<RouteDraftControlEndpoint> controlEndpoints,
+  ) {
+    return controlEndpoints.length >= 2 &&
+        controlEndpoints[controlEndpoints.length - 1].point ==
+            controlEndpoints[controlEndpoints.length - 2].point;
   }
 
   void beginRouteDraft({Peak? peakTarget}) {
@@ -4083,6 +4122,8 @@ class MapNotifier extends Notifier<MapState> {
     required int requestId,
     required RouteDraftControlEndpoint startEndpoint,
     required RouteDraftControlEndpoint endEndpoint,
+    _RouteDraftSnapshot? duplicateNoOpSnapshot,
+    _RouteDraftHistoryState? duplicateNoOpHistoryState,
   }) async {
     final probe = await _routePlanner.probeEndpoint(
       point: endEndpoint.point,
@@ -4111,6 +4152,15 @@ class MapNotifier extends Notifier<MapState> {
         endAnchor: probe.anchor,
         keepEndRaw: false,
       );
+      if (_hasDuplicateTerminalRouteDraftEndpoint(updated) &&
+          duplicateNoOpSnapshot != null &&
+          duplicateNoOpHistoryState != null) {
+        _restoreDuplicateRouteDraftNoOp(
+          snapshot: duplicateNoOpSnapshot,
+          historyState: duplicateNoOpHistoryState,
+        );
+        return;
+      }
       final segmentPoints = [startEndpoint.point, probe.anchor!.point];
       _setRouteDraftControlState(
         controlEndpoints: updated,
@@ -4239,6 +4289,8 @@ class MapNotifier extends Notifier<MapState> {
           _resampleRouteDraftElevation();
           return;
         }
+        final duplicateNoOpSnapshot = _captureRouteDraftSnapshot();
+        final duplicateNoOpHistoryState = _captureRouteDraftHistoryState();
         final requestId = state.routeDraftRequestId + 1;
         _pushRouteDraftHistory();
         _setRouteDraftControlState(
@@ -4256,6 +4308,8 @@ class MapNotifier extends Notifier<MapState> {
               requestId: requestId,
               startEndpoint: start,
               endEndpoint: nextEndpoint,
+              duplicateNoOpSnapshot: duplicateNoOpSnapshot,
+              duplicateNoOpHistoryState: duplicateNoOpHistoryState,
             ),
           );
         } else {
@@ -4264,6 +4318,8 @@ class MapNotifier extends Notifier<MapState> {
               requestId: requestId,
               startEndpoint: start,
               endEndpoint: nextEndpoint,
+              duplicateNoOpSnapshot: duplicateNoOpSnapshot,
+              duplicateNoOpHistoryState: duplicateNoOpHistoryState,
             ),
           );
         }
@@ -4556,6 +4612,8 @@ class MapNotifier extends Notifier<MapState> {
     required int requestId,
     required RouteDraftControlEndpoint startEndpoint,
     required RouteDraftControlEndpoint endEndpoint,
+    _RouteDraftSnapshot? duplicateNoOpSnapshot,
+    _RouteDraftHistoryState? duplicateNoOpHistoryState,
   }) async {
     final result = await _routePlanner.planSegmentResult(
       start: startEndpoint.point,
@@ -4585,6 +4643,15 @@ class MapNotifier extends Notifier<MapState> {
           keepEndRaw: resetRouteToPeak,
           endIsPeakTarget: resetRouteToPeak,
         );
+        if (_hasDuplicateTerminalRouteDraftEndpoint(updatedEndpoints) &&
+            duplicateNoOpSnapshot != null &&
+            duplicateNoOpHistoryState != null) {
+          _restoreDuplicateRouteDraftNoOp(
+            snapshot: duplicateNoOpSnapshot,
+            historyState: duplicateNoOpHistoryState,
+          );
+          return;
+        }
         final segmentPoints = peakPoint == null
             ? result.points
             : _routeToPeakSegmentPoints(
