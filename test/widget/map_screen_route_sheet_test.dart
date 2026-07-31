@@ -1872,7 +1872,7 @@ void main() {
   );
 }
 
-class _CompletingRoutePlanner implements RoutePlanner {
+class _CompletingRoutePlanner extends RoutePlanner {
   final _completer = Completer<PlannedRouteSegment>();
 
   @override
@@ -1926,7 +1926,7 @@ class _CompletingRoutePlanner implements RoutePlanner {
   }
 }
 
-class _ImmediateRoutePlanner implements RoutePlanner {
+class _ImmediateRoutePlanner extends RoutePlanner {
   const _ImmediateRoutePlanner(this.segment);
 
   final PlannedRouteSegment segment;
@@ -1964,7 +1964,7 @@ class _ImmediateRoutePlanner implements RoutePlanner {
   }
 }
 
-class _QueuedRoutePlanner implements RoutePlanner {
+class _QueuedRoutePlanner extends RoutePlanner {
   _QueuedRoutePlanner(this._results);
 
   final List<RoutePlanningResult> _results;

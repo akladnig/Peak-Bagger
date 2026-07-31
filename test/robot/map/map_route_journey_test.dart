@@ -301,6 +301,82 @@ void main() {
     expect(robot.container().read(mapProvider).showRoutes, isTrue);
   });
 
+  testWidgets(
+    'route journey close-loop reconnects through the closest usable track before saving',
+    (tester) async {
+      final robot = MapRouteRobot(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+        ),
+        routePlanningOutcomes: const [
+          RoutePlanningResult(
+            status: RoutePlanningStatus.noPath,
+            points: [],
+            distanceMeters: 0,
+            startAnchor: null,
+            endAnchor: null,
+          ),
+          RouteEndpointProbeResult(
+            isOnTrack: true,
+            anchor: RouteEndpointAnchor(
+              point: LatLng(-41.58, 146.58),
+              type: RouteEndpointAnchorType.edgeProjection,
+            ),
+          ),
+          PlannedRouteSegment(
+            points: [
+              LatLng(-41.58, 146.58),
+              LatLng(-41.54, 146.54),
+              LatLng(-41.5, 146.5),
+            ],
+            distanceMeters: 800,
+          ),
+        ],
+        routeElevationOutcomes: const [
+          RouteElevationSummary(
+            requestId: 1,
+            geometryVersion: 1,
+            ascent: 111,
+            descent: 100,
+            distance3d: 1001,
+          ),
+          RouteElevationSummary(
+            requestId: 2,
+            geometryVersion: 2,
+            ascent: 210,
+            descent: 180,
+            distance3d: 1200,
+          ),
+        ],
+      );
+
+      await robot.pumpApp();
+      await robot.openMap();
+      await robot.enterRouteMode();
+
+      await robot.selectRouteMode(RouteMode.straightLine);
+
+      await robot.tapRoutePoint(const Offset(-40, 0));
+      await robot.tapRoutePoint(const Offset(40, 0));
+
+      await robot.applyCloseLoop();
+
+      expect(robot.routeDistanceText, findsOneWidget);
+      await robot.enterRouteName('Reconnected Loop Route');
+      await robot.saveRoute();
+
+      robot.expectRouteDraftOverlaysHidden();
+      expect(robot.savedRoutes(), hasLength(1));
+      expect(robot.savedRoutes().single.gpxRoute, contains(const LatLng(-41.58, 146.58)));
+      expect(robot.savedRoutes().single.gpxRoute, contains(const LatLng(-41.54, 146.54)));
+      expect(robot.savedRoutes().single.routeWaypoints, isEmpty);
+      expect(robot.container().read(mapProvider).showRoutes, isTrue);
+    },
+  );
+
   testWidgets('route journey drafts two segments and saves the route', (
     tester,
   ) async {

@@ -3934,47 +3934,28 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftNextMarkerId: state.routeDraftNextMarkerId + 1,
     );
 
-    final result = await _routePlanner.planSegmentResult(
-      start: committedPoints.last,
-      end: committedPoints.first,
+    final result = await _routePlanner.planCloseLoopResult(
+      currentPoint: committedPoints.last,
+      startPoint: committedPoints.first,
     );
     if (!_isActiveRouteDraftRequest(requestId)) {
       return;
     }
 
     switch (result.status) {
-      case RoutePlanningStatus.routed:
+      case RouteLoopClosureStatus.routed:
+      case RouteLoopClosureStatus.reconnected:
+      case RouteLoopClosureStatus.straightLine:
         _completeRouteDraftReturnLeg(
           committedPoints: committedPoints,
           controlEndpoints: state.routeDraftControlEndpoints,
-          returnSegment: _normalizeCloseLoopSegment(
-            result.points,
-            currentPoint: committedPoints.last,
-            startPoint: committedPoints.first,
-          ),
+          returnSegment: result.points,
           nextMarkerId: null,
           appendReturnEndpoint: false,
+          usedStraightLineFallback: result.isStraightLineFallback,
         );
         return;
-      case RoutePlanningStatus.noPath:
-        _completeRouteDraftReturnLeg(
-          committedPoints: committedPoints,
-          controlEndpoints: state.routeDraftControlEndpoints,
-          returnSegment: List<LatLng>.from(committedPoints.reversed),
-          nextMarkerId: null,
-          appendReturnEndpoint: false,
-        );
-        return;
-      case RoutePlanningStatus.offTrack:
-        _completeRouteDraftReturnLeg(
-          committedPoints: committedPoints,
-          controlEndpoints: state.routeDraftControlEndpoints,
-          returnSegment: [committedPoints.last, committedPoints.first],
-          nextMarkerId: null,
-          appendReturnEndpoint: false,
-        );
-        return;
-      case RoutePlanningStatus.failed:
+      case RouteLoopClosureStatus.failed:
         _setRouteDraftControlState(
           controlEndpoints: state.routeDraftControlEndpoints,
           stage: RouteDraftStage.segmentFailure,
@@ -3993,6 +3974,7 @@ class MapNotifier extends Notifier<MapState> {
     required List<LatLng> returnSegment,
     required int? nextMarkerId,
     bool appendReturnEndpoint = true,
+    bool usedStraightLineFallback = false,
   }) {
     final updatedControlEndpoints = appendReturnEndpoint
         ? [
@@ -4012,6 +3994,7 @@ class MapNotifier extends Notifier<MapState> {
           state.routeDraftDistanceMeters +
           _polylineDistanceMeters(returnSegment),
       offTrackProbeActive: false,
+      straightLineFallback: usedStraightLineFallback,
       clearRouteDraftError: true,
       nextMarkerId: nextMarkerId,
     );
@@ -4031,6 +4014,7 @@ class MapNotifier extends Notifier<MapState> {
     required List<LatLng> provisionalPoints,
     double? distanceMeters,
     bool? offTrackProbeActive,
+    bool? straightLineFallback,
     String? routeDraftError,
     bool clearRouteDraftError = false,
     RoutePlanningFailureKind routeDraftFailureKind =
@@ -4060,7 +4044,9 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftOffTrackProbeActive:
           offTrackProbeActive ?? state.routeDraftOffTrackProbeActive,
       routeDraftStraightLineFallback:
-          offTrackProbeActive ?? state.routeDraftOffTrackProbeActive,
+          straightLineFallback ??
+          offTrackProbeActive ??
+          state.routeDraftStraightLineFallback,
       routeDraftError: routeDraftError,
       clearRouteDraftError: clearRouteDraftError,
       routeDraftFailureKind: routeDraftFailureKind,
@@ -4985,24 +4971,6 @@ class MapNotifier extends Notifier<MapState> {
         ? segment.skip(1)
         : segment;
     return [...existing, ...nextSegment];
-  }
-
-  List<LatLng> _normalizeCloseLoopSegment(
-    List<LatLng> points, {
-    required LatLng currentPoint,
-    required LatLng startPoint,
-  }) {
-    final normalized = List<LatLng>.from(points, growable: true);
-    if (normalized.isEmpty) {
-      return [currentPoint, startPoint];
-    }
-    if (normalized.first != currentPoint) {
-      normalized.insert(0, currentPoint);
-    }
-    if (normalized.last != startPoint) {
-      normalized.add(startPoint);
-    }
-    return List<LatLng>.unmodifiable(normalized);
   }
 
   void setEndDrawerMode(EndDrawerMode mode) {
@@ -6513,12 +6481,11 @@ class MapNotifier extends Notifier<MapState> {
             isPeakTarget:
                 startEndpoint.kind == RouteDraftEndpointKind.peakTarget,
           );
-          rebuiltEndpoints[index + 1] = switch (result.status) {
-            RoutePlanningStatus.noPath
-                when endEndpoint.kind != RouteDraftEndpointKind.peakTarget =>
-              _movedEndpoint(endEndpoint, result.endAnchor),
-            _ => endEndpoint,
-          };
+          rebuiltEndpoints[index + 1] =
+              endEndpoint.kind != RouteDraftEndpointKind.peakTarget &&
+                  result.endAnchor != null
+              ? _movedEndpoint(endEndpoint, result.endAnchor)
+              : endEndpoint;
           final segmentPoints = _appendPeakTerminalLegIfNeeded([
             rebuiltEndpoints[index].point,
             rebuiltEndpoints[index + 1].point,

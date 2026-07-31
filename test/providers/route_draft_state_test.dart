@@ -1649,6 +1649,138 @@ void main() {
   );
 
   test(
+    'moving a trail-backed point onto a new trail reroutes the next segment from the new trail anchor',
+    () async {
+      final routePlanner = _ControlledRoutePlanner();
+      final realNotifier = await _buildRouteTestNotifier(
+        routePlanner: routePlanner,
+        routeElevationSampler: const _ImmediateZeroRouteElevationSampler(),
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => realNotifier)],
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '0',
+            point: LatLng(-41.5, 146.45),
+            kind: RouteDraftEndpointKind.projectedAnchor,
+          ),
+          RouteDraftControlEndpoint(
+            id: '1',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteDraftEndpointKind.projectedAnchor,
+          ),
+          RouteDraftControlEndpoint(
+            id: '2',
+            point: LatLng(-41.5, 146.55),
+            kind: RouteDraftEndpointKind.projectedAnchor,
+          ),
+        ],
+        routeDraftDisplayMarkers: const [
+          RouteDraftDisplayMarker(
+            id: '0',
+            point: LatLng(-41.5, 146.45),
+            kind: RouteMarkerKind.circle,
+          ),
+          RouteDraftDisplayMarker(
+            id: '1',
+            point: LatLng(-41.5, 146.5),
+            kind: RouteMarkerKind.numbered,
+            number: 1,
+          ),
+          RouteDraftDisplayMarker(
+            id: '2',
+            point: LatLng(-41.5, 146.55),
+            kind: RouteMarkerKind.target,
+          ),
+        ],
+        routeDraftMarkers: const [
+          LatLng(-41.5, 146.45),
+          LatLng(-41.5, 146.5),
+          LatLng(-41.5, 146.55),
+        ],
+        routeDraftCommittedPoints: const [
+          LatLng(-41.5, 146.45),
+          LatLng(-41.5, 146.5),
+          LatLng(-41.5, 146.55),
+        ],
+        routeDraftDistanceMeters: 1000,
+      );
+
+      const movedPoint = LatLng(-41.49, 146.515);
+      const newTrailAnchor = LatLng(-41.488, 146.518);
+
+      final moveFuture = notifier.moveRouteDraftMarker('1', movedPoint);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(routePlanner.requests, const [
+        (start: LatLng(-41.5, 146.45), end: movedPoint),
+      ]);
+
+      routePlanner.completeResult(
+        const RoutePlanningResult(
+          status: RoutePlanningStatus.offTrack,
+          points: [],
+          distanceMeters: 0,
+          startAnchor: RouteEndpointAnchor(
+            point: LatLng(-41.5, 146.45),
+            type: RouteEndpointAnchorType.edgeProjection,
+          ),
+          endAnchor: RouteEndpointAnchor(
+            point: newTrailAnchor,
+            type: RouteEndpointAnchorType.edgeProjection,
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(routePlanner.requests, const [
+        (start: LatLng(-41.5, 146.45), end: movedPoint),
+        (start: newTrailAnchor, end: LatLng(-41.5, 146.55)),
+      ]);
+
+      routePlanner.completeResult(
+        const RoutePlanningResult(
+          status: RoutePlanningStatus.routed,
+          points: [
+            newTrailAnchor,
+            LatLng(-41.492, 146.535),
+            LatLng(-41.5, 146.55),
+          ],
+          distanceMeters: 700,
+          startAnchor: RouteEndpointAnchor(
+            point: newTrailAnchor,
+            type: RouteEndpointAnchorType.edgeProjection,
+          ),
+          endAnchor: RouteEndpointAnchor(
+            point: LatLng(-41.5, 146.55),
+            type: RouteEndpointAnchorType.edgeProjection,
+          ),
+        ),
+      );
+      await moveFuture;
+      await Future<void>.delayed(Duration.zero);
+
+      final finalState = container.read(mapProvider);
+      expect(finalState.routeDraftControlEndpoints[1].point, newTrailAnchor);
+      expect(finalState.routeDraftCommittedPoints, const [
+        LatLng(-41.5, 146.45),
+        newTrailAnchor,
+        LatLng(-41.492, 146.535),
+        LatLng(-41.5, 146.55),
+      ]);
+    },
+  );
+
+  test(
     'route to peak routes the first tap to the captured peak target',
     () async {
       final routePlanner = _ControlledRoutePlanner();
@@ -2970,7 +3102,7 @@ void main() {
     expect(state.routeDraftElevationLoading, isTrue);
   });
   test(
-    'applyRouteDraftCloseLoop falls back to out and back when noPath',
+    'applyRouteDraftCloseLoop reconnects through the closest usable track when direct return has no path',
     () async {
       final routePlanner = _ControlledRoutePlanner();
       final routeElevationSampler = _ControlledRouteElevationSampler();
@@ -3031,14 +3163,50 @@ void main() {
           endAnchor: null,
         ),
       );
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeProbe(
+        const RouteEndpointProbeResult(
+          isOnTrack: true,
+          anchor: RouteEndpointAnchor(
+            point: LatLng(-41.68, 146.68),
+            type: RouteEndpointAnchorType.edgeProjection,
+          ),
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeResult(
+        const RoutePlanningResult(
+          status: RoutePlanningStatus.routed,
+          points: [
+            LatLng(-41.68, 146.68),
+            LatLng(-41.6, 146.6),
+            LatLng(-41.5, 146.5),
+          ],
+          distanceMeters: 850,
+          startAnchor: RouteEndpointAnchor(
+            point: LatLng(-41.68, 146.68),
+            type: RouteEndpointAnchorType.edgeProjection,
+          ),
+          endAnchor: RouteEndpointAnchor(
+            point: LatLng(-41.5, 146.5),
+            type: RouteEndpointAnchorType.node,
+            nodeId: 7,
+          ),
+        ),
+      );
       await closeLoop;
       await Future<void>.delayed(Duration.zero);
 
       final state = container.read(mapProvider);
+      expect(routePlanner.requests, const [
+        (start: LatLng(-41.7, 146.7), end: LatLng(-41.5, 146.5)),
+        (start: LatLng(-41.68, 146.68), end: LatLng(-41.5, 146.5)),
+      ]);
       expect(state.routeDraftCommittedPoints, const [
         LatLng(-41.5, 146.5),
         LatLng(-41.6, 146.6),
         LatLng(-41.7, 146.7),
+        LatLng(-41.68, 146.68),
         LatLng(-41.6, 146.6),
         LatLng(-41.5, 146.5),
       ]);
@@ -3049,7 +3217,7 @@ void main() {
   );
 
   test(
-    'applyRouteDraftCloseLoop falls back to straight line when off track',
+    'applyRouteDraftCloseLoop falls back to a straight closing segment when closest-track reconnection is unavailable',
     () async {
       final routePlanner = _ControlledRoutePlanner();
       final routeElevationSampler = _ControlledRouteElevationSampler();
@@ -3103,17 +3271,22 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       routePlanner.completeResult(
         const RoutePlanningResult(
-          status: RoutePlanningStatus.offTrack,
+          status: RoutePlanningStatus.noPath,
           points: [],
           distanceMeters: 0,
           startAnchor: null,
           endAnchor: null,
         ),
       );
+      await Future<void>.delayed(Duration.zero);
+      routePlanner.completeProbe(const RouteEndpointProbeResult(isOnTrack: false));
       await closeLoop;
       await Future<void>.delayed(Duration.zero);
 
       final state = container.read(mapProvider);
+      expect(routePlanner.requests, const [
+        (start: LatLng(-41.7, 146.7), end: LatLng(-41.5, 146.5)),
+      ]);
       expect(state.routeDraftCommittedPoints, const [
         LatLng(-41.5, 146.5),
         LatLng(-41.6, 146.6),
@@ -3123,6 +3296,7 @@ void main() {
       expect(state.routeDraftControlEndpoints, hasLength(4));
       expect(routeElevationSampler.requests, hasLength(1));
       expect(state.routeDraftGeometryVersion, 1);
+      expect(state.routeDraftStraightLineFallback, isTrue);
     },
   );
 
@@ -3333,7 +3507,7 @@ Future<MapNotifier> _buildRouteTestNotifier({
   );
 }
 
-class _ControlledRoutePlanner implements RoutePlanner {
+class _ControlledRoutePlanner extends RoutePlanner {
   final requests = <({LatLng start, LatLng end})>[];
   final _segmentCompleters = <Completer<RoutePlanningResult>>[];
   final _probeCompleters = <Completer<RouteEndpointProbeResult>>[];
@@ -3412,7 +3586,7 @@ class _ControlledRoutePlanner implements RoutePlanner {
   }
 }
 
-class _ImmediateStraightRoutePlanner implements RoutePlanner {
+class _ImmediateStraightRoutePlanner extends RoutePlanner {
   const _ImmediateStraightRoutePlanner();
 
   @override

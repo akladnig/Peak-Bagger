@@ -222,7 +222,7 @@ Map<String, Object?> _peakNode({
   };
 }
 
-class _NoopRoutePlanner implements RoutePlanner {
+class _NoopRoutePlanner extends RoutePlanner {
   @override
   Future<PlannedRouteSegment> planSegment({
     required start,
