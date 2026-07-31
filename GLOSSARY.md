@@ -136,6 +136,10 @@ _Avoid_: using this term for static pre-rendered tile delivery in general, local
 The app-owned basemap label for the project-managed locally hosted topographic `XYZ` source rendered from the canonical style and region-scoped source data.
 _Avoid_: style editor, vector basemap, user-custom basemap
 
+**Local Topo Legacy**:
+The future app-facing comparison label for the older local preview path kept distinct from the preferred `Local Topo` source.
+_Avoid_: using backend names like `TileServer GL` or `Martin` as the user-facing basemap label
+
 **MapTiler Topo**:
 A planned future app-facing basemap label for the Tasmania-local visual port of the downloaded MapTiler `Topo` style, kept distinct from `Local Topo`.
 _Avoid_: calling this `Local Topo` or using `Topo` alone when the future picker label matters
@@ -147,6 +151,38 @@ _Avoid_: calling this `Local Topo` or using `Outdoor` alone when the future pick
 **Terrain relief shading**:
 A raster shaded-relief treatment derived from DEM elevation and blended into `Local Topo` to create terrain depth in a north-up 2D basemap.
 _Avoid_: true 3D terrain, pitched map camera, extruded terrain
+
+**Preview style**:
+The committed style variant selected for on-demand Tasmania preview rendering, such as `tasmania-openstreetmap-contours` or `tasmania-maptiler-topo`.
+_Avoid_: using this term for prerendered static PNG output, treating it as the app-facing basemap label
+
+**Style-only static bake**:
+The maintainer workflow that rerenders static Tasmania `Local Topo` PNG tiles from existing rebuilt MBTiles inputs after a cartography-only change, without rebuilding upstream OSM, contour, or relief artifacts.
+_Avoid_: full rebuild, preview-only refresh when the static tile tree is the target
+
+**Prerender zoom range**:
+The zoom window used when generating static Tasmania `Local Topo` PNG tiles ahead of time.
+_Avoid_: preview zoom cap, style zoom cap
+
+**Contour cartography**:
+The committed style-layer presentation of contour data in Tasmania preview or `Local Topo` rendering, separate from the DEM-driven contour vector tile generation workflow.
+_Avoid_: contour generation, contour source build
+
+**50 m contour**:
+An emphasized intermediate contour line in Tasmania `Contour cartography`, visually distinct from minor contour lines and separate from the `100 m contour` tier.
+_Avoid_: treating this as a minor contour line or as the main index contour tier
+
+**100 m contour**:
+An emphasized index contour line in Tasmania `Contour cartography`, visually distinct from both `50 m contours` and minor contour lines.
+_Avoid_: treating this as the only emphasized contour tier when `50 m contours` are also in scope
+
+**Minor contour line**:
+Any contour line in Tasmania `Contour cartography` that is not a `50 m contour` or `100 m contour`.
+_Avoid_: using this term for either emphasized contour tier
+
+**Uphill-facing contour label**:
+An elevation label in Tasmania `Contour cartography` whose text orientation is rotated relative to its contour line so the top of the text points uphill.
+_Avoid_: downhill-facing label, viewport-upright contour label
 
 **Local tile server base URL**:
 The user-configured Settings value that points `Peak Bagger` at the root HTTP host for project-managed local topo basemap routes.
