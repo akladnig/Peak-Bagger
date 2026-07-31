@@ -2,7 +2,7 @@
 
 ## Current Behavior Baseline
 
-This artifact records the current interactive map `Route` drafting and editing behavior exactly as implemented today. The baseline below is reconciled against the current provider, widget, and robot seams in `test/providers/route_draft_state_test.dart`, `test/providers/map_provider_route_draft_hover_test.dart`, `test/widget/map_screen_route_hover_test.dart`, `test/widget/map_screen_route_sheet_test.dart`, `test/widget/map_screen_keyboard_test.dart`, and `test/robot/map/map_route_journey_test.dart`. Where older notes disagree, current code and those deterministic tests win.
+This artifact records the current interactive map `Route` drafting and editing behavior exactly as implemented today. The baseline below is reconciled against the current provider, widget, and robot seams in `test/providers/route_draft_state_test.dart`, `test/providers/map_provider_route_draft_hover_test.dart`, `test/providers/map_provider_selected_route_test.dart`, `test/widget/map_screen_route_hover_test.dart`, `test/widget/map_screen_route_sheet_test.dart`, `test/widget/map_screen_keyboard_test.dart`, `test/robot/map/map_route_journey_test.dart`, and `test/robot/map/route_info_journey_test.dart`. Where older notes disagree, current code and those deterministic tests win.
 
 ### Entry And Edit Handoff
 
@@ -12,8 +12,9 @@ This artifact records the current interactive map `Route` drafting and editing b
 - `Edit Route` starts from the selected-`Route` shared info panel `Edit Route` button.
 - Starting `Edit Route` immediately clears the selected `Route`, hides the shared info panel, and stores the saved `Route` id as `sourceRouteId` for later restore-on-cancel or restore-on-save behavior.
 - `Edit Route` rehydrates the draft from the saved `Route`: route name, colour, committed `Route path`, saved point elevations, saved distance and elevation summary, and the editable saved `Route point` set.
-- During `Edit Route`, visible editable `Route point`s are rebuilt from the saved start `Route point`, saved `Waypoint`s, and the saved end `Route point`. The full saved `Route path` still remains the committed geometry even when not every geometry vertex becomes a visible editable `Route point`.
-- If the saved `Route` ends in a peak-derived `Waypoint`, edit mode starts in `Route to Peak`. Otherwise it starts in `Snap to Trail`.
+- During `Edit Route`, visible editable `Route point`s are rebuilt from the saved start `Route point`, saved `Waypoint`s sorted by `sequence`, and the saved end `Route point` when the final saved `Waypoint` is not already at that same final coordinate. The full saved `Route path` still remains the committed geometry even when not every geometry vertex becomes a visible editable `Route point`.
+- Any saved, imported, or externally created `Route` with no persisted `Waypoint`s reopens with only start and end visible editable `Route point`s even if its saved `Route path` contains many interior geometry vertices.
+- Any saved `Route` with at least one peak-derived `Waypoint` seeds `routeDraftPeak` and edit mode starts in `Route to Peak`, even if that peak-derived `Waypoint` is not the final visible editable point. Otherwise edit mode starts in `Snap to Trail`.
 
 ### Draft State Model
 
@@ -61,6 +62,37 @@ This artifact records the current interactive map `Route` drafting and editing b
 - If saving an edit throws, the draft stays open, `isSavingRoute` is cleared, and the pending snackbar message starts with `Failed to save route:`.
 - If the source `Route` disappears during edit reconciliation or immediately before save, the app shows `Route is no longer available.`, closes the draft without restoring selection, and leaves the route info panel hidden.
 - If a selected `Route` disappears while it is only selected, the selected `Route` is cleared and the shared route info panel hides.
+
+### Saved Route Persistence, Import, And Rehydration Contract
+
+- Interactive route save writes a fresh `Route` object from the current draft state. It does not merge unchanged fields from the previous saved `Route`.
+- Current interactive save persists these fields from the draft or current save helpers: `id` (`sourceRouteId` when editing, otherwise a new id), trimmed `name`, `gpxRoute` from current committed points, `gpxRouteElevations` from fresh save-time point sampling, `routeWaypoints` from current visible draft control endpoints, `displayRoutePointsByZoom` rebuilt from the current committed polyline, `colour`, `distance2d`, `distance3d`, `ascent`, `descent`, `startElevation`, `endElevation`, `lowestElevation`, `highestElevation`, `estimatedTime`, `routeTimingSource`, `routeTimingProfileJson`, and `routeTimingSegmentKindsJson`.
+- Current interactive save does not preserve `desc` from the source `Route`. It falls back to the `Route` constructor default empty string.
+- Current interactive save does not preserve `walkingSpeedKmh` from the source `Route`, even when timing profile preservation or extension succeeds.
+- Current interactive edit save also resets `visible` to the `Route` constructor default `true`, so saving edits to a hidden route makes that route saved as visible again.
+- Save-time `routeWaypoints` are rebuilt only from visible draft control endpoints after the first visible point. Hidden projected-anchor points are skipped, and a duplicated final return-to-start endpoint is skipped for closed loops.
+- Save-time peak-derived `Waypoint`s persist the current peak target label plus `peakOsmId` and `peakName`.
+- Save-time non-peak visible control endpoints persist as generic `Waypoint 1`, `Waypoint 2`, and so on, with 1-based `sequence` ordering assigned from the current visible save order.
+- Draft-only state is not persisted. That includes current draft stage and mode, provisional geometry, hover preview state, visible marker numbering, undo and redo history, save and routing flags, validation and error state, selected and source route ids, and peak-target lock state.
+- GPX route import enriches routes before their first save into app storage: `distance2d` is recomputed from geometry, sampled point elevations override file elevations where available, 3D summary tries DEM sampling first and falls back to file-elevation-derived summary second, and timing is preserved from imported timestamps when present or otherwise recalculated from geometry using `Naismith`.
+- Once an imported or externally created route already exists in app storage, later `Edit Route` uses the same rehydration rules as any other saved route: `gpxRoute` remains the committed geometry, only saved `RouteWaypoint`s plus start and end become visible editable control points again, and any later interactive save rebuilds route waypoints and timing metadata from the current draft instead of preserving every original saved field unchanged.
+
+### Derived Metadata, Elevation, And Timing Contract
+
+- Any committed-geometry change with at least 2 committed points starts a new elevation request, clears the previous elevation summary, increments `routeDraftElevationRequestId` and `routeDraftGeometryVersion`, sets `routeDraftElevationLoading = true`, clears any previous elevation error, and clears the current draft point-elevation list.
+- Draft elevation recomputation samples per-point elevations first and updates `routeDraftPointElevations` when that request is still current, then requests the full `RouteElevationSummary`.
+- Stale point-elevation or summary results whose `requestId` or `geometryVersion` no longer match the active draft are ignored.
+- If summary sampling succeeds, the draft stores that `RouteElevationSummary` and clears the loading and error state.
+- If summary sampling throws `RouteElevationSamplingException`, the draft clears the elevation summary and shows the exact exception message.
+- If summary sampling throws `GdalException`, the draft logs the failure and shows `Tasmania elevation data is unavailable on this device`.
+- If summary sampling throws any other error, the draft clears the elevation summary and shows `Failed to sample elevation: <error>`.
+- When committed geometry drops below 2 points, the draft clears elevation summary, point elevations, and elevation error instead of retaining stale derived metadata.
+- Save-time 3D distance and elevation-summary fields are taken from the current draft summary only when that summary is non-null, not still loading, and exactly matches the active `routeDraftElevationRequestId` and `routeDraftGeometryVersion`. Otherwise the saved route falls back to zeros for `distance3d`, `ascent`, `descent`, `startElevation`, `endElevation`, `lowestElevation`, and `highestElevation`.
+- Save-time per-point elevations are always sampled again from the current committed geometry and rounded to ints. If that save-time sampling throws, every saved point elevation becomes `null`.
+- Edit-mode rehydration seeds draft `distance2d`, saved point elevations, and saved 3D elevation summary from the saved route snapshot immediately, then later committed-geometry changes replace that snapshot through the live resampling path.
+- When editing a saved route, timing preservation only runs if the source route still has both `estimatedTime` and `routeTimingProfileJson`. Otherwise save recalculates timing from the current geometry using `Naismith`.
+- Current edit-save segment provenance resolution uses stored `routeTimingSegmentKindsJson` when it matches the source segment count. When it does not, current code synthesizes all-manual segment kinds for `naismith`, all-preserved segment kinds for `verified-walk`, and all-preserved segment kinds when the source timing source is `null`. Other mismatches fall back to a full geometry-based timing recalculation.
+- When source timing data is present, current edit save first tries to extend the stored timing profile and stored segment-provenance data across the edited geometry. If the combined profile length stays unchanged, the saved route keeps the previous timing source. If the geometry grows and extension succeeds, the saved route switches to `extended-route`. If profile extension or segment-kind reconciliation fails, current save falls back to a full geometry-based `Naismith` recalculation.
 
 ### Route Point Classes And Current Meanings
 
@@ -140,7 +172,7 @@ This artifact records the current interactive map `Route` drafting and editing b
 
 #### Snap To Trail
 
-- `Snap to Trail` is the default mode for a new draft unless edit-mode hydration starts in `Route to Peak` from a saved peak-derived terminal `Waypoint`.
+- `Snap to Trail` is the default mode for a new draft unless edit-mode hydration starts in `Route to Peak` because the saved route has at least one peak-derived `Waypoint`.
 - `Snap to Trail` is selectable whenever the draft is not currently in `routingSegment`.
 - Successful planner output uses the routed geometry and current endpoint anchors returned by the route planner.
 - For ordinary `Snap to Trail` segment creation, current off-track and no-path results are treated as usable completion paths. The draft keeps going in `awaitingNextPoint` with fallback geometry instead of surfacing an inline route error.
@@ -173,7 +205,31 @@ This artifact records the current interactive map `Route` drafting and editing b
 ## Implementation Inconsistencies
 
 - When the app saves unnamed intermediate draft `Route point`s, it persists them as generic saved `Waypoint`s labelled `Waypoint 1`, `Waypoint 2`, and so on. That conflicts with the glossary distinction where a `Numbered route point` is draft-only and a `Waypoint` is meant for a meaningful saved named stop.
+- `ai_specs/routes/route_bottom-sheet-spec.md` still describes route save as placeholder-only with temporary discarded markers and no persistence backend. Current implementation persists routes, elevations, timing metadata, display cache data, and saved route-waypoint metadata.
+- `ai_specs/routes/route-edit-spec.md` says edit rehydration should seed all saved geometry points as editable control endpoints and preserve non-editable saved route metadata unless the user changes it. Current implementation rehydrates only start plus saved `Waypoint`s plus end as visible editable control points, and interactive save rebuild resets at least `desc`, `visible`, and `walkingSpeedKmh` instead of preserving them.
+- `ai_specs/routes/route-out-and-back-spec.md` and `ai_specs/routes/route-loop-spec.md` describe turnaround and loop waypoint handling as authoritative from the final committed geometry or as not requiring persistence changes. Current implementation recomputes saved `Waypoint`s only from visible control endpoints at save time, skips the duplicated final return-to-start endpoint, and still persists a generic saved `Waypoint 1` for non-peak turnaround and loop drafts.
 
 ## Proposed Rule Changes
 
-Reserved for later work.
+- Add Save As functionality which requires duplicate name checking
+- Lines 70 & 71: The `desc` and `walkingSpeedKmh` from the source `Route` are to be preserved
+- Line 75 - During save generic waypoints are not to persist
+- Line 78 - All waypoints are to become editable - but do not need specific markers nor do they need to become visible editable control points. However, it should be possible to select any point and apply any of the current actions such as delete, move etc.
+- Line 82 - Elevation requests should only be made if dem is available for the region in question
+- On Route Save - Lat/Long is to be saved to 6 decimal places only
+- Line 102 - Add an icon for a named waypoint Icons.location-pin. Clicking on a point brings up the popup menu, with a new option "Create Waypoint" to sit above "Delete".
+- Line 107 - Do not save generic waypoints
+- Line 119 - Duplicate handling to be changed to be a no-op
+- Line 120 - Instead of an error, change the display marker so that it is number mod 100, and internally the numbers keep incrementing.
+- Line 125 - does it really clear all markers? I need to manually confirm this.
+- Line 146 - During route drafting the Hover marker should move along the elevation profile as per the current behaviour in the track/route info popup.
+- Line 151 - As per Line 102 comments above.
+- Line 154 - Remove Ctrl+Z and Ctrl+Shift+Z shortcuts - they are Windows specific and this is macOS only.
+- Line 201 - Change it so that it first attempts to find the closest track and route along the track back to the start and falls back to a direct straight line closing segment.
+- Line 207 - Generic waypoints are for route draft and should be saved as a plain route point. This change of behaviour will need to be implemented.
+- Line 208 - Update the spec to reflect the current state
+- Line 209 - The route-edit-spec is correct, the implementation to be updated to this.
+- Line 210 - discuss
+
+## New Functionality
+- When clicking and dragging any route point that is currently on a trail, to a new trail, the autorouting should re-route via the new route point. 
