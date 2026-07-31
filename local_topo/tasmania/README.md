@@ -109,9 +109,12 @@ The richer style now uses committed `Roboto Regular` glyph assets for labels whi
 
 ## Cartography Review
 
-Run each localized MapTiler preview style in preview mode, capture the representative review tiles, and compare them against the committed variant-scoped expectations:
+Use the supported manual contour-cartography verification path through `tasmania-openstreetmap-contours-martin`, then compare the saved zoom `12` and zoom `13` terrain tiles against the committed expectations:
 
 ```bash
+LOCAL_TOPO_STYLE=tasmania-openstreetmap-contours-martin npm run stack:up:preview
+npm run review:cartography -- --style-id=tasmania-openstreetmap-contours-martin
+
 LOCAL_TOPO_STYLE=tasmania-maptiler-topo npm run stack:up:preview
 npm run review:cartography -- --style-id=tasmania-maptiler-topo
 
@@ -119,6 +122,8 @@ LOCAL_TOPO_STYLE=tasmania-maptiler-outdoor npm run stack:up:preview
 npm run review:cartography -- --style-id=tasmania-maptiler-outdoor
 ```
 
-The review fixture is keyed by preview style id and saves each run under `runtime/review/cartography/<styleId>/` so `tasmania-maptiler-topo` and `tasmania-maptiler-outdoor` captures do not overwrite one another.
+For `tasmania-openstreetmap-contours-martin`, the review checks that zoom `12` shows the emphasized `50 m contour` and `100 m contour` tiers without `minor contour line` noise, and that zoom `13` adds the delayed `minor contour line` mesh plus `50 m` and `100 m` contour labels that follow line direction instead of staying screen-upright.
 
-The printed guidance includes variant-specific notes for the representative low-, mid-, and high-zoom Tasmania tiles. Use those notes to confirm each preview still reads as a close visual port of MapTiler `Topo` or `Outdoor` while remaining a source-limited Tasmania-local style.
+The review fixture is keyed by preview style id and saves each run under `runtime/review/cartography/<styleId>/` so `tasmania-openstreetmap-contours-martin`, `tasmania-maptiler-topo`, and `tasmania-maptiler-outdoor` captures do not overwrite one another.
+
+The printed guidance includes variant-specific notes for the representative Tasmania tiles. Use those notes to confirm the supported Martin path still matches the contour-tier requirements, and that the localized MapTiler previews still read as close visual ports of MapTiler `Topo` or `Outdoor` while remaining source-limited Tasmania-local styles.

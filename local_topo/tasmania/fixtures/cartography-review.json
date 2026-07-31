@@ -92,6 +92,36 @@
           ]
         }
       ]
+    },
+    "tasmania-openstreetmap-contours-martin": {
+      "variantExpectations": [
+        "acts as the supported manual contour-cartography verification path for Tasmania Local Topo preview work",
+        "keeps the committed OpenStreetMap comparison style aligned with the canonical 50 m and 100 m contour-tier behavior"
+      ],
+      "tiles": [
+        {
+          "slug": "zoom-12-lake-st-clair-contours",
+          "z": 12,
+          "x": 3711,
+          "y": 2577,
+          "expectations": [
+            "50 m contour and 100 m contour tiers are both visible and the 100 m contour reads as the stronger emphasized line",
+            "minor contour line styling is still delayed and does not yet appear at this zoom",
+            "the tile reads as terrain-first contour cartography rather than a dense minor-contour mesh"
+          ]
+        },
+        {
+          "slug": "zoom-13-lake-st-clair-contours",
+          "z": 13,
+          "x": 7422,
+          "y": 5154,
+          "expectations": [
+            "50 m contour and 100 m contour labels are both present using the existing '<elev> m' format",
+            "minor contour line styling is now visible behind the emphasized 50 m contour and 100 m contour tiers",
+            "contour labels follow line direction instead of flipping to stay viewport-upright"
+          ]
+        }
+      ]
     }
   }
 }
