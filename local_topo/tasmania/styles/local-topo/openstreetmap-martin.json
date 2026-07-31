@@ -1508,7 +1508,7 @@
       "type": "line",
       "source": "openmaptiles-landcover",
       "source-layer": "landcover",
-      "minzoom": 15,
+      "minzoom": 12,
       "filter": [
         "all",
         [
@@ -3311,7 +3311,7 @@
       "metadata": {},
       "source": "openmaptiles",
       "source-layer": "transportation",
-      "minzoom": 15,
+      "minzoom": 12,
       "filter": [
         "all",
         [
@@ -3484,7 +3484,10 @@
         [
           "in",
           "class",
-          "minor"
+          "minor",
+          "unclassified",
+          "street",
+          "street_limited"
         ]
       ],
       "layout": {
@@ -4582,6 +4585,894 @@
       }
     },
     {
+      "id": "Cablecar",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "minzoom": 13,
+      "filter": [
+        "==",
+        "class",
+        "aerialway"
+      ],
+      "layout": {
+        "line-cap": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "hsl(0, 0%, 50%)",
+        "line-width": {
+          "base": 1,
+          "stops": [
+            [
+              11,
+              1
+            ],
+            [
+              19,
+              2.5
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "Cablecar dash",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "transportation",
+      "minzoom": 13,
+      "filter": [
+        "==",
+        "class",
+        "aerialway"
+      ],
+      "layout": {
+        "line-cap": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "hsl(0, 0%, 26%)",
+        "line-dasharray": [
+          0.5,
+          10
+        ],
+        "line-width": {
+          "base": 1,
+          "stops": [
+            [
+              11,
+              1
+            ],
+            [
+              19,
+              3
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "Other border",
+      "type": "line",
+      "metadata": {},
+      "source": "openmaptiles",
+      "source-layer": "boundary",
+      "minzoom": 3,
+      "filter": [
+        "all",
+        [
+          "in",
+          "admin_level",
+          3,
+          4
+        ],
+        [
+          "==",
+          "maritime",
+          0
+        ]
+      ],
+      "layout": {
+        "line-join": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "hsl(301, 23%, 42%)",
+        "line-dasharray": [
+          5,
+          3
+        ],
+        "line-opacity": {
+          "stops": [
+            [
+              3,
+              0.5
+            ],
+            [
+              10,
+              1
+            ]
+          ]
+        },
+        "line-width": {
+          "base": 1,
+          "stops": [
+            [
+              4,
+              0.4
+            ],
+            [
+              5,
+              0.7
+            ],
+            [
+              12,
+              1.6
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "Country border",
+      "type": "line",
+      "metadata": {},
+      "source": "openmaptiles",
+      "source-layer": "boundary",
+      "minzoom": 0,
+      "filter": [
+        "all",
+        [
+          "==",
+          "admin_level",
+          2
+        ],
+        [
+          "==",
+          "disputed",
+          0
+        ]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "hsl(303, 17%, 56%)",
+        "line-opacity": 1,
+        "line-width": {
+          "base": 1,
+          "stops": [
+            [
+              3,
+              0.5
+            ],
+            [
+              5,
+              1.2
+            ],
+            [
+              12,
+              3
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "Disputed border",
+      "type": "line",
+      "metadata": {},
+      "source": "openmaptiles",
+      "source-layer": "boundary",
+      "minzoom": 0,
+      "filter": [
+        "all",
+        [
+          "==",
+          "admin_level",
+          2
+        ],
+        [
+          "==",
+          "disputed",
+          1
+        ]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "hsl(246, 17%, 56%)",
+        "line-dasharray": [
+          4,
+          3
+        ],
+        "line-opacity": 1,
+        "line-width": {
+          "base": 1,
+          "stops": [
+            [
+              3,
+              0.5
+            ],
+            [
+              5,
+              1.2
+            ],
+            [
+              12,
+              3
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "Contours",
+      "type": "line",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 12,
+      "filter": [
+        "all",
+        [
+          "!=",
+          [
+            "%",
+            [
+              "to-number",
+              [
+                "get",
+                "elev"
+              ]
+            ],
+            100
+          ],
+          0
+        ],
+        [
+          "!=",
+          [
+            "%",
+            [
+              "to-number",
+              [
+                "get",
+                "elev"
+              ]
+            ],
+            100
+          ],
+          50
+        ]
+      ],
+      "paint": {
+        "line-color": "#8a7358",
+        "line-opacity": {
+          "stops": [
+            [
+              14,
+              0.42
+            ],
+            [
+              16,
+              0.55
+            ]
+          ]
+        },
+        "line-width": {
+          "stops": [
+            [
+              14,
+              0.5
+            ],
+            [
+              16,
+              0.75
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "Contours intermediate 50m",
+      "type": "line",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 11,
+      "filter": [
+        "==",
+        [
+          "%",
+          [
+            "to-number",
+            [
+              "get",
+              "elev"
+            ]
+          ],
+          100
+        ],
+        50
+      ],
+      "paint": {
+        "line-color": "#7c6547",
+        "line-opacity": {
+          "stops": [
+            [
+              13,
+              0.36
+            ],
+            [
+              14,
+              0.46
+            ],
+            [
+              16,
+              0.56
+            ]
+          ]
+        },
+        "line-width": {
+          "stops": [
+            [
+              13,
+              0.55
+            ],
+            [
+              14,
+              0.7
+            ],
+            [
+              16,
+              0.85
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "Contours index 100m",
+      "type": "line",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 11,
+      "filter": [
+        "==",
+        [
+          "%",
+          [
+            "to-number",
+            [
+              "get",
+              "elev"
+            ]
+          ],
+          100
+        ],
+        0
+      ],
+      "paint": {
+        "line-color": "#6b5337",
+        "line-opacity": {
+          "stops": [
+            [
+              12,
+              0.48
+            ],
+            [
+              14,
+              0.62
+            ],
+            [
+              16,
+              0.75
+            ]
+          ]
+        },
+        "line-width": {
+          "stops": [
+            [
+              12,
+              0.95
+            ],
+            [
+              14,
+              1.2
+            ],
+            [
+              16,
+              1.5
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "River tunnel",
+      "type": "line",
+      "source": "openmaptiles-water",
+      "source-layer": "waterway",
+      "minzoom": 14,
+      "filter": [
+        "all",
+        [
+          "==",
+          "brunnel",
+          "tunnel"
+        ]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "hsl(200, 78%, 78%)",
+        "line-opacity": 1,
+        "line-dasharray": [
+          2,
+          4
+        ],
+        "line-width": {
+          "base": 1.3,
+          "stops": [
+            [
+              13,
+              1.2
+            ],
+            [
+              20,
+              9.5
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "River",
+      "type": "line",
+      "metadata": {},
+      "source": "openmaptiles-water",
+      "source-layer": "waterway",
+      "filter": [
+        "all",
+        [
+          "==",
+          "class",
+          "river"
+        ],
+        [
+          "!=",
+          "brunnel",
+          "tunnel"
+        ],
+        [
+          "!=",
+          "intermittent",
+          1
+        ]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "hsl(200, 78%, 78%)",
+        "line-opacity": 1,
+        "line-width": {
+          "base": 1.2,
+          "stops": [
+            [
+              11,
+              1.2
+            ],
+            [
+              20,
+              28
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "River intermittent",
+      "type": "line",
+      "metadata": {},
+      "source": "openmaptiles-water",
+      "source-layer": "waterway",
+      "filter": [
+        "all",
+        [
+          "==",
+          "class",
+          "river"
+        ],
+        [
+          "!=",
+          "brunnel",
+          "tunnel"
+        ],
+        [
+          "==",
+          "intermittent",
+          1
+        ]
+      ],
+      "layout": {
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "hsl(200, 78%, 78%)",
+        "line-opacity": 1,
+        "line-dasharray": [
+          3,
+          2
+        ],
+        "line-width": {
+          "base": 1.2,
+          "stops": [
+            [
+              11,
+              1.2
+            ],
+            [
+              20,
+              28
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "Other waterway",
+      "type": "line",
+      "metadata": {},
+      "source": "openmaptiles-water",
+      "source-layer": "waterway",
+      "filter": [
+        "all",
+        [
+          "!=",
+          "class",
+          "river"
+        ],
+        [
+          "!=",
+          "brunnel",
+          "tunnel"
+        ],
+        [
+          "!=",
+          "intermittent",
+          1
+        ]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "hsl(200, 78%, 78%)",
+        "line-opacity": 1,
+        "line-width": {
+          "base": 1.3,
+          "stops": [
+            [
+              13,
+              2
+            ],
+            [
+              20,
+              18
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "Other waterway intermittent",
+      "type": "line",
+      "metadata": {},
+      "source": "openmaptiles-water",
+      "source-layer": "waterway",
+      "filter": [
+        "all",
+        [
+          "!=",
+          "class",
+          "river"
+        ],
+        [
+          "!=",
+          "brunnel",
+          "tunnel"
+        ],
+        [
+          "==",
+          "intermittent",
+          1
+        ]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "hsl(200, 78%, 78%)",
+        "line-opacity": 1,
+        "line-dasharray": [
+          4,
+          3
+        ],
+        "line-width": {
+          "base": 1.3,
+          "stops": [
+            [
+              13,
+              2
+            ],
+            [
+              20,
+              18
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "Contour labels 50m",
+      "type": "symbol",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 13,
+      "filter": [
+        "==",
+        [
+          "%",
+          [
+            "to-number",
+            [
+              "get",
+              "elev"
+            ]
+          ],
+          100
+        ],
+        50
+      ],
+      "layout": {
+        "symbol-placement": "line",
+        "symbol-spacing": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          360,
+          14,
+          410,
+          15,
+          480,
+          16,
+          560,
+          17,
+          650
+        ],
+        "text-rotate": 0,
+        "text-keep-upright": true,
+        "text-field": [
+          "concat",
+          [
+            "to-string",
+            [
+              "get",
+              "elev"
+            ]
+          ],
+          " m"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-size": {
+          "stops": [
+            [
+              13,
+              11
+            ],
+            [
+              14,
+              11
+            ],
+            [
+              15,
+              11
+            ],
+            [
+              16,
+              11
+            ],
+            [
+              17,
+              11
+            ],
+            [
+              18,
+              11
+            ]
+          ]
+        },
+        "visibility": "visible"
+      },
+      "paint": {
+        "text-color": "#7c6547",
+        "text-halo-color": "rgba(245, 240, 228, 0.9)",
+        "text-halo-width": 1.1
+      }
+    },
+    {
+      "id": "Contour labels 100m",
+      "type": "symbol",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 13,
+      "filter": [
+        "==",
+        [
+          "%",
+          [
+            "to-number",
+            [
+              "get",
+              "elev"
+            ]
+          ],
+          100
+        ],
+        0
+      ],
+      "layout": {
+        "symbol-placement": "line",
+        "symbol-spacing": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          13,
+          360,
+          14,
+          410,
+          15,
+          480,
+          16,
+          560,
+          17,
+          650
+        ],
+        "text-rotate": 0,
+        "text-keep-upright": true,
+        "text-field": [
+          "concat",
+          [
+            "to-string",
+            [
+              "get",
+              "elev"
+            ]
+          ],
+          " m"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-size": {
+          "stops": [
+            [
+              13,
+              11
+            ],
+            [
+              14,
+              11
+            ],
+            [
+              15,
+              11
+            ],
+            [
+              16,
+              11
+            ],
+            [
+              17,
+              11
+            ],
+            [
+              18,
+              11
+            ]
+          ]
+        },
+        "visibility": "visible"
+      },
+      "paint": {
+        "text-color": "#6b5337",
+        "text-halo-color": "rgba(245, 240, 228, 0.9)",
+        "text-halo-width": 1.1
+      }
+    },
+    {
+      "id": "Standing water mask intermittent",
+      "type": "fill",
+      "metadata": {},
+      "source": "openmaptiles-water",
+      "source-layer": "water",
+      "filter": [
+        "all",
+        [
+          "in",
+          "class",
+          "lake",
+          "pond"
+        ],
+        [
+          "==",
+          "intermittent",
+          1
+        ]
+      ],
+      "layout": {
+        "visibility": "visible"
+      },
+      "paint": {
+        "fill-color": "hsl(205, 91%, 83%)",
+        "fill-opacity": 0.85
+      }
+    },
+    {
+      "id": "Standing water mask",
+      "type": "fill",
+      "metadata": {},
+      "source": "openmaptiles-water",
+      "source-layer": "water",
+      "filter": [
+        "all",
+        [
+          "in",
+          "class",
+          "lake",
+          "pond"
+        ],
+        [
+          "!=",
+          "intermittent",
+          1
+        ],
+        [
+          "!=",
+          "brunnel",
+          "tunnel"
+        ]
+      ],
+      "layout": {
+        "visibility": "visible"
+      },
+      "paint": {
+        "fill-color": "hsl(194, 45%, 77%)"
+      }
+    },
+    {
       "id": "Service road outline",
       "type": "line",
       "metadata": {},
@@ -4607,7 +5498,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "hsl(0, 0%, 73%)",
+        "line-color": "hsl(32, 22%, 52%)",
         "line-width": [
           "interpolate",
           [
@@ -4650,9 +5541,32 @@
           "tunnel"
         ],
         [
-          "in",
-          "class",
-          "track"
+          "any",
+          [
+            "in",
+            "class",
+            "track"
+          ],
+          [
+            "all",
+            [
+              "in",
+              "class",
+              "minor",
+              "unclassified",
+              "street",
+              "street_limited"
+            ],
+            [
+              "in",
+              "surface",
+              "gravel",
+              "fine_gravel",
+              "unpaved",
+              "dirt",
+              "earth"
+            ]
+          ]
         ]
       ],
       "layout": {
@@ -4664,11 +5578,11 @@
           "stops": [
             [
               11,
-              "hsla(0, 0%, 100%, 0.5)"
+              "hsla(0, 0%, 100%, 0.0)"
             ],
             [
               22,
-              "hsla(0, 0%, 100%, 0.7)"
+              "hsla(0, 0%, 100%, 0.0)"
             ]
           ]
         },
@@ -4682,19 +5596,19 @@
             "zoom"
           ],
           13,
-          2,
+          3,
           14,
-          2.3,
+          3.2,
           15,
-          2.45,
+          4.50,
           16,
-          2.85,
+          3.90,
           17,
-          3.1,
+          4.4,
           18,
-          3.4,
+          5.0,
           19,
-          3.7
+          5.6
         ]
       }
     },
@@ -5079,7 +5993,10 @@
         [
           "in",
           "class",
-          "minor"
+          "minor",
+          "unclassified",
+          "street",
+          "street_limited"
         ],
         [
           "!=",
@@ -5093,7 +6010,7 @@
         "visibility": "visible"
       },
       "paint": {
-        "line-color": "hsl(0, 0%, 73%)",
+        "line-color": "hsl(32, 22%, 52%)",
         "line-opacity": {
           "stops": [
             [
@@ -5879,7 +6796,7 @@
       "metadata": {},
       "source": "openmaptiles",
       "source-layer": "transportation",
-      "minzoom": 15,
+      "minzoom": 12,
       "filter": [
         "all",
         [
@@ -5922,27 +6839,30 @@
       "paint": {
         "line-color": "rgba(255, 255, 255, 1)",
         "line-opacity": 0.6,
-        "line-width": {
-          "base": 1.2,
-          "stops": [
-            [
-              14,
-              5.4
-            ],
-            [
-              15,
-              5.6
-            ],
-            [
-              17,
-              6.6
-            ],
-            [
-              18,
-              7.2
-            ]
-          ]
-        },
+        "line-width": [
+          "interpolate",
+          [
+            "exponential",
+            1.1
+          ],
+          [
+            "zoom"
+          ],
+          12,
+          4.4,
+          13,
+          4.9,
+          14,
+          5.4,
+          15,
+          5.6,
+          16,
+          6.1,
+          17,
+          6.6,
+          18,
+          7.2
+        ],
         "line-translate-anchor": "map"
       }
     },
@@ -6208,34 +7128,33 @@
       "paint": {
         "line-color": "rgba(0, 0, 0, 1)",
         "line-dasharray": [
-          4,
-          2
+          8,
+          4
         ],
-        "line-width": {
-          "base": 1.2,
-          "stops": [
-            [
-              13,
-              0.6
-            ],
-            [
-              14,
-              1
-            ],
-            [
-              15,
-              1.3
-            ],
-            [
-              17,
-              1.3
-            ],
-            [
-              18,
-              1.6
-            ]
-          ]
-        }
+        "line-width": [
+          "interpolate",
+          [
+            "exponential",
+            1.1
+          ],
+          [
+            "zoom"
+          ],
+          12,
+          0.4,
+          13,
+          0.6,
+          14,
+          1,
+          15,
+          1.3,
+          16,
+          1.3,
+          17,
+          1.3,
+          18,
+          1.6
+        ]
       }
     },
     {
@@ -6663,9 +7582,32 @@
           "tunnel"
         ],
         [
-          "in",
-          "class",
-          "track"
+          "any",
+          [
+            "in",
+            "class",
+            "track"
+          ],
+          [
+            "all",
+            [
+              "in",
+              "class",
+              "minor",
+              "unclassified",
+              "street",
+              "street_limited"
+            ],
+            [
+              "in",
+              "surface",
+              "gravel",
+              "fine_gravel",
+              "unpaved",
+              "dirt",
+              "earth"
+            ]
+          ]
         ]
       ],
       "layout": {
@@ -6677,17 +7619,17 @@
           "stops": [
             [
               12,
-              "hsla(42, 61%, 41%, 0.5)"
+              "hsl(33, 100%, 50%)"
             ],
             [
               16,
-              "hsl(42, 61%, 41%)"
+              "hsl(33, 100%, 50%)"
             ]
           ]
         },
         "line-dasharray": [
-          3,
-          2.5
+          6,
+          3
         ],
         "line-width": [
           "interpolate",
@@ -6915,11 +7857,11 @@
           "stops": [
             [
               12,
-              "hsl(0, 0%, 83%)"
+              "hsl(35, 38%, 78%)"
             ],
             [
               13,
-              "hsl(0, 0%, 100%)"
+              "hsl(42, 55%, 92%)"
             ]
           ]
         },
@@ -6975,9 +7917,12 @@
           "tunnel"
         ],
         [
-          "==",
+          "in",
           "class",
-          "minor"
+          "minor",
+          "unclassified",
+          "street",
+          "street_limited"
         ]
       ],
       "layout": {
@@ -6990,11 +7935,11 @@
           "stops": [
             [
               12,
-              "hsl(0, 0%, 83%)"
+              "hsl(0, 100%, 100%)"
             ],
             [
               13,
-              "hsl(0, 0%, 100%)"
+              "hsl(0, 100%, 100%)"
             ]
           ]
         },
@@ -9735,7 +10680,10 @@
         [
           "in",
           "class",
-          "minor"
+          "minor",
+          "unclassified",
+          "street",
+          "street_limited"
         ]
       ],
       "layout": {
@@ -10737,894 +11685,6 @@
             ]
           ]
         }
-      }
-    },
-    {
-      "id": "Cablecar",
-      "type": "line",
-      "source": "openmaptiles",
-      "source-layer": "transportation",
-      "minzoom": 13,
-      "filter": [
-        "==",
-        "class",
-        "aerialway"
-      ],
-      "layout": {
-        "line-cap": "round",
-        "visibility": "visible"
-      },
-      "paint": {
-        "line-color": "hsl(0, 0%, 50%)",
-        "line-width": {
-          "base": 1,
-          "stops": [
-            [
-              11,
-              1
-            ],
-            [
-              19,
-              2.5
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "Cablecar dash",
-      "type": "line",
-      "source": "openmaptiles",
-      "source-layer": "transportation",
-      "minzoom": 13,
-      "filter": [
-        "==",
-        "class",
-        "aerialway"
-      ],
-      "layout": {
-        "line-cap": "round",
-        "visibility": "visible"
-      },
-      "paint": {
-        "line-color": "hsl(0, 0%, 26%)",
-        "line-dasharray": [
-          0.5,
-          10
-        ],
-        "line-width": {
-          "base": 1,
-          "stops": [
-            [
-              11,
-              1
-            ],
-            [
-              19,
-              3
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "Other border",
-      "type": "line",
-      "metadata": {},
-      "source": "openmaptiles",
-      "source-layer": "boundary",
-      "minzoom": 3,
-      "filter": [
-        "all",
-        [
-          "in",
-          "admin_level",
-          3,
-          4
-        ],
-        [
-          "==",
-          "maritime",
-          0
-        ]
-      ],
-      "layout": {
-        "line-join": "round",
-        "visibility": "visible"
-      },
-      "paint": {
-        "line-color": "hsl(301, 23%, 42%)",
-        "line-dasharray": [
-          5,
-          3
-        ],
-        "line-opacity": {
-          "stops": [
-            [
-              3,
-              0.5
-            ],
-            [
-              10,
-              1
-            ]
-          ]
-        },
-        "line-width": {
-          "base": 1,
-          "stops": [
-            [
-              4,
-              0.4
-            ],
-            [
-              5,
-              0.7
-            ],
-            [
-              12,
-              1.6
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "Country border",
-      "type": "line",
-      "metadata": {},
-      "source": "openmaptiles",
-      "source-layer": "boundary",
-      "minzoom": 0,
-      "filter": [
-        "all",
-        [
-          "==",
-          "admin_level",
-          2
-        ],
-        [
-          "==",
-          "disputed",
-          0
-        ]
-      ],
-      "layout": {
-        "line-cap": "round",
-        "line-join": "round",
-        "visibility": "visible"
-      },
-      "paint": {
-        "line-color": "hsl(303, 17%, 56%)",
-        "line-opacity": 1,
-        "line-width": {
-          "base": 1,
-          "stops": [
-            [
-              3,
-              0.5
-            ],
-            [
-              5,
-              1.2
-            ],
-            [
-              12,
-              3
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "Disputed border",
-      "type": "line",
-      "metadata": {},
-      "source": "openmaptiles",
-      "source-layer": "boundary",
-      "minzoom": 0,
-      "filter": [
-        "all",
-        [
-          "==",
-          "admin_level",
-          2
-        ],
-        [
-          "==",
-          "disputed",
-          1
-        ]
-      ],
-      "layout": {
-        "line-cap": "round",
-        "line-join": "round",
-        "visibility": "visible"
-      },
-      "paint": {
-        "line-color": "hsl(246, 17%, 56%)",
-        "line-dasharray": [
-          4,
-          3
-        ],
-        "line-opacity": 1,
-        "line-width": {
-          "base": 1,
-          "stops": [
-            [
-              3,
-              0.5
-            ],
-            [
-              5,
-              1.2
-            ],
-            [
-              12,
-              3
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "Contours",
-      "type": "line",
-      "source": "tasmania-contours",
-      "source-layer": "contours",
-      "minzoom": 12,
-      "filter": [
-        "all",
-        [
-          "!=",
-          [
-            "%",
-            [
-              "to-number",
-              [
-                "get",
-                "elev"
-              ]
-            ],
-            100
-          ],
-          0
-        ],
-        [
-          "!=",
-          [
-            "%",
-            [
-              "to-number",
-              [
-                "get",
-                "elev"
-              ]
-            ],
-            100
-          ],
-          50
-        ]
-      ],
-      "paint": {
-        "line-color": "#8a7358",
-        "line-opacity": {
-          "stops": [
-            [
-              14,
-              0.42
-            ],
-            [
-              16,
-              0.55
-            ]
-          ]
-        },
-        "line-width": {
-          "stops": [
-            [
-              14,
-              0.5
-            ],
-            [
-              16,
-              0.75
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "Contours intermediate 50m",
-      "type": "line",
-      "source": "tasmania-contours",
-      "source-layer": "contours",
-      "minzoom": 11,
-      "filter": [
-        "==",
-        [
-          "%",
-          [
-            "to-number",
-            [
-              "get",
-              "elev"
-            ]
-          ],
-          100
-        ],
-        50
-      ],
-      "paint": {
-        "line-color": "#7c6547",
-        "line-opacity": {
-          "stops": [
-            [
-              13,
-              0.36
-            ],
-            [
-              14,
-              0.46
-            ],
-            [
-              16,
-              0.56
-            ]
-          ]
-        },
-        "line-width": {
-          "stops": [
-            [
-              13,
-              0.55
-            ],
-            [
-              14,
-              0.7
-            ],
-            [
-              16,
-              0.85
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "Contours index 100m",
-      "type": "line",
-      "source": "tasmania-contours",
-      "source-layer": "contours",
-      "minzoom": 11,
-      "filter": [
-        "==",
-        [
-          "%",
-          [
-            "to-number",
-            [
-              "get",
-              "elev"
-            ]
-          ],
-          100
-        ],
-        0
-      ],
-      "paint": {
-        "line-color": "#6b5337",
-        "line-opacity": {
-          "stops": [
-            [
-              12,
-              0.48
-            ],
-            [
-              14,
-              0.62
-            ],
-            [
-              16,
-              0.75
-            ]
-          ]
-        },
-        "line-width": {
-          "stops": [
-            [
-              12,
-              0.95
-            ],
-            [
-              14,
-              1.2
-            ],
-            [
-              16,
-              1.5
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "River tunnel",
-      "type": "line",
-      "source": "openmaptiles-water",
-      "source-layer": "waterway",
-      "minzoom": 14,
-      "filter": [
-        "all",
-        [
-          "==",
-          "brunnel",
-          "tunnel"
-        ]
-      ],
-      "layout": {
-        "line-cap": "round",
-        "visibility": "visible"
-      },
-      "paint": {
-        "line-color": "hsl(200, 78%, 78%)",
-        "line-opacity": 1,
-        "line-dasharray": [
-          2,
-          4
-        ],
-        "line-width": {
-          "base": 1.3,
-          "stops": [
-            [
-              13,
-              1.2
-            ],
-            [
-              20,
-              9.5
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "River",
-      "type": "line",
-      "metadata": {},
-      "source": "openmaptiles-water",
-      "source-layer": "waterway",
-      "filter": [
-        "all",
-        [
-          "==",
-          "class",
-          "river"
-        ],
-        [
-          "!=",
-          "brunnel",
-          "tunnel"
-        ],
-        [
-          "!=",
-          "intermittent",
-          1
-        ]
-      ],
-      "layout": {
-        "line-cap": "round",
-        "visibility": "visible"
-      },
-      "paint": {
-        "line-color": "hsl(200, 78%, 78%)",
-        "line-opacity": 1,
-        "line-width": {
-          "base": 1.2,
-          "stops": [
-            [
-              11,
-              1.2
-            ],
-            [
-              20,
-              28
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "River intermittent",
-      "type": "line",
-      "metadata": {},
-      "source": "openmaptiles-water",
-      "source-layer": "waterway",
-      "filter": [
-        "all",
-        [
-          "==",
-          "class",
-          "river"
-        ],
-        [
-          "!=",
-          "brunnel",
-          "tunnel"
-        ],
-        [
-          "==",
-          "intermittent",
-          1
-        ]
-      ],
-      "layout": {
-        "line-cap": "round"
-      },
-      "paint": {
-        "line-color": "hsl(200, 78%, 78%)",
-        "line-opacity": 1,
-        "line-dasharray": [
-          3,
-          2
-        ],
-        "line-width": {
-          "base": 1.2,
-          "stops": [
-            [
-              11,
-              1.2
-            ],
-            [
-              20,
-              28
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "Other waterway",
-      "type": "line",
-      "metadata": {},
-      "source": "openmaptiles-water",
-      "source-layer": "waterway",
-      "filter": [
-        "all",
-        [
-          "!=",
-          "class",
-          "river"
-        ],
-        [
-          "!=",
-          "brunnel",
-          "tunnel"
-        ],
-        [
-          "!=",
-          "intermittent",
-          1
-        ]
-      ],
-      "layout": {
-        "line-cap": "round",
-        "visibility": "visible"
-      },
-      "paint": {
-        "line-color": "hsl(200, 78%, 78%)",
-        "line-opacity": 1,
-        "line-width": {
-          "base": 1.3,
-          "stops": [
-            [
-              13,
-              2.0
-            ],
-            [
-              20,
-              18
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "Other waterway intermittent",
-      "type": "line",
-      "metadata": {},
-      "source": "openmaptiles-water",
-      "source-layer": "waterway",
-      "filter": [
-        "all",
-        [
-          "!=",
-          "class",
-          "river"
-        ],
-        [
-          "!=",
-          "brunnel",
-          "tunnel"
-        ],
-        [
-          "==",
-          "intermittent",
-          1
-        ]
-      ],
-      "layout": {
-        "line-cap": "round",
-        "visibility": "visible"
-      },
-      "paint": {
-        "line-color": "hsl(200, 78%, 78%)",
-        "line-opacity": 1,
-        "line-dasharray": [
-          4,
-          3
-        ],
-        "line-width": {
-          "base": 1.3,
-          "stops": [
-            [
-              13,
-              2.0
-            ],
-            [
-              20,
-              18
-            ]
-          ]
-        }
-      }
-    },
-    {
-      "id": "Contour labels 50m",
-      "type": "symbol",
-      "source": "tasmania-contours",
-      "source-layer": "contours",
-      "minzoom": 13,
-      "filter": [
-        "==",
-        [
-          "%",
-          [
-            "to-number",
-            [
-              "get",
-              "elev"
-            ]
-          ],
-          100
-        ],
-        50
-      ],
-      "layout": {
-        "symbol-placement": "line",
-        "symbol-spacing": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          13,
-          360,
-          14,
-          410,
-          15,
-          480,
-          16,
-          560,
-          17,
-          650
-        ],
-        "text-rotate": 0,
-        "text-keep-upright": true,
-        "text-field": [
-          "concat",
-          [
-            "to-string",
-            [
-              "get",
-              "elev"
-            ]
-          ],
-          " m"
-        ],
-        "text-font": [
-          "Roboto Regular"
-        ],
-        "text-size": {
-          "stops": [
-            [
-              13,
-              11
-            ],
-            [
-              14,
-              11
-            ],
-            [
-              15,
-              11
-            ],
-            [
-              16,
-              11
-            ],
-            [
-              17,
-              11
-            ],
-            [
-              18,
-              11
-            ]
-          ]
-        },
-        "visibility": "visible"
-      },
-      "paint": {
-        "text-color": "#7c6547",
-        "text-halo-color": "rgba(245, 240, 228, 0.9)",
-        "text-halo-width": 1.1
-      }
-    },
-    {
-      "id": "Contour labels 100m",
-      "type": "symbol",
-      "source": "tasmania-contours",
-      "source-layer": "contours",
-      "minzoom": 13,
-      "filter": [
-        "==",
-        [
-          "%",
-          [
-            "to-number",
-            [
-              "get",
-              "elev"
-            ]
-          ],
-          100
-        ],
-        0
-      ],
-      "layout": {
-        "symbol-placement": "line",
-        "symbol-spacing": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          13,
-          360,
-          14,
-          410,
-          15,
-          480,
-          16,
-          560,
-          17,
-          650
-        ],
-        "text-rotate": 0,
-        "text-keep-upright": true,
-        "text-field": [
-          "concat",
-          [
-            "to-string",
-            [
-              "get",
-              "elev"
-            ]
-          ],
-          " m"
-        ],
-        "text-font": [
-          "Roboto Regular"
-        ],
-        "text-size": {
-          "stops": [
-            [
-              13,
-              11
-            ],
-            [
-              14,
-              11
-            ],
-            [
-              15,
-              11
-            ],
-            [
-              16,
-              11
-            ],
-            [
-              17,
-              11
-            ],
-            [
-              18,
-              11
-            ]
-          ]
-        },
-        "visibility": "visible"
-      },
-      "paint": {
-        "text-color": "#6b5337",
-        "text-halo-color": "rgba(245, 240, 228, 0.9)",
-        "text-halo-width": 1.1
-      }
-    },
-    {
-      "id": "Standing water mask intermittent",
-      "type": "fill",
-      "metadata": {},
-      "source": "openmaptiles-water",
-      "source-layer": "water",
-      "filter": [
-        "all",
-        [
-          "in",
-          "class",
-          "lake",
-          "pond"
-        ],
-        [
-          "==",
-          "intermittent",
-          1
-        ]
-      ],
-      "layout": {
-        "visibility": "visible"
-      },
-      "paint": {
-        "fill-color": "hsl(205, 91%, 83%)",
-        "fill-opacity": 0.85
-      }
-    },
-    {
-      "id": "Standing water mask",
-      "type": "fill",
-      "metadata": {},
-      "source": "openmaptiles-water",
-      "source-layer": "water",
-      "filter": [
-        "all",
-        [
-          "in",
-          "class",
-          "lake",
-          "pond"
-        ],
-        [
-          "!=",
-          "intermittent",
-          1
-        ],
-        [
-          "!=",
-          "brunnel",
-          "tunnel"
-        ]
-      ],
-      "layout": {
-        "visibility": "visible"
-      },
-      "paint": {
-        "fill-color": "hsl(194, 45%, 77%)"
       }
     },
     {

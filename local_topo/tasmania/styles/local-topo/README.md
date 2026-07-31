@@ -73,7 +73,7 @@ npm run stack:up
 
 Then open the local stack at `http://127.0.0.1:8090` through the normal app or tile endpoints.
 
-The default preview path uses `LOCAL_TOPO_STYLE=tasmania-openstreetmap-contours-martin` and `LOCAL_TOPO_TILESERVER=martin`.
+The default preview path uses `LOCAL_TOPO_STYLE=tasmania-openstreetmap-contours-martin`, `LOCAL_TOPO_TILESERVER=martin`, and `LOCAL_TOPO_PREVIEW_TILE_SCALE=@2x` so Martin-backed preview tiles stay crisp on high-DPI displays.
 
 The explicit preview alias remains available:
 
@@ -106,7 +106,43 @@ LOCAL_TOPO_STYLE=tasmania-openstreetmap-contours-martin npm run stack:up:preview
 npm run review:cartography -- --style-id=tasmania-openstreetmap-contours-martin
 ```
 
-Review those captures for the emphasized `50 m contour` and `100 m contour` tiers, the delayed `minor contour line` threshold, and contour labels that follow line direction instead of staying viewport-upright.
+Review those captures for the emphasized `50 m contour` and `100 m contour` tiers, the delayed `minor contour line` threshold, contour labels that stay readable rather than rendering upside-down, standing-water polygon interiors that hide contour lines and contour labels, and contour visibility that still runs right up to the shoreline on adjacent land.
+
+## Martin Layer Order Reference
+
+For `openstreetmap-martin.json`, the current affected stack reads top-to-bottom like this:
+
+- `Road labels`
+- `Ferry labels`
+- `Ferry line`
+- `Oneway opposite`
+- `Oneway`
+- `Oneway path`
+- `Water labels`
+- `Lakeline labels`
+- `River labels`
+- Road and bridge geometry block
+- `Standing water mask`
+- `Standing water mask intermittent`
+- `Contour labels 100m`
+- `Contour labels 50m`
+- `Other waterway intermittent`
+- `Other waterway`
+- `River intermittent`
+- `River`
+- `River tunnel`
+- `Contours index 100m`
+- `Contours intermediate 50m`
+- `Contours`
+- `Landcover patterns`
+- `Scrub` and other earlier base landcover fills
+
+Within that stack:
+
+- Roads and bridges render above standing-water fills.
+- Standing-water fills still render above contour lines and contour labels.
+- Water labels still render above both water fills and road geometry.
+- The scrub sprite-backed pattern lives on `Landcover patterns` through `fill-pattern: "scrub_coarse"` for scrub features; the base scrub color fill lives on the separate `Scrub` layer.
 
 To capture the committed representative cartography review tiles for either localized MapTiler preview variant without overwriting the other variant's output, run the matching review command after preview startup:
 
@@ -120,6 +156,7 @@ Notes:
 - Preview mode requires `output/tasmania-osm.mbtiles`, `output/tasmania-relief.mbtiles`, and `output/tasmania-contours.mbtiles` to already exist.
 - Preview style switching stays startup-scoped through `LOCAL_TOPO_STYLE`; the app-facing `Local Topo` route and capabilities contract stay unchanged.
 - `LOCAL_TOPO_TILESERVER=martin|tileserver` applies only to the OSM-backed preview styles and does not retarget the MapTiler-derived variants.
+- Override `LOCAL_TOPO_PREVIEW_TILE_SCALE` only when you explicitly want non-retina preview rendering.
 - If preview is already running, restart it after changing `style.json`:
 
 ```bash

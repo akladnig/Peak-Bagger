@@ -82,6 +82,67 @@ const martinLayerOverrides = new Map([
   ['Contours', { minzoom: 12 }],
   ['Contours intermediate 50m', { minzoom: 11 }],
   ['Contours index 100m', { minzoom: 11 }],
+  ['Track road outline', {
+    filter: [
+      'all',
+      ['!in', 'brunnel', 'bridge', 'tunnel'],
+      [
+        'any',
+        ['in', 'class', 'track'],
+        [
+          'all',
+          ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+          ['in', 'surface', 'gravel', 'fine_gravel', 'unpaved', 'dirt', 'earth'],
+        ],
+      ],
+    ],
+  }],
+  ['Track road', {
+    filter: [
+      'all',
+      ['!in', 'brunnel', 'bridge', 'tunnel'],
+      [
+        'any',
+        ['in', 'class', 'track'],
+        [
+          'all',
+          ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+          ['in', 'surface', 'gravel', 'fine_gravel', 'unpaved', 'dirt', 'earth'],
+        ],
+      ],
+    ],
+  }],
+  ['Minor tunnel', {
+    filter: [
+      'all',
+      ['==', 'brunnel', 'tunnel'],
+      ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+    ],
+  }],
+  ['Minor road outline', {
+    filter: [
+      'all',
+      ['==', '$type', 'LineString'],
+      ['!in', 'brunnel', 'bridge', 'tunnel'],
+      ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+      ['!=', 'ramp', '1'],
+    ],
+  }],
+  ['Minor road', {
+    filter: [
+      'all',
+      ['==', '$type', 'LineString'],
+      ['!in', 'brunnel', 'bridge', 'tunnel'],
+      ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+    ],
+  }],
+  ['Minor bridge', {
+    filter: [
+      'all',
+      ['==', 'brunnel', 'bridge'],
+      ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+    ],
+  }],
 ]);
 const martinRoadWidthOverrideLayerIds = new Set([
   'Service road outline',
@@ -652,6 +713,29 @@ test('openstreetmap preview styles include aligned local contour overlays and ar
         },
       ],
     });
+    if (variant.styleId === 'tasmania-openstreetmap-contours-martin') {
+      const layerIndexes = new Map(style.layers.map((layer, index) => [layer.id, index]));
+      assertLayerOrder({
+        layerIndexes,
+        lowerIds: [
+          'River tunnel',
+          'River',
+          'River intermittent',
+          'Other waterway',
+          'Other waterway intermittent',
+          'Standing water mask intermittent',
+          'Standing water mask',
+        ],
+        higherIds: [
+          'Service road outline',
+          'Track road',
+          'Minor road',
+          'Primary road',
+          'Highway road',
+          'Highway bridge',
+        ],
+      });
+    }
     assert.equal(
       config.styles[variant.styleId]?.style,
       variant.stylePath.replace('styles/', ''),
@@ -744,6 +828,95 @@ test('OpenStreetMap comparison preview styles keep local sprite contract and tar
       variant.styleId === 'tasmania-openstreetmap-contours-martin' ? 'scrub_coarse' : 'scrub',
     );
     assert.deepEqual(landcoverPatterns?.paint?.['fill-pattern']?.[1], landcoverClassFallback);
+
+    if (variant.styleId === 'tasmania-openstreetmap-contours-martin') {
+      assert.deepEqual(layers.get('Track road outline')?.filter, [
+        'all',
+        ['!in', 'brunnel', 'bridge', 'tunnel'],
+        [
+          'any',
+          ['in', 'class', 'track'],
+          [
+            'all',
+            ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+            ['in', 'surface', 'gravel', 'fine_gravel', 'unpaved', 'dirt', 'earth'],
+          ],
+        ],
+      ]);
+      assert.deepEqual(layers.get('Track road')?.filter, [
+        'all',
+        ['!in', 'brunnel', 'bridge', 'tunnel'],
+        [
+          'any',
+          ['in', 'class', 'track'],
+          [
+            'all',
+            ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+            ['in', 'surface', 'gravel', 'fine_gravel', 'unpaved', 'dirt', 'earth'],
+          ],
+        ],
+      ]);
+      assert.deepEqual(layers.get('Minor road outline')?.filter, [
+        'all',
+        ['==', '$type', 'LineString'],
+        ['!in', 'brunnel', 'bridge', 'tunnel'],
+        ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+        ['!=', 'ramp', '1'],
+      ]);
+      assert.deepEqual(layers.get('Minor road')?.filter, [
+        'all',
+        ['==', '$type', 'LineString'],
+        ['!in', 'brunnel', 'bridge', 'tunnel'],
+        ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+      ]);
+      assert.equal(layers.get('Minor road outline')?.paint?.['line-color'], 'hsl(32, 22%, 52%)');
+      assert.deepEqual(layers.get('Minor road')?.paint?.['line-color'], {
+        stops: [
+          [12, 'hsl(0, 100%, 100%)'],
+          [13, 'hsl(0, 100%, 100%)'],
+        ],
+      });
+      assert.equal(layers.get('Footway path outline')?.minzoom, 12);
+      assert.deepEqual(layers.get('Footway path outline')?.paint?.['line-color'], 'rgba(255, 255, 255, 1)');
+      assert.deepEqual(layers.get('Footway path outline')?.paint?.['line-width'], [
+        'interpolate',
+        ['exponential', 1.1],
+        ['zoom'],
+        12,
+        4.4,
+        13,
+        4.9,
+        14,
+        5.4,
+        15,
+        5.6,
+        16,
+        6.1,
+        17,
+        6.6,
+        18,
+        7.2,
+      ]);
+      assert.deepEqual(layers.get('Footway path')?.paint?.['line-width'], [
+        'interpolate',
+        ['exponential', 1.1],
+        ['zoom'],
+        12,
+        0.4,
+        13,
+        0.6,
+        14,
+        1,
+        15,
+        1.3,
+        16,
+        1.3,
+        17,
+        1.3,
+        18,
+        1.6,
+      ]);
+    }
   }
 });
 
