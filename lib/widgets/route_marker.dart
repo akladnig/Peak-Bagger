@@ -58,6 +58,12 @@ class RouteMarker extends StatelessWidget {
             ),
           ],
         ),
+        RouteMarkerKind.waypoint => Icon(
+          Icons.location_pin,
+          key: const Key('route-marker-waypoint-icon'),
+          color: color,
+          size: markerSize,
+        ),
         RouteMarkerKind.numbered => Container(
           key: const Key('route-marker-numbered-fill'),
           decoration: BoxDecoration(
@@ -90,8 +96,9 @@ class RouteMarker extends StatelessWidget {
   }
 
   static String _formatNumber(int? value) {
-    final number = value == null ? 1 : value.clamp(1, 99).toInt();
-    return number.toString().padLeft(2, '0');
+    final number = value == null ? 1 : value.toInt();
+    final wrapped = number % 100;
+    return wrapped.toString().padLeft(2, '0');
   }
 
   static Color _darkenedStroke(Color color) {

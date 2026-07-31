@@ -489,6 +489,62 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
   });
 
+  testWidgets('control z does not trigger route undo shortcuts', (
+    tester,
+  ) async {
+    final notifier = _CountingKeyboardMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftCanUndo: true,
+        routeDraftCanRedo: true,
+      ),
+    );
+    await _pumpMapAppWithNotifier(tester, notifier);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyZ);
+    await tester.pump();
+
+    expect(notifier.undoRouteDraftEditCallCount, 0);
+    expect(notifier.redoRouteDraftEditCallCount, 0);
+
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+  });
+
+  testWidgets('control shift z does not trigger route redo shortcuts', (
+    tester,
+  ) async {
+    final notifier = _CountingKeyboardMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftCanUndo: true,
+        routeDraftCanRedo: true,
+      ),
+    );
+    await _pumpMapAppWithNotifier(tester, notifier);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyZ);
+    await tester.pump();
+
+    expect(notifier.undoRouteDraftEditCallCount, 0);
+    expect(notifier.redoRouteDraftEditCallCount, 0);
+
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyZ);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+  });
+
   testWidgets('route name focus blocks command z route shortcuts', (
     tester,
   ) async {

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 
-enum RouteMarkerKind { circle, target, numbered }
+enum RouteMarkerKind { circle, target, waypoint, numbered }
 
 typedef RouteDraftDisplayMarkerKind = RouteMarkerKind;
 

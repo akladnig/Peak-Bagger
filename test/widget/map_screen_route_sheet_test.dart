@@ -200,6 +200,175 @@ void main() {
     expect(find.text('Edited Route'), findsOneWidget);
   });
 
+  testWidgets('edit route shows Save As and validates duplicate names', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      id: 1,
+      name: 'Seed Route',
+      desc: 'Keep me',
+      walkingSpeedKmh: 4.5,
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+      gpxRouteElevations: const [100, 120],
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      startElevation: 100,
+      endElevation: 120,
+      lowestElevation: 90,
+      highestElevation: 130,
+    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        selectedRouteId: 1,
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMap(tester, notifier, routeRepository: routeRepository);
+    await tester.tap(find.byKey(const Key('track-info-panel-edit-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-save-as-button')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('route-save-as-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-save-as-dialog')), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('route-save-as-input')))
+          .controller!
+          .text,
+      'Seed Route',
+    );
+
+    await tester.tap(find.byKey(const Key('route-save-as-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('route-save-as-dialog')), findsOneWidget);
+    expect(find.text('A route with this name already exists'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('route-save-as-input')),
+      '  Copied Route  ',
+    );
+    await tester.tap(find.byKey(const Key('route-save-as-save')));
+    await tester.pumpAndSettle();
+
+    final savedRoutes = routeRepository.getAllRoutes();
+    expect(savedRoutes, hasLength(2));
+    expect(routeRepository.findById(1)!.name, 'Seed Route');
+    expect(
+      savedRoutes.any((savedRoute) => savedRoute.name == 'Copied Route'),
+      isTrue,
+    );
+    expect(_container(tester).read(mapProvider).isRouteDrafting, isFalse);
+  });
+
+  testWidgets(
+    'Save As rejects a blank trimmed name and keeps the prompt open',
+    (tester) async {
+      final route = app_route.Route(
+        id: 1,
+        name: 'Seed Route',
+        gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+        gpxRouteElevations: const [100, 120],
+        distance2d: 17450,
+        distance3d: 17920,
+        ascent: 912,
+        descent: 456,
+        startElevation: 100,
+        endElevation: 120,
+        lowestElevation: 90,
+        highestElevation: 130,
+      );
+      final routeRepository = RouteRepository.test(
+        InMemoryRouteStorage([route]),
+      );
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showRoutes: true,
+          selectedRouteId: 1,
+        ),
+        routeRepository: routeRepository,
+      );
+
+      await _pumpMap(tester, notifier, routeRepository: routeRepository);
+      await tester.tap(find.byKey(const Key('track-info-panel-edit-button')));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('route-save-as-button')));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(
+        find.byKey(const Key('route-save-as-input')),
+        '   ',
+      );
+      await tester.tap(find.byKey(const Key('route-save-as-save')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('route-save-as-dialog')), findsOneWidget);
+      expect(find.text('A Route name must be entered'), findsOneWidget);
+      expect(_container(tester).read(mapProvider).isRouteDrafting, isTrue);
+      expect(routeRepository.getAllRoutes(), hasLength(1));
+    },
+  );
+
+  testWidgets('Save As cancel keeps the active edit session unchanged', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      id: 1,
+      name: 'Seed Route',
+      gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.55, 146.55)],
+      gpxRouteElevations: const [100, 120],
+      distance2d: 17450,
+      distance3d: 17920,
+      ascent: 912,
+      descent: 456,
+      startElevation: 100,
+      endElevation: 120,
+      lowestElevation: 90,
+      highestElevation: 130,
+    );
+    final routeRepository = RouteRepository.test(InMemoryRouteStorage([route]));
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        showRoutes: true,
+        selectedRouteId: 1,
+      ),
+      routeRepository: routeRepository,
+    );
+
+    await _pumpMap(tester, notifier, routeRepository: routeRepository);
+    await tester.tap(find.byKey(const Key('track-info-panel-edit-button')));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const Key('route-save-as-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('route-save-as-cancel')));
+    await tester.pumpAndSettle();
+
+    final state = _container(tester).read(mapProvider);
+    expect(find.byKey(const Key('route-save-as-dialog')), findsNothing);
+    expect(state.isRouteDrafting, isTrue);
+    expect(state.sourceRouteId, 1);
+    expect(routeRepository.getAllRoutes(), hasLength(1));
+  });
+
   testWidgets('edit route cancel restores the original route', (tester) async {
     final route = app_route.Route(
       id: 1,
@@ -1151,7 +1320,7 @@ void main() {
     },
   );
 
-  testWidgets('route draft rejects the 100th numbered point inline', (
+  testWidgets('route draft keeps adding points after ninety-nine markers', (
     tester,
   ) async {
     final tasmapRepository = await TestTasmapRepository.create();
@@ -1212,20 +1381,20 @@ void main() {
       hasLength(99),
     );
     expect(stateBefore.routeDraftControlEndpoints, hasLength(101));
+
     draftNotifier.addRouteDraftMarker(
       const LatLng(-41.5, 146.75),
       straightLine: true,
     );
 
     final stateAfter = container.read(mapProvider);
-    expect(
-      stateAfter.routeDraftDisplayMarkers,
-      stateBefore.routeDraftDisplayMarkers,
-    );
-    expect(
-      stateAfter.routeDraftError,
-      'Peak Bagger only supports a maximum of 99 route points',
-    );
+    expect(stateAfter.routeDraftControlEndpoints, hasLength(102));
+    final numberedMarkers = stateAfter.routeDraftDisplayMarkers
+        .where((marker) => marker.kind == RouteMarkerKind.numbered)
+        .toList(growable: false);
+    expect(numberedMarkers, hasLength(100));
+    expect(numberedMarkers.last.number, 100);
+    expect(stateAfter.routeDraftError, isNull);
   });
 
   testWidgets('blank route name shows inline error and save stays disabled', (
@@ -1703,7 +1872,7 @@ void main() {
   );
 }
 
-class _CompletingRoutePlanner implements RoutePlanner {
+class _CompletingRoutePlanner extends RoutePlanner {
   final _completer = Completer<PlannedRouteSegment>();
 
   @override
@@ -1757,7 +1926,7 @@ class _CompletingRoutePlanner implements RoutePlanner {
   }
 }
 
-class _ImmediateRoutePlanner implements RoutePlanner {
+class _ImmediateRoutePlanner extends RoutePlanner {
   const _ImmediateRoutePlanner(this.segment);
 
   final PlannedRouteSegment segment;
@@ -1795,7 +1964,7 @@ class _ImmediateRoutePlanner implements RoutePlanner {
   }
 }
 
-class _QueuedRoutePlanner implements RoutePlanner {
+class _QueuedRoutePlanner extends RoutePlanner {
   _QueuedRoutePlanner(this._results);
 
   final List<RoutePlanningResult> _results;
@@ -1972,6 +2141,9 @@ class _FailingRouteStorage implements RouteStorage {
   app_route.Route? getById(int id) => null;
 
   @override
+  app_route.Route? getByNameNormalized(String normalizedName) => null;
+
+  @override
   int save(app_route.Route route) {
     throw Exception('write failed');
   }
@@ -1997,6 +2169,16 @@ class _EditFailingRouteStorage implements RouteStorage {
   app_route.Route? getById(int id) {
     for (final route in _routes) {
       if (route.id == id) {
+        return route;
+      }
+    }
+    return null;
+  }
+
+  @override
+  app_route.Route? getByNameNormalized(String normalizedName) {
+    for (final route in _routes) {
+      if (route.name.trim().toLowerCase() == normalizedName) {
         return route;
       }
     }

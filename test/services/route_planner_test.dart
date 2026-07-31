@@ -274,6 +274,103 @@ void main() {
   });
 
   test(
+    'planCloseLoopResult reconnects through the closest usable track before falling back straight',
+    () async {
+      const current = LatLng(-41.7, 146.7);
+      const start = LatLng(-41.5, 146.5);
+      const reconnect = LatLng(-41.68, 146.68);
+      final planner = _SequenceRoutePlanner(
+        segmentResults: [
+          const RoutePlanningResult(
+            status: RoutePlanningStatus.noPath,
+            points: [],
+            distanceMeters: 0,
+            startAnchor: null,
+            endAnchor: null,
+          ),
+          const RoutePlanningResult(
+            status: RoutePlanningStatus.routed,
+            points: [reconnect, LatLng(-41.6, 146.6), start],
+            distanceMeters: 850,
+            startAnchor: RouteEndpointAnchor(
+              point: reconnect,
+              type: RouteEndpointAnchorType.edgeProjection,
+            ),
+            endAnchor: RouteEndpointAnchor(
+              point: start,
+              type: RouteEndpointAnchorType.node,
+              nodeId: 3,
+            ),
+          ),
+        ],
+        probeResults: const [
+          RouteEndpointProbeResult(
+            isOnTrack: true,
+            anchor: RouteEndpointAnchor(
+              point: reconnect,
+              type: RouteEndpointAnchorType.edgeProjection,
+            ),
+          ),
+        ],
+      );
+
+      final result = await planner.planCloseLoopResult(
+        currentPoint: current,
+        startPoint: start,
+      );
+
+      expect(result.status, RouteLoopClosureStatus.reconnected);
+      expect(result.points, const [
+        current,
+        reconnect,
+        LatLng(-41.6, 146.6),
+        start,
+      ]);
+      expect(planner.segmentRequests, const [
+        (start: current, end: start, maxSnapDistanceMeters: 50.0),
+        (start: reconnect, end: start, maxSnapDistanceMeters: 50.0),
+      ]);
+      expect(planner.probeRequests, const [
+        (point: current, maxSnapDistanceMeters: 50.0),
+      ]);
+    },
+  );
+
+  test(
+    'planCloseLoopResult falls back to a straight segment when closest-track reconnection is unavailable',
+    () async {
+      const current = LatLng(-41.7, 146.7);
+      const start = LatLng(-41.5, 146.5);
+      final planner = _SequenceRoutePlanner(
+        segmentResults: const [
+          RoutePlanningResult(
+            status: RoutePlanningStatus.noPath,
+            points: [],
+            distanceMeters: 0,
+            startAnchor: null,
+            endAnchor: null,
+          ),
+        ],
+        probeResults: const [RouteEndpointProbeResult(isOnTrack: false)],
+      );
+
+      final result = await planner.planCloseLoopResult(
+        currentPoint: current,
+        startPoint: start,
+      );
+
+      expect(result.status, RouteLoopClosureStatus.straightLine);
+      expect(result.points, const [current, start]);
+      expect(planner.segmentRequests, const [
+        (start: current, end: start, maxSnapDistanceMeters: 50.0),
+      ]);
+      expect(planner.probeRequests, const [
+        (point: current, maxSnapDistanceMeters: 50.0),
+      ]);
+    },
+  );
+
+  test(
     'legacy planSegment wrapper still throws for non-routed result',
     () async {
       const start = LatLng(-41.5, 146.5);
@@ -359,6 +456,69 @@ class _FakeTripRoutingClient implements TripRoutingClient {
       maxSnapDistanceMeters: maxSnapDistanceMeters,
     ));
     return probeResult;
+  }
+}
+
+class _SequenceRoutePlanner extends RoutePlanner {
+  _SequenceRoutePlanner({
+    required this.segmentResults,
+    required this.probeResults,
+  });
+
+  final List<RoutePlanningResult> segmentResults;
+  final List<RouteEndpointProbeResult> probeResults;
+  final segmentRequests =
+      <({LatLng start, LatLng end, double maxSnapDistanceMeters})>[];
+  final probeRequests = <({LatLng point, double maxSnapDistanceMeters})>[];
+  var _segmentIndex = 0;
+  var _probeIndex = 0;
+
+  @override
+  Future<RoutePlanningResult> planSegmentResult({
+    required LatLng start,
+    required LatLng end,
+    double maxSnapDistanceMeters = 50.0,
+  }) async {
+    segmentRequests.add((
+      start: start,
+      end: end,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
+    ));
+    return segmentResults[_segmentIndex++];
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpoint({
+    required LatLng point,
+    double maxSnapDistanceMeters = 50.0,
+  }) async {
+    probeRequests.add((
+      point: point,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
+    ));
+    return probeResults[_probeIndex++];
+  }
+
+  @override
+  Future<PlannedRouteSegment> planSegment({
+    required LatLng start,
+    required LatLng end,
+    double maxSnapDistanceMeters = 50.0,
+  }) async {
+    final result = await planSegmentResult(
+      start: start,
+      end: end,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
+    );
+    if (!result.isRouted) {
+      throw RoutePlanningException(
+        result.errorMessage ?? 'Routing returned no usable segment.',
+      );
+    }
+    return PlannedRouteSegment(
+      points: result.points,
+      distanceMeters: result.distanceMeters,
+    );
   }
 }
 

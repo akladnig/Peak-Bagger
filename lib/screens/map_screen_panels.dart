@@ -2026,6 +2026,123 @@ Future<String?> showFavouriteNameDialog(
   );
 }
 
+Future<String?> showRouteTextPromptDialog(
+  BuildContext context, {
+  required String title,
+  required String initialValue,
+  required String blankErrorText,
+  required Key dialogKey,
+  required Key inputKey,
+  required Key cancelKey,
+  required Key saveKey,
+  String? Function(String trimmedValue)? validator,
+  String saveLabel = 'Save',
+}) {
+  return showDialog<String>(
+    context: context,
+    builder: (context) => _RouteTextPromptDialog(
+      title: title,
+      initialValue: initialValue,
+      blankErrorText: blankErrorText,
+      dialogKey: dialogKey,
+      inputKey: inputKey,
+      cancelKey: cancelKey,
+      saveKey: saveKey,
+      validator: validator,
+      saveLabel: saveLabel,
+    ),
+  );
+}
+
+class _RouteTextPromptDialog extends StatefulWidget {
+  const _RouteTextPromptDialog({
+    required this.title,
+    required this.initialValue,
+    required this.blankErrorText,
+    required this.dialogKey,
+    required this.inputKey,
+    required this.cancelKey,
+    required this.saveKey,
+    required this.saveLabel,
+    this.validator,
+  });
+
+  final String title;
+  final String initialValue;
+  final String blankErrorText;
+  final Key dialogKey;
+  final Key inputKey;
+  final Key cancelKey;
+  final Key saveKey;
+  final String saveLabel;
+  final String? Function(String trimmedValue)? validator;
+
+  @override
+  State<_RouteTextPromptDialog> createState() => _RouteTextPromptDialogState();
+}
+
+class _RouteTextPromptDialogState extends State<_RouteTextPromptDialog> {
+  late final TextEditingController _controller;
+  String? _errorText;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final trimmed = _controller.text.trim();
+    final errorText =
+        trimmed.isEmpty
+        ? widget.blankErrorText
+        : widget.validator?.call(trimmed);
+    if (errorText != null) {
+      setState(() {
+        _errorText = errorText;
+      });
+      return;
+    }
+    Navigator.of(context).pop(trimmed);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupKeyboardDismiss(
+      onDismiss: () => Navigator.of(context).pop(),
+      child: AlertDialog(
+        key: widget.dialogKey,
+        title: Text(widget.title),
+        content: TextField(
+          key: widget.inputKey,
+          controller: _controller,
+          autofocus: true,
+          decoration: InputDecoration(errorText: _errorText),
+          onSubmitted: (_) => _submit(),
+        ),
+        actions: [
+          FilledButton(
+            key: widget.cancelKey,
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: widget.saveKey,
+            onPressed: _submit,
+            child: Text(widget.saveLabel),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class FavouriteNameDialog extends StatefulWidget {
   const FavouriteNameDialog({required this.nameExists, super.key});
 
@@ -2740,11 +2857,13 @@ class DriveEtaPopupCard extends StatelessWidget {
 
 class RouteDraftMarkerDeletePopupCard extends StatelessWidget {
   const RouteDraftMarkerDeletePopupCard({
+    required this.onCreateWaypoint,
     required this.onDelete,
     required this.onClose,
     super.key,
   });
 
+  final VoidCallback onCreateWaypoint;
   final VoidCallback onDelete;
   final VoidCallback onClose;
 
@@ -2757,15 +2876,30 @@ class RouteDraftMarkerDeletePopupCard extends StatelessWidget {
       onClose: onClose,
       closeButtonKey: const Key('route-draft-delete-popup-close'),
       closeTooltip: 'Close point actions',
-      body: TextButton.icon(
-        key: const Key('route-draft-delete-action'),
-        onPressed: onDelete,
-        style: TextButton.styleFrom(
-          foregroundColor: theme.colorScheme.error,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        ),
-        icon: const Icon(Icons.delete_forever, color: Colors.red),
-        label: const Text('Delete Point'),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextButton.icon(
+            key: const Key('route-draft-create-waypoint-action'),
+            onPressed: onCreateWaypoint,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            ),
+            icon: const Icon(Icons.location_pin),
+            label: const Text('Create Waypoint'),
+          ),
+          TextButton.icon(
+            key: const Key('route-draft-delete-action'),
+            onPressed: onDelete,
+            style: TextButton.styleFrom(
+              foregroundColor: theme.colorScheme.error,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            ),
+            icon: const Icon(Icons.delete_forever, color: Colors.red),
+            label: const Text('Delete Point'),
+          ),
+        ],
       ),
     );
   }

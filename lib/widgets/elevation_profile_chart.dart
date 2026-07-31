@@ -29,6 +29,20 @@ class ElevationProfileChartHoverSample {
   final ElevationProfileAxisMode axisMode;
 }
 
+enum ElevationProfileChartInteractionKind { hover, tap }
+
+class ElevationProfileChartInteraction {
+  const ElevationProfileChartInteraction({
+    required this.kind,
+    required this.hoverSample,
+    required this.targetsExactPoint,
+  });
+
+  final ElevationProfileChartInteractionKind kind;
+  final ElevationProfileChartHoverSample hoverSample;
+  final bool targetsExactPoint;
+}
+
 class ElevationProfileChart extends StatefulWidget {
   const ElevationProfileChart({
     super.key,
@@ -38,6 +52,7 @@ class ElevationProfileChart extends StatefulWidget {
     this.minElevation,
     this.maxElevation,
     this.onHoverChanged,
+    this.onInteractionChanged,
   });
 
   final ElevationProfileSeries series;
@@ -46,6 +61,7 @@ class ElevationProfileChart extends StatefulWidget {
   final double? minElevation;
   final double? maxElevation;
   final ValueChanged<ElevationProfileChartHoverSample?>? onHoverChanged;
+  final ValueChanged<ElevationProfileChartInteraction?>? onInteractionChanged;
 
   @override
   State<ElevationProfileChart> createState() => _ElevationProfileChartState();
@@ -199,18 +215,22 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
             final maxX = _maxX(axisMode, series.samples, minX);
             final distanceAxisUnit = _distanceAxisUnit(maxX);
             final xGuideValues = _xGuideValues(minX, maxX);
-            final chart = LineChart(
-              _buildChartData(
-                context,
-                axisRange,
-                axisMode: axisMode,
-                distanceAxisUnit: distanceAxisUnit,
-                xGuideValues: xGuideValues,
-                segments: segments,
-                hoverSamples: hoverSamples,
-                minX: minX,
-                maxX: maxX,
-                onHoverChanged: widget.onHoverChanged,
+            final chart = KeyedSubtree(
+              key: const Key('elevation-profile-chart-touch-area'),
+              child: LineChart(
+                _buildChartData(
+                  context,
+                  axisRange,
+                  axisMode: axisMode,
+                  distanceAxisUnit: distanceAxisUnit,
+                  xGuideValues: xGuideValues,
+                  segments: segments,
+                  hoverSamples: hoverSamples,
+                  minX: minX,
+                  maxX: maxX,
+                  onHoverChanged: widget.onHoverChanged,
+                  onInteractionChanged: widget.onInteractionChanged,
+                ),
               ),
             );
 
@@ -292,6 +312,8 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
     required double minX,
     required double maxX,
     required ValueChanged<ElevationProfileChartHoverSample?>? onHoverChanged,
+    required ValueChanged<ElevationProfileChartInteraction?>?
+    onInteractionChanged,
   }) {
     final theme = Theme.of(context);
     final minY = axisRange.minY;
@@ -377,29 +399,46 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
       lineTouchData: LineTouchData(
         enabled: true,
         handleBuiltInTouches: true,
-        touchCallback: onHoverChanged == null
+        touchCallback: onHoverChanged == null && onInteractionChanged == null
             ? null
             : (event, response) {
                 if (event is FlPointerExitEvent) {
-                  onHoverChanged(null);
+                  onHoverChanged?.call(null);
+                  onInteractionChanged?.call(null);
                   return;
                 }
 
                 final xValue = response?.touchChartCoordinate.dx;
-                if (xValue == null || !event.isInterestedForInteractions) {
-                  onHoverChanged(null);
+                final isTapUpEvent = event is FlTapUpEvent;
+                if (xValue == null ||
+                    (!event.isInterestedForInteractions && !isTapUpEvent)) {
+                  onHoverChanged?.call(null);
+                  onInteractionChanged?.call(null);
                   return;
                 }
 
-                onHoverChanged(
-                  _hoverSampleForXValue(
-                    axisMode: axisMode,
-                    xValue: xValue,
-                    samples: hoverSamples,
-                    minX: minX,
-                    maxX: maxX,
-                  ),
+                final hoverSample = _hoverSampleForXValue(
+                  axisMode: axisMode,
+                  xValue: xValue,
+                  samples: hoverSamples,
+                  minX: minX,
+                  maxX: maxX,
                 );
+                onHoverChanged?.call(hoverSample);
+                if (hoverSample != null) {
+                  onInteractionChanged?.call(
+                    ElevationProfileChartInteraction(
+                      kind: isTapUpEvent
+                          ? ElevationProfileChartInteractionKind.tap
+                          : ElevationProfileChartInteractionKind.hover,
+                      hoverSample: hoverSample,
+                      targetsExactPoint:
+                          response?.lineBarSpots?.isNotEmpty ?? false,
+                    ),
+                  );
+                } else {
+                  onInteractionChanged?.call(null);
+                }
               },
         getTouchedSpotIndicator: (barData, spotIndexes) {
           return spotIndexes

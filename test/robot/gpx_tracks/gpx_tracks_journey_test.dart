@@ -1063,7 +1063,7 @@ void main() {
   });
 }
 
-class _ImmediateRoutePlanner implements RoutePlanner {
+class _ImmediateRoutePlanner extends RoutePlanner {
   const _ImmediateRoutePlanner(this.segment);
 
   final PlannedRouteSegment segment;

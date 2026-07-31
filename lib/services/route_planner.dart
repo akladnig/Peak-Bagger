@@ -57,6 +57,27 @@ class RoutePlanningResult {
   bool get isRouted => status == RoutePlanningStatus.routed;
 }
 
+enum RouteLoopClosureStatus { routed, reconnected, straightLine, failed }
+
+class RouteLoopClosureResult {
+  const RouteLoopClosureResult({
+    required this.status,
+    required this.points,
+    required this.distanceMeters,
+    this.errorMessage,
+    this.failureKind = RoutePlanningFailureKind.generic,
+  });
+
+  final RouteLoopClosureStatus status;
+  final List<LatLng> points;
+  final double distanceMeters;
+  final String? errorMessage;
+  final RoutePlanningFailureKind failureKind;
+
+  bool get isStraightLineFallback =>
+      status == RouteLoopClosureStatus.straightLine;
+}
+
 class RouteEndpointProbeResult {
   const RouteEndpointProbeResult({
     required this.isOnTrack,
@@ -81,11 +102,89 @@ class RoutePlanningException implements Exception {
 }
 
 abstract class RoutePlanner {
+  const RoutePlanner();
+
   Future<RoutePlanningResult> planSegmentResult({
     required LatLng start,
     required LatLng end,
     double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
   });
+
+  Future<RouteLoopClosureResult> planCloseLoopResult({
+    required LatLng currentPoint,
+    required LatLng startPoint,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
+  }) async {
+    final directResult = await planSegmentResult(
+      start: currentPoint,
+      end: startPoint,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
+    );
+
+    switch (directResult.status) {
+      case RoutePlanningStatus.routed:
+        final points = _normalizeLoopClosurePoints(
+          directResult.points,
+          currentPoint: currentPoint,
+          startPoint: startPoint,
+        );
+        return RouteLoopClosureResult(
+          status: RouteLoopClosureStatus.routed,
+          points: points,
+          distanceMeters: _polylineDistanceMeters(points),
+        );
+      case RoutePlanningStatus.failed:
+        return RouteLoopClosureResult(
+          status: RouteLoopClosureStatus.failed,
+          points: const [],
+          distanceMeters: 0,
+          errorMessage:
+              directResult.errorMessage ?? 'Failed to calculate route.',
+          failureKind: directResult.failureKind,
+        );
+      case RoutePlanningStatus.offTrack:
+      case RoutePlanningStatus.noPath:
+        break;
+    }
+
+    final reconnectAnchor = _usableLoopReconnectAnchor(directResult.startAnchor);
+    final probe = reconnectAnchor == null
+        ? await probeEndpoint(
+            point: currentPoint,
+            maxSnapDistanceMeters: maxSnapDistanceMeters,
+          )
+        : null;
+    final resolvedReconnectAnchor =
+        reconnectAnchor ??
+        ((probe?.isOnTrack ?? false) ? _usableLoopReconnectAnchor(probe?.anchor) : null);
+
+    if (resolvedReconnectAnchor != null) {
+      final reconnectResult = await planSegmentResult(
+        start: resolvedReconnectAnchor.point,
+        end: startPoint,
+        maxSnapDistanceMeters: maxSnapDistanceMeters,
+      );
+      if (reconnectResult.status == RoutePlanningStatus.routed) {
+        final points = _normalizeLoopClosurePoints(
+          reconnectResult.points,
+          currentPoint: currentPoint,
+          startPoint: startPoint,
+        );
+        return RouteLoopClosureResult(
+          status: RouteLoopClosureStatus.reconnected,
+          points: points,
+          distanceMeters: _polylineDistanceMeters(points),
+        );
+      }
+    }
+
+    final points = <LatLng>[currentPoint, startPoint];
+    return RouteLoopClosureResult(
+      status: RouteLoopClosureStatus.straightLine,
+      points: List<LatLng>.unmodifiable(points),
+      distanceMeters: _polylineDistanceMeters(points),
+    );
+  }
 
   Future<RouteEndpointProbeResult> probeEndpoint({
     required LatLng point,
@@ -97,6 +196,49 @@ abstract class RoutePlanner {
     required LatLng end,
     double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
   });
+}
+
+RouteEndpointAnchor? _usableLoopReconnectAnchor(RouteEndpointAnchor? anchor) {
+  if (anchor == null || anchor.type == RouteEndpointAnchorType.raw) {
+    return null;
+  }
+  return anchor;
+}
+
+List<LatLng> _normalizeLoopClosurePoints(
+  List<LatLng> points, {
+  required LatLng currentPoint,
+  required LatLng startPoint,
+}) {
+  final normalized = List<LatLng>.from(points, growable: true);
+  if (normalized.isEmpty) {
+    normalized.addAll([currentPoint, startPoint]);
+    return List<LatLng>.unmodifiable(normalized);
+  }
+  if (normalized.first != currentPoint) {
+    normalized.insert(0, currentPoint);
+  }
+  if (normalized.last != startPoint) {
+    normalized.add(startPoint);
+  }
+  return List<LatLng>.unmodifiable(normalized);
+}
+
+double _polylineDistanceMeters(List<LatLng> points) {
+  if (points.length < 2) {
+    return 0;
+  }
+
+  var distanceMeters = 0.0;
+  for (var index = 0; index < points.length - 1; index++) {
+    distanceMeters += trip_routing.haversineDistance(
+      points[index].latitude,
+      points[index].longitude,
+      points[index + 1].latitude,
+      points[index + 1].longitude,
+    );
+  }
+  return distanceMeters;
 }
 
 abstract class TripRoutingClient {
@@ -251,7 +393,7 @@ class OverpassRoutePlannerFallback implements RoutePlannerFallback {
   }) async => null;
 }
 
-class TripRoutingRoutePlanner implements RoutePlanner {
+class TripRoutingRoutePlanner extends RoutePlanner {
   TripRoutingRoutePlanner({TripRoutingClient? client})
     : _client = client ?? TripRoutingServiceClient();
 

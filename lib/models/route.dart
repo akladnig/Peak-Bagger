@@ -84,8 +84,12 @@ class Route {
           ? gpxRouteElevations[index]
           : null;
       return elevation == null
-          ? [point.latitude, point.longitude]
-          : [point.latitude, point.longitude, elevation];
+          ? [_roundCoordinate(point.latitude), _roundCoordinate(point.longitude)]
+          : [
+              _roundCoordinate(point.latitude),
+              _roundCoordinate(point.longitude),
+              elevation,
+            ];
     }, growable: false),
   );
 
@@ -173,6 +177,10 @@ class Route {
       (index) => index < elevations.length ? elevations[index] : null,
       growable: false,
     );
+  }
+
+  static double _roundCoordinate(double value) {
+    return double.parse(value.toStringAsFixed(GpxConstants.precision));
   }
 
   List<List<LatLng>> getSegmentsForZoom(int zoom) {

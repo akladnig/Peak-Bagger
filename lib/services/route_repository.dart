@@ -5,6 +5,8 @@ import '../objectbox.g.dart';
 abstract class RouteStorage {
   Route? getById(int id);
 
+  Route? getByNameNormalized(String normalizedName);
+
   List<Route> getAll();
 
   int save(Route route);
@@ -19,6 +21,16 @@ class ObjectBoxRouteStorage implements RouteStorage {
 
   @override
   Route? getById(int id) => _box.get(id);
+
+  @override
+  Route? getByNameNormalized(String normalizedName) {
+    for (final route in _box.getAll()) {
+      if (_normalizeRouteName(route.name) == normalizedName) {
+        return route;
+      }
+    }
+    return null;
+  }
 
   @override
   List<Route> getAll() => _box.getAll();
@@ -45,6 +57,16 @@ class InMemoryRouteStorage implements RouteStorage {
   Route? getById(int id) {
     for (final route in _routes) {
       if (route.id == id) {
+        return route;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Route? getByNameNormalized(String normalizedName) {
+    for (final route in _routes) {
+      if (_normalizeRouteName(route.name) == normalizedName) {
         return route;
       }
     }
@@ -85,6 +107,10 @@ class RouteRepository {
 
   Route? findById(int id) => _storage.getById(id);
 
+  Route? findByNormalizedName(String name) {
+    return _storage.getByNameNormalized(_normalizeRouteName(name));
+  }
+
   Route saveRoute(Route route) {
     final id = _storage.save(route);
     route.id = id;
@@ -93,3 +119,5 @@ class RouteRepository {
 
   bool deleteRoute(int id) => _storage.delete(id);
 }
+
+String _normalizeRouteName(String value) => value.trim().toLowerCase();

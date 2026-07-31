@@ -207,7 +207,7 @@ This artifact records the current interactive map `Route` drafting and editing b
 - When the app saves unnamed intermediate draft `Route point`s, it persists them as generic saved `Waypoint`s labelled `Waypoint 1`, `Waypoint 2`, and so on. That conflicts with the glossary distinction where a `Numbered route point` is draft-only and a `Waypoint` is meant for a meaningful saved named stop.
 - `ai_specs/routes/route_bottom-sheet-spec.md` still describes route save as placeholder-only with temporary discarded markers and no persistence backend. Current implementation persists routes, elevations, timing metadata, display cache data, and saved route-waypoint metadata.
 - `ai_specs/routes/route-edit-spec.md` says edit rehydration should seed all saved geometry points as editable control endpoints and preserve non-editable saved route metadata unless the user changes it. Current implementation rehydrates only start plus saved `Waypoint`s plus end as visible editable control points, and interactive save rebuild resets at least `desc`, `visible`, and `walkingSpeedKmh` instead of preserving them.
-- `ai_specs/routes/route-out-and-back-spec.md` and `ai_specs/routes/route-loop-spec.md` describe turnaround and loop waypoint handling as authoritative from the final committed geometry or as not requiring persistence changes. Current implementation recomputes saved `Waypoint`s only from visible control endpoints at save time, skips the duplicated final return-to-start endpoint, and still persists a generic saved `Waypoint 1` for non-peak turnaround and loop drafts.
+- `ai_specs/routes/route-out-and-back-spec.md` and `ai_specs/routes/route-loop-spec.md` still describe generic turnaround or loop waypoint persistence that no longer matches the intended contract. The follow-up route-rules refinement resolves that disagreement in favor of plain saved route geometry unless the user explicitly creates a named `Waypoint` or a point remains peak-derived.
 
 ## Proposed Rule Changes
 
@@ -221,7 +221,7 @@ This artifact records the current interactive map `Route` drafting and editing b
 - Line 107 - Do not save generic waypoints
 - Line 119 - Duplicate handling to be changed to be a no-op
 - Line 120 - Instead of an error, change the display marker so that it is number mod 100, and internally the numbers keep incrementing.
-- Line 125 - does it really clear all markers? I need to manually confirm this.
+- Line 125 - manually rechecked against current implementation and regression coverage; deleting the final remaining draft point does clear all visible markers and committed geometry while leaving the draft session open in `awaitingStart`.
 - Line 146 - During route drafting the Hover marker should move along the elevation profile as per the current behaviour in the track/route info popup.
 - Line 151 - As per Line 102 comments above.
 - Line 154 - Remove Ctrl+Z and Ctrl+Shift+Z shortcuts - they are Windows specific and this is macOS only.
@@ -229,7 +229,7 @@ This artifact records the current interactive map `Route` drafting and editing b
 - Line 207 - Generic waypoints are for route draft and should be saved as a plain route point. This change of behaviour will need to be implemented.
 - Line 208 - Update the spec to reflect the current state
 - Line 209 - The route-edit-spec is correct, the implementation to be updated to this.
-- Line 210 - discuss
+- Line 210 - resolved in favour of the follow-up contract: `Out and Back` and `Close Loop` remain geometry transforms and must not implicitly create semantic saved waypoints.
 
 ## New Functionality
 - When clicking and dragging any route point that is currently on a trail, to a new trail, the autorouting should re-route via the new route point. 

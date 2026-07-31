@@ -3,6 +3,9 @@ Add a one-shot `Close Loop` action to the route draft sheet so hikers can close 
 This benefits route editors who want a looped hike without manually tracing the return leg or learning separate recovery steps.
 </goal>
 
+> Superseded in part by `../peak-lists/0034-route-rules-refinement-and-route-point-persistence-follow-up/spec.md`.
+> `Close Loop` remains a geometry transform, not an implicit semantic-waypoint creation path. Generic loop points now save as plain route geometry unless the user explicitly uses `Create Waypoint` or the point remains peak-derived.
+
 <background>
 Current route drafting already supports `Snap to Trail`, `Straight Line`, `Route to Peak`, and `Out and Back` in `./lib/widgets/map_route_bottom_sheet.dart` and `./lib/providers/map_provider.dart`.
 Route planning is handled by `./lib/services/route_planner.dart`, which distinguishes `routed`, `offTrack`, `noPath`, and `failed` results.

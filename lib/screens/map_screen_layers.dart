@@ -93,10 +93,9 @@ String get fvgTopoDebugTileUrl {
 TileProvider buildNetworkTileProviderForBasemap(Basemap basemap) {
   return NetworkTileProvider(
     headers: mapTileHeaders(basemap),
-    cachingProvider:
-        basemap == Basemap.localTopo
-            ? const DisabledMapCachingProvider()
-            : null,
+    cachingProvider: basemap == Basemap.localTopo
+        ? const DisabledMapCachingProvider()
+        : null,
   );
 }
 
@@ -105,7 +104,8 @@ TileLayer buildBasemapTileLayer(
   TileProvider? tileProvider,
   String? userAgentPackageName,
 }) {
-  final resolvedTileProvider = tileProvider ?? buildNetworkTileProviderForBasemap(basemap);
+  final resolvedTileProvider =
+      tileProvider ?? buildNetworkTileProviderForBasemap(basemap);
 
   return userAgentPackageName == null
       ? TileLayer(
@@ -376,6 +376,8 @@ List<Marker> buildRouteDraftMarkers({
   required List<RouteDraftDisplayMarker> markers,
   required int colour,
   String? hoveredMarkerId,
+  String? hoveredPointId,
+  LatLng? hoveredPoint,
   int? hoveredSegmentIndex,
   LatLng? hoveredSegmentPoint,
   ValueChanged<String>? onHoverEnter,
@@ -419,6 +421,35 @@ List<Marker> buildRouteDraftMarkers({
         ),
       ),
   ];
+
+  if (hoveredPointId != null && hoveredPoint != null) {
+    final marker = RouteDraftDisplayMarker(
+      id: hoveredPointId,
+      point: hoveredPoint,
+      kind: RouteMarkerKind.circle,
+    );
+    routeMarkers.add(
+      Marker(
+        key: Key('route-draft-point-hover-$hoveredPointId'),
+        point: hoveredPoint,
+        width: _routeDraftMarkerSize(marker.kind, true),
+        height: _routeDraftMarkerSize(marker.kind, true),
+        child: _RouteDraftMarkerHoverTarget(
+          marker: marker,
+          color: Color(colour),
+          hovered: true,
+          keyPrefix: 'route-draft-point',
+          onPointerDown: onPointerDown,
+          onPointerMove: onPointerMove,
+          onPointerUp: onPointerUp,
+          onTap: onTap,
+          onPanStart: onPanStart,
+          onPanUpdate: onPanUpdate,
+          onPanEnd: onPanEnd,
+        ),
+      ),
+    );
+  }
 
   if (hoveredSegmentIndex != null && hoveredSegmentPoint != null) {
     routeMarkers.add(
@@ -473,7 +504,9 @@ String _routeDraftMarkerKey(String markerId, Map<String, int> markerKeyCounts) {
 double _routeDraftMarkerSize(RouteMarkerKind kind, bool hovered) {
   final baseSize = switch (kind) {
     RouteMarkerKind.numbered => RouteUI.markerNumberedSize,
-    RouteMarkerKind.circle || RouteMarkerKind.target => RouteUI.markerSize,
+    RouteMarkerKind.circle ||
+    RouteMarkerKind.target ||
+    RouteMarkerKind.waypoint => RouteUI.markerSize,
   };
   return hovered ? baseSize * RouteUI.markerZoom : baseSize;
 }
@@ -483,6 +516,7 @@ class _RouteDraftMarkerHoverTarget extends StatelessWidget {
     required this.marker,
     required this.color,
     required this.hovered,
+    this.keyPrefix = 'route-draft-marker',
     this.onHoverEnter,
     this.onHoverExit,
     this.onPointerDown,
@@ -497,6 +531,7 @@ class _RouteDraftMarkerHoverTarget extends StatelessWidget {
   final RouteDraftDisplayMarker marker;
   final Color color;
   final bool hovered;
+  final String keyPrefix;
   final ValueChanged<String>? onHoverEnter;
   final ValueChanged<String>? onHoverExit;
   final ValueChanged<String>? onPointerDown;
@@ -519,7 +554,7 @@ class _RouteDraftMarkerHoverTarget extends StatelessWidget {
     );
 
     return MouseRegion(
-      key: Key('route-draft-marker-hitbox-${marker.id}'),
+      key: Key('$keyPrefix-hitbox-${marker.id}'),
       onEnter: onHoverEnter == null ? null : (_) => onHoverEnter!(marker.id),
       onExit: onHoverExit == null ? null : (_) => onHoverExit!(marker.id),
       child: Listener(
@@ -551,7 +586,7 @@ class _RouteDraftMarkerHoverTarget extends StatelessWidget {
                     alignment: Alignment.center,
                     children: [
                       Container(
-                        key: Key('route-draft-marker-hover-${marker.id}'),
+                        key: Key('$keyPrefix-hover-${marker.id}'),
                         width: RouteUI.markerNumberedSize,
                         height: RouteUI.markerNumberedSize,
                         decoration: BoxDecoration(

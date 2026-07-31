@@ -286,7 +286,7 @@ class MapRouteRobot {
   }
 }
 
-class _QueueRoutePlanner implements RoutePlanner {
+class _QueueRoutePlanner extends RoutePlanner {
   _QueueRoutePlanner(this._outcomes);
 
   final List<Object> _outcomes;

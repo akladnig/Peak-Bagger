@@ -18,11 +18,11 @@ Extend the route-planner and draft-edit seams as one vertical Flutter slice so `
 
 ## Acceptance criteria
 
-- [ ] Behavior-first TDD starts with failing provider or service coverage for routed loop closure, closest-usable-track fallback, straight-line closing fallback, and trail-backed drag rerouting before implementation changes are made.
-- [ ] `Close Loop` first attempts the normal routed end-to-start close; if that does not produce a usable tracked close, it next attempts to find the closest usable track connection and route along track geometry back to the start point; if that also fails, it falls back to a direct straight closing segment.
-- [ ] Dragging any route point that is currently on a trail to a new trail reroutes through the moved point using the new trail context instead of preserving the old trail segment unchanged.
-- [ ] The changed loop-closing journey is covered by widget or robot tests using stable app-owned selectors and deterministic planner fakes.
-- [ ] Existing route-planner, elevation, and repository seams are reused so the slice does not depend on live external services.
+- [x] Behavior-first TDD starts with failing provider or service coverage for routed loop closure, closest-usable-track fallback, straight-line closing fallback, and trail-backed drag rerouting before implementation changes are made.
+- [x] `Close Loop` first attempts the normal routed end-to-start close; if that does not produce a usable tracked close, it next attempts to find the closest usable track connection and route along track geometry back to the start point; if that also fails, it falls back to a direct straight closing segment.
+- [x] Dragging any route point that is currently on a trail to a new trail reroutes through the moved point using the new trail context instead of preserving the old trail segment unchanged.
+- [x] The changed loop-closing journey is covered by widget or robot tests using stable app-owned selectors and deterministic planner fakes.
+- [x] Existing route-planner, elevation, and repository seams are reused so the slice does not depend on live external services.
 
 ## Covers
 

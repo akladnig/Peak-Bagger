@@ -48,7 +48,7 @@ void main() {
     expect(dotDecoration.shape, BoxShape.circle);
   });
 
-  testWidgets('numbered clamps, pads, and darkens stroke', (tester) async {
+  testWidgets('numbered wraps mod 100, pads, and darkens stroke', (tester) async {
     await tester.pumpWidget(
       host(
         const RouteMarker(
@@ -75,9 +75,17 @@ void main() {
     final label = tester.widget<Text>(
       find.byKey(const Key('route-marker-numbered-label')),
     );
-    expect(label.data, '99');
+    expect(label.data, '20');
     expect(label.style?.fontSize, RouteUI.markerFontSize);
     expect(label.style?.color, Colors.white);
+  });
+
+  testWidgets('waypoint renders the location pin icon', (tester) async {
+    await tester.pumpWidget(
+      host(const RouteMarker(kind: RouteMarkerKind.waypoint, color: Colors.red)),
+    );
+
+    expect(find.byKey(const Key('route-marker-waypoint-icon')), findsOneWidget);
   });
 
   testWidgets('numbered pads single-digit labels', (tester) async {
