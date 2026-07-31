@@ -719,8 +719,10 @@ class MapState {
   final int selectedRouteFocusSerial;
   final int? hoveredRouteId;
   final String? hoveredRouteDraftMarkerId;
+  final String? hoveredRouteDraftPointId;
   final int? hoveredRouteDraftSegmentIndex;
   final int? hoveredRouteDraftCommittedSegmentIndex;
+  final LatLng? hoveredRouteDraftPoint;
   final LatLng? hoveredRouteDraftSegmentPoint;
   final List<GpxTrack> tracks;
   final bool showTracks;
@@ -827,8 +829,10 @@ class MapState {
     this.selectedRouteFocusSerial = 0,
     this.hoveredRouteId,
     this.hoveredRouteDraftMarkerId,
+    this.hoveredRouteDraftPointId,
     this.hoveredRouteDraftSegmentIndex,
     this.hoveredRouteDraftCommittedSegmentIndex,
+    this.hoveredRouteDraftPoint,
     this.hoveredRouteDraftSegmentPoint,
     this.tracks = const [],
     this.showTracks = false,
@@ -1124,9 +1128,12 @@ class MapState {
     bool clearHoveredRouteId = false,
     String? hoveredRouteDraftMarkerId,
     bool clearHoveredRouteDraftMarkerId = false,
+    String? hoveredRouteDraftPointId,
+    bool clearHoveredRouteDraftPoint = false,
     int? hoveredRouteDraftSegmentIndex,
     int? hoveredRouteDraftCommittedSegmentIndex,
     bool clearHoveredRouteDraftSegmentPreview = false,
+    LatLng? hoveredRouteDraftPoint,
     LatLng? hoveredRouteDraftSegmentPoint,
     int? selectedTrackId,
     bool clearSelectedTrackId = false,
@@ -1269,6 +1276,9 @@ class MapState {
       hoveredRouteDraftMarkerId: clearHoveredRouteDraftMarkerId
           ? null
           : (hoveredRouteDraftMarkerId ?? this.hoveredRouteDraftMarkerId),
+      hoveredRouteDraftPointId: clearHoveredRouteDraftPoint
+          ? null
+          : (hoveredRouteDraftPointId ?? this.hoveredRouteDraftPointId),
       hoveredRouteDraftSegmentIndex: clearHoveredRouteDraftSegmentPreview
           ? null
           : (hoveredRouteDraftSegmentIndex ??
@@ -1278,6 +1288,9 @@ class MapState {
           ? null
           : (hoveredRouteDraftCommittedSegmentIndex ??
                 this.hoveredRouteDraftCommittedSegmentIndex),
+      hoveredRouteDraftPoint: clearHoveredRouteDraftPoint
+          ? null
+          : (hoveredRouteDraftPoint ?? this.hoveredRouteDraftPoint),
       hoveredRouteDraftSegmentPoint: clearHoveredRouteDraftSegmentPreview
           ? null
           : (hoveredRouteDraftSegmentPoint ??
@@ -3455,6 +3468,7 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftPeak: peakTarget,
       clearHoveredRouteId: true,
       clearHoveredRouteDraftMarkerId: true,
+      clearHoveredRouteDraftPoint: true,
       clearHoveredRouteDraftSegmentPreview: true,
       routeDraftControlEndpoints: const [],
       routeDraftDisplayMarkers: const [],
@@ -3551,6 +3565,7 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftCanRedo: false,
       clearHoveredRouteId: true,
       clearHoveredRouteDraftMarkerId: true,
+      clearHoveredRouteDraftPoint: true,
       clearHoveredRouteDraftSegmentPreview: true,
       clearSelectedLocation: true,
       clearSelectedRouteId: true,
@@ -3577,6 +3592,7 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftMode: RouteMode.snapToTrail,
       clearRouteDraftPeak: true,
       clearHoveredRouteDraftMarkerId: true,
+      clearHoveredRouteDraftPoint: true,
       clearHoveredRouteDraftSegmentPreview: true,
       routeDraftControlEndpoints: const [],
       routeDraftDisplayMarkers: const [],
@@ -3654,12 +3670,17 @@ class MapNotifier extends Notifier<MapState> {
           ? null
           : semanticWaypoints.removeAt(0);
       final isPeakDerived = semanticWaypoint?.isPeakDerived ?? false;
+      final renderMarker =
+          index == 0 ||
+          index == route.gpxRoute.length - 1 ||
+          semanticWaypoint != null;
       return _createControlEndpoint(
         point: point,
         kind: isPeakDerived
             ? RouteDraftEndpointKind.peakTarget
             : RouteDraftEndpointKind.tapped,
         id: '$index',
+        renderMarker: renderMarker,
         waypointLabel: semanticWaypoint?.label,
         waypointPeakOsmId: semanticWaypoint?.peakOsmId,
         waypointPeakName: semanticWaypoint?.peakName,
@@ -5981,6 +6002,34 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
     state = state.copyWith(clearHoveredRouteDraftMarkerId: true);
+  }
+
+  void setHoveredRouteDraftPoint({
+    required String pointId,
+    required LatLng point,
+  }) {
+    if (!state.isRouteDrafting) {
+      return;
+    }
+    if (state.hoveredRouteDraftPointId == pointId &&
+        state.hoveredRouteDraftPoint == point) {
+      return;
+    }
+    state = state.copyWith(
+      hoveredRouteDraftPointId: pointId,
+      hoveredRouteDraftPoint: point,
+    );
+  }
+
+  void clearHoveredRouteDraftPoint([String? pointId]) {
+    if (pointId != null && state.hoveredRouteDraftPointId != pointId) {
+      return;
+    }
+    if (state.hoveredRouteDraftPointId == null &&
+        state.hoveredRouteDraftPoint == null) {
+      return;
+    }
+    state = state.copyWith(clearHoveredRouteDraftPoint: true);
   }
 
   void setHoveredRouteDraftSegmentPreview({

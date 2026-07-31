@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' show PointerDeviceKind;
 
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1050,6 +1051,303 @@ void main() {
     expect(hoveredPoint!.latitude, closeTo(b.latitude, 0.0002));
     expect(hoveredPoint.longitude, closeTo(b.longitude, 0.0002));
   });
+
+  testWidgets(
+    'route editing targets a hidden saved geometry point from the map path',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'show_routes': true});
+      const a = LatLng(-41.51, 146.47);
+      const b = LatLng(-41.5, 146.5);
+      const c = LatLng(-41.51, 146.53);
+      final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+      final notifier = TestMapNotifier(
+        MapState(
+          center: b,
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showRoutes: true,
+          isRouteDrafting: true,
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          routeDraftNextMarkerId: 3,
+          routeDraftControlEndpoints: const [
+            RouteDraftControlEndpoint(
+              id: '0',
+              point: a,
+              kind: RouteDraftEndpointKind.tapped,
+            ),
+            RouteDraftControlEndpoint(
+              id: '1',
+              point: b,
+              kind: RouteDraftEndpointKind.tapped,
+              renderMarker: false,
+            ),
+            RouteDraftControlEndpoint(
+              id: '2',
+              point: c,
+              kind: RouteDraftEndpointKind.tapped,
+            ),
+          ],
+          routeDraftDisplayMarkers: const [
+            RouteDraftDisplayMarker(
+              id: '0',
+              point: a,
+              kind: RouteMarkerKind.circle,
+            ),
+            RouteDraftDisplayMarker(
+              id: '2',
+              point: c,
+              kind: RouteMarkerKind.target,
+            ),
+          ],
+          routeDraftMarkers: const [a, b, c],
+          routeDraftCommittedPoints: const [a, b, c],
+          routeDraftProvisionalPoints: const [],
+        ),
+        routeRepository: routeRepository,
+      );
+
+      await _pumpMapScreen(
+        tester,
+        notifier,
+        routeRepository,
+        tasmapRepository: await TestTasmapRepository.create(),
+      );
+
+      final mapRegion = find.byKey(const Key('map-interaction-region'));
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(() async {
+        await gesture.removePointer();
+      });
+      await gesture.addPointer(
+        location: tester.getTopLeft(mapRegion) - const Offset(20, 20),
+      );
+      await tester.pump();
+      await gesture.moveTo(tester.getCenter(mapRegion));
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('route-draft-point-hitbox-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('route-draft-segment-hover-0')),
+        findsNothing,
+      );
+
+      await tester.tapAt(tester.getCenter(mapRegion));
+      await tester.pump();
+
+      expect(find.byKey(const Key('route-draft-delete-popup')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'route editing targets a hidden saved geometry point from the elevation profile',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'show_routes': true});
+      const a = LatLng(-41.51, 146.47);
+      const b = LatLng(-41.5, 146.5);
+      const c = LatLng(-41.51, 146.53);
+      final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+      final notifier = TestMapNotifier(
+        MapState(
+          center: b,
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showRoutes: true,
+          isRouteDrafting: true,
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          routeDraftNextMarkerId: 3,
+          routeDraftDistanceMeters: 1000,
+          routeDraftPointElevations: const [100, 120, 140],
+          routeDraftControlEndpoints: const [
+            RouteDraftControlEndpoint(
+              id: '0',
+              point: a,
+              kind: RouteDraftEndpointKind.tapped,
+            ),
+            RouteDraftControlEndpoint(
+              id: '1',
+              point: b,
+              kind: RouteDraftEndpointKind.tapped,
+              renderMarker: false,
+            ),
+            RouteDraftControlEndpoint(
+              id: '2',
+              point: c,
+              kind: RouteDraftEndpointKind.tapped,
+            ),
+          ],
+          routeDraftDisplayMarkers: const [
+            RouteDraftDisplayMarker(
+              id: '0',
+              point: a,
+              kind: RouteMarkerKind.circle,
+            ),
+            RouteDraftDisplayMarker(
+              id: '2',
+              point: c,
+              kind: RouteMarkerKind.target,
+            ),
+          ],
+          routeDraftMarkers: const [a, b, c],
+          routeDraftCommittedPoints: const [a, b, c],
+          routeDraftProvisionalPoints: const [],
+        ),
+        routeRepository: routeRepository,
+      );
+
+      await _pumpMapScreen(
+        tester,
+        notifier,
+        routeRepository,
+        tasmapRepository: await TestTasmapRepository.create(),
+      );
+
+      final lineChart = tester.widget<LineChart>(find.byType(LineChart));
+      final touchCallback = lineChart.data.lineTouchData.touchCallback!;
+      final bar = lineChart.data.lineBarsData.single;
+      final middleSpot = bar.spots[1];
+      final exactPointResponse = LineTouchResponse(
+        touchLocation: Offset.zero,
+        touchChartCoordinate: Offset(middleSpot.x, middleSpot.y),
+        lineBarSpots: [TouchLineBarSpot(bar, 0, middleSpot, 0)],
+      );
+
+      touchCallback(
+        FlPointerHoverEvent(const PointerHoverEvent(position: Offset.zero)),
+        exactPointResponse,
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('route-draft-point-hitbox-1')),
+        findsOneWidget,
+      );
+
+      touchCallback(
+        FlTapUpEvent(
+          TapUpDetails(
+            localPosition: Offset.zero,
+            kind: PointerDeviceKind.mouse,
+          ),
+        ),
+        exactPointResponse,
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('route-draft-delete-popup')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'route editing inserts from a profile segment without retargeting an existing point',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({'show_routes': true});
+      const a = LatLng(-41.51, 146.47);
+      const b = LatLng(-41.5, 146.5);
+      const c = LatLng(-41.51, 146.53);
+      final routeRepository = RouteRepository.test(InMemoryRouteStorage());
+      final notifier = TestMapNotifier(
+        MapState(
+          center: b,
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showRoutes: true,
+          isRouteDrafting: true,
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          routeDraftNextMarkerId: 3,
+          routeDraftDistanceMeters: 1000,
+          routeDraftPointElevations: const [100, 120, 140],
+          routeDraftControlEndpoints: const [
+            RouteDraftControlEndpoint(
+              id: '0',
+              point: a,
+              kind: RouteDraftEndpointKind.tapped,
+            ),
+            RouteDraftControlEndpoint(
+              id: '1',
+              point: b,
+              kind: RouteDraftEndpointKind.tapped,
+              renderMarker: false,
+            ),
+            RouteDraftControlEndpoint(
+              id: '2',
+              point: c,
+              kind: RouteDraftEndpointKind.tapped,
+            ),
+          ],
+          routeDraftDisplayMarkers: const [
+            RouteDraftDisplayMarker(
+              id: '0',
+              point: a,
+              kind: RouteMarkerKind.circle,
+            ),
+            RouteDraftDisplayMarker(
+              id: '2',
+              point: c,
+              kind: RouteMarkerKind.target,
+            ),
+          ],
+          routeDraftMarkers: const [a, b, c],
+          routeDraftCommittedPoints: const [a, b, c],
+          routeDraftProvisionalPoints: const [],
+        ),
+        routeRepository: routeRepository,
+      );
+
+      await _pumpMapScreen(
+        tester,
+        notifier,
+        routeRepository,
+        tasmapRepository: await TestTasmapRepository.create(),
+      );
+
+      final lineChart = tester.widget<LineChart>(find.byType(LineChart));
+      final touchCallback = lineChart.data.lineTouchData.touchCallback!;
+      final bar = lineChart.data.lineBarsData.single;
+      final segmentX = (bar.spots[1].x + bar.spots[2].x) / 2;
+      final segmentY = (bar.spots[1].y + bar.spots[2].y) / 2;
+      final segmentResponse = LineTouchResponse(
+        touchLocation: Offset.zero,
+        touchChartCoordinate: Offset(segmentX, segmentY),
+      );
+
+      touchCallback(
+        FlPointerHoverEvent(const PointerHoverEvent(position: Offset.zero)),
+        segmentResponse,
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('route-draft-segment-hitbox-1')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('route-draft-point-hitbox-1')), findsNothing);
+
+      touchCallback(
+        FlTapUpEvent(
+          TapUpDetails(
+            localPosition: Offset.zero,
+            kind: PointerDeviceKind.mouse,
+          ),
+        ),
+        segmentResponse,
+      );
+      await tester.pumpAndSettle();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('map-interaction-region'))),
+      );
+      final state = container.read(mapProvider);
+      expect(state.routeDraftControlEndpoints, hasLength(4));
+      expect(state.routeDraftControlEndpoints[1].point, b);
+      expect(state.routeDraftControlEndpoints[2].point, isNot(c));
+      expect(state.routeDraftControlEndpoints[3].point, c);
+      expect(find.byKey(const Key('route-draft-delete-popup')), findsNothing);
+    },
+  );
 
   testWidgets(
     'route drafting does not preview a segment near a peak target endpoint',

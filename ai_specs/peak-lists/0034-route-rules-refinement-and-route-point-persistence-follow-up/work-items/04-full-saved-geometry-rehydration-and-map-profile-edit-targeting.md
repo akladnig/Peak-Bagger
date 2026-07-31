@@ -18,12 +18,12 @@ Make the full committed saved `Route path` the authoritative editable point set 
 
 ## Acceptance criteria
 
-- [ ] Behavior-first TDD starts with failing provider or widget coverage against production `MapNotifier` behavior for saved-route rehydration, exact-point selection, and segment insertion before implementation changes are made.
-- [ ] Reopening a saved route makes the full committed saved `Route path`, not only the saved waypoint list, the authoritative editable point set even when not all saved points are rendered as visible markers at once.
-- [ ] Existing saved geometry points are selectable from both the map path and the elevation profile, and selecting an existing geometry point immediately opens the current point actions for that exact point.
-- [ ] Clicking or hovering a segment position between existing points on the map path or elevation profile inserts a new editable route point at that committed-path position rather than targeting a different point, and the interaction model visibly distinguishes existing-point targeting from segment-insertion targeting.
-- [ ] During route drafting and edit mode, hover behavior remains synchronized between the map path and elevation profile over the same underlying route position.
-- [ ] Regression coverage for the changed map and profile interactions uses stable selectors and deterministic planner and elevation seams where needed.
+- [x] Behavior-first TDD starts with failing provider or widget coverage against production `MapNotifier` behavior for saved-route rehydration, exact-point selection, and segment insertion before implementation changes are made.
+- [x] Reopening a saved route makes the full committed saved `Route path`, not only the saved waypoint list, the authoritative editable point set even when not all saved points are rendered as visible markers at once.
+- [x] Existing saved geometry points are selectable from both the map path and the elevation profile, and selecting an existing geometry point immediately opens the current point actions for that exact point.
+- [x] Clicking or hovering a segment position between existing points on the map path or elevation profile inserts a new editable route point at that committed-path position rather than targeting a different point, and the interaction model visibly distinguishes existing-point targeting from segment-insertion targeting.
+- [x] During route drafting and edit mode, hover behavior remains synchronized between the map path and elevation profile over the same underlying route position.
+- [x] Regression coverage for the changed map and profile interactions uses stable selectors and deterministic planner and elevation seams where needed.
 
 ## Covers
 

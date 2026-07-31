@@ -42,7 +42,13 @@ _RouteModeVisualState _routeModeVisualState({
 }
 
 class RouteDraftGraphOverlay extends ConsumerWidget {
-  const RouteDraftGraphOverlay({super.key});
+  const RouteDraftGraphOverlay({
+    super.key,
+    this.onElevationProfileInteractionChanged,
+  });
+
+  final ValueChanged<ElevationProfileChartInteraction?>?
+  onElevationProfileInteractionChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -104,6 +110,8 @@ class RouteDraftGraphOverlay extends ConsumerWidget {
                       routeDraftElevationError: routeDraftElevationError,
                       routeDraftCommittedPoints: routeDraftCommittedPoints,
                       routeDraftPointElevations: routeDraftPointElevations,
+                      onElevationProfileInteractionChanged:
+                          onElevationProfileInteractionChanged,
                       onRetry: ref
                           .read(mapProvider.notifier)
                           .retryRouteDraftSegment,
@@ -295,6 +303,7 @@ class _DistanceElevationGroup extends StatelessWidget {
     required this.routeDraftElevationError,
     required this.routeDraftCommittedPoints,
     required this.routeDraftPointElevations,
+    required this.onElevationProfileInteractionChanged,
     required this.onRetry,
   });
 
@@ -307,6 +316,8 @@ class _DistanceElevationGroup extends StatelessWidget {
   final String? routeDraftElevationError;
   final List<LatLng> routeDraftCommittedPoints;
   final List<double?> routeDraftPointElevations;
+  final ValueChanged<ElevationProfileChartInteraction?>?
+  onElevationProfileInteractionChanged;
   final VoidCallback onRetry;
 
   @override
@@ -422,6 +433,7 @@ class _DistanceElevationGroup extends StatelessWidget {
                   routeDraftElevationLoading &&
                   routeDraftPointElevations.isEmpty,
               errorText: routeDraftElevationError,
+              onInteractionChanged: onElevationProfileInteractionChanged,
             ),
           ),
         ] else

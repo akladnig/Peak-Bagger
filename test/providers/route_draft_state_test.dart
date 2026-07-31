@@ -742,12 +742,16 @@ void main() {
 
       final state = container.read(mapProvider);
       expect(state.routeDraftControlEndpoints, hasLength(5));
-      expect(state.routeDraftDisplayMarkers, hasLength(5));
+      expect(
+        state.routeDraftControlEndpoints.map(
+          (endpoint) => endpoint.renderMarker,
+        ),
+        [true, false, true, false, true],
+      );
+      expect(state.routeDraftDisplayMarkers, hasLength(3));
       expect(state.routeDraftDisplayMarkers[0].kind, RouteMarkerKind.circle);
-      expect(state.routeDraftDisplayMarkers[1].kind, RouteMarkerKind.numbered);
+      expect(state.routeDraftDisplayMarkers[1].kind, RouteMarkerKind.target);
       expect(state.routeDraftDisplayMarkers[2].kind, RouteMarkerKind.target);
-      expect(state.routeDraftDisplayMarkers[3].kind, RouteMarkerKind.numbered);
-      expect(state.routeDraftDisplayMarkers[4].kind, RouteMarkerKind.target);
       expect(state.routeDraftCommittedPoints, route.gpxRoute);
     },
   );
@@ -808,9 +812,10 @@ void main() {
 
       final editState = container.read(mapProvider);
       expect(editState.routeDraftControlEndpoints[1].waypointLabel, isNull);
+      expect(editState.routeDraftControlEndpoints[1].renderMarker, isFalse);
       expect(
         editState.routeDraftDisplayMarkers[1].kind,
-        RouteMarkerKind.numbered,
+        RouteMarkerKind.target,
       );
 
       await notifier.saveRouteDraft();

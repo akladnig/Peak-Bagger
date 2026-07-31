@@ -598,7 +598,7 @@ void main() {
     expect(hoverEvents.last, isNotNull);
     expect(hoverEvents.last!.sampleIndex, 0);
     expect(hoverEvents.last!.sample.segmentIndex, isNull);
-    expect(hoverEvents.last!.sample.pointIndex, isNull);
+    expect(hoverEvents.last!.sample.pointIndex, 0);
   });
 
   testWidgets('renders a visibility row for a saved route', (tester) async {

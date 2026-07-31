@@ -125,6 +125,7 @@ abstract final class ElevationProfileSeriesBuilder {
         ElevationProfileSample(
           distanceMeters: distanceMeters,
           elevationMeters: elevationMeters,
+          pointIndex: index,
         ),
       );
     }
