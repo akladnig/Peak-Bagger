@@ -3,131 +3,173 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 
 void main() {
-  test('matches peaks inside the threshold', () {
-    final service = TrackPeakCorrelationService(
-      peaks: [
-        Peak(osmId: 1, name: 'Near Peak', latitude: -41.5, longitude: 146.55),
-      ],
-      thresholdMeters: 50,
+  test('matches a peak within the 10 m elevation threshold', () {
+    final matches = _service(
+      _peak(),
+    ).matchPeaks(_track('<trkpt lat="0" lon="0"><ele>108</ele></trkpt>'));
+
+    expect(matches, hasLength(1));
+  });
+
+  test('rejects a horizontally close peak outside the elevation threshold', () {
+    final matches = _service(
+      _peak(),
+    ).matchPeaks(_track('<trkpt lat="0" lon="0"><ele>111</ele></trkpt>'));
+
+    expect(matches, isEmpty);
+  });
+
+  test('includes exact horizontal and vertical threshold boundaries', () {
+    final matches = _service(
+      _peak(),
+      distanceThresholdMeters: 0,
+    ).matchPeaks(_track('<trkpt lat="0" lon="0"><ele>110</ele></trkpt>'));
+
+    expect(matches, hasLength(1));
+  });
+
+  test('rejects a peak without an elevation', () {
+    final matches = _service(
+      _peak(elevation: null),
+    ).matchPeaks(_track('<trkpt lat="0" lon="0"><ele>100</ele></trkpt>'));
+
+    expect(matches, isEmpty);
+  });
+
+  for (final elevationXml in <String>[
+    '',
+    '<ele></ele>',
+    '<ele>not-a-number</ele>',
+    '<ele>NaN</ele>',
+    '<ele>Infinity</ele>',
+  ]) {
+    test('rejects unavailable one-point elevation: $elevationXml', () {
+      final matches = _service(
+        _peak(),
+      ).matchPeaks(_track('<trkpt lat="0" lon="0">$elevationXml</trkpt>'));
+
+      expect(matches, isEmpty);
+    });
+  }
+
+  test('rejects a segment with a missing endpoint elevation', () {
+    final matches = _service(_peak(longitude: .001)).matchPeaks(
+      _track(
+        '<trkpt lat="0" lon="0"><ele>100</ele></trkpt>'
+        '<trkpt lat="0" lon="0.002"></trkpt>',
+      ),
     );
 
-    final matches = service.matchPeaks(
-      '<gpx><trk><trkseg><trkpt lat="-41.5" lon="146.5" /><trkpt lat="-41.5" lon="146.6" /></trkseg></trk></gpx>',
+    expect(matches, isEmpty);
+  });
+
+  test('interpolates elevation at an interior closest segment position', () {
+    final matches =
+        _service(
+          _peak(longitude: .001, elevation: 150),
+          distanceThresholdMeters: 0,
+          elevationThresholdMeters: 0,
+        ).matchPeaks(
+          _track(
+            '<trkpt lat="0" lon="0"><ele>100</ele></trkpt>'
+            '<trkpt lat="0" lon="0.002"><ele>200</ele></trkpt>',
+          ),
+        );
+
+    expect(matches, hasLength(1));
+  });
+
+  test('does not let a farther valid segment override nearer rejection', () {
+    final matches =
+        _service(
+          _peak(longitude: .001, elevation: 200),
+          distanceThresholdMeters: 50,
+        ).matchPeaks(
+          '<gpx><trk>'
+          '<trkseg><trkpt lat="0" lon="0"><ele>100</ele></trkpt>'
+          '<trkpt lat="0" lon="0.002"><ele>100</ele></trkpt></trkseg>'
+          '<trkseg><trkpt lat="0.0001" lon="0"><ele>200</ele></trkpt>'
+          '<trkpt lat="0.0001" lon="0.002"><ele>200</ele></trkpt></trkseg>'
+          '</trk></gpx>',
+        );
+
+    expect(matches, isEmpty);
+  });
+
+  test('matches when an equal-distance position meets elevation threshold', () {
+    final matches = _service(_peak(elevation: 200)).matchPeaks(
+      '<gpx><trk>'
+      '<trkseg><trkpt lat="0" lon="0"><ele>100</ele></trkpt></trkseg>'
+      '<trkseg><trkpt lat="0" lon="0"><ele>200</ele></trkpt></trkseg>'
+      '</trk></gpx>',
+    );
+
+    expect(matches, hasLength(1));
+  });
+
+  test('does not match a line extension beyond a segment', () {
+    final matches =
+        _service(
+          _peak(longitude: .002),
+          distanceThresholdMeters: 10,
+        ).matchPeaks(
+          _track(
+            '<trkpt lat="0" lon="0"><ele>100</ele></trkpt>'
+            '<trkpt lat="0" lon="0.001"><ele>100</ele></trkpt>',
+          ),
+        );
+
+    expect(matches, isEmpty);
+  });
+
+  test('matches supported route points with elevation', () {
+    final matches = _service(_peak()).matchPeaks(
+      '<gpx><rte><rtept lat="0" lon="0"><ele>100</ele></rtept></rte></gpx>',
+    );
+
+    expect(matches, hasLength(1));
+  });
+
+  test('includes a matching peak at most once per track', () {
+    final matches = _service(_peak()).matchPeaks(
+      _track(
+        '<trkpt lat="0" lon="0"><ele>100</ele></trkpt>'
+        '<trkpt lat="0" lon="0.001"><ele>100</ele></trkpt>'
+        '<trkpt lat="0" lon="0.002"><ele>100</ele></trkpt>',
+      ),
     );
 
     expect(matches, hasLength(1));
     expect(matches.single.osmId, 1);
   });
-
-  test('matches peaks exactly on the threshold boundary', () {
-    final service = TrackPeakCorrelationService(
-      peaks: [
-        Peak(
-          osmId: 2,
-          name: 'Boundary Peak',
-          latitude: -41.5,
-          longitude: 146.5,
-        ),
-      ],
-      thresholdMeters: 0,
-    );
-
-    final matches = service.matchPeaks(
-      '<gpx><trk><trkseg><trkpt lat="-41.5" lon="146.5" /><trkpt lat="-41.5" lon="146.6" /></trkseg></trk></gpx>',
-    );
-
-    expect(matches, hasLength(1));
-    expect(matches.single.osmId, 2);
-  });
-
-  test('collapses duplicate peaks matched by multiple segments', () {
-    final service = TrackPeakCorrelationService(
-      peaks: [
-        Peak(
-          osmId: 3,
-          name: 'Duplicate Peak',
-          latitude: -41.5,
-          longitude: 146.55,
-        ),
-      ],
-      thresholdMeters: 50,
-    );
-
-    final matches = service.matchPeaks(
-      '<gpx><trk><trkseg>'
-      '<trkpt lat="-41.5" lon="146.5" />'
-      '<trkpt lat="-41.5" lon="146.55" />'
-      '<trkpt lat="-41.5" lon="146.6" />'
-      '</trkseg></trk></gpx>',
-    );
-
-    expect(matches, hasLength(1));
-    expect(matches.single.osmId, 3);
-  });
-
-  test('falls back to point distance for one-point tracks', () {
-    final service = TrackPeakCorrelationService(
-      peaks: [
-        Peak(osmId: 4, name: 'Point Peak', latitude: -41.5, longitude: 146.5),
-      ],
-      thresholdMeters: 0,
-    );
-
-    final matches = service.matchPeaks(
-      '<gpx><trk><trkseg><trkpt lat="-41.5" lon="146.5" /></trkseg></trk></gpx>',
-    );
-
-    expect(matches, hasLength(1));
-    expect(matches.single.osmId, 4);
-  });
-
-  test('returns no peaks when none are within threshold', () {
-    final service = TrackPeakCorrelationService(
-      peaks: [
-        Peak(osmId: 5, name: 'Far Peak', latitude: -40.0, longitude: 145.0),
-      ],
-      thresholdMeters: 50,
-    );
-
-    final matches = service.matchPeaks(
-      '<gpx><trk><trkseg><trkpt lat="-41.5" lon="146.5" /><trkpt lat="-41.5" lon="146.6" /></trkseg></trk></gpx>',
-    );
-
-    expect(matches, isEmpty);
-  });
-
-  test('does not match peaks on the line extension beyond the segment', () {
-    final service = TrackPeakCorrelationService(
-      peaks: [
-        Peak(osmId: 6, name: 'Extension Peak', latitude: 0.0, longitude: 0.002),
-      ],
-      thresholdMeters: 10,
-    );
-
-    final matches = service.matchPeaks(
-      '<gpx><trk><trkseg><trkpt lat="0.0" lon="0.0" />'
-      '<trkpt lat="0.0" lon="0.001" /></trkseg></trk></gpx>',
-    );
-
-    expect(matches, isEmpty);
-  });
-
-  test('uses longitude-aware bounding boxes at Tasmania latitudes', () {
-    final service = TrackPeakCorrelationService(
-      peaks: [
-        Peak(osmId: 7, name: 'Edge Peak', latitude: -41.5, longitude: 146.51),
-      ],
-      thresholdMeters: 900,
-    );
-
-    final matches = service.matchPeaks(
-      '<gpx><trk><trkseg>'
-      '<trkpt lat="-41.5" lon="146.5" />'
-      '<trkpt lat="-41.5" lon="146.5001" />'
-      '</trkseg></trk></gpx>',
-    );
-
-    expect(matches, hasLength(1));
-    expect(matches.single.osmId, 7);
-  });
 }
+
+TrackPeakCorrelationService _service(
+  Peak peak, {
+  int distanceThresholdMeters = 50,
+  int elevationThresholdMeters = 10,
+}) {
+  return TrackPeakCorrelationService(
+    peaks: [peak],
+    thresholdMeters: distanceThresholdMeters,
+    elevationThresholdMeters: elevationThresholdMeters,
+  );
+}
+
+Peak _peak({
+  int osmId = 1,
+  double? elevation = 100,
+  double latitude = 0,
+  double longitude = 0,
+}) {
+  return Peak(
+    osmId: osmId,
+    name: 'Peak',
+    elevation: elevation,
+    latitude: latitude,
+    longitude: longitude,
+  );
+}
+
+String _track(String points) =>
+    '<gpx><trk><trkseg>$points</trkseg></trk></gpx>';

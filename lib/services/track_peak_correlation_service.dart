@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/geo.dart';
 import 'package:peak_bagger/services/gpx_track_geometry.dart';
@@ -9,16 +8,18 @@ class TrackPeakCorrelationService {
   TrackPeakCorrelationService({
     required List<Peak> peaks,
     required this.thresholdMeters,
+    this.elevationThresholdMeters = 10,
     GpxTrackGeometryParser? geometryParser,
   }) : _peaks = List<Peak>.unmodifiable(peaks),
        _geometryParser = geometryParser ?? const GpxTrackGeometryParser();
 
   final List<Peak> _peaks;
   final int thresholdMeters;
+  final int elevationThresholdMeters;
   final GpxTrackGeometryParser _geometryParser;
 
   List<Peak> matchPeaks(String rawGpxXml) {
-    final segments = _geometryParser.extractSegments(rawGpxXml);
+    final segments = _geometryParser.extractElevationSegments(rawGpxXml);
     if (segments.every((segment) => segment.isEmpty)) {
       return const [];
     }
@@ -33,7 +34,7 @@ class TrackPeakCorrelationService {
       }
 
       final peakLocation = Location(peak.latitude, peak.longitude);
-      if (_isWithinThreshold(peakLocation, segments)) {
+      if (_isWithinThreshold(peak, peakLocation, segments)) {
         matchedIds.add(peak.osmId);
         matched.add(peak);
       }
@@ -43,7 +44,7 @@ class TrackPeakCorrelationService {
   }
 
   ({double minLat, double maxLat, double minLon, double maxLon}) _boundsFor(
-    List<List<LatLng>> segments,
+    List<List<GpxTrackPoint>> segments,
   ) {
     var minLat = double.infinity;
     var maxLat = double.negativeInfinity;
@@ -82,38 +83,96 @@ class TrackPeakCorrelationService {
         peak.longitude <= bounds.maxLon;
   }
 
-  bool _isWithinThreshold(Location peak, List<List<LatLng>> segments) {
+  bool _isWithinThreshold(
+    Peak peak,
+    Location peakLocation,
+    List<List<GpxTrackPoint>> segments,
+  ) {
+    final peakElevation = peak.elevation;
+    if (peakElevation == null || !peakElevation.isFinite) {
+      return false;
+    }
+
+    var closestDistance = double.infinity;
+    final closestElevations = <double?>[];
     for (final segment in segments) {
       if (segment.isEmpty) {
         continue;
       }
 
       if (segment.length == 1) {
-        final distance = distanceFromLine(
-          peak,
+        final closestPosition = closestPointOnSegment(
+          peakLocation,
           Location(segment.first.latitude, segment.first.longitude),
           Location(segment.first.latitude, segment.first.longitude),
         );
-        if (distance != null && distance <= thresholdMeters) {
-          return true;
+        _recordClosestElevation(
+          distance: closestPosition.distance,
+          elevation: segment.first.elevation,
+          closestDistance: closestDistance,
+          closestElevations: closestElevations,
+        );
+        if (closestPosition.distance < closestDistance) {
+          closestDistance = closestPosition.distance;
         }
         continue;
       }
 
       for (var i = 0; i < segment.length - 1; i++) {
-        final point1 = Location(segment[i].latitude, segment[i].longitude);
-        final point2 = Location(
-          segment[i + 1].latitude,
-          segment[i + 1].longitude,
+        final segmentPoint1 = segment[i];
+        final segmentPoint2 = segment[i + 1];
+        final point1 = Location(
+          segmentPoint1.latitude,
+          segmentPoint1.longitude,
         );
-        final distance = distanceFromSegment(peak, point1, point2);
-        if (distance != null && distance <= thresholdMeters) {
-          return true;
+        final point2 = Location(
+          segmentPoint2.latitude,
+          segmentPoint2.longitude,
+        );
+        final closestPosition = closestPointOnSegment(
+          peakLocation,
+          point1,
+          point2,
+        );
+        final startElevation = segmentPoint1.elevation;
+        final endElevation = segmentPoint2.elevation;
+        final elevation = startElevation != null && endElevation != null
+            ? startElevation +
+                  (endElevation - startElevation) * closestPosition.fraction
+            : null;
+        _recordClosestElevation(
+          distance: closestPosition.distance,
+          elevation: elevation,
+          closestDistance: closestDistance,
+          closestElevations: closestElevations,
+        );
+        if (closestPosition.distance < closestDistance) {
+          closestDistance = closestPosition.distance;
         }
       }
     }
 
-    return false;
+    return closestDistance <= thresholdMeters &&
+        closestElevations.any(
+          (elevation) =>
+              elevation != null &&
+              (peakElevation - elevation).abs() <= elevationThresholdMeters,
+        );
+  }
+
+  void _recordClosestElevation({
+    required double distance,
+    required double? elevation,
+    required double closestDistance,
+    required List<double?> closestElevations,
+  }) {
+    if (distance < closestDistance) {
+      closestElevations
+        ..clear()
+        ..add(elevation);
+    } else if (distance == closestDistance) {
+      closestElevations.add(elevation);
+    }
   }
 
   double _metersToDegrees(int meters, {double? meanLatitudeRadians}) {
@@ -126,7 +185,7 @@ class TrackPeakCorrelationService {
     return baseDegrees / scale;
   }
 
-  double _meanLatitudeRadians(List<List<LatLng>> segments) {
+  double _meanLatitudeRadians(List<List<GpxTrackPoint>> segments) {
     var total = 0.0;
     var count = 0;
 
