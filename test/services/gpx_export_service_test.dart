@@ -147,7 +147,7 @@ void main() {
       },
     );
 
-    test('adds correlated peak waypoints before route points', () async {
+    test('correlates peaks using stored route elevations', () async {
       final service = GpxExportService(
         trackDownloadsDirectoryResolver: () => Directory.systemTemp,
         routeExportsDirectoryResolver: () => Directory.systemTemp,
@@ -155,16 +155,18 @@ void main() {
           Peak(
             osmId: 1,
             name: 'Peak One',
-            elevation: 1234,
+            elevation: 1264,
             latitude: -41.5,
             longitude: 146.5,
           ),
         ],
-        peakCorrelationThresholdLoader: () async => 100,
+        peakCorrelationThresholdsLoader: () async =>
+            (distanceMeters: 0, elevationMeters: 30),
       );
       final route = app_route.Route(
         name: 'Route 1',
         gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+        gpxRouteElevations: const [1234, 1300],
       );
 
       final plan = await service.planRouteExport(route);
@@ -173,13 +175,57 @@ void main() {
         plan.contents,
         contains(
           '<metadata><author><name>Adrian Kladnig</name></author></metadata>'
-          '<wpt lat="-41.500000" lon="146.500000"><ele>1234</ele><name>Peak One</name></wpt>'
+          '<wpt lat="-41.500000" lon="146.500000"><ele>1264</ele><name>Peak One</name></wpt>'
           '<rte><name>Route-1</name>',
+        ),
+      );
+      expect(
+        plan.contents,
+        contains(
+          '<rtept lat="-41.500000" lon="146.500000"><time>2000-01-01T00:00:00Z</time><ele>1234.0</ele></rtept>',
         ),
       );
       expect(
         plan.contents.indexOf('<wpt '),
         lessThan(plan.contents.indexOf('<rte>')),
+      );
+    });
+
+    test('correlates peaks using resolved route elevations', () async {
+      final service = GpxExportService(
+        trackDownloadsDirectoryResolver: () => Directory.systemTemp,
+        routeExportsDirectoryResolver: () => Directory.systemTemp,
+        routePointElevationsResolver: (_) async => const [1234.0],
+        peakListLoader: () => [
+          Peak(
+            osmId: 1,
+            name: 'Peak One',
+            elevation: 1254,
+            latitude: -41.5,
+            longitude: 146.5,
+          ),
+        ],
+        peakCorrelationThresholdsLoader: () async =>
+            (distanceMeters: 0, elevationMeters: 20),
+      );
+      final route = app_route.Route(
+        name: 'Route 1',
+        gpxRoute: const [LatLng(-41.5, 146.5)],
+      );
+
+      final plan = await service.planRouteExport(route);
+
+      expect(
+        plan.contents,
+        contains(
+          '<wpt lat="-41.500000" lon="146.500000"><ele>1254</ele><name>Peak One</name></wpt>',
+        ),
+      );
+      expect(
+        plan.contents,
+        contains(
+          '<rtept lat="-41.500000" lon="146.500000"><time>2000-01-01T00:00:00Z</time><ele>1234.0</ele></rtept>',
+        ),
       );
     });
 
@@ -226,11 +272,13 @@ void main() {
               longitude: 146.5,
             ),
           ],
-          peakCorrelationThresholdLoader: () async => 100,
+          peakCorrelationThresholdsLoader: () async =>
+              (distanceMeters: 100, elevationMeters: 10),
         );
         final route = app_route.Route(
           name: 'Route 1',
           gpxRoute: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+          gpxRouteElevations: const [1234, 1234],
           routeWaypoints: const [
             RouteWaypoint(
               latitude: -41.5,
