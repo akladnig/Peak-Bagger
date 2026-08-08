@@ -63,6 +63,11 @@ void main() {
       find.byKey(const Key('peak-correlation-distance-meters')),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const Key('peak-correlation-elevation-meters')),
+      findsOneWidget,
+    );
+    expect(find.text('Distance 50m, elevation 10m'), findsOneWidget);
   });
 
   testWidgets('persists peak correlation threshold changes', (tester) async {
@@ -115,7 +120,18 @@ void main() {
     await tester.pumpAndSettle();
 
     final value = await container.read(peakCorrelationSettingsProvider.future);
-    expect(value, 70);
+    expect(value.distanceMeters, 70);
+
+    await container
+        .read(peakCorrelationSettingsProvider.notifier)
+        .setElevationMeters(30);
+    await tester.pumpAndSettle();
+
+    final updatedValue = await container.read(
+      peakCorrelationSettingsProvider.future,
+    );
+    expect(updatedValue.distanceMeters, 70);
+    expect(updatedValue.elevationMeters, 30);
   });
 }
 

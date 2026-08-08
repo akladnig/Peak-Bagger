@@ -585,7 +585,7 @@ class GpxTracksRobot {
   int currentPeakCorrelationDistance(BuildContext context) {
     return ProviderScope.containerOf(
       context,
-    ).read(peakCorrelationSettingsProvider).value!;
+    ).read(peakCorrelationSettingsProvider).value!.distanceMeters;
   }
 
   void expectTracksHidden() {

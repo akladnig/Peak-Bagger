@@ -2609,7 +2609,9 @@ class MapNotifier extends Notifier<MapState> {
 
   Future<int> _peakCorrelationThresholdMeters() async {
     try {
-      return await ref.read(peakCorrelationSettingsProvider.future);
+      return (await ref.read(
+        peakCorrelationSettingsProvider.future,
+      )).distanceMeters;
     } catch (_) {
       return peakCorrelationDefaultDistanceMeters;
     }
