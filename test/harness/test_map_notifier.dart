@@ -48,6 +48,9 @@ class TestMapNotifier extends MapNotifier {
     this.recalcSkippedCount = 0,
     this.recalcWarning,
     this.recalcTracks,
+    this.selectedTrackRecalcTracks,
+    this.selectedTrackRecalcError,
+    this.selectedTrackRecalcCompleter,
     this.peakRepository,
     this.peaksBaggedRepository,
     this.waypointsRepository,
@@ -68,6 +71,9 @@ class TestMapNotifier extends MapNotifier {
   final int recalcSkippedCount;
   final String? recalcWarning;
   final List<GpxTrack>? recalcTracks;
+  final List<GpxTrack>? selectedTrackRecalcTracks;
+  final String? selectedTrackRecalcError;
+  final Completer<TrackStatisticsRecalcResult?>? selectedTrackRecalcCompleter;
   final PeakRepository? peakRepository;
   final PeaksBaggedRepository? peaksBaggedRepository;
   final WaypointsRepository? waypointsRepository;
@@ -85,6 +91,7 @@ class TestMapNotifier extends MapNotifier {
   int _searchPopupRequestSerial = 0;
   int refreshCallCount = 0;
   int reloadPeakMarkersCallCount = 0;
+  int selectedTrackRecalculationCallCount = 0;
 
   void setTracks(List<GpxTrack> tracks) {
     state = state.copyWith(
@@ -1280,6 +1287,47 @@ class TestMapNotifier extends MapNotifier {
       skippedCount: recalcSkippedCount,
       warning: recalcWarning,
     );
+  }
+
+  @override
+  Future<TrackStatisticsRecalcResult?> recalculateSelectedTrackStatistics(
+    int trackId,
+  ) async {
+    if (state.isLoadingTracks) {
+      return null;
+    }
+
+    selectedTrackRecalculationCallCount++;
+    state = state.copyWith(
+      isLoadingTracks: true,
+      recalculatingTrackId: trackId,
+      clearTrackImportError: true,
+    );
+    final result = selectedTrackRecalcCompleter == null
+        ? selectedTrackRecalcError == null
+              ? const TrackStatisticsRecalcResult(
+                  updatedCount: 1,
+                  skippedCount: 0,
+                )
+              : null
+        : await selectedTrackRecalcCompleter!.future;
+    if (result == null) {
+      state = state.copyWith(
+        isLoadingTracks: false,
+        clearRecalculatingTrackId: true,
+        trackImportError:
+            selectedTrackRecalcError ??
+            'Failed to recalculate this track. Please try again.',
+      );
+      return null;
+    }
+
+    state = state.copyWith(
+      tracks: selectedTrackRecalcTracks ?? state.tracks,
+      isLoadingTracks: false,
+      clearRecalculatingTrackId: true,
+    );
+    return result;
   }
 
   @override

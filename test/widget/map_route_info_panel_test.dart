@@ -13,6 +13,31 @@ import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
 void main() {
+  testWidgets('does not render track recalculation controls for a route', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: MyTheme.light,
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: MapTrackInfoPanel(
+              route: app_route.Route(name: 'Test Route'),
+              onClose: () {},
+              onTrackStatisticsRecalculate: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const Key('track-info-panel-recalculate-button')),
+      findsNothing,
+    );
+  });
+
   testWidgets('renders combined distance metric for a saved route', (
     tester,
   ) async {

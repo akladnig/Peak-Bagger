@@ -355,6 +355,51 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
   }
 
+  Future<void> _confirmSelectedTrackStatisticsRecalculation(int trackId) async {
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Recalculate Track Statistics?',
+      message:
+          'This will rebuild statistics and peak correlation for this track from stored GPX XML. Do you wish to proceed?',
+      cancelKey: 'selected-track-recalculate-cancel',
+      cancelLabel: 'Cancel',
+      confirmKey: 'selected-track-recalculate-confirm',
+      confirmLabel: 'Recalculate',
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    final result = await ref
+        .read(mapProvider.notifier)
+        .recalculateSelectedTrackStatistics(trackId);
+    if (!mounted) {
+      return;
+    }
+
+    if (result == null) {
+      final error =
+          ref.read(mapProvider).trackImportError ??
+          'Failed to recalculate this track. Please try again.';
+      await showSingleActionDialog(
+        context: context,
+        title: 'Track Statistics Recalculation Failed',
+        closeKey: 'selected-track-recalculate-error-close',
+        content: Text(error),
+      );
+      return;
+    }
+
+    await showSingleActionDialog(
+      context: context,
+      title: 'Track Statistics Recalculated',
+      closeKey: 'selected-track-recalculate-result-close',
+      content: const Text(
+        'Track statistics and peak correlation were refreshed.',
+      ),
+    );
+  }
+
   void _handleGotoSubmit(MapState mapState) {
     if (mapState.mapSuggestions.isNotEmpty) {
       final firstMap = mapState.mapSuggestions.first;
@@ -2743,6 +2788,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         ),
                       ),
                     );
+                    final isTrackStatisticsRecalculating = ref.watch(
+                      mapProvider.select((state) => state.isLoadingTracks),
+                    );
                     final routeGraphAvailable = ref.watch(
                       routeGraphReadinessProvider.select(
                         (state) =>
@@ -3838,6 +3886,22 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   );
                                                 }
                                               },
+                                              onTrackStatisticsRecalculate:
+                                                  selectedTrack == null
+                                                  ? null
+                                                  : () {
+                                                      final trackId =
+                                                          selectedTrack!
+                                                              .gpxTrackId;
+                                                      unawaited(
+                                                        _confirmSelectedTrackStatisticsRecalculation(
+                                                          trackId,
+                                                        ),
+                                                      );
+                                                    },
+                                              isTrackStatisticsRecalculating:
+                                                  selectedTrack != null &&
+                                                  isTrackStatisticsRecalculating,
                                               onRouteWalkingSpeedChanged:
                                                   selectedRoute == null
                                                   ? null
