@@ -51,6 +51,7 @@ import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/services/track_derived_data_persistence.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/grid_reference_parser.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
@@ -734,6 +735,7 @@ class MapState {
   final Map<String, Set<int>> pinnedPeakListIdsByRegion;
   final EndDrawerMode endDrawerMode;
   final bool isLoadingTracks;
+  final int? recalculatingTrackId;
   final String? trackImportError;
   final bool hasTrackRecoveryIssue;
   final String? trackOperationStatus;
@@ -844,6 +846,7 @@ class MapState {
     this.pinnedPeakListIdsByRegion = const <String, Set<int>>{},
     this.endDrawerMode = EndDrawerMode.basemaps,
     this.isLoadingTracks = false,
+    this.recalculatingTrackId,
     this.trackImportError,
     this.hasTrackRecoveryIssue = false,
     this.trackOperationStatus,
@@ -1108,6 +1111,8 @@ class MapState {
     bool clearPinnedPeakListIdsByRegion = false,
     EndDrawerMode? endDrawerMode,
     bool? isLoadingTracks,
+    int? recalculatingTrackId,
+    bool clearRecalculatingTrackId = false,
     String? trackImportError,
     bool clearTrackImportError = false,
     bool? hasTrackRecoveryIssue,
@@ -1318,6 +1323,9 @@ class MapState {
           : _immutablePinnedPeakListIdsByRegion(pinnedPeakListIdsByRegion),
       endDrawerMode: endDrawerMode ?? this.endDrawerMode,
       isLoadingTracks: isLoadingTracks ?? this.isLoadingTracks,
+      recalculatingTrackId: clearRecalculatingTrackId
+          ? null
+          : (recalculatingTrackId ?? this.recalculatingTrackId),
       trackImportError: clearTrackImportError
           ? null
           : (trackImportError ?? this.trackImportError),
@@ -1505,6 +1513,7 @@ class MapNotifier extends Notifier<MapState> {
     RouteElevationSampler? routeElevationSampler,
     RoutePlanner? routePlanner,
     PeaksBaggedRepository? peaksBaggedRepository,
+    TrackDerivedDataPersistence? trackDerivedDataPersistence,
     WaypointsRepository? waypointsRepository,
     MigrationMarkerStore? migrationMarkerStore,
     PeakRegionAssetImportService? peakRegionAssetImportService,
@@ -1519,6 +1528,7 @@ class MapNotifier extends Notifier<MapState> {
        _injectedRouteElevationSampler = routeElevationSampler,
        _injectedRoutePlanner = routePlanner,
        _injectedPeaksBaggedRepository = peaksBaggedRepository,
+       _injectedTrackDerivedDataPersistence = trackDerivedDataPersistence,
        _injectedWaypointsRepository = waypointsRepository,
        _injectedMigrationMarkerStore = migrationMarkerStore,
        _injectedPeakRegionAssetImportService = peakRegionAssetImportService;
@@ -1531,6 +1541,7 @@ class MapNotifier extends Notifier<MapState> {
   final RouteElevationSampler? _injectedRouteElevationSampler;
   final RoutePlanner? _injectedRoutePlanner;
   final PeaksBaggedRepository? _injectedPeaksBaggedRepository;
+  final TrackDerivedDataPersistence? _injectedTrackDerivedDataPersistence;
   final WaypointsRepository? _injectedWaypointsRepository;
   final MigrationMarkerStore? _injectedMigrationMarkerStore;
   final PeakRegionAssetImportService? _injectedPeakRegionAssetImportService;
@@ -1548,6 +1559,7 @@ class MapNotifier extends Notifier<MapState> {
   late final RouteElevationSampler _routeElevationSampler;
   late final RoutePlanner _routePlanner;
   late final PeaksBaggedRepository _peaksBaggedRepository;
+  late final TrackDerivedDataPersistence _trackDerivedDataPersistence;
   WaypointsRepository? _waypointsRepository;
   late final MigrationMarkerStore _migrationMarkerStore;
   late final ItemVisibilityBackfillService _itemVisibilityBackfillService;
@@ -1626,6 +1638,15 @@ class MapNotifier extends Notifier<MapState> {
     _routePlanner = _injectedRoutePlanner ?? ref.read(routePlannerProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
+    _trackDerivedDataPersistence =
+        _injectedTrackDerivedDataPersistence ??
+        (_injectedGpxTrackRepository == null &&
+                _injectedPeaksBaggedRepository == null
+            ? ObjectBoxTrackDerivedDataPersistence(objectboxStore)
+            : RepositoryTrackDerivedDataPersistence(
+                tracks: _gpxTrackRepository,
+                peaksBagged: _peaksBaggedRepository,
+              ));
     _waypointsRepository =
         _injectedWaypointsRepository ?? _buildWaypointsRepository();
     final restoredMarker = _resolvedWaypointsRepository.getCurrentMarker();
@@ -1898,11 +1919,12 @@ class MapNotifier extends Notifier<MapState> {
         filterConfig: filterConfig,
       );
 
-      final thresholdMeters = await _peakCorrelationThresholdMeters();
+      final correlationSettings = await _peakCorrelationSettings();
       final correlatedTracks = <GpxTrack>[];
       final correlationService = TrackPeakCorrelationService(
         peaks: _peakRepository.getAllPeaks(),
-        thresholdMeters: thresholdMeters,
+        thresholdMeters: correlationSettings.distanceMeters,
+        elevationThresholdMeters: correlationSettings.elevationMeters,
       );
 
       for (final track in result.tracks) {
@@ -2057,10 +2079,11 @@ class MapNotifier extends Notifier<MapState> {
 
         // Apply peak correlation
         try {
-          final thresholdMeters = await _peakCorrelationThresholdMeters();
+          final correlationSettings = await _peakCorrelationSettings();
           final correlationService = TrackPeakCorrelationService(
             peaks: _peakRepository.getAllPeaks(),
-            thresholdMeters: thresholdMeters,
+            thresholdMeters: correlationSettings.distanceMeters,
+            elevationThresholdMeters: correlationSettings.elevationMeters,
           );
           _applyPeakCorrelation(
             item.track,
@@ -2449,10 +2472,11 @@ class MapNotifier extends Notifier<MapState> {
     );
 
     try {
-      final thresholdMeters = await _peakCorrelationThresholdMeters();
+      final correlationSettings = await _peakCorrelationSettings();
       final correlationService = TrackPeakCorrelationService(
         peaks: _peakRepository.getAllPeaks(),
-        thresholdMeters: thresholdMeters,
+        thresholdMeters: correlationSettings.distanceMeters,
+        elevationThresholdMeters: correlationSettings.elevationMeters,
       );
       final importer = GpxImporter();
       final repairService = GpxTrackRepairService();
@@ -2551,6 +2575,82 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
+  Future<TrackStatisticsRecalcResult?> recalculateSelectedTrackStatistics(
+    int trackId,
+  ) async {
+    if (state.isLoadingTracks) {
+      return null;
+    }
+
+    final existing = _gpxTrackRepository.findById(trackId);
+    if (existing == null) {
+      return null;
+    }
+
+    state = state.copyWith(
+      isLoadingTracks: true,
+      recalculatingTrackId: trackId,
+      clearTrackImportError: true,
+      clearTrackOperationStatus: true,
+      clearTrackOperationWarning: true,
+    );
+
+    try {
+      final correlationSettings = await _peakCorrelationSettings();
+      final replacement = _cloneTrack(existing);
+      final processingXml = _processingXmlForTrack(
+        replacement,
+        GpxTrackRepairService(),
+      );
+      final processed = GpxImporter().processTrack(
+        processingXml,
+        filterConfig: await ref.read(gpxFilterSettingsProvider.future),
+      );
+      _applyProcessingResult(replacement, processed);
+      _applyPeakCorrelation(
+        replacement,
+        TrackPeakCorrelationService(
+          peaks: _peakRepository.getAllPeaks(),
+          thresholdMeters: correlationSettings.distanceMeters,
+          elevationThresholdMeters: correlationSettings.elevationMeters,
+        ),
+        processingXml,
+      );
+      _trackDerivedDataPersistence.replaceTrackAndSync(
+        existing: existing,
+        replacement: replacement,
+      );
+
+      final refreshedTracks = _gpxTrackRepository.getAllTracks();
+      _refreshCorrelatedPeakIds(refreshedTracks);
+      ref.read(peaksBaggedRevisionProvider.notifier).increment();
+      await _migrationMarkerStore.markPeaksBaggedBackfillComplete();
+      _pendingStartupBackfillWarningMessage = null;
+      state = state.copyWith(
+        tracks: refreshedTracks,
+        isLoadingTracks: false,
+        clearRecalculatingTrackId: true,
+        hasTrackRecoveryIssue: _hasTrackRecoveryIssue(refreshedTracks),
+      );
+      refreshPeakInfoPopupContent();
+      return const TrackStatisticsRecalcResult(
+        updatedCount: 1,
+        skippedCount: 0,
+      );
+    } catch (error) {
+      final restoredTracks = _gpxTrackRepository.getAllTracks();
+      _refreshCorrelatedPeakIds(restoredTracks);
+      state = state.copyWith(
+        tracks: restoredTracks,
+        isLoadingTracks: false,
+        clearRecalculatingTrackId: true,
+        hasTrackRecoveryIssue: _hasTrackRecoveryIssue(restoredTracks),
+        trackImportError: 'Failed to recalculate track statistics: $error',
+      );
+      return null;
+    }
+  }
+
   String _processingXmlForTrack(
     GpxTrack track,
     GpxTrackRepairService repairService,
@@ -2607,13 +2707,11 @@ class MapNotifier extends Notifier<MapState> {
     track.peakCorrelationProcessed = true;
   }
 
-  Future<int> _peakCorrelationThresholdMeters() async {
+  Future<PeakCorrelationSettings> _peakCorrelationSettings() async {
     try {
-      return (await ref.read(
-        peakCorrelationSettingsProvider.future,
-      )).distanceMeters;
+      return await ref.read(peakCorrelationSettingsProvider.future);
     } catch (_) {
-      return peakCorrelationDefaultDistanceMeters;
+      return PeakCorrelationSettings.defaults;
     }
   }
 

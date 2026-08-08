@@ -180,7 +180,8 @@ class GpxTrackRepository {
       replacement.gpxTrackId = existing.gpxTrackId;
       return storage.put(replacement);
     }
-    throw UnsupportedError('replaceTrack is not supported by the test storage');
+    replacement.gpxTrackId = existing.gpxTrackId;
+    return _storage.save(replacement);
   }
 
   bool deleteTrack(int id) {
