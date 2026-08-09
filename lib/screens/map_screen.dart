@@ -268,6 +268,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
         );
       }
     });
+    ref.listenManual<bool>(mapProvider.select((state) => state.showPeaks), (
+      previous,
+      next,
+    ) {
+      if (next && previous != true) {
+        scheduleMicrotask(() {
+          if (mounted) {
+            ref.read(filteredPeaksProvider);
+          }
+        });
+      }
+    });
     ref.listenManual(routeListProvider, (previous, next) {
       _mapNotifier.reconcileSelectedRouteState();
     });

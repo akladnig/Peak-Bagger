@@ -139,18 +139,20 @@ void main() {
     robot.expectUpdateTassyFullConfirmVisible();
 
     await robot.confirmUpdateTassyFull();
-    robot.expectUpdateTassyFullResultVisible(added: 1, updated: 2, removed: 0);
+    robot.expectUpdateTassyFullResultVisible(added: 1, updated: 1, removed: 1);
     expect(
       robot.notifier.state.peakListSelectionMode,
-      PeakListSelectionMode.specificList,
+      PeakListSelectionMode.allPeaks,
     );
-    expect(robot.notifier.state.selectedPeakListIds, {999});
+    expect(robot.notifier.state.selectedPeakListIds, isEmpty);
     expect(
       repository
-          .getPeakListItemsForList(repository.findByName('Tassy Full')!.peakListId)
+          .getPeakListItemsForList(
+            repository.findByName('Tassy Full')!.peakListId,
+          )
           .map((item) => (item.peakOsmId, item.points))
           .toList(),
-      [(11, 5), (22, 4), (33, 1), (44, 7)],
+      [(11, 5), (22, 4), (33, 1)],
     );
   });
 }

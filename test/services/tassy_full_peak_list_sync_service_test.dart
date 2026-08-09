@@ -63,9 +63,7 @@ void main() {
       'creates a missing target and excludes non-Tasmanian source peaks',
       () async {
         final repository = _buildRepository(
-          peakLists: [
-            PeakList(name: 'Abels')..peakListId = 1,
-          ],
+          peakLists: [PeakList(name: 'Abels')..peakListId = 1],
           peaks: [
             _peak(5),
             _peak(
@@ -99,12 +97,10 @@ void main() {
     );
 
     test(
-      'refresh includes source peaks whose Tasmanian coordinates override stale stored region metadata',
+      'refresh excludes source peaks with non-Tasmanian stored region metadata',
       () async {
         final repository = _buildRepository(
-          peakLists: [
-            PeakList(name: 'Abels')..peakListId = 1,
-          ],
+          peakLists: [PeakList(name: 'Abels')..peakListId = 1],
           peaks: [
             Peak(
               osmId: 11,
@@ -129,7 +125,7 @@ void main() {
 
         final result = await repository.refreshTassyFullPeakList();
 
-        expect(result.addedCount, 1);
+        expect(result.addedCount, 0);
         expect(result.updatedCount, 0);
         expect(result.removedCount, 0);
         expect(
@@ -139,7 +135,7 @@ void main() {
               )
               .map((item) => (item.peakOsmId, item.points))
               .toList(),
-          [(11, 4)],
+          isEmpty,
         );
       },
     );
@@ -148,9 +144,7 @@ void main() {
       'preserves existing Tasmanian target-only peaks and removes non-Tasmanian peaks when sources are empty',
       () async {
         final repository = _buildRepository(
-          peakLists: [
-            PeakList(name: 'Tassy Full')..peakListId = 4,
-          ],
+          peakLists: [PeakList(name: 'Tassy Full')..peakListId = 4],
           peaks: [
             _peak(44),
             _peak(
@@ -184,8 +178,8 @@ void main() {
     );
 
     test('refresh failure leaves an existing target unchanged', () async {
-        final repository = _buildRepository(
-          storage: _FailingReplaceStorage([
+      final repository = _buildRepository(
+        storage: _FailingReplaceStorage([
           PeakList(name: 'Abels')..peakListId = 1,
           PeakList(name: 'Tassy Full')..peakListId = 2,
         ]),
@@ -205,7 +199,9 @@ void main() {
 
       expect(
         repository
-            .getPeakListItemsForList(repository.findByName('Tassy Full')!.peakListId)
+            .getPeakListItemsForList(
+              repository.findByName('Tassy Full')!.peakListId,
+            )
             .map((item) => (item.peakOsmId, item.points))
             .toList(),
         [(11, 1), (44, 9)],
@@ -223,7 +219,8 @@ PeakListRepository _buildRepository({
   final peakRepository = PeakRepository.test(InMemoryPeakStorage(peaks));
   final peakListStorage = storage ?? InMemoryPeakListStorage(peakLists);
   final peakListsById = {
-    for (final peakList in peakListStorage.getAll()) peakList.peakListId: peakList,
+    for (final peakList in peakListStorage.getAll())
+      peakList.peakListId: peakList,
   };
   return PeakListRepository.test(
     peakListStorage,
@@ -232,7 +229,9 @@ PeakListRepository _buildRepository({
       for (var index = 0; index < memberships.length; index++)
         PeakListItemEntity(id: index + 1, points: memberships[index].points)
           ..peakList.target = peakListsById[memberships[index].peakListId]!
-          ..peak.target = peakRepository.findByOsmId(memberships[index].peakOsmId),
+          ..peak.target = peakRepository.findByOsmId(
+            memberships[index].peakOsmId,
+          ),
     ]),
   );
 }

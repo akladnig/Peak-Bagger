@@ -16,7 +16,6 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
-import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
@@ -257,11 +256,7 @@ void main() {
       ),
       peakListRepository: _peakListRepository([
         (
-          peakList: PeakList(
-            peakListId: 9,
-            name: 'Abels',
-            colour: 0xFF4C8BF5,
-          ),
+          peakList: PeakList(peakListId: 9, name: 'Abels', colour: 0xFF4C8BF5),
           items: const [PeakListItem(peakOsmId: 6406, points: 0)],
         ),
         (
@@ -274,9 +269,12 @@ void main() {
         ),
       ]),
       overrides: [
-        peakOwnershipRingSettingsProvider.overrideWith(
-          _StaticPeakOwnershipRingNotifier.new,
-        ),
+        peakOwnershipRingSegmentsProvider.overrideWithValue(const {
+          6406: [
+            PeakOwnershipRingSegment(peakListId: 9, colourValue: 0xFF4C8BF5),
+            PeakOwnershipRingSegment(peakListId: 2, colourValue: 0xFF6347EA),
+          ],
+        }),
       ],
     );
 
@@ -1606,7 +1604,8 @@ void main() {
   ) async {
     final peakListRepository = _peakListRepository([
       (
-        peakList: PeakList(name: 'Bravo', region: 'new-south-wales')..peakListId = 2,
+        peakList: PeakList(name: 'Bravo', region: 'new-south-wales')
+          ..peakListId = 2,
         items: const [
           PeakListItem(peakOsmId: 7000, points: 2),
           PeakListItem(peakOsmId: 9999, points: 1),
@@ -1620,7 +1619,10 @@ void main() {
         peakList: PeakList(name: 'Zero', region: 'victoria')..peakListId = 4,
         items: const [PeakListItem(peakOsmId: 9999, points: 1)],
       ),
-      (peakList: PeakList(name: 'Broken', region: 'tasmania')..peakListId = 3, items: const []),
+      (
+        peakList: PeakList(name: 'Broken', region: 'tasmania')..peakListId = 3,
+        items: const [],
+      ),
     ]);
 
     await _pumpMap(
@@ -1822,7 +1824,9 @@ PeakListRepository _peakListRepository(
   List<({PeakList peakList, List<PeakListItem> items})> definitions,
 ) {
   final peakLists = [for (final definition in definitions) definition.peakList];
-  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+  final peakListsById = {
+    for (final peakList in peakLists) peakList.peakListId: peakList,
+  };
   final items = <PeakListItemEntity>[];
   var itemId = 1;
   for (final definition in definitions) {
@@ -1860,12 +1864,6 @@ class _StaticPeakMarkerInfoNotifier extends PeakMarkerInfoSettingsNotifier {
 
   @override
   bool build() => value;
-}
-
-class _StaticPeakOwnershipRingNotifier
-    extends PeakOwnershipRingSettingsNotifier {
-  @override
-  bool build() => true;
 }
 
 class _DelayedPeakRepository extends PeakRepository {

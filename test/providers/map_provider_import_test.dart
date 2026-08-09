@@ -139,7 +139,13 @@ void main() {
     final repository = TestWritableGpxTrackRepository();
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([
-        _peak(1, 'Selected Peak', latitude: -43.0, longitude: 147.0),
+        _peak(
+          1,
+          'Selected Peak',
+          latitude: -43.0,
+          longitude: 147.0,
+          elevation: 100.0,
+        ),
       ]),
     );
     final peaksBaggedRepository = PeaksBaggedRepository.test(
@@ -506,12 +512,14 @@ Peak _peak(
   String name, {
   required double latitude,
   required double longitude,
+  double? elevation,
 }) {
   return Peak(
     osmId: osmId,
     name: name,
     latitude: latitude,
     longitude: longitude,
+    elevation: elevation,
   );
 }
 
@@ -521,8 +529,8 @@ const _tasmanianTrackGpx = '''
   <trk>
     <name>Selected Track</name>
     <trkseg>
-      <trkpt lat="-43.0" lon="147.0"><time>2024-01-15T08:00:00Z</time></trkpt>
-      <trkpt lat="-43.0" lon="147.01"><time>2024-01-15T09:00:00Z</time></trkpt>
+      <trkpt lat="-43.0" lon="147.0"><ele>100</ele><time>2024-01-15T08:00:00Z</time></trkpt>
+      <trkpt lat="-43.0" lon="147.01"><ele>100</ele><time>2024-01-15T09:00:00Z</time></trkpt>
     </trkseg>
   </trk>
 </gpx>

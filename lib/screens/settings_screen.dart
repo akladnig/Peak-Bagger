@@ -16,7 +16,6 @@ import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
-import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
@@ -1286,8 +1285,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return;
       }
 
-      ref.read(peakListRevisionProvider.notifier).increment();
-      ref.read(mapProvider.notifier).refreshPeakInfoPopupContent();
+      ref.read(peakListMembershipRefreshRunnerProvider)();
       if (!mounted) {
         return;
       }

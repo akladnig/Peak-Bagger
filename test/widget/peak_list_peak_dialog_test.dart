@@ -664,7 +664,7 @@ void main() {
   });
 
   testWidgets(
-    'Tassy Full add mode shows peaks whose Tasmanian coordinates override stale stored region metadata',
+    'Tassy Full add mode excludes peaks with non-Tasmanian stored region metadata',
     (tester) async {
       final staleRegionTasPeak = _buildPeak(
         osmId: 101,
@@ -710,11 +710,8 @@ void main() {
       );
       await tester.pump();
 
-      expect(
-        find.byKey(const Key('peak-multi-select-row-101')),
-        findsOneWidget,
-      );
-      expect(find.text('Mount Agamemnon'), findsOneWidget);
+      expect(find.byKey(const Key('peak-multi-select-row-101')), findsNothing);
+      expect(find.text('Mount Agamemnon'), findsNothing);
       expect(find.byKey(const Key('peak-multi-select-row-202')), findsNothing);
     },
   );
@@ -802,7 +799,8 @@ void main() {
     expect(result?.deleted, isFalse);
     expect(result?.selectedPeakIds, [202]);
     expect(
-      listRepository.getPeakListItemsForList(1)
+      listRepository
+          .getPeakListItemsForList(1)
           .map((item) => (item.peakOsmId, item.points))
           .toList(),
       [(101, 4), (202, 10)],
@@ -831,12 +829,7 @@ void main() {
       longitude: 146.2,
     );
     final listRepository = _peakListRepository(
-      [
-        (
-          peakList: PeakList(name: 'Tasmania')..peakListId = 1,
-          items: const [],
-        ),
-      ],
+      [(peakList: PeakList(name: 'Tasmania')..peakListId = 1, items: const [])],
       peaks: [peakZulu, peakAlpha, peakMike],
     );
 
@@ -893,7 +886,8 @@ void main() {
     final result = await completer.future;
     expect(result?.selectedPeakIds, [100, 200, 300]);
     expect(
-      listRepository.getPeakListItemsForList(1)
+      listRepository
+          .getPeakListItemsForList(1)
           .map((item) => (item.peakOsmId, item.points))
           .toList(),
       [(100, 3), (200, 5), (300, 7)],
@@ -904,12 +898,7 @@ void main() {
     tester,
   ) async {
     final peaks = [
-      _buildPeak(
-        osmId: 300,
-        name: 'Zulu Peak',
-        latitude: -41,
-        longitude: 146,
-      ),
+      _buildPeak(osmId: 300, name: 'Zulu Peak', latitude: -41, longitude: 146),
       _buildPeak(
         osmId: 100,
         name: 'Alpha Peak',
@@ -923,15 +912,9 @@ void main() {
         longitude: 146.2,
       ),
     ];
-    final listRepository = _peakListRepository(
-      [
-        (
-          peakList: PeakList(name: 'Tasmania')..peakListId = 1,
-          items: const [],
-        ),
-      ],
-      peaks: peaks,
-    );
+    final listRepository = _peakListRepository([
+      (peakList: PeakList(name: 'Tasmania')..peakListId = 1, items: const []),
+    ], peaks: peaks);
 
     final completer = await _pumpDialog(
       tester,
@@ -942,9 +925,7 @@ void main() {
         peakItems: const [],
         ascentRows: const [],
       ),
-      peakRepository: PeakRepository.test(
-        InMemoryPeakStorage(peaks),
-      ),
+      peakRepository: PeakRepository.test(InMemoryPeakStorage(peaks)),
       tasmapRepository: await TestTasmapRepository.create(),
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
     );
@@ -1023,10 +1004,7 @@ void main() {
     final result = await completer.future;
     expect(result?.selectedPeakId, 101);
     expect(result?.deleted, isFalse);
-    expect(
-      listRepository.getPeakListItemsForList(1).single.points,
-      7,
-    );
+    expect(listRepository.getPeakListItemsForList(1).single.points, 7);
     expect(container.read(peakListRevisionProvider), 1);
     expect(mapNotifier.reloadPeakMarkersCallCount, 0);
   });
@@ -1092,7 +1070,8 @@ void main() {
     expect(result?.deleted, isTrue);
     expect(result?.selectedPeakId, 202);
     expect(
-      listRepository.getPeakListItemsForList(1)
+      listRepository
+          .getPeakListItemsForList(1)
           .map((item) => item.peakOsmId)
           .toList(),
       [202],
@@ -1167,7 +1146,8 @@ void main() {
       expect(container.read(peakListRevisionProvider), 1);
       expect(mapNotifier.reloadPeakMarkersCallCount, 0);
       expect(
-        listRepository.getPeakListItemsForList(1)
+        listRepository
+            .getPeakListItemsForList(1)
             .map((item) => item.peakOsmId)
             .toList(),
         [101, 202],
@@ -1179,9 +1159,7 @@ void main() {
     'Tassy Full multi-add fails atomically with the exact Tasmania-only message',
     (tester) async {
       final listRepository = PeakListRepository.test(
-        InMemoryPeakListStorage([
-          PeakList(peakListId: 1, name: 'Tassy Full'),
-        ]),
+        InMemoryPeakListStorage([PeakList(peakListId: 1, name: 'Tassy Full')]),
       );
       final tasPeak = _buildPeak(
         osmId: 101,
@@ -1330,13 +1308,16 @@ PeakListRepository _peakListRepository(
   List<Peak> peaks = const [],
 }) {
   final peakLists = [for (final definition in definitions) definition.peakList];
-  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+  final peakListsById = {
+    for (final peakList in peakLists) peakList.peakListId: peakList,
+  };
   final items = <PeakListItemEntity>[];
   final resolvedPeaks = <int, Peak>{for (final peak in peaks) peak.osmId: peak};
   var itemId = 1;
   for (final definition in definitions) {
     for (final item in definition.items) {
-      final peak = resolvedPeaks[item.peakOsmId] ??
+      final peak =
+          resolvedPeaks[item.peakOsmId] ??
           Peak(
             osmId: item.peakOsmId,
             name: 'Peak ${item.peakOsmId}',
@@ -1396,16 +1377,16 @@ Future<Completer<PeakListPeakDialogOutcome?>> _pumpDialog(
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
       ],
-        child: MaterialApp(
-          home: Builder(
-            builder: (context) {
-              if (dialogShown) {
-                return const SizedBox.shrink();
-              }
-              dialogShown = true;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                showGeneralDialog<PeakListPeakDialogOutcome>(
-                  context: context,
+      child: MaterialApp(
+        home: Builder(
+          builder: (context) {
+            if (dialogShown) {
+              return const SizedBox.shrink();
+            }
+            dialogShown = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              showGeneralDialog<PeakListPeakDialogOutcome>(
+                context: context,
                 barrierDismissible: true,
                 barrierLabel: MaterialLocalizations.of(
                   context,
