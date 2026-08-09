@@ -28,6 +28,8 @@ class ObjectBoxTrackDerivedDataPersistence
       final tracks = _store.box<GpxTrack>();
       final bagged = _store.box<PeaksBagged>();
       replacement.gpxTrackId = existing.gpxTrackId;
+      existing.peaks.clear();
+      tracks.put(existing);
       tracks.put(replacement);
 
       final plan = PeaksBaggedRepository.buildSyncPlan(

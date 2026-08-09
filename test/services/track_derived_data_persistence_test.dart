@@ -1,14 +1,58 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/track_derived_data_persistence.dart';
 
 void main() {
+  test('ObjectBox replacement removes stale peak correlations', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'track-derived-data-persistence-test',
+    );
+    final store = await openStore(directory: directory.path);
+    addTearDown(() async {
+      store.close();
+      await directory.delete(recursive: true);
+    });
+    final peak = Peak(
+      osmId: 10,
+      name: 'Stale peak',
+      latitude: -42,
+      longitude: 146,
+    );
+    store.box<Peak>().put(peak);
+    final refreshedPeak = Peak(
+      osmId: 11,
+      name: 'Refreshed peak',
+      latitude: -42,
+      longitude: 146,
+    );
+    store.box<Peak>().put(refreshedPeak);
+    final original = GpxTrack(
+      gpxTrackId: 1,
+      contentHash: 'track-1',
+      trackName: 'Track 1',
+    )..peaks.add(peak);
+    store.box<GpxTrack>().put(original);
+    final stored = store.box<GpxTrack>().get(1)!;
+    final replacement = GpxTrack.fromMap(stored.toMap())
+      ..peaks.addAll(stored.peaks);
+    replacement.peaks.clear();
+    replacement.peaks.add(refreshedPeak);
+
+    ObjectBoxTrackDerivedDataPersistence(
+      store,
+    ).replaceTrackAndSync(existing: stored, replacement: replacement);
+
+    expect(store.box<GpxTrack>().get(1)!.peaks.map((peak) => peak.osmId), [11]);
+  });
+
   group('RepositoryTrackDerivedDataPersistence', () {
     test('updates one track and synchronizes bagged history', () {
       final original = _track(id: 1, peakIds: [10]);
