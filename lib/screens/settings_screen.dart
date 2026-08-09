@@ -1652,22 +1652,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Widget _buildPeakCorrelationSection(
     BuildContext context,
-    AsyncValue<int> peakCorrelationState,
+    AsyncValue<PeakCorrelationSettings> peakCorrelationState,
   ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: switch (peakCorrelationState) {
-        AsyncData<int>(:final value) => ExpansionTile(
+        AsyncData<PeakCorrelationSettings>(:final value) => ExpansionTile(
           key: const Key('peak-correlation-settings-section'),
           initiallyExpanded: true,
           title: const Text('Peak Correlation'),
-          subtitle: Text('Threshold ${value}m'),
+          subtitle: Text(
+            'Distance ${value.distanceMeters}m, elevation ${value.elevationMeters}m',
+          ),
           childrenPadding: const EdgeInsets.only(bottom: 16),
           children: [
             _buildIntegerDropdown(
               key: const Key('peak-correlation-distance-meters'),
               label: 'Distance threshold',
-              value: value,
+              value: value.distanceMeters,
               options: peakCorrelationDistanceOptions,
               onChanged: (selected) {
                 if (selected == null) return;
@@ -1678,15 +1680,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 );
               },
             ),
+            const SizedBox(height: 12),
+            _buildIntegerDropdown(
+              key: const Key('peak-correlation-elevation-meters'),
+              label: 'Elevation threshold',
+              value: value.elevationMeters,
+              options: peakCorrelationElevationOptions,
+              onChanged: (selected) {
+                if (selected == null) return;
+                unawaited(
+                  ref
+                      .read(peakCorrelationSettingsProvider.notifier)
+                      .setElevationMeters(selected),
+                );
+              },
+            ),
           ],
         ),
-        AsyncLoading<int>() => const ListTile(
+        AsyncLoading<PeakCorrelationSettings>() => const ListTile(
           key: Key('peak-correlation-settings-section'),
           title: Text('Peak Correlation'),
           subtitle: Text('Loading correlation settings...'),
           trailing: Text('...'),
         ),
-        AsyncError<int>() => const ListTile(
+        AsyncError<PeakCorrelationSettings>() => const ListTile(
           key: Key('peak-correlation-settings-section'),
           title: Text('Peak Correlation'),
           subtitle: Text('Unable to load correlation settings.'),

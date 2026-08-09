@@ -1,5 +1,6 @@
-import 'dart:ui' show PointerDeviceKind;
+import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +15,7 @@ import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/gpx_export_service.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/theme.dart';
@@ -153,6 +155,168 @@ void main() {
     );
     expect(container.read(mapProvider).selectedTrackId, isNull);
     expect(find.byKey(const Key('track-info-panel')), findsNothing);
+  });
+
+  testWidgets(
+    'selected track recalculation confirms and cancel makes no changes',
+    (tester) async {
+      final state = _selectedTrackState();
+      late TestMapNotifier notifier;
+      await _pumpRawMapScreen(
+        tester,
+        state,
+        size: const Size(1600, 900),
+        mapNotifierBuilder: (initialState) =>
+            notifier = TestMapNotifier(initialState),
+      );
+
+      final recalculateButton = find.byKey(
+        const Key('track-info-panel-recalculate-button'),
+      );
+      await tester.ensureVisible(recalculateButton);
+      await tester.tap(recalculateButton, warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Recalculate Track Statistics?'), findsOneWidget);
+      expect(
+        find.text(
+          'This will rebuild statistics and peak correlation for this track from stored GPX XML. Do you wish to proceed?',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<FilledButton>(
+          find.byKey(const Key('selected-track-recalculate-confirm')),
+        ),
+        isA<FilledButton>(),
+      );
+
+      await tester.tap(
+        find.byKey(const Key('selected-track-recalculate-cancel')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(notifier.selectedTrackRecalculationCallCount, 0);
+      expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    },
+  );
+
+  testWidgets('selected track recalculation refreshes the open panel', (
+    tester,
+  ) async {
+    final state = _selectedTrackState();
+    final refreshedTrack = GpxTrack(
+      gpxTrackId: 10,
+      contentHash: 'hash-10',
+      trackName: 'Recalculated Ridge Walk',
+      gpxFile: '<gpx></gpx>',
+    );
+    await _pumpRawMapScreen(
+      tester,
+      state,
+      size: const Size(1600, 900),
+      mapNotifierBuilder: (initialState) => TestMapNotifier(
+        initialState,
+        selectedTrackRecalcTracks: [refreshedTrack],
+      ),
+    );
+
+    final recalculateButton = find.byKey(
+      const Key('track-info-panel-recalculate-button'),
+    );
+    await tester.ensureVisible(recalculateButton);
+    await tester.tap(recalculateButton, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('selected-track-recalculate-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    expect(find.text('Recalculated Ridge Walk'), findsOneWidget);
+    expect(find.text('Track Statistics Recalculated'), findsOneWidget);
+    expect(
+      find.text('Track statistics and peak correlation were refreshed.'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('selected-track-recalculate-result-close')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('selected track recalculation recovers from failure', (
+    tester,
+  ) async {
+    final state = _selectedTrackState();
+    await _pumpRawMapScreen(
+      tester,
+      state,
+      size: const Size(1600, 900),
+      mapNotifierBuilder: (initialState) => TestMapNotifier(
+        initialState,
+        selectedTrackRecalcError: 'Stored GPX XML is unavailable.',
+      ),
+    );
+
+    final recalculateButton = find.byKey(
+      const Key('track-info-panel-recalculate-button'),
+    );
+    await tester.ensureVisible(recalculateButton);
+    await tester.tap(recalculateButton, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('selected-track-recalculate-confirm')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    expect(find.text('Track Statistics Recalculation Failed'), findsOneWidget);
+    expect(find.text('Stored GPX XML is unavailable.'), findsOneWidget);
+    expect(tester.widget<FilledButton>(recalculateButton).onPressed, isNotNull);
+    expect(
+      find.byKey(const Key('selected-track-recalculate-error-close')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('selected track recalculation keeps the panel open while busy', (
+    tester,
+  ) async {
+    final completion = Completer<TrackStatisticsRecalcResult?>();
+    final state = _selectedTrackState();
+    await _pumpRawMapScreen(
+      tester,
+      state,
+      size: const Size(1600, 900),
+      mapNotifierBuilder: (initialState) => TestMapNotifier(
+        initialState,
+        selectedTrackRecalcCompleter: completion,
+      ),
+    );
+
+    final recalculateButton = find.byKey(
+      const Key('track-info-panel-recalculate-button'),
+    );
+    await tester.ensureVisible(recalculateButton);
+    await tester.tap(recalculateButton, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('selected-track-recalculate-confirm')),
+    );
+    await tester.pump();
+
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    expect(
+      find.byKey(const Key('track-info-panel-recalculate-busy-indicator')),
+      findsOneWidget,
+    );
+    expect(tester.widget<FilledButton>(recalculateButton).onPressed, isNull);
+
+    completion.complete(
+      const TrackStatisticsRecalcResult(updatedCount: 1, skippedCount: 0),
+    );
+    await tester.pumpAndSettle();
   });
 
   testWidgets('panel renders sections and fallback strings', (tester) async {
@@ -474,16 +638,18 @@ Future<void> _pumpRawMapScreen(
   MapState state, {
   required Size size,
   GpxExportService? exportService,
+  TestMapNotifier Function(MapState initialState)? mapNotifierBuilder,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
   final gpxTrackRepository = GpxTrackRepository.test(
     InMemoryGpxTrackStorage(state.tracks),
   );
+  final mapNotifier = mapNotifierBuilder?.call(state) ?? TestMapNotifier(state);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        mapProvider.overrideWith(() => TestMapNotifier(state)),
+        mapProvider.overrideWith(() => mapNotifier),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
@@ -497,6 +663,24 @@ Future<void> _pumpRawMapScreen(
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
   await tester.pump(const Duration(milliseconds: 100));
+}
+
+MapState _selectedTrackState() {
+  return MapState(
+    center: const LatLng(-41.5, 146.5),
+    zoom: 15,
+    basemap: Basemap.tracestrack,
+    showTracks: true,
+    tracks: [
+      GpxTrack(
+        gpxTrackId: 10,
+        contentHash: 'hash-10',
+        trackName: 'Ridge Walk',
+        gpxFile: '<gpx></gpx>',
+      ),
+    ],
+    selectedTrackId: 10,
+  );
 }
 
 final class _FakeInfoPanelExportService extends GpxExportService {

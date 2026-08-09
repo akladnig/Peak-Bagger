@@ -64,7 +64,8 @@ typedef GpxPointElevationsResolver =
     Future<List<double?>> Function(List<LatLng> points);
 typedef GpxDirectoryResolver = Directory Function();
 typedef PeakListLoader = List<Peak> Function();
-typedef PeakCorrelationThresholdLoader = Future<int> Function();
+typedef PeakCorrelationThresholdsLoader =
+    Future<({int distanceMeters, int elevationMeters})> Function();
 
 class GpxExportService {
   GpxExportService({
@@ -73,7 +74,7 @@ class GpxExportService {
     GpxExportFileSystem? fileSystem,
     this._routePointElevationsResolver,
     this._peakListLoader,
-    this._peakCorrelationThresholdLoader,
+    this._peakCorrelationThresholdsLoader,
     GpxStorageDestinationResolver? storageDestinationResolver,
   }) : _trackDownloadsDirectoryResolver =
            trackDownloadsDirectoryResolver ?? _defaultTrackDownloadsDirectory,
@@ -88,7 +89,7 @@ class GpxExportService {
   final GpxExportFileSystem _fileSystem;
   final GpxPointElevationsResolver? _routePointElevationsResolver;
   final PeakListLoader? _peakListLoader;
-  final PeakCorrelationThresholdLoader? _peakCorrelationThresholdLoader;
+  final PeakCorrelationThresholdsLoader? _peakCorrelationThresholdsLoader;
   final GpxStorageDestinationResolver _storageDestinationResolver;
 
   GpxExportPlan planTrackExport(GpxTrack track) {
@@ -121,7 +122,7 @@ class GpxExportService {
       throw const GpxExportException('Route export location is unsupported.');
     }
     final elevations = await _resolveRoutePointElevations(route);
-    final correlatedPeaks = await _resolveCorrelatedPeaks(route);
+    final correlatedPeaks = await _resolveCorrelatedPeaks(route, elevations);
     return GpxExportPlan(
       path: p.join(routesRoot.path, destination.relativeFolder, '$stem.gpx'),
       contents: _buildRouteGpx(
@@ -297,32 +298,48 @@ class GpxExportService {
     }
   }
 
-  Future<List<Peak>> _resolveCorrelatedPeaks(app_route.Route route) async {
+  Future<List<Peak>> _resolveCorrelatedPeaks(
+    app_route.Route route,
+    List<double?> elevations,
+  ) async {
     final peakListLoader = _peakListLoader;
-    final thresholdLoader = _peakCorrelationThresholdLoader;
-    if (peakListLoader == null || thresholdLoader == null) {
+    final thresholdsLoader = _peakCorrelationThresholdsLoader;
+    if (peakListLoader == null || thresholdsLoader == null) {
       return const [];
     }
 
     try {
-      final threshold = await thresholdLoader();
+      final thresholds = await thresholdsLoader();
       final correlationService = TrackPeakCorrelationService(
         peaks: peakListLoader(),
-        thresholdMeters: threshold,
+        thresholdMeters: thresholds.distanceMeters,
+        elevationThresholdMeters: thresholds.elevationMeters,
       );
-      final correlationXml = _buildCorrelationRouteGpx(route.gpxRoute);
+      final correlationXml = _buildCorrelationRouteGpx(
+        route.gpxRoute,
+        elevations,
+      );
       return correlationService.matchPeaks(correlationXml);
     } catch (_) {
       return const [];
     }
   }
 
-  String _buildCorrelationRouteGpx(List<LatLng> points) {
+  String _buildCorrelationRouteGpx(
+    List<LatLng> points,
+    List<double?> elevations,
+  ) {
     final buffer = StringBuffer()..write('<gpx><rte>');
-    for (final point in points) {
+    for (var index = 0; index < points.length; index++) {
+      final point = points[index];
       buffer.write(
-        '<rtept lat="${_formatCoordinate(point.latitude)}" lon="${_formatCoordinate(point.longitude)}"></rtept>',
+        '<rtept lat="${_formatCoordinate(point.latitude)}" lon="${_formatCoordinate(point.longitude)}">',
       );
+      final elevation = index < elevations.length ? elevations[index] : null;
+      if (elevation != null) {
+        buffer.write('<ele>${_formatElevation(elevation)}</ele>');
+      }
+      buffer.write('</rtept>');
     }
     buffer.write('</rte></gpx>');
     return buffer.toString();

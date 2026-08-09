@@ -337,6 +337,14 @@ double? distanceFromSegment(
   Location linePoint1,
   Location linePoint2,
 ) {
+  return closestPointOnSegment(point, linePoint1, linePoint2).distance;
+}
+
+({double distance, double fraction}) closestPointOnSegment(
+  Location point,
+  Location linePoint1,
+  Location linePoint2,
+) {
   final latMean = _radians(
     (point.latitude + linePoint1.latitude + linePoint2.latitude) / 3,
   );
@@ -360,15 +368,21 @@ double? distanceFromSegment(
   final dy = by - ay;
   final lengthSquared = dx * dx + dy * dy;
   if (lengthSquared == 0) {
-    return math.sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay));
+    return (
+      distance: math.sqrt((px - ax) * (px - ax) + (py - ay) * (py - ay)),
+      fraction: 0,
+    );
   }
 
   final projection = ((px - ax) * dx + (py - ay) * dy) / lengthSquared;
   final t = projection.clamp(0.0, 1.0);
   final closestX = ax + dx * t;
   final closestY = ay + dy * t;
-  return math.sqrt(
-    (px - closestX) * (px - closestX) + (py - closestY) * (py - closestY),
+  return (
+    distance: math.sqrt(
+      (px - closestX) * (px - closestX) + (py - closestY) * (py - closestY),
+    ),
+    fraction: t,
   );
 }
 

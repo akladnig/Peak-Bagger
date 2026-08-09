@@ -11,6 +11,7 @@ import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/polygon_asset_repository.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
@@ -23,6 +24,7 @@ import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/services/track_derived_data_persistence.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xml/xml.dart';
@@ -662,6 +664,135 @@ void main() {
         hasLength(3),
       );
     });
+
+    test(
+      'selected recalculation uses current distance and elevation settings',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          peakCorrelationDistanceKey: 100,
+          peakCorrelationElevationKey: 20,
+        });
+        final original = GpxTrack(
+          gpxTrackId: 7,
+          contentHash: 'hash-7',
+          trackName: 'Track 7',
+          gpxFile: _elevationRecalcGpx,
+        );
+        final tracks = GpxTrackRepository.test(
+          InMemoryGpxTrackStorage([original]),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            mapProvider.overrideWith(
+              () => MapNotifier(
+                peakRepository: PeakRepository.test(
+                  InMemoryPeakStorage([
+                    Peak(
+                      osmId: 99,
+                      name: 'Nearby peak',
+                      latitude: -42,
+                      longitude: 146,
+                      elevation: 120,
+                    ),
+                  ]),
+                ),
+                overpassService: OverpassService(),
+                tasmapRepository: _NoopTasmapRepository(),
+                gpxTrackRepository: tracks,
+                peaksBaggedRepository: PeaksBaggedRepository.test(
+                  InMemoryPeaksBaggedStorage(),
+                ),
+                migrationMarkerStore: _FakeMigrationMarkerStore(
+                  migrationMarked: true,
+                  peaksBaggedBackfillMarked: true,
+                ),
+                loadPositionOnBuild: false,
+                loadPeaksOnBuild: false,
+                loadTracksOnBuild: false,
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        final result = await container
+            .read(mapProvider.notifier)
+            .recalculateSelectedTrackStatistics(7);
+
+        expect(result, isNotNull);
+        expect(tracks.findById(7)!.peaks.map((peak) => peak.osmId), [99]);
+      },
+    );
+
+    for (final failure in TrackDerivedDataPersistenceFailure.values) {
+      test(
+        'selected recalculation restores persisted data on $failure',
+        () async {
+          SharedPreferences.setMockInitialValues({});
+          final original =
+              GpxTrack(
+                  gpxTrackId: 7,
+                  contentHash: 'hash-7',
+                  trackName: 'Track 7',
+                  gpxFile: _elevationRecalcGpx,
+                )
+                ..peaks.add(
+                  Peak(
+                    osmId: 44,
+                    name: 'Prior peak',
+                    latitude: -42,
+                    longitude: 146,
+                  ),
+                );
+          final tracks = GpxTrackRepository.test(
+            InMemoryGpxTrackStorage([original]),
+          );
+          final bagged = PeaksBaggedRepository.test(
+            InMemoryPeaksBaggedStorage([
+              PeaksBagged(baggedId: 13, gpxId: 7, peakId: 44),
+            ]),
+          );
+          final container = ProviderContainer(
+            overrides: [
+              mapProvider.overrideWith(
+                () => MapNotifier(
+                  peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+                  overpassService: OverpassService(),
+                  tasmapRepository: _NoopTasmapRepository(),
+                  gpxTrackRepository: tracks,
+                  peaksBaggedRepository: bagged,
+                  trackDerivedDataPersistence:
+                      RepositoryTrackDerivedDataPersistence(
+                        tracks: tracks,
+                        peaksBagged: bagged,
+                        failureForTest: failure,
+                      ),
+                  migrationMarkerStore: _FakeMigrationMarkerStore(
+                    migrationMarked: true,
+                    peaksBaggedBackfillMarked: true,
+                  ),
+                  loadPositionOnBuild: false,
+                  loadPeaksOnBuild: false,
+                  loadTracksOnBuild: false,
+                ),
+              ),
+            ],
+          );
+          addTearDown(container.dispose);
+
+          final result = await container
+              .read(mapProvider.notifier)
+              .recalculateSelectedTrackStatistics(7);
+
+          expect(result, isNull);
+          expect(tracks.findById(7)!.peaks.map((peak) => peak.osmId), [44]);
+          expect(
+            bagged.getAll().map((row) => (row.baggedId, row.gpxId, row.peakId)),
+            [(13, 7, 44)],
+          );
+        },
+      );
+    }
   });
 
   group('MapNotifier hover state', () {
@@ -2407,6 +2538,16 @@ const _persistedRepairedRecalcGpx = '''
       <trkpt lat="-42.1" lon="146.1"><time>2024-01-15T09:00:00Z</time></trkpt>
     </trkseg>
   </trk>
+</gpx>
+''';
+
+const _elevationRecalcGpx = '''
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="test">
+  <trk><trkseg>
+    <trkpt lat="-42.0" lon="146.0"><ele>100</ele><time>2024-01-15T08:00:00Z</time></trkpt>
+    <trkpt lat="-42.0" lon="146.001"><ele>100</ele><time>2024-01-15T08:01:00Z</time></trkpt>
+  </trkseg></trk>
 </gpx>
 ''';
 

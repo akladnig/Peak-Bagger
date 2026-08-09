@@ -229,6 +229,8 @@ class MapTrackInfoPanel extends StatelessWidget {
     required this.onClose,
     this.onEdit,
     this.onVisibilityChanged,
+    this.onTrackStatisticsRecalculate,
+    this.isTrackStatisticsRecalculating = false,
     this.onRouteWalkingSpeedChanged,
     this.onRouteTimingRecalculate,
     this.onExport,
@@ -242,6 +244,8 @@ class MapTrackInfoPanel extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback? onEdit;
   final ValueChanged<bool>? onVisibilityChanged;
+  final VoidCallback? onTrackStatisticsRecalculate;
+  final bool isTrackStatisticsRecalculating;
   final ValueChanged<double>? onRouteWalkingSpeedChanged;
   final ValueChanged<RouteTimingAlgorithm>? onRouteTimingRecalculate;
   final VoidCallback? onExport;
@@ -362,6 +366,10 @@ class MapTrackInfoPanel extends StatelessWidget {
                                           track!,
                                           onVisibilityChanged:
                                               onVisibilityChanged,
+                                          onTrackStatisticsRecalculate:
+                                              onTrackStatisticsRecalculate,
+                                          isTrackStatisticsRecalculating:
+                                              isTrackStatisticsRecalculating,
                                         );
                                 },
                               ),
@@ -593,6 +601,8 @@ class MapTrackInfoPanel extends StatelessWidget {
     BuildContext context,
     GpxTrack track, {
     required ValueChanged<bool>? onVisibilityChanged,
+    required VoidCallback? onTrackStatisticsRecalculate,
+    required bool isTrackStatisticsRecalculating,
   }) {
     final normalizedPeaks = normalizeTrackPeaks(track.peaks);
 
@@ -757,6 +767,31 @@ class MapTrackInfoPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            key: const Key('track-info-panel-recalculate-button'),
+            onPressed: isTrackStatisticsRecalculating
+                ? null
+                : onTrackStatisticsRecalculate,
+            child: isTrackStatisticsRecalculating
+                ? const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        key: Key('track-info-panel-recalculate-busy-indicator'),
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 8),
+                      Text('Recalculating...'),
+                    ],
+                  )
+                : const Text('Recalculate Track Statistics'),
+          ),
+        ),
+        const SizedBox(height: 12),
         _VisibilityToggleRow(
           key: const Key('track-info-panel-visibility-row'),
           label: track.visible

@@ -11,8 +11,13 @@ final gpxExportServiceProvider = Provider<GpxExportService>((ref) {
   return GpxExportService(
     routePointElevationsResolver: routeElevationSampler.samplePointElevations,
     peakListLoader: peakRepository.getAllPeaks,
-    peakCorrelationThresholdLoader: () =>
-        ref.read(peakCorrelationSettingsProvider.future),
+    peakCorrelationThresholdsLoader: () async {
+      final settings = await ref.read(peakCorrelationSettingsProvider.future);
+      return (
+        distanceMeters: settings.distanceMeters,
+        elevationMeters: settings.elevationMeters,
+      );
+    },
     storageDestinationResolver: GpxStorageDestinationResolver(),
   );
 });

@@ -142,6 +142,16 @@ class GpxTracksRobot {
   Finder get trackInfoPanel => find.byKey(const Key('track-info-panel'));
   Finder get trackInfoPanelClose =>
       find.byKey(const Key('track-info-panel-close'));
+  Finder get selectedTrackRecalculateButton =>
+      find.byKey(const Key('track-info-panel-recalculate-button'));
+  Finder get selectedTrackRecalculateConfirm =>
+      find.byKey(const Key('selected-track-recalculate-confirm'));
+  Finder get selectedTrackRecalculateBusyIndicator =>
+      find.byKey(const Key('track-info-panel-recalculate-busy-indicator'));
+  Finder get selectedTrackRecalculateResult =>
+      find.byKey(const Key('selected-track-recalculate-result-close'));
+  Finder get selectedTrackRecalculateError =>
+      find.byKey(const Key('selected-track-recalculate-error-close'));
   Finder get visibilitySwitch =>
       find.byKey(const Key('track-info-panel-visibility-switch'));
   Finder backgroundJobRow(int index) =>
@@ -585,7 +595,7 @@ class GpxTracksRobot {
   int currentPeakCorrelationDistance(BuildContext context) {
     return ProviderScope.containerOf(
       context,
-    ).read(peakCorrelationSettingsProvider).value!;
+    ).read(peakCorrelationSettingsProvider).value!.distanceMeters;
   }
 
   void expectTracksHidden() {
@@ -737,6 +747,34 @@ class GpxTracksRobot {
   Future<void> closeTrackInfoPanel() async {
     await tester.tap(trackInfoPanelClose);
     await tester.pumpAndSettle();
+  }
+
+  Future<void> requestSelectedTrackStatisticsRecalculation() async {
+    await tester.ensureVisible(selectedTrackRecalculateButton);
+    await tester.tap(selectedTrackRecalculateButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> confirmSelectedTrackStatisticsRecalculation() async {
+    await tester.tap(selectedTrackRecalculateConfirm);
+    await tester.pumpAndSettle();
+  }
+
+  void expectSelectedTrackRecalculationSuccess() {
+    expect(selectedTrackRecalculateResult, findsOneWidget);
+    expect(find.text('Track Statistics Recalculated'), findsOneWidget);
+  }
+
+  void expectSelectedTrackRecalculationFailure() {
+    expect(selectedTrackRecalculateError, findsOneWidget);
+    expect(find.text('Track Statistics Recalculation Failed'), findsOneWidget);
+  }
+
+  void expectTrackPeakCorrelation(String peakName) {
+    expect(
+      find.descendant(of: trackInfoPanel, matching: find.text(peakName)),
+      findsOneWidget,
+    );
   }
 
   Future<void> toggleTrackVisibility() async {

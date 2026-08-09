@@ -89,7 +89,11 @@ class InMemoryPeaksBaggedStorage implements PeaksBaggedStorage {
     final retainedRows = _rows
         .where((row) => !removeIds.contains(row.baggedId))
         .toList(growable: false);
-    _rows = [...retainedRows, ...plan.rows];
+    final rowsById = {
+      for (final row in retainedRows) row.baggedId: row,
+      for (final row in plan.rows) row.baggedId: row,
+    };
+    _rows = rowsById.values.toList(growable: false);
   }
 }
 
@@ -146,6 +150,14 @@ class PeaksBaggedRepository {
   }) async {
     final plan = buildSyncPlan(tracks, _storage.getAll());
     _storage.sync(plan, beforeWriteForTest: beforeWriteForTest);
+  }
+
+  void applySyncPlan(({List<PeaksBagged> rows, List<int> removeIds}) plan) {
+    _storage.sync(plan);
+  }
+
+  void replaceAllForRecovery(List<PeaksBagged> rows) {
+    _storage.replaceAll(rows);
   }
 
   static ({List<PeaksBagged> rows, List<int> removeIds}) buildSyncPlan(

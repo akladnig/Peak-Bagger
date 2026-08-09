@@ -209,6 +209,83 @@ void main() {
   });
 
   testWidgets(
+    'places the track statistics recalculation button above visibility',
+    (tester) async {
+      final track = GpxTrack(
+        contentHash: 'hash',
+        trackName: 'Test Track',
+        visible: true,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: MyTheme.light,
+          home: Scaffold(
+            body: SizedBox(
+              width: 600,
+              child: MapTrackInfoPanel(
+                track: track,
+                onClose: () {},
+                onTrackStatisticsRecalculate: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final recalculateButton = find.byKey(
+        const Key('track-info-panel-recalculate-button'),
+      );
+      final visibilityRow = find.byKey(
+        const Key('track-info-panel-visibility-row'),
+      );
+      await tester.ensureVisible(visibilityRow);
+      await tester.pumpAndSettle();
+
+      expect(recalculateButton, findsOneWidget);
+      expect(
+        tester.widget<FilledButton>(recalculateButton).onPressed,
+        isNotNull,
+      );
+      expect(
+        tester.getRect(recalculateButton).bottom,
+        lessThan(tester.getRect(visibilityRow).top),
+      );
+    },
+  );
+
+  testWidgets('shows disabled inline recalculation progress', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: MyTheme.light,
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            child: MapTrackInfoPanel(
+              track: GpxTrack(contentHash: 'hash', trackName: 'Test Track'),
+              onClose: () {},
+              onTrackStatisticsRecalculate: () {},
+              isTrackStatisticsRecalculating: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final recalculateButton = find.byKey(
+      const Key('track-info-panel-recalculate-button'),
+    );
+    await tester.ensureVisible(recalculateButton);
+
+    expect(tester.widget<FilledButton>(recalculateButton).onPressed, isNull);
+    expect(
+      find.byKey(const Key('track-info-panel-recalculate-busy-indicator')),
+      findsOneWidget,
+    );
+    expect(find.text('Recalculating...'), findsOneWidget);
+  });
+
+  testWidgets(
     'uses a scoped onSecondary content theme and keeps export separate',
     (tester) async {
       final track = GpxTrack(

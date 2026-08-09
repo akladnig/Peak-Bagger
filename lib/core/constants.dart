@@ -81,6 +81,19 @@ abstract final class GpxConstants {
 abstract final class PeakCorrelationConstants {
   static const defaultDistanceMeters = 50;
   static const distanceOptions = <int>[10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+  static const defaultElevationMeters = 10;
+  static const elevationOptions = <int>[
+    10,
+    20,
+    30,
+    40,
+    50,
+    60,
+    70,
+    80,
+    90,
+    100,
+  ];
 }
 
 abstract final class RouterConstants {
