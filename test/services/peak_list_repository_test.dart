@@ -609,7 +609,7 @@ void main() {
     );
 
     test(
-      'Tassy Full add accepts peaks whose Tasmanian coordinates override stale stored region metadata',
+      'Tassy Full add rejects peaks with non-Tasmanian stored region metadata',
       () async {
         final repository = PeakListRepository.test(
           InMemoryPeakListStorage([
@@ -628,18 +628,21 @@ void main() {
           ),
         );
 
-        await repository.addPeakItem(
-          peakListId: 1,
-          item: const PeakListItem(peakOsmId: 11, points: 9),
+        await expectLater(
+          repository.addPeakItem(
+            peakListId: 1,
+            item: const PeakListItem(peakOsmId: 11, points: 9),
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (error) => error.message,
+              'message',
+              PeakListRepository.tassyFullTasmaniaOnlyError,
+            ),
+          ),
         );
 
-        expect(
-          repository
-              .getPeakListItemsForList(1)
-              .map((item) => (item.peakOsmId, item.points))
-              .toList(),
-          [(11, 9)],
-        );
+        expect(repository.getPeakListItemsForList(1), isEmpty);
       },
     );
 

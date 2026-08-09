@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
-import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../harness/test_tasmap_repository.dart';
@@ -107,9 +106,7 @@ void main() {
     );
   });
 
-  testWidgets('reset map data refreshes map screen tasmap reads', (
-    tester,
-  ) async {
+  testWidgets('reset map data refreshes Tasmap reads', (tester) async {
     SharedPreferences.setMockInitialValues({});
 
     final repository = await TestTasmapRepository.create();
@@ -130,18 +127,15 @@ void main() {
           ),
           tasmapRepositoryProvider.overrideWithValue(repository),
         ],
-        child: const App(),
+        child: const MaterialApp(home: SettingsScreen()),
       ),
     );
     await tester.pump();
 
     final initialCalls = repository.getAllMapsCallCount;
 
-    router.go('/settings');
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    await tester.tap(find.byKey(const Key('reset-map-data-tile')));
+    final resetMapDataTile = find.byKey(const Key('reset-map-data-tile'));
+    await tester.tap(resetMapDataTile);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('reset-map-data-confirm')));
     await tester.pumpAndSettle();

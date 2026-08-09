@@ -21,9 +21,7 @@ void main() {
   ) async {
     _setLargeViewport(tester);
     final repository = _buildRepository(
-      peakLists: [
-        PeakList(name: 'Abels')..peakListId = 1,
-      ],
+      peakLists: [PeakList(name: 'Abels')..peakListId = 1],
       peaks: [_peak(11)],
       memberships: const [(peakListId: 1, peakOsmId: 11, points: 2)],
     );
@@ -96,7 +94,8 @@ void main() {
         _peak(2000, region: 'new-south-wales'),
       ],
       memberships: [
-        for (final peakId in peakIds) (peakListId: 1, peakOsmId: peakId, points: 1),
+        for (final peakId in peakIds)
+          (peakListId: 1, peakOsmId: peakId, points: 1),
         (peakListId: 2, peakOsmId: 2000, points: 9),
       ],
     );
@@ -154,7 +153,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: dialog, matching: find.text('Removed 0 peaks')),
+      find.descendant(of: dialog, matching: find.text('Removed 1 peak')),
       findsOneWidget,
     );
     expect(
@@ -163,10 +162,12 @@ void main() {
     );
     expect(
       repository
-          .getPeakListItemsForList(repository.findByName('Tassy Full')!.peakListId)
+          .getPeakListItemsForList(
+            repository.findByName('Tassy Full')!.peakListId,
+          )
           .map((item) => (item.peakOsmId, item.points))
           .toList(),
-      [for (final peakId in peakIds) (peakId, 1), (2000, 9)],
+      [for (final peakId in peakIds) (peakId, 1)],
     );
   });
 
@@ -275,7 +276,9 @@ PeakListRepository _buildRepository({
   List<({int peakListId, int peakOsmId, int points})> memberships = const [],
 }) {
   final peakRepository = PeakRepository.test(InMemoryPeakStorage(peaks));
-  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+  final peakListsById = {
+    for (final peakList in peakLists) peakList.peakListId: peakList,
+  };
   return PeakListRepository.test(
     storage ?? InMemoryPeakListStorage(peakLists),
     peakRepository: peakRepository,
@@ -283,7 +286,9 @@ PeakListRepository _buildRepository({
       for (var index = 0; index < memberships.length; index++)
         PeakListItemEntity(id: index + 1, points: memberships[index].points)
           ..peakList.target = peakListsById[memberships[index].peakListId]!
-          ..peak.target = peakRepository.findByOsmId(memberships[index].peakOsmId),
+          ..peak.target = peakRepository.findByOsmId(
+            memberships[index].peakOsmId,
+          ),
     ]),
   );
 }
