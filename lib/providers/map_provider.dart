@@ -2651,6 +2651,38 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
+  Future<void> removePeakCorrelation({
+    required int trackId,
+    required int peakOsmId,
+  }) async {
+    final existing = _gpxTrackRepository.findById(trackId);
+    if (existing == null) {
+      throw StateError('Track $trackId was not found');
+    }
+
+    if (existing.peaks.any((peak) => peak.osmId == peakOsmId)) {
+      final replacement = _cloneTrack(existing);
+      replacement.peaks
+        ..clear()
+        ..addAll(
+          existing.peaks.where((peak) => peak.osmId != peakOsmId),
+        );
+      _trackDerivedDataPersistence.replaceTrackAndSync(
+        existing: existing,
+        replacement: replacement,
+      );
+    }
+
+    final refreshedTracks = _gpxTrackRepository.getAllTracks();
+    _refreshCorrelatedPeakIds(refreshedTracks);
+    ref.read(peaksBaggedRevisionProvider.notifier).increment();
+    state = state.copyWith(
+      tracks: refreshedTracks,
+      hasTrackRecoveryIssue: _hasTrackRecoveryIssue(refreshedTracks),
+    );
+    refreshPeakInfoPopupContent();
+  }
+
   String _processingXmlForTrack(
     GpxTrack track,
     GpxTrackRepairService repairService,
