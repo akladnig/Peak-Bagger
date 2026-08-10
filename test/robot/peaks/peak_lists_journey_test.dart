@@ -7,6 +7,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/screens/peak_lists_screen.dart';
@@ -18,6 +20,8 @@ import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/widgets/peak_list_import_dialog.dart';
 
@@ -58,7 +62,10 @@ void main() {
     final peakListRepository = await _peakListRepository(
       peakRepository: peakRepository,
       definitions: [
-        (peakList: PeakList(peakListId: 1, name: 'Journey List'), items: const <PeakListItem>[]),
+        (
+          peakList: PeakList(peakListId: 1, name: 'Journey List'),
+          items: const <PeakListItem>[],
+        ),
       ],
     );
 
@@ -101,6 +108,76 @@ void main() {
     );
     expect(peakListRepository.findByName('Tassy Full'), isNull);
     expect(tester.widget<Text>(robot.selectedTitle).data, 'Journey List');
+  });
+
+  testWidgets('peak lists journey cancels mini-map correlation removal', (
+    tester,
+  ) async {
+    final robot = PeakListsRobot(tester);
+    final peak = _buildPeak(
+      osmId: 100,
+      name: 'Alpha Peak',
+      elevation: 1200,
+      latitude: -42.0,
+      longitude: 146.0,
+    );
+    final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+    final peakListRepository = await _peakListRepository(
+      peakRepository: peakRepository,
+      definitions: [
+        (
+          peakList: PeakList(peakListId: 1, name: 'Tas Peaks'),
+          items: const [PeakListItem(peakOsmId: 100, points: 1)],
+        ),
+      ],
+    );
+    final gpxTrackRepository = GpxTrackRepository.test(
+      InMemoryGpxTrackStorage([
+        GpxTrack(
+          gpxTrackId: 10,
+          contentHash: 'hash-10',
+          trackName: 'Ridge Walk',
+          gpxFile: '<gpx></gpx>',
+          displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+            [const LatLng(-42.05, 145.95), const LatLng(-41.95, 146.05)],
+          ]),
+        ),
+      ]),
+    );
+
+    await robot.pumpJourneyApp(
+      filePicker: TestPeakListFilePicker(),
+      repository: peakListRepository,
+      peakRepository: peakRepository,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(
+            baggedId: 1,
+            peakId: 100,
+            gpxId: 10,
+            date: DateTime.utc(2024, 3, 2),
+          ),
+        ]),
+      ),
+      surfaceSize: const Size(1600, 900),
+      overrides: [
+        gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+      ],
+    );
+
+    await tester.tap(robot.summaryPeakLink(100));
+    await tester.pumpAndSettle();
+
+    expect(robot.miniMapPopup, findsOneWidget);
+    expect(robot.peakCorrelationRemove(10, 100), findsOneWidget);
+    await robot.tapPeakCorrelationRemove(10, 100);
+    expect(find.text('Remove Peak Correlation?'), findsOneWidget);
+
+    await tester.tap(robot.peakCorrelationRemoveCancel);
+    await tester.pump();
+
+    expect(robot.miniMapPopup, findsOneWidget);
+    expect(robot.peakCorrelationRemove(10, 100), findsOneWidget);
   });
 
   testWidgets('peak lists journey preserves selection on cluster expand', (
@@ -282,9 +359,7 @@ void main() {
     final robot = PeakListsRobot(tester);
     final scheduler = _ControlledPeakListsSummaryRefreshScheduler();
     final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(name: 'Abels')..peakListId = 1,
-      ]),
+      InMemoryPeakListStorage([PeakList(name: 'Abels')..peakListId = 1]),
     );
 
     await robot.pumpApp(
@@ -774,7 +849,10 @@ void main() {
     final peakListRepository = await _peakListRepository(
       peakRepository: peakRepository,
       definitions: [
-        (peakList: PeakList(peakListId: 1, name: 'Tasmania'), items: const <PeakListItem>[]),
+        (
+          peakList: PeakList(peakListId: 1, name: 'Tasmania'),
+          items: const <PeakListItem>[],
+        ),
       ],
     );
 
