@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/elevation_profile_series_builder.dart';
 import 'package:peak_bagger/theme.dart';
@@ -283,6 +284,44 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Recalculating...'), findsOneWidget);
+  });
+
+  testWidgets('renders a labelled peak correlation removal control', (
+    tester,
+  ) async {
+    final track =
+        GpxTrack(gpxTrackId: 10, contentHash: 'hash', trackName: 'Test Track')
+          ..peaks.add(
+            Peak(
+              osmId: 42,
+              name: 'Test Peak',
+              elevation: 1234,
+              latitude: 0,
+              longitude: 0,
+            ),
+          );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: MyTheme.light,
+        home: Scaffold(
+          body: MapTrackInfoPanel(
+            track: track,
+            onClose: () {},
+            onPeakCorrelationRemove:
+                ({required trackId, required peak, required trackName}) async =>
+                    null,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const Key('map-track-correlation-remove-10-42')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Remove peak correlation'), findsOneWidget);
+    expect(find.bySemanticsLabel('Remove peak correlation'), findsOneWidget);
   });
 
   testWidgets(

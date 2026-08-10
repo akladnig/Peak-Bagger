@@ -1171,6 +1171,80 @@ void main() {
     expect(find.text('Beta Loop (16 May 2026)'), findsOneWidget);
   });
 
+  testWidgets(
+    'peak popup exposes non-navigating correlation removal controls',
+    (tester) async {
+      final content = PeakInfoContent(
+        peak: Peak(
+          osmId: 6406,
+          name: 'Bonnet Hill',
+          latitude: -43.0,
+          longitude: 147.0,
+        ),
+        mapName: 'Adamsons',
+        mapNameOrigin: MapNameOrigin.sheet,
+        listNames: const [],
+        ascentRows: const [
+          PeakInfoAscentRow(
+            gpxId: 10,
+            trackLabel: 'Alpha Loop',
+            dateText: '16 May 2026',
+          ),
+          PeakInfoAscentRow(
+            gpxId: 11,
+            trackLabel: 'Beta Loop',
+            dateText: '17 May 2026',
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: PeakInfoPopupCard(
+                content: content,
+                onClose: () {},
+                onPeakCorrelationRemove:
+                    ({
+                      required trackId,
+                      required peak,
+                      required trackName,
+                    }) async => 'Local storage is unavailable.',
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final removeControl = find.byKey(
+        const Key('peak-info-correlation-remove-10-6406'),
+      );
+      expect(removeControl, findsOneWidget);
+      expect(
+        find.byKey(const Key('peak-info-correlation-remove-11-6406')),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Remove peak correlation'), findsNWidgets(2));
+      expect(
+        find.byKey(const Key('peak-info-popup-ascent-link-10')),
+        findsNothing,
+      );
+
+      await tester.tap(removeControl);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('peak-info-correlation-remove-error-10-6406')),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Failed to remove peak correlation:'),
+        findsOneWidget,
+      );
+      expect(tester.widget<IconButton>(removeControl).onPressed, isNotNull);
+    },
+  );
+
   testWidgets('drop marker updates selected location without recentering', (
     tester,
   ) async {

@@ -56,6 +56,12 @@ class PeakInfoRobot {
       find.byKey(const Key('peak-info-popup-cancel'));
   Finder get peakInfoPopupError =>
       find.byKey(const Key('peak-info-popup-error'));
+  Finder peakInfoCorrelationRemove(int trackId, int peakOsmId) =>
+      find.byKey(Key('peak-info-correlation-remove-$trackId-$peakOsmId'));
+  Finder get peakCorrelationRemoveCancel =>
+      find.byKey(const Key('peak-correlation-remove-cancel'));
+  Finder get peakCorrelationRemoveConfirm =>
+      find.byKey(const Key('peak-correlation-remove-confirm'));
   Finder get peakListsSelectedLocationMarker =>
       find.byKey(const Key('peak-lists-selected-location-marker'));
 
@@ -89,6 +95,8 @@ class PeakInfoRobot {
             () => TestMapNotifier(
               initialState ?? _defaultMapState(),
               peakRepository: peakRepository,
+              peaksBaggedRepository: resolvedPeaksBaggedRepository,
+              gpxTrackRepository: resolvedGpxTrackRepository,
               waypointsRepository: waypointsRepository,
             ),
           ),
@@ -144,6 +152,8 @@ class PeakInfoRobot {
             () => TestMapNotifier(
               initialState ?? _defaultMapState(),
               peakRepository: peakRepository,
+              peaksBaggedRepository: resolvedPeaksBaggedRepository,
+              gpxTrackRepository: resolvedGpxTrackRepository,
               waypointsRepository: waypointsRepository,
             ),
           ),
@@ -228,6 +238,11 @@ class PeakInfoRobot {
 
   Future<void> closePeakPopup() async {
     await tester.tap(peakInfoPopupClose);
+    await tester.pump();
+  }
+
+  Future<void> openPeakCorrelationRemoval(int trackId, int peakOsmId) async {
+    await tester.tap(peakInfoCorrelationRemove(trackId, peakOsmId));
     await tester.pump();
   }
 

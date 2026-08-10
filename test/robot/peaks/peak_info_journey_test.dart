@@ -79,6 +79,61 @@ void main() {
     r.expectPeakPopupWithContent('Bonnet Hill');
   });
 
+  testWidgets('peak info journey cancels correlation removal in place', (
+    tester,
+  ) async {
+    final peak = Peak(
+      osmId: 6406,
+      name: 'Bonnet Hill',
+      latitude: -43.0,
+      longitude: 147.0,
+    );
+    final tracks = GpxTrackRepository.test(
+      InMemoryGpxTrackStorage([
+        GpxTrack(
+          gpxTrackId: 10,
+          contentHash: 'hash-10',
+          trackName: 'Alpha Loop',
+        )..peaks.add(peak),
+      ]),
+    );
+    final ascents = PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage([
+        PeaksBagged(
+          baggedId: 1,
+          peakId: peak.osmId,
+          gpxId: 10,
+          date: DateTime.utc(2026, 5, 16),
+        ),
+      ]),
+    );
+    final r = PeakInfoRobot(tester);
+    addTearDown(r.dispose);
+
+    await r.pumpMap(
+      initialState: MapState(
+        center: const LatLng(-43.0, 147.0),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        peaks: [peak],
+      ),
+      gpxTrackRepository: tracks,
+      peaksBaggedRepository: ascents,
+    );
+    await r.clickPeak(peak.osmId);
+
+    expect(r.peakInfoCorrelationRemove(10, peak.osmId), findsOneWidget);
+    await r.openPeakCorrelationRemoval(10, peak.osmId);
+    expect(find.text('Remove Peak Correlation?'), findsOneWidget);
+
+    await tester.tap(r.peakCorrelationRemoveCancel);
+    await tester.pumpAndSettle();
+
+    expect(r.peakInfoPopup, findsOneWidget);
+    expect(r.peakInfoCorrelationRemove(10, peak.osmId), findsOneWidget);
+    expect(r.container().read(mapProvider).selectedTrackId, isNull);
+  });
+
   testWidgets('peak info journey edit saves popup changes in place', (
     tester,
   ) async {

@@ -201,6 +201,143 @@ void main() {
     },
   );
 
+  testWidgets(
+    'peak correlation removal confirms and cancel leaves panel intact',
+    (tester) async {
+      final state = _selectedTrackState();
+      state.tracks.single.peaks.add(
+        Peak(
+          osmId: 42,
+          name: 'Bonnet Hill',
+          elevation: 1234,
+          latitude: -43.0,
+          longitude: 147.0,
+        ),
+      );
+      late TestMapNotifier notifier;
+      await _pumpRawMapScreen(
+        tester,
+        state,
+        size: const Size(1600, 900),
+        mapNotifierBuilder: (initialState) =>
+            notifier = TestMapNotifier(initialState),
+      );
+
+      final removeControl = find.byKey(
+        const Key('map-track-correlation-remove-10-42'),
+      );
+      await tester.tap(removeControl);
+      await tester.pump();
+
+      expect(find.text('Remove Peak Correlation?'), findsOneWidget);
+      expect(
+        find.text('Remove the correlation between Bonnet Hill and Ridge Walk?'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-correlation-remove-cancel')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-correlation-remove-confirm')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('peak-correlation-remove-cancel')));
+      await tester.pumpAndSettle();
+
+      expect(notifier.peakCorrelationRemovalCallCount, 0);
+      expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+      expect(removeControl, findsOneWidget);
+    },
+  );
+
+  testWidgets('peak correlation removal keeps panel open on failure', (
+    tester,
+  ) async {
+    final state = _selectedTrackState();
+    state.tracks.single.peaks.add(
+      Peak(osmId: 42, name: 'Bonnet Hill', latitude: -43.0, longitude: 147.0),
+    );
+    final completion = Completer<void>();
+    await _pumpRawMapScreen(
+      tester,
+      state,
+      size: const Size(1600, 900),
+      mapNotifierBuilder: (initialState) => TestMapNotifier(
+        initialState,
+        peakCorrelationRemovalCompleter: completion,
+        peakCorrelationRemovalError: 'Local storage is unavailable.',
+      ),
+    );
+
+    final removeControl = find.byKey(
+      const Key('map-track-correlation-remove-10-42'),
+    );
+    await tester.tap(removeControl);
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('peak-correlation-remove-confirm')));
+    await tester.pump();
+
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    expect(
+      find.byKey(const Key('map-track-correlation-remove-busy-10-42')),
+      findsOneWidget,
+    );
+    expect(tester.widget<IconButton>(removeControl).onPressed, isNull);
+
+    completion.complete();
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('map-track-correlation-remove-error-10-42')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Failed to remove peak correlation:'),
+      findsOneWidget,
+    );
+    expect(tester.widget<IconButton>(removeControl).onPressed, isNotNull);
+  });
+
+  testWidgets('successful peak correlation removal refreshes the open panel', (
+    tester,
+  ) async {
+    final state = _selectedTrackState();
+    state.tracks.single.peaks.add(
+      Peak(osmId: 42, name: 'Bonnet Hill', latitude: -43.0, longitude: 147.0),
+    );
+    final refreshedTrack = GpxTrack(
+      gpxTrackId: 10,
+      contentHash: 'hash-10',
+      trackName: 'Ridge Walk',
+      gpxFile: '<gpx></gpx>',
+    );
+    await _pumpRawMapScreen(
+      tester,
+      state,
+      size: const Size(1600, 900),
+      mapNotifierBuilder: (initialState) => TestMapNotifier(
+        initialState,
+        peakCorrelationRemovalTracks: [refreshedTrack],
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const Key('map-track-correlation-remove-10-42')),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('peak-correlation-remove-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('track-info-panel')), findsOneWidget);
+    expect(
+      find.byKey(const Key('map-track-correlation-remove-10-42')),
+      findsNothing,
+    );
+    expect(find.text('None'), findsOneWidget);
+  });
+
   testWidgets('selected track recalculation refreshes the open panel', (
     tester,
   ) async {
