@@ -222,6 +222,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                     duplicateNameChecker: duplicateNameChecker,
                     peakListRepository: peakListRepository,
                     selectedMapPeak: selectedMapPeak,
+                    peaksBaggedRevision: peaksBaggedRevision,
                     onPeakSelected: (peakId) {
                       setState(() {
                         _selectedPeakId = peakId;
@@ -1003,6 +1004,7 @@ class _SummaryPane extends StatelessWidget {
     required this.selectedPeakListId,
     required this.selectedSummaryRow,
     required this.selectedMapPeak,
+    required this.peaksBaggedRevision,
     required this.miniPeakMapKey,
     required this.sortColumn,
     required this.sortAscending,
@@ -1020,6 +1022,7 @@ class _SummaryPane extends StatelessWidget {
   final int? selectedPeakListId;
   final _PeakListSummaryRow? selectedSummaryRow;
   final _MapPeak? selectedMapPeak;
+  final int peaksBaggedRevision;
   final GlobalKey<_MiniPeakMapState> miniPeakMapKey;
   final _PeakListSortColumn sortColumn;
   final bool sortAscending;
@@ -1062,6 +1065,7 @@ class _SummaryPane extends StatelessWidget {
               selectedSummaryRow: selectedSummaryRow,
               selectedMapPeak: selectedMapPeak,
               miniPeakMapKey: miniPeakMapKey,
+              peaksBaggedRevision: peaksBaggedRevision,
               onPeakSelected: onPeakSelected,
             ),
           ),
@@ -2578,12 +2582,14 @@ class _MiniPeakMapContainer extends StatelessWidget {
     required this.selectedSummaryRow,
     required this.selectedMapPeak,
     required this.miniPeakMapKey,
+    required this.peaksBaggedRevision,
     required this.onPeakSelected,
   });
 
   final _PeakListSummaryRow? selectedSummaryRow;
   final _MapPeak? selectedMapPeak;
   final GlobalKey<_MiniPeakMapState> miniPeakMapKey;
+  final int peaksBaggedRevision;
   final ValueChanged<int> onPeakSelected;
 
   @override
@@ -2602,6 +2608,7 @@ class _MiniPeakMapContainer extends StatelessWidget {
                     key: miniPeakMapKey,
                     selectedSummaryRow: selectedSummaryRow,
                     selectedMapPeak: selectedMapPeak,
+                    peaksBaggedRevision: peaksBaggedRevision,
                     onPeakSelected: onPeakSelected,
                   ),
                 ),
@@ -2618,12 +2625,14 @@ class _MiniPeakMap extends ConsumerStatefulWidget {
   const _MiniPeakMap({
     required this.selectedSummaryRow,
     required this.selectedMapPeak,
+    required this.peaksBaggedRevision,
     required this.onPeakSelected,
     super.key,
   });
 
   final _PeakListSummaryRow? selectedSummaryRow;
   final _MapPeak? selectedMapPeak;
+  final int peaksBaggedRevision;
   final ValueChanged<int> onPeakSelected;
 
   @override
@@ -2944,6 +2953,39 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
     _goToMap();
   }
 
+  Future<String?> _confirmPeakCorrelationRemoval({
+    required int trackId,
+    required Peak peak,
+    required String trackName,
+  }) async {
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Remove Peak Correlation?',
+      message: 'Remove the correlation between ${peak.name} and $trackName?',
+      cancelKey: 'peak-correlation-remove-cancel',
+      confirmKey: 'peak-correlation-remove-confirm',
+      confirmLabel: 'Remove',
+    );
+    if (confirmed != true || !mounted) {
+      return null;
+    }
+
+    try {
+      await ref
+          .read(mapProvider.notifier)
+          .removePeakCorrelation(trackId: trackId, peakOsmId: peak.osmId);
+      return null;
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to remove peak correlation for track $trackId and peak ${peak.osmId}',
+        error: error,
+        stackTrace: stackTrace,
+        name: 'peak_lists_screen',
+      );
+      return '$error. Please try again.';
+    }
+  }
+
   @override
   void didUpdateWidget(covariant _MiniPeakMap oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -2952,6 +2994,14 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
     final oldListId = oldWidget.selectedSummaryRow?.peakList.peakListId;
     final newListId = widget.selectedSummaryRow?.peakList.peakListId;
     final popupPeakId = _popupContent?.peak.osmId;
+    if (oldWidget.peaksBaggedRevision != widget.peaksBaggedRevision &&
+        popupPeakId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          showPopupForPeak(popupPeakId);
+        }
+      });
+    }
     if ((oldPeakId != newPeakId || oldListId != newListId) &&
         popupPeakId != newPeakId) {
       _popupContent = null;
@@ -3555,6 +3605,8 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                               _openPeakOnMap(_popupContent!.peak);
                             },
                             onAscentTap: _openAscentTrackOnMap,
+                            onPeakCorrelationRemove:
+                                _confirmPeakCorrelationRemoval,
                             interactiveAscentTrackIds: {
                               for (final ascent in _popupContent!.ascentRows)
                                 if (_isTrackOpenable(ascent.gpxId))

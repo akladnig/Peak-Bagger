@@ -412,6 +412,39 @@ class _MapScreenState extends ConsumerState<MapScreen>
     );
   }
 
+  Future<String?> _confirmPeakCorrelationRemoval({
+    required int trackId,
+    required Peak peak,
+    required String trackName,
+  }) async {
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Remove Peak Correlation?',
+      message: 'Remove the correlation between ${peak.name} and $trackName?',
+      cancelKey: 'peak-correlation-remove-cancel',
+      confirmKey: 'peak-correlation-remove-confirm',
+      confirmLabel: 'Remove',
+    );
+    if (confirmed != true || !mounted) {
+      return null;
+    }
+
+    try {
+      await ref
+          .read(mapProvider.notifier)
+          .removePeakCorrelation(trackId: trackId, peakOsmId: peak.osmId);
+      return null;
+    } catch (error, stackTrace) {
+      developer.log(
+        'Failed to remove peak correlation for track $trackId and peak ${peak.osmId}',
+        error: error,
+        stackTrace: stackTrace,
+        name: 'map_screen',
+      );
+      return '$error. Please try again.';
+    }
+  }
+
   void _handleGotoSubmit(MapState mapState) {
     if (mapState.mapSuggestions.isNotEmpty) {
       final firstMap = mapState.mapSuggestions.first;
@@ -3914,6 +3947,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                               isTrackStatisticsRecalculating:
                                                   selectedTrack != null &&
                                                   isTrackStatisticsRecalculating,
+                                              onPeakCorrelationRemove:
+                                                  selectedTrack == null
+                                                  ? null
+                                                  : _confirmPeakCorrelationRemoval,
                                               onRouteWalkingSpeedChanged:
                                                   selectedRoute == null
                                                   ? null
@@ -4322,6 +4359,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
               notifier.closePeakInfoPopup();
             }
           },
+          onPeakCorrelationRemove: _confirmPeakCorrelationRemoval,
           onClose: () {
             ref.read(mapProvider.notifier).closePeakInfoPopup();
           },

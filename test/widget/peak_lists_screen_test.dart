@@ -1344,7 +1344,6 @@ void main() {
           ),
         ]),
       );
-
       await _pumpPeakListsApp(
         tester,
         filePicker: TestPeakListFilePicker(),
@@ -1431,6 +1430,111 @@ void main() {
         mapNotifier.state.selectedTrackFocusSerial,
         greaterThan(secondFocusBaseline),
       );
+    },
+  );
+
+  testWidgets(
+    'mini-map popup confirms correlation removal without mutating on cancel',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1600, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 10,
+          basemap: Basemap.tracestrack,
+        ),
+      );
+      final gpxTrackRepository = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([
+          GpxTrack(
+            gpxTrackId: 10,
+            contentHash: 'hash-10',
+            trackName: 'Ridge Walk',
+            gpxFile: '<gpx></gpx>',
+            displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
+              [const LatLng(-42.05, 145.95), const LatLng(-41.95, 146.05)],
+            ]),
+          ),
+        ]),
+      );
+      final peaksBaggedRepository = PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(
+            baggedId: 1,
+            peakId: 100,
+            gpxId: 10,
+            date: DateTime.utc(2024, 3, 2),
+          ),
+        ]),
+      );
+
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Tas Peaks', [100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, elevation: 1200),
+          ]),
+        ),
+        peaksBaggedRepository: peaksBaggedRepository,
+        mapNotifier: mapNotifier,
+        overrides: [
+          gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
+        ],
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('peak-lists-summary-link-100')));
+      await tester.pumpAndSettle();
+
+      final removeControl = find.byKey(
+        const Key('peak-info-correlation-remove-10-100'),
+      );
+      expect(removeControl, findsOneWidget);
+      expect(find.byTooltip('Remove peak correlation'), findsOneWidget);
+
+      await tester.tap(removeControl);
+      await tester.pump();
+
+      expect(find.text('Remove Peak Correlation?'), findsOneWidget);
+      expect(
+        find.text('Remove the correlation between Alpha Peak and Ridge Walk?'),
+        findsOneWidget,
+      );
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/peaks');
+
+      await tester.tap(find.byKey(const Key('peak-correlation-remove-cancel')));
+      await tester.pump();
+
+      expect(mapNotifier.peakCorrelationRemovalCallCount, 0);
+      expect(removeControl, findsOneWidget);
+
+      await tester.tap(removeControl);
+      await tester.pump();
+      await peaksBaggedRepository.rebuildFromTracks([]);
+      await tester.tap(
+        find.byKey(const Key('peak-correlation-remove-confirm')),
+      );
+      await tester.pump();
+      ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('peak-lists-mini-map'))),
+      ).read(peaksBaggedRevisionProvider.notifier).increment();
+      await tester.pump();
+      await tester.pump();
+
+      expect(mapNotifier.peakCorrelationRemovalCallCount, 1);
+      expect(
+        find.byKey(const Key('peak-lists-mini-map-popup')),
+        findsOneWidget,
+      );
+      expect(removeControl, findsNothing);
     },
   );
 
@@ -1831,12 +1935,12 @@ void main() {
       find.byKey(const Key('peak-selected-points-200')),
       '5',
     );
-      await tester.pump();
+    await tester.pump();
 
-      await tester.tap(find.byKey(const Key('peak-list-peak-save')));
-      await tester.pump();
-      await scheduler.runAllPending();
-      await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+    await tester.pump();
+    await scheduler.runAllPending();
+    await tester.pumpAndSettle();
 
     final selectedRowFinder = find.byKey(
       const Key('peak-lists-details-row-100'),
@@ -1994,10 +2098,9 @@ void main() {
       _registeredPeakListItems[peakList] = const [
         PeakListItem(peakOsmId: 100, points: 4),
       ];
-      final peakListRepository = _peakListRepository(
-        [peakList],
-        peakRepository: peakRepository,
-      );
+      final peakListRepository = _peakListRepository([
+        peakList,
+      ], peakRepository: peakRepository);
       final beforeSavePeakList = peakListRepository.findByName('Tasmania')!;
 
       await _pumpPeakListsApp(
@@ -2016,7 +2119,9 @@ void main() {
         ],
       );
 
-      tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
+      tester
+          .widget<InkWell>(find.byKey(const Key('peak-lists-row-1')))
+          .onTap!();
       await tester.pumpAndSettle();
 
       expect(
@@ -2058,9 +2163,18 @@ void main() {
             .data,
         'Tasmania',
       );
-      expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
-      expect(find.byKey(const Key('peak-lists-details-row-200')), findsOneWidget);
-      expect(find.byKey(const Key('peak-lists-details-row-300')), findsOneWidget);
+      expect(
+        find.byKey(const Key('peak-lists-details-row-100')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-lists-details-row-200')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-lists-details-row-300')),
+        findsOneWidget,
+      );
       expect(_storedMemberships(peakListRepository, 'Tasmania'), [
         (100, 4),
         (200, 3),
@@ -2088,10 +2202,9 @@ void main() {
       _registeredPeakListItems[peakList] = const [
         PeakListItem(peakOsmId: 100, points: 4),
       ];
-      final peakListRepository = _peakListRepository(
-        [peakList],
-        peakRepository: peakRepository,
-      );
+      final peakListRepository = _peakListRepository([
+        peakList,
+      ], peakRepository: peakRepository);
 
       await _pumpPeakListsApp(
         tester,
@@ -2109,10 +2222,15 @@ void main() {
         ],
       );
 
-      tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
+      tester
+          .widget<InkWell>(find.byKey(const Key('peak-lists-row-1')))
+          .onTap!();
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
+      expect(
+        find.byKey(const Key('peak-lists-details-row-100')),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
       expect(find.byKey(const Key('peak-lists-details-row-300')), findsNothing);
 
@@ -2145,7 +2263,10 @@ void main() {
             .data,
         'Tasmania',
       );
-      expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
+      expect(
+        find.byKey(const Key('peak-lists-details-row-100')),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
       expect(find.byKey(const Key('peak-lists-details-row-300')), findsNothing);
 
@@ -2155,9 +2276,15 @@ void main() {
       final selectedRowFinder = find.byKey(
         const Key('peak-lists-details-row-200'),
       );
-      expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
+      expect(
+        find.byKey(const Key('peak-lists-details-row-100')),
+        findsOneWidget,
+      );
       expect(selectedRowFinder, findsOneWidget);
-      expect(find.byKey(const Key('peak-lists-details-row-300')), findsOneWidget);
+      expect(
+        find.byKey(const Key('peak-lists-details-row-300')),
+        findsOneWidget,
+      );
       final selectedRowContainer = tester.widget<Container>(
         find
             .descendant(of: selectedRowFinder, matching: find.byType(Container))
@@ -2188,10 +2315,9 @@ void main() {
       _registeredPeakListItems[peakList] = const [
         PeakListItem(peakOsmId: 100, points: 4),
       ];
-      final peakListRepository = _peakListRepository(
-        [peakList],
-        peakRepository: peakRepository,
-      );
+      final peakListRepository = _peakListRepository([
+        peakList,
+      ], peakRepository: peakRepository);
       final failingMutationRepository = _FailingAddPeakListRepository(
         peakListRepository.storage,
         peakRepository: peakRepository,
@@ -2213,7 +2339,9 @@ void main() {
         ],
       );
 
-      tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-1'))).onTap!();
+      tester
+          .widget<InkWell>(find.byKey(const Key('peak-lists-row-1')))
+          .onTap!();
       await tester.pumpAndSettle();
 
       expect(
@@ -2268,14 +2396,18 @@ void main() {
       expect(find.byKey(const Key('peak-selected-row-300')), findsOneWidget);
       expect(
         tester
-            .widget<TextField>(find.byKey(const Key('peak-selected-points-200')))
+            .widget<TextField>(
+              find.byKey(const Key('peak-selected-points-200')),
+            )
             .controller!
             .text,
         '3',
       );
       expect(
         tester
-            .widget<TextField>(find.byKey(const Key('peak-selected-points-300')))
+            .widget<TextField>(
+              find.byKey(const Key('peak-selected-points-300')),
+            )
             .controller!
             .text,
         '7',

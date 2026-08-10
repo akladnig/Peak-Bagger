@@ -51,6 +51,9 @@ class TestMapNotifier extends MapNotifier {
     this.selectedTrackRecalcTracks,
     this.selectedTrackRecalcError,
     this.selectedTrackRecalcCompleter,
+    this.peakCorrelationRemovalTracks,
+    this.peakCorrelationRemovalError,
+    this.peakCorrelationRemovalCompleter,
     this.peakRepository,
     this.peaksBaggedRepository,
     this.waypointsRepository,
@@ -74,6 +77,9 @@ class TestMapNotifier extends MapNotifier {
   final List<GpxTrack>? selectedTrackRecalcTracks;
   final String? selectedTrackRecalcError;
   final Completer<TrackStatisticsRecalcResult?>? selectedTrackRecalcCompleter;
+  final List<GpxTrack>? peakCorrelationRemovalTracks;
+  final String? peakCorrelationRemovalError;
+  final Completer<void>? peakCorrelationRemovalCompleter;
   final PeakRepository? peakRepository;
   final PeaksBaggedRepository? peaksBaggedRepository;
   final WaypointsRepository? waypointsRepository;
@@ -92,6 +98,7 @@ class TestMapNotifier extends MapNotifier {
   int refreshCallCount = 0;
   int reloadPeakMarkersCallCount = 0;
   int selectedTrackRecalculationCallCount = 0;
+  int peakCorrelationRemovalCallCount = 0;
 
   void setTracks(List<GpxTrack> tracks) {
     state = state.copyWith(
@@ -1328,6 +1335,22 @@ class TestMapNotifier extends MapNotifier {
       clearRecalculatingTrackId: true,
     );
     return result;
+  }
+
+  @override
+  Future<void> removePeakCorrelation({
+    required int trackId,
+    required int peakOsmId,
+  }) async {
+    peakCorrelationRemovalCallCount++;
+    await peakCorrelationRemovalCompleter?.future;
+    final error = peakCorrelationRemovalError;
+    if (error != null) {
+      throw StateError(error);
+    }
+    state = state.copyWith(
+      tracks: peakCorrelationRemovalTracks ?? state.tracks,
+    );
   }
 
   @override

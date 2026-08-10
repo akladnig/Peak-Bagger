@@ -26,6 +26,12 @@ import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
 typedef PeakInfoPopupEditCallback = FutureOr<void> Function();
 typedef PeakInfoPopupSaveCallback = Future<String?> Function(Peak peak);
+typedef PeakCorrelationRemovalCallback =
+    Future<String?> Function({
+      required int trackId,
+      required Peak peak,
+      required String trackName,
+    });
 
 class PeakInfoPopupPlacement {
   const PeakInfoPopupPlacement({
@@ -235,6 +241,7 @@ class MapTrackInfoPanel extends StatelessWidget {
     this.onRouteTimingRecalculate,
     this.onExport,
     this.onElevationProfileHoverChanged,
+    this.onPeakCorrelationRemove,
     super.key,
   }) : assert(track != null || route != null),
        assert(track == null || route == null);
@@ -251,6 +258,7 @@ class MapTrackInfoPanel extends StatelessWidget {
   final VoidCallback? onExport;
   final ValueChanged<ElevationProfileChartHoverSample?>?
   onElevationProfileHoverChanged;
+  final PeakCorrelationRemovalCallback? onPeakCorrelationRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -370,6 +378,8 @@ class MapTrackInfoPanel extends StatelessWidget {
                                               onTrackStatisticsRecalculate,
                                           isTrackStatisticsRecalculating:
                                               isTrackStatisticsRecalculating,
+                                          onPeakCorrelationRemove:
+                                              onPeakCorrelationRemove,
                                         );
                                 },
                               ),
@@ -603,6 +613,7 @@ class MapTrackInfoPanel extends StatelessWidget {
     required ValueChanged<bool>? onVisibilityChanged,
     required VoidCallback? onTrackStatisticsRecalculate,
     required bool isTrackStatisticsRecalculating,
+    required PeakCorrelationRemovalCallback? onPeakCorrelationRemove,
   }) {
     final normalizedPeaks = normalizeTrackPeaks(track.peaks);
 
@@ -639,26 +650,10 @@ class MapTrackInfoPanel extends StatelessWidget {
         const SizedBox(height: 6),
         if (normalizedPeaks.isNotEmpty) ...[
           for (final peak in normalizedPeaks)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      _displayPeakName(peak),
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    peak.elevation != null
-                        ? formatElevation(peak.elevation!.round())
-                        : '—',
-                  ),
-                ],
-              ),
+            _MapTrackPeakCorrelationRow(
+              track: track,
+              peak: peak,
+              onRemove: onPeakCorrelationRemove,
             ),
           const SizedBox(height: 2),
         ] else ...[
@@ -801,6 +796,142 @@ class MapTrackInfoPanel extends StatelessWidget {
           onChanged: onVisibilityChanged,
         ),
       ],
+    );
+  }
+}
+
+class _MapTrackPeakCorrelationRow extends StatefulWidget {
+  const _MapTrackPeakCorrelationRow({
+    required this.track,
+    required this.peak,
+    required this.onRemove,
+  });
+
+  final GpxTrack track;
+  final Peak peak;
+  final PeakCorrelationRemovalCallback? onRemove;
+
+  @override
+  State<_MapTrackPeakCorrelationRow> createState() =>
+      _MapTrackPeakCorrelationRowState();
+}
+
+class _MapTrackPeakCorrelationRowState
+    extends State<_MapTrackPeakCorrelationRow> {
+  bool _isRemoving = false;
+  String? _error;
+
+  Future<void> _remove() async {
+    final onRemove = widget.onRemove;
+    if (onRemove == null || _isRemoving) {
+      return;
+    }
+
+    setState(() {
+      _isRemoving = true;
+      _error = null;
+    });
+
+    try {
+      final detail = await onRemove(
+        trackId: widget.track.gpxTrackId,
+        peak: widget.peak,
+        trackName: widget.track.trackName.trim().isEmpty
+            ? 'Unnamed Track'
+            : widget.track.trackName.trim(),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isRemoving = false;
+        _error = detail == null
+            ? null
+            : 'Failed to remove peak correlation: $detail';
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _isRemoving = false;
+        _error = 'Failed to remove peak correlation: $error';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final trackId = widget.track.gpxTrackId;
+    final peakOsmId = widget.peak.osmId;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _displayPeakName(widget.peak),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                widget.peak.elevation != null
+                    ? formatElevation(widget.peak.elevation!.round())
+                    : '—',
+              ),
+              if (widget.onRemove != null) ...[
+                const SizedBox(width: 4),
+                Semantics(
+                  label: 'Remove peak correlation',
+                  button: true,
+                  enabled: !_isRemoving,
+                  child: IconButton(
+                    key: Key(
+                      'map-track-correlation-remove-$trackId-$peakOsmId',
+                    ),
+                    tooltip: 'Remove peak correlation',
+                    onPressed: _isRemoving ? null : _remove,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    icon: _isRemoving
+                        ? SizedBox(
+                            key: Key(
+                              'map-track-correlation-remove-busy-$trackId-$peakOsmId',
+                            ),
+                            width: 16,
+                            height: 16,
+                            child: const CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.delete_outline, size: 18),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                _error!,
+                key: Key(
+                  'map-track-correlation-remove-error-$trackId-$peakOsmId',
+                ),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -2136,8 +2267,8 @@ class _RouteTextPromptDialogState extends State<_RouteTextPromptDialog> {
     final trimmed = _controller.text.trim();
     final errorText =
         trimmed.isEmpty
-        ? widget.blankErrorText
-        : widget.validator?.call(trimmed);
+            ? widget.blankErrorText
+            : widget.validator?.call(trimmed);
     if (errorText != null) {
       setState(() {
         _errorText = errorText;
@@ -2257,6 +2388,7 @@ class PeakInfoPopupCard extends StatefulWidget {
     this.onPeakTitleTap,
     this.onAscentTap,
     this.interactiveAscentTrackIds = const <int>{},
+    this.onPeakCorrelationRemove,
     super.key,
   });
 
@@ -2270,6 +2402,7 @@ class PeakInfoPopupCard extends StatefulWidget {
   final VoidCallback? onPeakTitleTap;
   final ValueChanged<PeakInfoAscentRow>? onAscentTap;
   final Set<int> interactiveAscentTrackIds;
+  final PeakCorrelationRemovalCallback? onPeakCorrelationRemove;
 
   @override
   State<PeakInfoPopupCard> createState() => _PeakInfoPopupCardState();
@@ -2284,6 +2417,8 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
   String? _submitError;
   bool _isEditing = false;
   bool _isSaving = false;
+  int? _removingCorrelationTrackId;
+  final Map<int, String> _correlationRemovalErrors = {};
 
   bool get _canEdit => widget.onEdit != null && widget.onSaveEdit != null;
 
@@ -2445,6 +2580,45 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
             result.coordinateError ?? PeakAdminEditor.latLngConversionError;
       }
     });
+  }
+
+  Future<void> _removePeakCorrelation(PeakInfoAscentRow ascent) async {
+    final onRemove = widget.onPeakCorrelationRemove;
+    if (onRemove == null || _removingCorrelationTrackId != null) {
+      return;
+    }
+
+    setState(() {
+      _removingCorrelationTrackId = ascent.gpxId;
+      _correlationRemovalErrors.remove(ascent.gpxId);
+    });
+
+    try {
+      final detail = await onRemove(
+        trackId: ascent.gpxId,
+        peak: widget.content.peak,
+        trackName: ascent.trackLabel,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _removingCorrelationTrackId = null;
+        if (detail != null) {
+          _correlationRemovalErrors[ascent.gpxId] =
+              'Failed to remove peak correlation: $detail';
+        }
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _removingCorrelationTrackId = null;
+        _correlationRemovalErrors[ascent.gpxId] =
+            'Failed to remove peak correlation: $error';
+      });
+    }
   }
 
   static String _formatOptionalElevation(double? value) {
@@ -2698,12 +2872,18 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                   for (final ascent in content.ascentRows)
                     _PeakInfoPopupAscentRow(
                       row: ascent,
+                      peakOsmId: peak.osmId,
                       onTap:
                           widget.interactiveAscentTrackIds.contains(
                             ascent.gpxId,
                           )
                           ? widget.onAscentTap
                           : null,
+                      onRemove: widget.onPeakCorrelationRemove == null
+                          ? null
+                          : () => _removePeakCorrelation(ascent),
+                      isRemoving: _removingCorrelationTrackId == ascent.gpxId,
+                      error: _correlationRemovalErrors[ascent.gpxId],
                     ),
                 ],
                 if (content.ascentRows.isNotEmpty) const SizedBox(height: 4),
@@ -2745,6 +2925,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
     this.currentMarker,
     this.onEditInAdmin,
     this.onDropMarker,
+    this.onPeakCorrelationRemove,
     required this.bridgeOnLeft,
     super.key,
   });
@@ -2758,6 +2939,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
   final Waypoints? currentMarker;
   final VoidCallback? onEditInAdmin;
   final VoidCallback? onDropMarker;
+  final PeakCorrelationRemovalCallback? onPeakCorrelationRemove;
   final bool bridgeOnLeft;
 
   @override
@@ -2783,6 +2965,7 @@ class PeakInfoPopupSurface extends StatelessWidget {
               currentMarker: currentMarker,
               onEditInAdmin: onEditInAdmin,
               onDropMarker: onDropMarker,
+              onPeakCorrelationRemove: onPeakCorrelationRemove,
             ),
           ),
         ),
@@ -2972,16 +3155,27 @@ class _PeakInfoLabeledValueRow extends StatelessWidget {
 }
 
 class _PeakInfoPopupAscentRow extends StatelessWidget {
-  const _PeakInfoPopupAscentRow({required this.row, this.onTap});
+  const _PeakInfoPopupAscentRow({
+    required this.row,
+    required this.peakOsmId,
+    this.onTap,
+    this.onRemove,
+    this.isRemoving = false,
+    this.error,
+  });
 
   final PeakInfoAscentRow row;
+  final int peakOsmId;
   final ValueChanged<PeakInfoAscentRow>? onTap;
+  final VoidCallback? onRemove;
+  final bool isRemoving;
+  final String? error;
 
   @override
   Widget build(BuildContext context) {
     final onTap = this.onTap;
     final label = '${row.trackLabel} (${row.dateText})';
-    if (onTap == null) {
+    if (onTap == null && onRemove == null) {
       return Padding(
         key: Key('peak-info-popup-ascent-text-${row.gpxId}'),
         padding: const EdgeInsets.only(left: 12, bottom: 4),
@@ -2992,21 +3186,96 @@ class _PeakInfoPopupAscentRow extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(left: 8, bottom: 4),
-      child: InkWell(
-        key: Key('peak-info-popup-ascent-link-${row.gpxId}'),
-        onTap: () {
-          onTap(row);
-        },
-        mouseCursor: SystemMouseCursors.click,
-        hoverColor: lighten(theme.colorScheme.surfaceContainer, 0.08),
-        borderRadius: BorderRadius.circular(4),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 13, color: theme.seedColour),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: onTap == null
+                    ? Padding(
+                        key: Key('peak-info-popup-ascent-text-${row.gpxId}'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        child: Text(
+                          label,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      )
+                    : InkWell(
+                        key: Key('peak-info-popup-ascent-link-${row.gpxId}'),
+                        onTap: () => onTap(row),
+                        mouseCursor: SystemMouseCursors.click,
+                        hoverColor: lighten(
+                          theme.colorScheme.surfaceContainer,
+                          0.08,
+                        ),
+                        borderRadius: BorderRadius.circular(4),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          child: Text(
+                            label,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: theme.seedColour,
+                            ),
+                          ),
+                        ),
+                      ),
+              ),
+              if (onRemove != null) ...[
+                const SizedBox(width: 4),
+                Semantics(
+                  label: 'Remove peak correlation',
+                  button: true,
+                  enabled: !isRemoving,
+                  child: IconButton(
+                    key: Key(
+                      'peak-info-correlation-remove-${row.gpxId}-$peakOsmId',
+                    ),
+                    tooltip: 'Remove peak correlation',
+                    onPressed: isRemoving ? null : onRemove,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
+                    icon: isRemoving
+                        ? SizedBox(
+                            key: Key(
+                              'peak-info-correlation-remove-busy-${row.gpxId}-$peakOsmId',
+                            ),
+                            width: 16,
+                            height: 16,
+                            child: const CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.delete_outline, size: 18),
+                  ),
+                ),
+              ],
+            ],
           ),
-        ),
+          if (error != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                error!,
+                key: Key(
+                  'peak-info-correlation-remove-error-${row.gpxId}-$peakOsmId',
+                ),
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
+            ),
+        ],
       ),
     );
   }

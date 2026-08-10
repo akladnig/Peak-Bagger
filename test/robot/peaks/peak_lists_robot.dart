@@ -87,6 +87,14 @@ class PeakListsRobot {
   Finder get peakListMiniMapClustersSwitch =>
       find.byKey(const Key('show-peak-list-mini-map-clusters-switch'));
   Finder get miniMapPopup => find.byKey(const Key('peak-lists-mini-map-popup'));
+  Finder summaryPeakLink(int peakId) =>
+      find.byKey(Key('peak-lists-summary-link-$peakId'));
+  Finder peakCorrelationRemove(int trackId, int peakOsmId) =>
+      find.byKey(Key('peak-info-correlation-remove-$trackId-$peakOsmId'));
+  Finder get peakCorrelationRemoveCancel =>
+      find.byKey(const Key('peak-correlation-remove-cancel'));
+  Finder get peakCorrelationRemoveConfirm =>
+      find.byKey(const Key('peak-correlation-remove-confirm'));
   Finder get selectedPeakCircle =>
       find.byKey(const Key('peak-lists-selected-peak-circle-layer'));
 
@@ -270,6 +278,11 @@ class PeakListsRobot {
   Future<void> tapMiniMapCluster(int index) async {
     await tester.tap(miniMapCluster(index), warnIfMissed: false);
     await tester.pumpAndSettle();
+  }
+
+  Future<void> tapPeakCorrelationRemove(int trackId, int peakOsmId) async {
+    await tester.tap(peakCorrelationRemove(trackId, peakOsmId));
+    await tester.pump();
   }
 
   Future<void> scrollSettingsTo(Finder target) async {
