@@ -93,27 +93,23 @@ class TrackPeakCorrelationService {
       return false;
     }
 
-    var closestDistance = double.infinity;
-    final closestElevations = <double?>[];
     for (final segment in segments) {
       if (segment.isEmpty) {
         continue;
       }
 
       if (segment.length == 1) {
-        final closestPosition = closestPointOnSegment(
-          peakLocation,
-          Location(segment.first.latitude, segment.first.longitude),
-          Location(segment.first.latitude, segment.first.longitude),
-        );
-        _recordClosestElevation(
-          distance: closestPosition.distance,
-          elevation: segment.first.elevation,
-          closestDistance: closestDistance,
-          closestElevations: closestElevations,
-        );
-        if (closestPosition.distance < closestDistance) {
-          closestDistance = closestPosition.distance;
+        final elevation = segment.first.elevation;
+        if (haversineDistance(
+                  peakLocation.latitude,
+                  peakLocation.longitude,
+                  segment.first.latitude,
+                  segment.first.longitude,
+                ) <=
+                thresholdMeters &&
+            elevation != null &&
+            (peakElevation - elevation).abs() <= elevationThresholdMeters) {
+          return true;
         }
         continue;
       }
@@ -129,50 +125,111 @@ class TrackPeakCorrelationService {
           segmentPoint2.latitude,
           segmentPoint2.longitude,
         );
-        final closestPosition = closestPointOnSegment(
-          peakLocation,
-          point1,
-          point2,
-        );
         final startElevation = segmentPoint1.elevation;
         final endElevation = segmentPoint2.elevation;
-        final elevation = startElevation != null && endElevation != null
-            ? startElevation +
-                  (endElevation - startElevation) * closestPosition.fraction
-            : null;
-        _recordClosestElevation(
-          distance: closestPosition.distance,
-          elevation: elevation,
-          closestDistance: closestDistance,
-          closestElevations: closestElevations,
-        );
-        if (closestPosition.distance < closestDistance) {
-          closestDistance = closestPosition.distance;
+        if (startElevation != null &&
+            endElevation != null &&
+            _segmentHasMatchingPosition(
+              peakLocation: peakLocation,
+              start: point1,
+              end: point2,
+              peakElevation: peakElevation,
+              startElevation: startElevation,
+              endElevation: endElevation,
+            )) {
+          return true;
         }
       }
     }
 
-    return closestDistance <= thresholdMeters &&
-        closestElevations.any(
-          (elevation) =>
-              elevation != null &&
-              (peakElevation - elevation).abs() <= elevationThresholdMeters,
-        );
+    return false;
   }
 
-  void _recordClosestElevation({
-    required double distance,
-    required double? elevation,
-    required double closestDistance,
-    required List<double?> closestElevations,
+  bool _segmentHasMatchingPosition({
+    required Location peakLocation,
+    required Location start,
+    required Location end,
+    required double peakElevation,
+    required double startElevation,
+    required double endElevation,
   }) {
-    if (distance < closestDistance) {
-      closestElevations
-        ..clear()
-        ..add(elevation);
-    } else if (distance == closestDistance) {
-      closestElevations.add(elevation);
+    final latitudeRadians =
+        (peakLocation.latitude + start.latitude + end.latitude) /
+        3 *
+        math.pi /
+        180;
+    final longitudeScale = math.cos(latitudeRadians) * oneDegree;
+    final startX = start.longitude * longitudeScale;
+    final startY = start.latitude * oneDegree;
+    final endX = end.longitude * longitudeScale;
+    final endY = end.latitude * oneDegree;
+    final peakX = peakLocation.longitude * longitudeScale;
+    final peakY = peakLocation.latitude * oneDegree;
+    final deltaX = endX - startX;
+    final deltaY = endY - startY;
+    final lengthSquared = deltaX * deltaX + deltaY * deltaY;
+    if (lengthSquared == 0) {
+      return false;
     }
+
+    final startToPeakX = startX - peakX;
+    final startToPeakY = startY - peakY;
+    final thresholdSquared = thresholdMeters * thresholdMeters;
+    final linear = 2 * (startToPeakX * deltaX + startToPeakY * deltaY);
+    final constant =
+        startToPeakX * startToPeakX +
+        startToPeakY * startToPeakY -
+        thresholdSquared;
+    final discriminant = linear * linear - 4 * lengthSquared * constant;
+    if (discriminant < 0) {
+      return false;
+    }
+
+    final distanceRoot = math.sqrt(discriminant);
+    final distanceStart = math.max(
+      0.0,
+      math.min(
+        (-linear - distanceRoot) / (2 * lengthSquared),
+        (-linear + distanceRoot) / (2 * lengthSquared),
+      ),
+    );
+    final distanceEnd = math.min(
+      1.0,
+      math.max(
+        (-linear - distanceRoot) / (2 * lengthSquared),
+        (-linear + distanceRoot) / (2 * lengthSquared),
+      ),
+    );
+    if (distanceStart > distanceEnd) {
+      return false;
+    }
+
+    final elevationDelta = endElevation - startElevation;
+    if (elevationDelta == 0) {
+      return (peakElevation - startElevation).abs() <= elevationThresholdMeters;
+    }
+
+    final elevationStart = math.max(
+      0.0,
+      math.min(
+        (peakElevation - elevationThresholdMeters - startElevation) /
+            elevationDelta,
+        (peakElevation + elevationThresholdMeters - startElevation) /
+            elevationDelta,
+      ),
+    );
+    final elevationEnd = math.min(
+      1.0,
+      math.max(
+        (peakElevation - elevationThresholdMeters - startElevation) /
+            elevationDelta,
+        (peakElevation + elevationThresholdMeters - startElevation) /
+            elevationDelta,
+      ),
+    );
+    return elevationStart <= elevationEnd &&
+        distanceStart <= elevationEnd &&
+        elevationStart <= distanceEnd;
   }
 
   double _metersToDegrees(int meters, {double? meanLatitudeRadians}) {

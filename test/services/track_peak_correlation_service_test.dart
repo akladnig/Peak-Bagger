@@ -79,7 +79,7 @@ void main() {
     expect(matches, hasLength(1));
   });
 
-  test('does not let a farther valid segment override nearer rejection', () {
+  test('matches when another nearby segment meets the elevation threshold', () {
     final matches =
         _service(
           _peak(longitude: .001, elevation: 200),
@@ -93,7 +93,22 @@ void main() {
           '</trk></gpx>',
         );
 
-    expect(matches, isEmpty);
+    expect(matches, hasLength(1));
+  });
+
+  test('matches a nearby elevation-valid position on the same segment', () {
+    final matches =
+        _service(
+          _peak(longitude: .00043),
+          distanceThresholdMeters: 10,
+        ).matchPeaks(
+          _track(
+            '<trkpt lat="0" lon="0"><ele>0</ele></trkpt>'
+            '<trkpt lat="0" lon="0.001"><ele>200</ele></trkpt>',
+          ),
+        );
+
+    expect(matches, hasLength(1));
   });
 
   test('matches when an equal-distance position meets elevation threshold', () {
