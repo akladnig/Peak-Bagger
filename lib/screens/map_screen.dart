@@ -2876,6 +2876,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                             ),
                           )
                         : false;
+                    final clusterRingStyle = ref.watch(
+                      mapProvider.select(
+                        (state) =>
+                            state.peakListSelectionMode ==
+                                PeakListSelectionMode.allPeaks
+                            ? PeakClusterRingStyle.proportionalTickedUnticked
+                            : PeakClusterRingStyle.ownershipHybrid,
+                      ),
+                    );
                     final routes = ref.watch(routeListProvider);
                     final routeDraftSourceRouteId = ref.watch(
                       mapProvider.select((state) => state.sourceRouteId),
@@ -3679,6 +3688,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                       allowContinuousMotionLag:
                                                           true,
                                                     ),
+                                                clusterRingStyle:
+                                                    clusterRingStyle,
                                               );
                                             },
                                           ),
