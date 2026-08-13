@@ -301,6 +301,8 @@ class MapTrackInfoPanel extends StatelessWidget {
                               children: [
                                 Row(
                                   children: [
+                                    Icon(isRoute ? Icons.route : Icons.hiking),
+                                    const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         displayName,
@@ -913,7 +915,11 @@ class _MapTrackPeakCorrelationRowState
                               strokeWidth: 2,
                             ),
                           )
-                        : const Icon(Icons.delete_outline, size: 18),
+                        : const Icon(
+                            Icons.delete_forever,
+                            size: 18,
+                            color: Colors.red,
+                          ),
                   ),
                 ),
               ],
