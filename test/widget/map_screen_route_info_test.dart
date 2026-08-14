@@ -234,6 +234,13 @@ void main() {
     await tester.pump();
 
     expect(find.text('Unnamed Route'), findsOneWidget);
+    final headerRow = find
+        .ancestor(of: find.text('Unnamed Route'), matching: find.byType(Row))
+        .first;
+    expect(
+      find.descendant(of: headerRow, matching: find.byIcon(Icons.route)),
+      findsOneWidget,
+    );
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
     expect(find.text('17.5 km / 0 m'), findsOneWidget);
     expect(find.text('900 m'), findsNWidgets(2));

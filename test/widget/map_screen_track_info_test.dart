@@ -513,6 +513,13 @@ void main() {
     );
 
     expect(find.text('Unnamed Track'), findsOneWidget);
+    final headerRow = find
+        .ancestor(of: find.text('Unnamed Track'), matching: find.byType(Row))
+        .first;
+    expect(
+      find.descendant(of: headerRow, matching: find.byIcon(Icons.hiking)),
+      findsOneWidget,
+    );
     expect(find.text('Wed, 7 January 2026'), findsOneWidget);
     expect(find.text('from Unknown to Unknown'), findsOneWidget);
     expect(panel.color, MyTheme.dark.colorScheme.surfaceContainer);

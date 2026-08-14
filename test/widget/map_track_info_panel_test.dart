@@ -322,6 +322,13 @@ void main() {
     );
     expect(find.byTooltip('Remove peak correlation'), findsOneWidget);
     expect(find.bySemanticsLabel('Remove peak correlation'), findsOneWidget);
+    final deleteIcon = tester.widget<Icon>(
+      find.descendant(
+        of: find.byKey(const Key('map-track-correlation-remove-10-42')),
+        matching: find.byIcon(Icons.delete_forever),
+      ),
+    );
+    expect(deleteIcon.color, Colors.red);
   });
 
   testWidgets(
