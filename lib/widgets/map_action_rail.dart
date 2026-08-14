@@ -149,7 +149,7 @@ class MapActionRail extends ConsumerWidget {
                             ).colorScheme.surface,
                             onPressed: onCreateRoute,
                             child: SvgPicture.asset(
-                              'assets/route.svg',
+                              'assets/svg/route.svg',
                               width: 18,
                               height: 18,
                               colorFilter: ColorFilter.mode(

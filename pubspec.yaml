@@ -52,7 +52,6 @@ flutter:
   assets:
     - assets/highway.json
     - assets/region_manifest.json
-    - assets/route.svg
     - assets/svg/
     - assets/peaks/
     - assets/polygons/

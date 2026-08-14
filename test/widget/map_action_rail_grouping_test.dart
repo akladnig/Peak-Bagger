@@ -96,6 +96,20 @@ void main() {
       ),
       findsOneWidget,
     );
+    final createRouteIcon = tester.widget<SvgPicture>(
+      find.descendant(
+        of: find.byKey(const Key('create-route-fab')),
+        matching: find.byType(SvgPicture),
+      ),
+    );
+    expect(
+      createRouteIcon.bytesLoader,
+      isA<SvgAssetLoader>().having(
+        (loader) => loader.assetName,
+        'assetName',
+        'assets/svg/route.svg',
+      ),
+    );
     expect(
       _iconForButton(const Key('peak-visibility-mode-fab'), tester),
       Icons.landscape,
