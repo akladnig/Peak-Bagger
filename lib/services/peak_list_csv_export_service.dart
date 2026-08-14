@@ -95,7 +95,7 @@ class PeakListCsvExportService {
     PeakListCsvFileWriter? fileWriter,
     PeakListCsvExportYieldCallback? yieldCallback,
   }) : _outputDirectoryResolver =
-            outputDirectoryResolver ?? _defaultOutputDirectoryResolver,
+           outputDirectoryResolver ?? _defaultOutputDirectoryResolver,
        _fileWriter = fileWriter ?? const IoPeakListCsvFileWriter(),
        _yieldCallback = yieldCallback ?? _defaultYieldCallback;
 
@@ -208,7 +208,9 @@ class PeakListCsvExportService {
 
       late final List<PeakListItem> items;
       try {
-        items = _peakListRepository.getPeakListItemsForList(peakList.peakListId);
+        items = _peakListRepository.getPeakListItemsForList(
+          peakList.peakListId,
+        );
       } catch (_) {
         skippedMalformedListCount += 1;
         warningEntries.add(
@@ -235,7 +237,7 @@ class PeakListCsvExportService {
         );
         for (final exportRow in resolvedRows) {
           final peak = exportRow.peak;
-          rows.add(_csvRowForPeak(peak, exportRow.item));
+          rows.add(csvRowForPeak(peak, points: exportRow.item.points));
           writtenRowCount += 1;
           if (writtenRowCount == totalRowCount ||
               writtenRowCount == 1 ||
@@ -356,7 +358,7 @@ class PeakListCsvExportService {
     return prepared;
   }
 
-  PeakMgrsComponents _resolveMgrsComponents(Peak peak) {
+  static PeakMgrsComponents resolveMgrsComponents(Peak peak) {
     final storedForward =
         '${peak.gridZoneDesignator.trim().toUpperCase()}'
         '${peak.mgrs100kId.trim().toUpperCase()}'
@@ -371,7 +373,7 @@ class PeakListCsvExportService {
     }
   }
 
-  String _formatDuration(Peak peak) {
+  static String formatDuration(Peak peak) {
     if (peak.durationLabel.trim().isNotEmpty) {
       return peak.durationLabel;
     }
@@ -379,11 +381,11 @@ class PeakListCsvExportService {
     return formatPeakDurationMinutes(peak.durationMinutes);
   }
 
-  String _formatOptionalNumber(double? value) {
+  static String formatOptionalNumber(double? value) {
     return value?.toString() ?? '';
   }
 
-  String _formatOptionalRating(double? rating) {
+  static String formatOptionalRating(double? rating) {
     return rating == null ? '' : rating.toStringAsFixed(1);
   }
 
@@ -402,38 +404,40 @@ class PeakListCsvExportService {
     }
 
     resolvedRows.sort((left, right) {
-      final nameComparison = left.peak.name.toLowerCase().compareTo(
-        right.peak.name.toLowerCase(),
-      );
-      if (nameComparison != 0) {
-        return nameComparison;
-      }
-      final osmIdComparison = left.peak.osmId.compareTo(right.peak.osmId);
-      if (osmIdComparison != 0) {
-        return osmIdComparison;
-      }
-      return left.originalIndex.compareTo(right.originalIndex);
+      final comparison = comparePeaksForCsv(left.peak, right.peak);
+      return comparison != 0
+          ? comparison
+          : left.originalIndex.compareTo(right.originalIndex);
     });
 
     return resolvedRows;
   }
 
-  List<dynamic> _csvRowForPeak(Peak peak, PeakListItem item) {
-    final mgrs = _resolveMgrsComponents(peak);
+  static int comparePeaksForCsv(Peak left, Peak right) {
+    final nameComparison = left.name.toLowerCase().compareTo(
+      right.name.toLowerCase(),
+    );
+    return nameComparison != 0
+        ? nameComparison
+        : left.osmId.compareTo(right.osmId);
+  }
+
+  static List<dynamic> csvRowForPeak(Peak peak, {required int points}) {
+    final mgrs = resolveMgrsComponents(peak);
     return [
       peak.name,
       peak.altName,
-      _formatOptionalNumber(peak.elevation),
-      _formatOptionalNumber(peak.prominence),
-      _formatOptionalRating(peak.rating),
+      formatOptionalNumber(peak.elevation),
+      formatOptionalNumber(peak.prominence),
+      formatOptionalRating(peak.rating),
       peak.difficulty,
-      _formatDuration(peak),
+      formatDuration(peak),
       peak.viaFerrata,
       mgrs.gridZoneDesignator,
       mgrs.mgrs100kId,
       mgrs.easting,
       mgrs.northing,
-      item.points,
+      points,
       peak.osmId,
       peak.peakbaggerPid?.toString() ?? '',
       peak.country,
