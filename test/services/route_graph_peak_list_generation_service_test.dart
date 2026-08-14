@@ -83,6 +83,39 @@ void main() {
       },
     );
 
+    test('accepts and exports a negative osmId', () async {
+      final files = _FakeFiles({
+        '/repo/assets/region_manifest.json': jsonEncode({
+          'tasmania': {
+            'priority': '1',
+            'highways': ['assets/highways/tasmania.json'],
+          },
+        }),
+        '/repo/assets/highways/tasmania.json': _highwaysJson(),
+        '/source.csv': _peaksCsv([
+          _peakRow(
+            name: 'Synthetic Peak',
+            osmId: -1,
+            latitude: 0,
+            longitude: 0,
+          ),
+        ]),
+      });
+
+      final result = await _service(files).generate(
+        regionKey: 'tasmania',
+        peakSourcePath: '/source.csv',
+        outputPath: '/output/list.csv',
+      );
+
+      final row = const CsvDecoder().convert(
+        files.contents[result.outputPath]!,
+      )[1];
+      final osmIdColumn = PeakListCsvExportService.csvHeaders.indexOf('osmId');
+      expect(result.matchedPeakCount, 1);
+      expect(row[osmIdColumn], '-1');
+    });
+
     test(
       'unions matching non-composite regions for composite selections',
       () async {

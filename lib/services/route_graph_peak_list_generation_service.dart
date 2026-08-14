@@ -340,6 +340,16 @@ class RouteGraphPeakListGenerationService {
       return parsed;
     }
 
+    int requiredNonZeroInt(int index) {
+      final parsed = int.tryParse(value(index).trim());
+      if (parsed == null || parsed == 0) {
+        throw FormatException(
+          'CSV row $rowNumber ${peakSourceHeaders[index]} must be a non-zero integer',
+        );
+      }
+      return parsed;
+    }
+
     int? optionalInt(int index) {
       final raw = value(index).trim();
       if (raw.isEmpty) {
@@ -369,7 +379,7 @@ class RouteGraphPeakListGenerationService {
     }
 
     final id = requiredPositiveInt(0);
-    final osmId = requiredPositiveInt(1);
+    final osmId = requiredNonZeroInt(1);
     final name = value(3);
     if (name.trim().isEmpty) {
       throw FormatException('CSV row $rowNumber name must not be blank');
