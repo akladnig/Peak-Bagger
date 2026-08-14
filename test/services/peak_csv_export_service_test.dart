@@ -26,10 +26,22 @@ void main() {
         final repository = PeakRepository.test(
           InMemoryPeakStorage([
             Peak(
+              id: 42,
               osmId: 300,
+              peakbaggerPid: null,
               name: 'Zeta Peak',
               altName: '',
               elevation: null,
+              prominence: null,
+              country: '',
+              county: '',
+              range: '',
+              rating: null,
+              durationMinutes: null,
+              durationLabel: '',
+              difficulty: '',
+              viaFerrata: '',
+              notes: '',
               latitude: -41.1,
               longitude: 146.2,
               region: null,
@@ -40,10 +52,22 @@ void main() {
               verified: false,
             ),
             Peak(
+              id: 24,
               osmId: 200,
+              peakbaggerPid: 12345,
               name: 'Alpha, "South"\nRidge',
               altName: 'Alt, "Name"',
               elevation: 1234.5,
+              prominence: 456.7,
+              country: 'Australia',
+              county: 'Meander Valley',
+              range: 'Great Western Tiers',
+              rating: 4.5,
+              durationMinutes: 180,
+              durationLabel: '3 hours',
+              difficulty: 'Hard',
+              viaFerrata: 'No',
+              notes: 'Bring water',
               latitude: -40.3,
               longitude: 145.4,
               region: 'Area, 1',
@@ -70,31 +94,86 @@ void main() {
         expect(contents, isNot(contains('\r')));
         expect(contents, contains('\n'));
         expect(rows.first.cast<String>(), [
-          'Name',
-          'Alt Name',
-          'Elevation',
-          'Latitude',
-          'Longitude',
-          'Region',
-          'Zone',
-          'mgrs100kId',
-          'Easting',
-          'Northing',
-          'Verified',
+          'id',
           'osmId',
+          'peakbaggerPid',
+          'name',
+          'altName',
+          'elevation',
+          'prominence',
+          'country',
+          'county',
+          'range',
+          'rating',
+          'durationMinutes',
+          'durationLabel',
+          'difficulty',
+          'viaFerrata',
+          'notes',
+          'latitude',
+          'longitude',
+          'region',
+          'gridZoneDesignator',
+          'mgrs100kId',
+          'easting',
+          'northing',
+          'verified',
+          'sourceOfTruth',
         ]);
-        expect(rows[1][0], 'Zeta Peak');
-        expect(rows[1][1].toString(), '');
-        expect(rows[1][2].toString(), '');
-        expect(rows[1][5].toString(), '');
-        expect(rows[1][10].toString(), 'false');
-        expect(rows[1][11].toString(), '300');
-        expect(rows[2][0].toString(), 'Alpha, "South"\nRidge');
-        expect(rows[2][1].toString(), 'Alt, "Name"');
-        expect(rows[2][2].toString(), '1234.5');
-        expect(rows[2][5].toString(), 'Area, 1');
-        expect(rows[2][10].toString(), 'true');
-        expect(rows[2][11].toString(), '200');
+        expect(rows[1].map((value) => value.toString()), [
+          '42',
+          '300',
+          '',
+          'Zeta Peak',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '-41.1',
+          '146.2',
+          '',
+          '55G',
+          'AB',
+          '100',
+          '200',
+          'false',
+          'OSM',
+        ]);
+        expect(rows[2].map((value) => value.toString()), [
+          '24',
+          '200',
+          '12345',
+          'Alpha, "South"\nRidge',
+          'Alt, "Name"',
+          '1234.5',
+          '456.7',
+          'Australia',
+          'Meander Valley',
+          'Great Western Tiers',
+          '4.5',
+          '180',
+          '3 hours',
+          'Hard',
+          'No',
+          'Bring water',
+          '-40.3',
+          '145.4',
+          'Area, 1',
+          '55H',
+          'CD',
+          '300',
+          '400',
+          'true',
+          'OSM',
+        ]);
       },
     );
 
@@ -117,7 +196,7 @@ void main() {
         expect(result.exportedCount, 0);
         expect(
           contents,
-          'Name,Alt Name,Elevation,Latitude,Longitude,Region,Zone,mgrs100kId,Easting,Northing,Verified,osmId',
+          'id,osmId,peakbaggerPid,name,altName,elevation,prominence,country,county,range,rating,durationMinutes,durationLabel,difficulty,viaFerrata,notes,latitude,longitude,region,gridZoneDesignator,mgrs100kId,easting,northing,verified,sourceOfTruth',
         );
       },
     );

@@ -59,18 +59,31 @@ class PeakCsvExportService {
   static const String _defaultOutputDirectory =
       '/Users/adrian/Documents/Bushwalking/Features';
   static const List<String> _headers = [
-    'Name',
-    'Alt Name',
-    'Elevation',
-    'Latitude',
-    'Longitude',
-    'Region',
-    'Zone',
-    'mgrs100kId',
-    'Easting',
-    'Northing',
-    'Verified',
+    'id',
     'osmId',
+    'peakbaggerPid',
+    'name',
+    'altName',
+    'elevation',
+    'prominence',
+    'country',
+    'county',
+    'range',
+    'rating',
+    'durationMinutes',
+    'durationLabel',
+    'difficulty',
+    'viaFerrata',
+    'notes',
+    'latitude',
+    'longitude',
+    'region',
+    'gridZoneDesignator',
+    'mgrs100kId',
+    'easting',
+    'northing',
+    'verified',
+    'sourceOfTruth',
   ];
 
   final PeakRepository _peakRepository;
@@ -110,22 +123,31 @@ class PeakCsvExportService {
 
   List<dynamic> _toCsvRow(Peak peak) {
     return [
+      peak.id,
+      peak.osmId,
+      peak.peakbaggerPid ?? '',
       peak.name,
       peak.altName,
-      _doubleOrBlank(peak.elevation),
-      peak.latitude.toString(),
-      peak.longitude.toString(),
+      peak.elevation ?? '',
+      peak.prominence ?? '',
+      peak.country,
+      peak.county,
+      peak.range,
+      peak.rating ?? '',
+      peak.durationMinutes ?? '',
+      peak.durationLabel,
+      peak.difficulty,
+      peak.viaFerrata,
+      peak.notes,
+      peak.latitude,
+      peak.longitude,
       peak.region ?? '',
       peak.gridZoneDesignator,
       peak.mgrs100kId,
       peak.easting,
       peak.northing,
-      peak.verified.toString(),
-      peak.osmId.toString(),
+      peak.verified,
+      peak.sourceOfTruth,
     ];
-  }
-
-  String _doubleOrBlank(double? value) {
-    return value?.toString() ?? '';
   }
 }
