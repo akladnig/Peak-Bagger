@@ -24,6 +24,7 @@ import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/route_planner_provider.dart';
+import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
@@ -47,6 +48,7 @@ import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
+import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
@@ -1575,6 +1577,69 @@ class MapNotifier extends Notifier<MapState> {
   bool _isRestoringVisibilityPrefs = false;
   bool _showTracksRestoreOverridden = false;
   bool _showRoutesRestoreOverridden = false;
+
+  _RouteCoverageSelection _routeCoverageFor(LatLng start, LatLng end) {
+    final queryService = ref.read(routeGraphQueryServiceProvider);
+    if (queryService == null) {
+      // Keep the existing injected planner seam available when no graph store
+      // has been configured (for example, isolated route-draft tests).
+      return const _RouteCoverageSelection.unscoped();
+    }
+    final startCoverage = queryService.selectExactlyOneActiveCoverage(start);
+    final endCoverage = queryService.selectExactlyOneActiveCoverage(end);
+    if (startCoverage != null && startCoverage == endCoverage) {
+      return _RouteCoverageSelection.active(startCoverage);
+    }
+
+    final startUnavailable = queryService.selectExactlyOneUnavailableCoverage(
+      start,
+    );
+    final endUnavailable = queryService.selectExactlyOneUnavailableCoverage(
+      end,
+    );
+    if (startUnavailable != null && startUnavailable == endUnavailable) {
+      RouteGraphCoverageImportState? importState;
+      try {
+        for (final candidate in ref.read(
+          routeGraphCoverageImportStateProvider,
+        )) {
+          if (candidate.routingCoverageKey == startUnavailable) {
+            importState = candidate;
+            break;
+          }
+        }
+      } catch (_) {
+        // A repository can be present before its coordinator provider is.
+      }
+      final displayName = importState?.displayName ?? startUnavailable;
+      final loading =
+          importState?.status == RouteGraphCoverageImportStatus.queued ||
+          importState?.status == RouteGraphCoverageImportStatus.importing;
+      return _RouteCoverageSelection.rejected(
+        loading
+            ? 'Routing data for $displayName is still loading.'
+            : 'Routing data for $displayName is unavailable. Use Refresh Route Graph to retry.',
+      );
+    }
+    return const _RouteCoverageSelection.rejected(
+      'Routing is unavailable outside routing coverage.',
+    );
+  }
+
+  bool _rejectRouteGraphOperationIfNeeded(LatLng start, LatLng end) {
+    final selection = _routeCoverageFor(start, end);
+    if (selection.isEligible) {
+      return false;
+    }
+    state = state.copyWith(
+      routeDraftStage: RouteDraftStage.awaitingNextPoint,
+      routeDraftProvisionalPoints: const [],
+      routeDraftError: selection.message,
+      routeDraftFailureKind: RoutePlanningFailureKind.generic,
+    );
+    return true;
+  }
+
   bool _showTrailsRestoreOverridden = false;
   int _searchPopupRequestSerial = 0;
 
@@ -4039,6 +4104,12 @@ class MapNotifier extends Notifier<MapState> {
       );
       return;
     }
+    if (_rejectRouteGraphOperationIfNeeded(
+      committedPoints.last,
+      committedPoints.first,
+    )) {
+      return;
+    }
 
     final requestId = state.routeDraftRequestId + 1;
     final returnEndpoint = controlEndpoints.first.copyWith(
@@ -4066,10 +4137,20 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftNextMarkerId: state.routeDraftNextMarkerId + 1,
     );
 
-    final result = await _routePlanner.planCloseLoopResult(
-      currentPoint: committedPoints.last,
-      startPoint: committedPoints.first,
+    final selection = _routeCoverageFor(
+      committedPoints.last,
+      committedPoints.first,
     );
+    final result = selection.routingCoverageKey == null
+        ? await _routePlanner.planCloseLoopResult(
+            currentPoint: committedPoints.last,
+            startPoint: committedPoints.first,
+          )
+        : await _routePlanner.planCloseLoopForCoverage(
+            routingCoverageKey: selection.routingCoverageKey!,
+            currentPoint: committedPoints.last,
+            startPoint: committedPoints.first,
+          );
     if (!_isActiveRouteDraftRequest(requestId)) {
       return;
     }
@@ -4407,6 +4488,9 @@ class MapNotifier extends Notifier<MapState> {
           _resampleRouteDraftElevation();
           return;
         }
+        if (_rejectRouteGraphOperationIfNeeded(start.point, point)) {
+          return;
+        }
         final duplicateNoOpSnapshot = _captureRouteDraftSnapshot();
         final duplicateNoOpHistoryState = _captureRouteDraftHistoryState();
         final requestId = state.routeDraftRequestId + 1;
@@ -4464,6 +4548,9 @@ class MapNotifier extends Notifier<MapState> {
           )
         : state.routeDraftControlEndpoints.last;
     if (peakPoint == startEndpoint.point) {
+      return;
+    }
+    if (_rejectRouteGraphOperationIfNeeded(startEndpoint.point, peakPoint)) {
       return;
     }
 
@@ -4733,11 +4820,33 @@ class MapNotifier extends Notifier<MapState> {
     _RouteDraftSnapshot? duplicateNoOpSnapshot,
     _RouteDraftHistoryState? duplicateNoOpHistoryState,
   }) async {
-    final result = await _routePlanner.planSegmentResult(
-      start: startEndpoint.point,
-      end: endEndpoint.point,
-      maxSnapDistanceMeters: _routeSnapDistanceMeters(state.routeDraftMode),
-    );
+    final selection = _routeCoverageFor(startEndpoint.point, endEndpoint.point);
+    if (!selection.isEligible) {
+      _setRouteDraftControlState(
+        controlEndpoints: state.routeDraftControlEndpoints,
+        stage: RouteDraftStage.awaitingNextPoint,
+        provisionalPoints: const [],
+        offTrackProbeActive: state.routeDraftOffTrackProbeActive,
+        routeDraftError: selection.message,
+      );
+      return;
+    }
+    final result = selection.routingCoverageKey == null
+        ? await _routePlanner.planSegmentResult(
+            start: startEndpoint.point,
+            end: endEndpoint.point,
+            maxSnapDistanceMeters: _routeSnapDistanceMeters(
+              state.routeDraftMode,
+            ),
+          )
+        : await _routePlanner.planSegmentForCoverage(
+            routingCoverageKey: selection.routingCoverageKey!,
+            start: startEndpoint.point,
+            end: endEndpoint.point,
+            maxSnapDistanceMeters: _routeSnapDistanceMeters(
+              state.routeDraftMode,
+            ),
+          );
     if (!_isActiveRouteDraftRequest(requestId)) {
       return;
     }
@@ -6572,11 +6681,31 @@ class MapNotifier extends Notifier<MapState> {
 
       final startEndpoint = rebuiltEndpoints[index];
       final endEndpoint = rebuiltEndpoints[index + 1];
-      final result = await _routePlanner.planSegmentResult(
-        start: startEndpoint.point,
-        end: endEndpoint.point,
-        maxSnapDistanceMeters: _routeSnapDistanceMeters(routeMode),
+      final selection = _routeCoverageFor(
+        startEndpoint.point,
+        endEndpoint.point,
       );
+      if (!selection.isEligible) {
+        state = state.copyWith(
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          routeDraftProvisionalPoints: const [],
+          routeDraftError: selection.message,
+          routeDraftFailureKind: RoutePlanningFailureKind.generic,
+        );
+        return;
+      }
+      final result = selection.routingCoverageKey == null
+          ? await _routePlanner.planSegmentResult(
+              start: startEndpoint.point,
+              end: endEndpoint.point,
+              maxSnapDistanceMeters: _routeSnapDistanceMeters(routeMode),
+            )
+          : await _routePlanner.planSegmentForCoverage(
+              routingCoverageKey: selection.routingCoverageKey!,
+              start: startEndpoint.point,
+              end: endEndpoint.point,
+              maxSnapDistanceMeters: _routeSnapDistanceMeters(routeMode),
+            );
       if (!_isActiveRouteDraftRequest(requestId)) {
         return;
       }
@@ -8142,6 +8271,23 @@ class MapNotifier extends Notifier<MapState> {
       return value >= min || value <= max;
     }
   }
+}
+
+class _RouteCoverageSelection {
+  const _RouteCoverageSelection.unscoped()
+    : routingCoverageKey = null,
+      message = null;
+
+  const _RouteCoverageSelection.active(this.routingCoverageKey)
+    : message = null;
+
+  const _RouteCoverageSelection.rejected(this.message)
+    : routingCoverageKey = null;
+
+  final String? routingCoverageKey;
+  final String? message;
+
+  bool get isEligible => message == null;
 }
 
 class _RouteSummary {

@@ -19,11 +19,32 @@ class RouteGraphQueryService {
 
   final RouteGraphRepository _repository;
   final double bufferMeters;
-  int? _trailDisplayIndexGeneration;
-  Map<int, Map<String, RouteGraphTrailDisplayChunk>>? _trailDisplayIndex;
+  final Map<String, Map<int, Map<String, RouteGraphTrailDisplayChunk>>>
+  _trailDisplayIndexes = {};
+
+  String? selectExactlyOneActiveCoverage(LatLng point) =>
+      _repository.selectExactlyOneActiveCoverage(point);
+
+  String? selectExactlyOneUnavailableCoverage(LatLng point) =>
+      _repository.selectExactlyOneUnavailableCoverage(point);
+
+  int activeGenerationFor(String routingCoverageKey) =>
+      _repository.activeGenerationFor(routingCoverageKey);
+
+  List<String> get activeCoverageKeys => _repository.manifests
+      .where((manifest) => manifest.hasActiveGeneration)
+      .map((manifest) => manifest.routingCoverageKey)
+      .toList(growable: false);
 
   List<RouteGraphWayIndex> queryWays(RouteGraphWayQuery query) {
-    final rows = _repository.activeWayIndexRows();
+    return queryWaysForCoverage(defaultRouteGraphCoverageKey, query);
+  }
+
+  List<RouteGraphWayIndex> queryWaysForCoverage(
+    String routingCoverageKey,
+    RouteGraphWayQuery query,
+  ) {
+    final rows = _repository.activeWayIndexRows(routingCoverageKey);
     return rows
         .where((row) => _matchesWayQuery(row, query))
         .toList(growable: false);
@@ -43,7 +64,26 @@ class RouteGraphQueryService {
     required double maxLon,
     double? extraBufferMeters,
   }) {
-    final visibleChunkKeys = queryChunksForBounds(
+    return queryDriveEtaWaysForCoverageBounds(
+      defaultRouteGraphCoverageKey,
+      minLat: minLat,
+      minLon: minLon,
+      maxLat: maxLat,
+      maxLon: maxLon,
+      extraBufferMeters: extraBufferMeters,
+    );
+  }
+
+  List<RouteGraphWayIndex> queryDriveEtaWaysForCoverageBounds(
+    String routingCoverageKey, {
+    required double minLat,
+    required double minLon,
+    required double maxLat,
+    required double maxLon,
+    double? extraBufferMeters,
+  }) {
+    final visibleChunkKeys = queryChunksForCoverageBounds(
+      routingCoverageKey,
       minLat: minLat,
       minLon: minLon,
       maxLat: maxLat,
@@ -55,7 +95,7 @@ class RouteGraphQueryService {
     }
 
     return _repository
-        .activeWayIndexRows()
+        .activeWayIndexRows(routingCoverageKey)
         .where(
           (row) =>
               visibleChunkKeys.contains(row.chunkKey) &&
@@ -83,6 +123,24 @@ class RouteGraphQueryService {
     required double maxLon,
     double? extraBufferMeters,
   }) {
+    return queryChunksForCoverageBounds(
+      defaultRouteGraphCoverageKey,
+      minLat: minLat,
+      minLon: minLon,
+      maxLat: maxLat,
+      maxLon: maxLon,
+      extraBufferMeters: extraBufferMeters,
+    );
+  }
+
+  List<RouteGraphChunk> queryChunksForCoverageBounds(
+    String routingCoverageKey, {
+    required double minLat,
+    required double minLon,
+    required double maxLat,
+    required double maxLon,
+    double? extraBufferMeters,
+  }) {
     final expanded = _RouteGraphBounds(
       minLat: minLat,
       minLon: minLon,
@@ -91,7 +149,7 @@ class RouteGraphQueryService {
     ).expand(extraBufferMeters ?? bufferMeters);
 
     return _repository
-        .activeChunks()
+        .activeChunks(routingCoverageKey)
         .where(expanded.intersects)
         .toList(growable: false);
   }
@@ -127,7 +185,28 @@ class RouteGraphQueryService {
     required double zoom,
     double? extraBufferMeters,
   }) {
-    final visibleChunkKeys = queryChunksForBounds(
+    return queryTrailDisplayChunksForCoverageBounds(
+      defaultRouteGraphCoverageKey,
+      minLat: minLat,
+      minLon: minLon,
+      maxLat: maxLat,
+      maxLon: maxLon,
+      zoom: zoom,
+      extraBufferMeters: extraBufferMeters,
+    );
+  }
+
+  List<RouteGraphTrailDisplayChunk> queryTrailDisplayChunksForCoverageBounds(
+    String routingCoverageKey, {
+    required double minLat,
+    required double minLon,
+    required double maxLat,
+    required double maxLon,
+    required double zoom,
+    double? extraBufferMeters,
+  }) {
+    final visibleChunkKeys = queryChunksForCoverageBounds(
+      routingCoverageKey,
       minLat: minLat,
       minLon: minLon,
       maxLat: maxLat,
@@ -142,7 +221,10 @@ class RouteGraphQueryService {
       MapConstants.trackMinZoom,
       MapConstants.trackMaxZoom,
     );
-    final rowsByChunkKey = _trailDisplayRowsForZoom(cacheZoom);
+    final rowsByChunkKey = _trailDisplayRowsForZoom(
+      routingCoverageKey,
+      cacheZoom,
+    );
     if (rowsByChunkKey.isEmpty) {
       return const [];
     }
@@ -291,6 +373,48 @@ class RouteGraphQueryService {
     );
   }
 
+  Future<trip_routing.TripService> buildTripServiceForCoverageRoute({
+    required String routingCoverageKey,
+    required LatLng start,
+    required LatLng end,
+    double? extraBufferMeters,
+  }) async {
+    final bounds = _RouteGraphBounds.fromPoints(start, end);
+    final chunks = queryChunksForCoverageBounds(
+      routingCoverageKey,
+      minLat: bounds.minLat,
+      minLon: bounds.minLon,
+      maxLat: bounds.maxLat,
+      maxLon: bounds.maxLon,
+      extraBufferMeters: extraBufferMeters,
+    );
+    return _loadTripService(
+      chunks.isEmpty ? const [] : [_mergeChunksIntoPayload(chunks)],
+      message: 'No usable route graph coverage for requested route.',
+      routingCoverageKey: routingCoverageKey,
+    );
+  }
+
+  Future<trip_routing.TripService> buildTripServiceForCoveragePoint({
+    required String routingCoverageKey,
+    required LatLng point,
+    double? extraBufferMeters,
+  }) async {
+    final chunks = queryChunksForCoverageBounds(
+      routingCoverageKey,
+      minLat: point.latitude,
+      minLon: point.longitude,
+      maxLat: point.latitude,
+      maxLon: point.longitude,
+      extraBufferMeters: extraBufferMeters,
+    );
+    return _loadTripService(
+      chunks.isEmpty ? const [] : [_mergeChunksIntoPayload(chunks)],
+      message: 'No usable route graph coverage for requested point.',
+      routingCoverageKey: routingCoverageKey,
+    );
+  }
+
   Future<trip_routing.TripService> buildTripServiceForPoint({
     required LatLng point,
     double? extraBufferMeters,
@@ -328,6 +452,7 @@ class RouteGraphQueryService {
   Future<trip_routing.TripService> _loadTripService(
     List<Map<String, dynamic>> payloads, {
     required String message,
+    String routingCoverageKey = defaultRouteGraphCoverageKey,
   }) async {
     if (payloads.isEmpty) {
       throw RouteGraphLoadException(message);
@@ -337,7 +462,8 @@ class RouteGraphQueryService {
     await service.loadOverpassTilePayloads(
       payloads,
       preferWalkingPaths: true,
-      source: 'objectbox://route_graph/${_repository.activeGeneration}',
+      source:
+          'objectbox://route_graph/$routingCoverageKey/${_repository.activeGenerationFor(routingCoverageKey)}',
     );
     return service;
   }
@@ -408,21 +534,28 @@ class RouteGraphQueryService {
     );
   }
 
-  Map<String, RouteGraphTrailDisplayChunk> _trailDisplayRowsForZoom(int zoom) {
-    final generation = _repository.activeGeneration;
-    if (_trailDisplayIndexGeneration != generation ||
-        _trailDisplayIndex == null) {
+  Map<String, RouteGraphTrailDisplayChunk> _trailDisplayRowsForZoom(
+    String routingCoverageKey,
+    int zoom,
+  ) {
+    final generation = _repository.activeGenerationFor(routingCoverageKey);
+    final indexKey = '$routingCoverageKey:$generation';
+    final index = _trailDisplayIndexes.putIfAbsent(indexKey, () {
+      _trailDisplayIndexes.removeWhere(
+        (key, _) => key.startsWith('$routingCoverageKey:') && key != indexKey,
+      );
       final nextIndex = <int, Map<String, RouteGraphTrailDisplayChunk>>{};
-      for (final row in _repository.activeTrailDisplayChunks()) {
+      for (final row in _repository.activeTrailDisplayChunks(
+        routingCoverageKey,
+      )) {
         (nextIndex[row.cacheZoom] ??=
                 <String, RouteGraphTrailDisplayChunk>{})[row.chunkKey] =
             row;
       }
-      _trailDisplayIndexGeneration = generation;
-      _trailDisplayIndex = nextIndex;
-    }
+      return nextIndex;
+    });
 
-    return _trailDisplayIndex?[zoom] ?? const {};
+    return index[zoom] ?? const {};
   }
 }
 

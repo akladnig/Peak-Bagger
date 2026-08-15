@@ -18,39 +18,47 @@ class RouteGraphDriveEtaHitResult {
     this.matchedWayId,
     this.wayName,
     this.message,
+    this.routingCoverageKey,
   });
 
   const RouteGraphDriveEtaHitResult.hit({
     required LatLng snappedPoint,
     required int matchedWayId,
     required String? wayName,
+    String? routingCoverageKey,
   }) : this._(
          status: RouteGraphDriveEtaHitStatus.hit,
          snappedPoint: snappedPoint,
          matchedWayId: matchedWayId,
          wayName: wayName,
+         routingCoverageKey: routingCoverageKey,
        );
 
   const RouteGraphDriveEtaHitResult.noHit()
     : this._(status: RouteGraphDriveEtaHitStatus.noHit);
 
-  const RouteGraphDriveEtaHitResult.unavailable([String? message])
-    : this._(
-        status: RouteGraphDriveEtaHitStatus.unavailable,
-        message: message ?? 'Route graph data is unavailable.',
-      );
+  const RouteGraphDriveEtaHitResult.unavailable([
+    String? message,
+    String? routingCoverageKey,
+  ]) : this._(
+         status: RouteGraphDriveEtaHitStatus.unavailable,
+         message: message ?? 'Route graph data is unavailable.',
+         routingCoverageKey: routingCoverageKey,
+       );
 
   final RouteGraphDriveEtaHitStatus status;
   final LatLng? snappedPoint;
   final int? matchedWayId;
   final String? wayName;
   final String? message;
+  final String? routingCoverageKey;
 }
 
 class RouteGraphDriveEtaHitService {
   RouteGraphDriveEtaHitService(this._queryService);
 
   final RouteGraphQueryService _queryService;
+  String? _cachedCoverageKey;
   int? _cachedGeneration;
   String? _cachedVisibleChunkKey;
   List<_DriveEtaWayGeometry>? _cachedVisibleWays;
@@ -66,23 +74,38 @@ class RouteGraphDriveEtaHitService {
     required MapCamera camera,
     required LatLng tappedLocation,
   }) {
+    final coverageKey = _queryService.selectExactlyOneActiveCoverage(
+      tappedLocation,
+    );
+    if (coverageKey == null) {
+      final unavailableCoverage = _queryService
+          .selectExactlyOneUnavailableCoverage(tappedLocation);
+      return RouteGraphDriveEtaHitResult.unavailable(
+        unavailableCoverage == null
+            ? 'Driving time is unavailable outside routing coverage.'
+            : null,
+        unavailableCoverage,
+      );
+    }
     if (camera.zoom < MapConstants.driveEtaMinZoom) {
       return const RouteGraphDriveEtaHitResult.noHit();
     }
 
-    final chunks = _queryService.queryChunksForBounds(
+    final chunks = _queryService.queryChunksForCoverageBounds(
+      coverageKey,
       minLat: camera.visibleBounds.south,
       minLon: camera.visibleBounds.west,
       maxLat: camera.visibleBounds.north,
       maxLon: camera.visibleBounds.east,
     );
     if (chunks.isEmpty) {
-      return const RouteGraphDriveEtaHitResult.unavailable();
+      return RouteGraphDriveEtaHitResult.unavailable(null, coverageKey);
     }
 
     final visibleChunkKeys = chunks.map((chunk) => chunk.chunkKey).toSet();
     final rows = _queryService
-        .queryDriveEtaWaysForBounds(
+        .queryDriveEtaWaysForCoverageBounds(
+          coverageKey,
           minLat: camera.visibleBounds.south,
           minLon: camera.visibleBounds.west,
           maxLat: camera.visibleBounds.north,
@@ -94,7 +117,11 @@ class RouteGraphDriveEtaHitService {
       return const RouteGraphDriveEtaHitResult.noHit();
     }
 
-    final ways = _visibleWaysFor(chunks: chunks, rows: rows);
+    final ways = _visibleWaysFor(
+      coverageKey: coverageKey,
+      chunks: chunks,
+      rows: rows,
+    );
     if (ways.isEmpty) {
       return const RouteGraphDriveEtaHitResult.noHit();
     }
@@ -134,10 +161,12 @@ class RouteGraphDriveEtaHitService {
       snappedPoint: bestCandidate.snappedPoint,
       matchedWayId: bestCandidate.way.osmWayId,
       wayName: bestCandidate.way.name,
+      routingCoverageKey: coverageKey,
     );
   }
 
   List<_DriveEtaWayGeometry> _visibleWaysFor({
+    required String coverageKey,
     required List<RouteGraphChunk> chunks,
     required List<RouteGraphWayIndex> rows,
   }) {
@@ -145,7 +174,8 @@ class RouteGraphDriveEtaHitService {
     final visibleChunkKey = chunks.map((chunk) => chunk.recordKey).toList()
       ..sort();
     final joinedVisibleChunkKey = visibleChunkKey.join(',');
-    if (_cachedGeneration == generation &&
+    if (_cachedCoverageKey == coverageKey &&
+        _cachedGeneration == generation &&
         _cachedVisibleChunkKey == joinedVisibleChunkKey &&
         _cachedVisibleWays != null) {
       return _cachedVisibleWays!;
@@ -222,6 +252,7 @@ class RouteGraphDriveEtaHitService {
     }
 
     final visibleWays = ways.values.toList(growable: false);
+    _cachedCoverageKey = coverageKey;
     _cachedGeneration = generation;
     _cachedVisibleChunkKey = joinedVisibleChunkKey;
     _cachedVisibleWays = visibleWays;

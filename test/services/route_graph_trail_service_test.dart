@@ -177,4 +177,78 @@ void main() {
 
     expect(trails, isEmpty);
   });
+
+  test('buildVisibleTrails renders ready chunks from every coverage', () {
+    final repository = RouteGraphRepository.test(
+      InMemoryRouteGraphStorage(
+        manifests: [
+          RouteGraphManifest(
+            routingCoverageKey: 'tasmania',
+            activeGeneration: 1,
+            readinessState: RouteGraphManifest.readinessReady,
+          ),
+          RouteGraphManifest(
+            routingCoverageKey: 'northeast-alps',
+            activeGeneration: 2,
+            readinessState: RouteGraphManifest.readinessReady,
+          ),
+        ],
+        chunks: [
+          _trailChunk(generation: 1, chunkKey: 'tas'),
+          _trailChunk(generation: 2, chunkKey: 'alps'),
+        ],
+        trailDisplayChunks: [
+          _trailDisplayChunk(generation: 1, chunkKey: 'tas', osmWayId: 10),
+          _trailDisplayChunk(generation: 2, chunkKey: 'alps', osmWayId: 10),
+        ],
+      ),
+    );
+
+    final trails = RouteGraphTrailService(RouteGraphQueryService(repository))
+        .buildVisibleTrails(
+          minLat: -42,
+          minLon: 146,
+          maxLat: -41,
+          maxLon: 147,
+          zoom: 15,
+        );
+
+    expect(trails, hasLength(4));
+  });
 }
+
+RouteGraphChunk _trailChunk({
+  required int generation,
+  required String chunkKey,
+}) => RouteGraphChunk(
+  recordKey: '$generation|$chunkKey',
+  chunkKey: chunkKey,
+  generation: generation,
+  minLat: -42,
+  minLon: 146,
+  maxLat: -41,
+  maxLon: 147,
+  elementCount: 0,
+  payloadJson: '{"elements":[]}',
+);
+
+RouteGraphTrailDisplayChunk _trailDisplayChunk({
+  required int generation,
+  required String chunkKey,
+  required int osmWayId,
+}) => RouteGraphTrailDisplayChunk(
+  recordKey: RouteGraphTrailDisplayChunk.recordKeyFor(
+    generation: generation,
+    cacheZoom: 15,
+    chunkKey: chunkKey,
+  ),
+  generation: generation,
+  cacheZoom: 15,
+  chunkKey: chunkKey,
+  payloadJson: RouteGraphTrailDisplayChunk.encodeWays([
+    RouteGraphTrailDisplayWay(
+      osmWayId: osmWayId,
+      points: const [LatLng(-41.5, 146.5), LatLng(-41.6, 146.6)],
+    ),
+  ]),
+);

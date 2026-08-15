@@ -42,6 +42,7 @@ import 'package:peak_bagger/services/peak_hit_test.dart';
 import 'package:peak_bagger/services/peak_projection_cache.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_graph_trail_provider.dart';
+import 'package:peak_bagger/providers/route_planner_provider.dart';
 import 'package:peak_bagger/services/route_hover_detector.dart';
 import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/services/map_chart_hover_resolver.dart';
@@ -50,6 +51,7 @@ import 'package:peak_bagger/services/live_location_service.dart';
 import 'package:peak_bagger/services/map_search_region_filter.dart';
 import 'package:peak_bagger/services/open_route_service.dart';
 import 'package:peak_bagger/services/route_graph_drive_eta_hit_service.dart';
+import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import '../core/constants.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
@@ -660,7 +662,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
         camera: _mapController.camera,
         tappedLocation: tappedLocation,
       );
-      return hit.status == RouteGraphDriveEtaHitStatus.hit ? hit : null;
+      return hit.status == RouteGraphDriveEtaHitStatus.noHit ? null : hit;
     } catch (error, stackTrace) {
       debugPrintStack(
         label: 'Drive ETA hit-test failed: $error',
@@ -689,7 +691,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   Future<void> _handleDriveEtaFromHome() async {
     final hit = _mapTapActionPopupDriveEtaHit;
-    if (hit?.snappedPoint == null) {
+    if (hit?.status != RouteGraphDriveEtaHitStatus.hit ||
+        hit?.snappedPoint == null) {
       return;
     }
     final requestId = ++_driveEtaRequestId;
@@ -720,6 +723,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
         requestId: requestId,
         origin: origin,
         destination: hit.snappedPoint!,
+        hit: hit,
       ),
     );
   }
@@ -727,7 +731,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
   Future<void> _handleDriveEtaFromMarker() async {
     final hit = _mapTapActionPopupDriveEtaHit;
     final origin = ref.read(mapProvider).selectedLocation;
-    if (hit?.snappedPoint == null || origin == null) {
+    if (hit?.status != RouteGraphDriveEtaHitStatus.hit ||
+        hit?.snappedPoint == null ||
+        origin == null) {
       return;
     }
     final requestId = ++_driveEtaRequestId;
@@ -744,6 +750,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
         requestId: requestId,
         origin: origin,
         destination: hit.snappedPoint!,
+        hit: hit,
       ),
     );
   }
@@ -1248,8 +1255,24 @@ class _MapScreenState extends ConsumerState<MapScreen>
     required int requestId,
     LatLng? origin,
     required LatLng destination,
+    required RouteGraphDriveEtaHitResult hit,
   }) async {
     try {
+      final queryService = ref.read(routeGraphQueryServiceProvider);
+      if (hit.routingCoverageKey != null &&
+          (queryService == null ||
+              queryService.selectExactlyOneActiveCoverage(destination) !=
+                  hit.routingCoverageKey)) {
+        if (mounted) {
+          ref
+              .read(mapProvider.notifier)
+              .showDriveEtaPopupError(
+                requestId: requestId,
+                message: _driveEtaUnavailableMessage(hit),
+              );
+        }
+        return;
+      }
       final openRouteService = ref.read(openRouteServiceProvider);
       final resolvedOrigin =
           origin ??
@@ -4414,6 +4437,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final size = MediaQuery.of(context).size;
     final left = (anchor.dx + 12).clamp(8.0, size.width - popupWidth - 8);
     final top = (anchor.dy + 12).clamp(8.0, size.height - popupHeight - 8);
+    final driveEtaHit = _mapTapActionPopupDriveEtaHit;
+    final driveEtaEnabled =
+        driveEtaHit?.status == RouteGraphDriveEtaHitStatus.hit;
     return Positioned(
       left: left,
       top: top,
@@ -4423,17 +4449,45 @@ class _MapScreenState extends ConsumerState<MapScreen>
           onDropMarker: _handleDropMarkerFromPopup,
           onDropFavourite: _handleDropFavouriteFromPopup,
           onClose: _dismissMapTapActionPopup,
-          onDriveEtaHome: _mapTapActionPopupDriveEtaHit == null
-              ? null
-              : _handleDriveEtaFromHome,
+          onDriveEtaHome: driveEtaEnabled ? _handleDriveEtaFromHome : null,
           onDriveEtaMarker:
-              _mapTapActionPopupDriveEtaHit != null &&
-                  ref.read(mapProvider).selectedLocation != null
+              driveEtaEnabled && ref.read(mapProvider).selectedLocation != null
               ? _handleDriveEtaFromMarker
               : null,
+          driveEtaDisabledReason: driveEtaHit == null || driveEtaEnabled
+              ? null
+              : _driveEtaUnavailableMessage(driveEtaHit),
         ),
       ),
     );
+  }
+
+  String _driveEtaUnavailableMessage(RouteGraphDriveEtaHitResult hit) {
+    final coverageKey = hit.routingCoverageKey;
+    if (coverageKey == null) {
+      return 'Driving time is unavailable outside routing coverage.';
+    }
+    try {
+      final coverageState = ref
+          .read(routeGraphCoverageImportStateProvider)
+          .where((state) => state.routingCoverageKey == coverageKey)
+          .firstOrNull;
+      if (coverageState != null) {
+        return switch (coverageState.status) {
+          RouteGraphCoverageImportStatus.queued ||
+          RouteGraphCoverageImportStatus.importing =>
+            'Routing data for ${coverageState.displayName} is still loading.',
+          RouteGraphCoverageImportStatus.failed =>
+            'Routing data for ${coverageState.displayName} is unavailable. Use Refresh Route Graph to retry.',
+          RouteGraphCoverageImportStatus.ready =>
+            'Driving time is unavailable outside routing coverage.',
+        };
+      }
+    } catch (_) {
+      // The screen can be tested without an import coordinator override.
+    }
+    return hit.message ??
+        'Driving time is unavailable outside routing coverage.';
   }
 
   Widget _buildFavouritesPopup(BuildContext context) {

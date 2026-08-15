@@ -110,6 +110,35 @@ abstract class RoutePlanner {
     double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
   });
 
+  Future<RoutePlanningResult> planSegmentForCoverage({
+    required String routingCoverageKey,
+    required LatLng start,
+    required LatLng end,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
+  }) => planSegmentResult(
+    start: start,
+    end: end,
+    maxSnapDistanceMeters: maxSnapDistanceMeters,
+  );
+
+  Future<RouteLoopClosureResult> planCloseLoopForCoverage({
+    required String routingCoverageKey,
+    required LatLng currentPoint,
+    required LatLng startPoint,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
+  }) => planCloseLoopResult(
+    currentPoint: currentPoint,
+    startPoint: startPoint,
+    maxSnapDistanceMeters: maxSnapDistanceMeters,
+  );
+
+  Future<RouteEndpointProbeResult> probeEndpointForCoverage({
+    required String routingCoverageKey,
+    required LatLng point,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
+  }) =>
+      probeEndpoint(point: point, maxSnapDistanceMeters: maxSnapDistanceMeters);
+
   Future<RouteLoopClosureResult> planCloseLoopResult({
     required LatLng currentPoint,
     required LatLng startPoint,
@@ -346,6 +375,36 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
     return _routeGraphStore.preload();
   }
 
+  Future<trip_routing.TripService> tripServiceForCoverageRoute({
+    required String routingCoverageKey,
+    required LatLng start,
+    required LatLng end,
+  }) {
+    final queryService = _routeGraphQueryService;
+    if (queryService == null) {
+      return _routeGraphStore.preload();
+    }
+    return queryService.buildTripServiceForCoverageRoute(
+      routingCoverageKey: routingCoverageKey,
+      start: start,
+      end: end,
+    );
+  }
+
+  Future<trip_routing.TripService> tripServiceForCoveragePoint({
+    required String routingCoverageKey,
+    required LatLng point,
+  }) {
+    final queryService = _routeGraphQueryService;
+    if (queryService == null) {
+      return _routeGraphStore.preload();
+    }
+    return queryService.buildTripServiceForCoveragePoint(
+      routingCoverageKey: routingCoverageKey,
+      point: point,
+    );
+  }
+
   Future<trip_routing.TripService> _tripServiceForPoint({
     required LatLng point,
   }) {
@@ -502,12 +561,175 @@ class TripRoutingRoutePlanner extends RoutePlanner {
   }
 
   @override
+  Future<RoutePlanningResult> planSegmentForCoverage({
+    required String routingCoverageKey,
+    required LatLng start,
+    required LatLng end,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
+  }) async {
+    final client = _client;
+    if (client is! LocalFileTripRoutingClient) {
+      return planSegmentResult(
+        start: start,
+        end: end,
+        maxSnapDistanceMeters: maxSnapDistanceMeters,
+      );
+    }
+    try {
+      final service = await client.tripServiceForCoverageRoute(
+        routingCoverageKey: routingCoverageKey,
+        start: start,
+        end: end,
+      );
+      return _mapSegmentResult(
+        await service.findAnchoredSegment(
+          start: start,
+          end: end,
+          maxSnapDistanceMeters: maxSnapDistanceMeters,
+        ),
+      );
+    } on RouteGraphLoadException catch (error) {
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.failed,
+        points: const [],
+        distanceMeters: 0,
+        startAnchor: null,
+        endAnchor: null,
+        errorMessage: '$error',
+        failureKind: RoutePlanningFailureKind.routeGraphLoad,
+      );
+    } catch (error) {
+      return RoutePlanningResult(
+        status: RoutePlanningStatus.failed,
+        points: const [],
+        distanceMeters: 0,
+        startAnchor: null,
+        endAnchor: null,
+        errorMessage: '$error',
+      );
+    }
+  }
+
+  @override
+  Future<RouteLoopClosureResult> planCloseLoopForCoverage({
+    required String routingCoverageKey,
+    required LatLng currentPoint,
+    required LatLng startPoint,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
+  }) async {
+    final result = await planSegmentForCoverage(
+      routingCoverageKey: routingCoverageKey,
+      start: currentPoint,
+      end: startPoint,
+      maxSnapDistanceMeters: maxSnapDistanceMeters,
+    );
+    if (result.status == RoutePlanningStatus.routed) {
+      final points = _normalizeLoopClosurePoints(
+        result.points,
+        currentPoint: currentPoint,
+        startPoint: startPoint,
+      );
+      return RouteLoopClosureResult(
+        status: RouteLoopClosureStatus.routed,
+        points: points,
+        distanceMeters: _polylineDistanceMeters(points),
+      );
+    }
+    if (result.status == RoutePlanningStatus.failed) {
+      return RouteLoopClosureResult(
+        status: RouteLoopClosureStatus.failed,
+        points: const [],
+        distanceMeters: 0,
+        errorMessage: result.errorMessage ?? 'Failed to calculate route.',
+        failureKind: result.failureKind,
+      );
+    }
+    final reconnectAnchor = _usableLoopReconnectAnchor(result.startAnchor);
+    final probe = reconnectAnchor == null
+        ? await probeEndpointForCoverage(
+            routingCoverageKey: routingCoverageKey,
+            point: currentPoint,
+            maxSnapDistanceMeters: maxSnapDistanceMeters,
+          )
+        : null;
+    final resolvedAnchor =
+        reconnectAnchor ??
+        ((probe?.isOnTrack ?? false)
+            ? _usableLoopReconnectAnchor(probe?.anchor)
+            : null);
+    if (resolvedAnchor != null) {
+      final reconnect = await planSegmentForCoverage(
+        routingCoverageKey: routingCoverageKey,
+        start: resolvedAnchor.point,
+        end: startPoint,
+        maxSnapDistanceMeters: maxSnapDistanceMeters,
+      );
+      if (reconnect.status == RoutePlanningStatus.routed) {
+        final points = _normalizeLoopClosurePoints(
+          reconnect.points,
+          currentPoint: currentPoint,
+          startPoint: startPoint,
+        );
+        return RouteLoopClosureResult(
+          status: RouteLoopClosureStatus.reconnected,
+          points: points,
+          distanceMeters: _polylineDistanceMeters(points),
+        );
+      }
+    }
+    final points = <LatLng>[currentPoint, startPoint];
+    return RouteLoopClosureResult(
+      status: RouteLoopClosureStatus.straightLine,
+      points: List<LatLng>.unmodifiable(points),
+      distanceMeters: _polylineDistanceMeters(points),
+    );
+  }
+
+  @override
   Future<RouteEndpointProbeResult> probeEndpoint({
     required LatLng point,
     double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
   }) async {
     try {
       final result = await _client.probeEndpointAnchor(
+        point: point,
+        maxSnapDistanceMeters: maxSnapDistanceMeters,
+      );
+      return RouteEndpointProbeResult(
+        isOnTrack: result.isOnTrack,
+        anchor: _mapAnchor(result.anchor),
+        errorMessage: result.errors.isEmpty ? null : result.errors.join('\n'),
+      );
+    } catch (error) {
+      return RouteEndpointProbeResult(
+        isOnTrack: false,
+        errorMessage: '$error',
+        failureKind: error is RouteGraphLoadException
+            ? RoutePlanningFailureKind.routeGraphLoad
+            : RoutePlanningFailureKind.generic,
+      );
+    }
+  }
+
+  @override
+  Future<RouteEndpointProbeResult> probeEndpointForCoverage({
+    required String routingCoverageKey,
+    required LatLng point,
+    double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
+  }) async {
+    final client = _client;
+    if (client is! LocalFileTripRoutingClient) {
+      return probeEndpoint(
+        point: point,
+        maxSnapDistanceMeters: maxSnapDistanceMeters,
+      );
+    }
+    try {
+      final service = await client.tripServiceForCoveragePoint(
+        routingCoverageKey: routingCoverageKey,
+        point: point,
+      );
+      final result = await service.probeEndpointAnchor(
         point: point,
         maxSnapDistanceMeters: maxSnapDistanceMeters,
       );
