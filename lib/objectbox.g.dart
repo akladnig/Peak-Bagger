@@ -20,6 +20,7 @@ import 'models/peak_list.dart';
 import 'models/peaks_bagged.dart';
 import 'models/route.dart';
 import 'models/route_graph_chunk.dart';
+import 'models/route_graph_import_metadata.dart';
 import 'models/route_graph_manifest.dart';
 import 'models/route_graph_trail_display_chunk.dart';
 import 'models/route_graph_way_index.dart';
@@ -849,7 +850,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(8, 1444775778480771967),
     name: 'RouteGraphManifest',
-    lastPropertyId: const obx_int.IdUid(10, 8758350155907503563),
+    lastPropertyId: const obx_int.IdUid(13, 7166793728012339321),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -909,6 +910,25 @@ final _entities = <obx_int.ModelEntity>[
       obx_int.ModelProperty(
         id: const obx_int.IdUid(10, 8758350155907503563),
         name: 'lastError',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(11, 1204560604078005955),
+        name: 'routingCoverageKey',
+        type: 9,
+        flags: 2080,
+        indexId: const obx_int.IdUid(24, 1139331039385892952),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(12, 5528715240915828908),
+        name: 'sourceRegionKeysJson',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(13, 7166793728012339321),
+        name: 'unavailableFootprintJson',
         type: 9,
         flags: 0,
       ),
@@ -1172,6 +1192,34 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(13, 2182219865113847556),
+    name: 'RouteGraphImportMetadata',
+    lastPropertyId: const obx_int.IdUid(3, 7561020537100660528),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 2413827913356621736),
+        name: 'id',
+        type: 6,
+        flags: 129,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 8085531866811708271),
+        name: 'multiCoverageMigrationComplete',
+        type: 1,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 7561020537100660528),
+        name: 'lastReservedGeneration',
+        type: 6,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -1217,8 +1265,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(12, 2969856472041605845),
-    lastIndexId: const obx_int.IdUid(23, 4109953239494006552),
+    lastEntityId: const obx_int.IdUid(13, 2182219865113847556),
+    lastIndexId: const obx_int.IdUid(24, 1139331039385892952),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [],
@@ -2313,7 +2361,16 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final lastErrorOffset = object.lastError == null
             ? null
             : fbb.writeString(object.lastError!);
-        fbb.startTable(11);
+        final routingCoverageKeyOffset = fbb.writeString(
+          object.routingCoverageKey,
+        );
+        final sourceRegionKeysJsonOffset = fbb.writeString(
+          object.sourceRegionKeysJson,
+        );
+        final unavailableFootprintJsonOffset = fbb.writeString(
+          object.unavailableFootprintJson,
+        );
+        fbb.startTable(14);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, sourceHashOffset);
         fbb.addOffset(2, schemaVersionOffset);
@@ -2324,6 +2381,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addInt64(7, object.edgeCount);
         fbb.addOffset(8, readinessStateOffset);
         fbb.addOffset(9, lastErrorOffset);
+        fbb.addOffset(10, routingCoverageKeyOffset);
+        fbb.addOffset(11, sourceRegionKeysJsonOffset);
+        fbb.addOffset(12, unavailableFootprintJsonOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -2341,6 +2401,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
           4,
           0,
         );
+        final routingCoverageKeyParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 24, '');
         final sourceHashParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 6, '');
@@ -2380,8 +2443,15 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final lastErrorParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGetNullable(buffer, rootOffset, 22);
+        final sourceRegionKeysJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 26, '');
+        final unavailableFootprintJsonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 28, '');
         final object = RouteGraphManifest(
           id: idParam,
+          routingCoverageKey: routingCoverageKeyParam,
           sourceHash: sourceHashParam,
           schemaVersion: schemaVersionParam,
           activeGeneration: activeGenerationParam,
@@ -2391,6 +2461,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
           edgeCount: edgeCountParam,
           readinessState: readinessStateParam,
           lastError: lastErrorParam,
+          sourceRegionKeysJson: sourceRegionKeysJsonParam,
+          unavailableFootprintJson: unavailableFootprintJsonParam,
         );
 
         return object;
@@ -2722,6 +2794,46 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    RouteGraphImportMetadata:
+        obx_int.EntityDefinition<RouteGraphImportMetadata>(
+          model: _entities[12],
+          toOneRelations: (RouteGraphImportMetadata object) => [],
+          toManyRelations: (RouteGraphImportMetadata object) => {},
+          getId: (RouteGraphImportMetadata object) => object.id,
+          setId: (RouteGraphImportMetadata object, int id) {
+            object.id = id;
+          },
+          objectToFB: (RouteGraphImportMetadata object, fb.Builder fbb) {
+            fbb.startTable(4);
+            fbb.addInt64(0, object.id);
+            fbb.addBool(1, object.multiCoverageMigrationComplete);
+            fbb.addInt64(2, object.lastReservedGeneration);
+            fbb.finish(fbb.endTable());
+            return object.id;
+          },
+          objectFromFB: (obx.Store store, ByteData fbData) {
+            final buffer = fb.BufferContext(fbData);
+            final rootOffset = buffer.derefObject(0);
+            final idParam = const fb.Int64Reader().vTableGet(
+              buffer,
+              rootOffset,
+              4,
+              0,
+            );
+            final multiCoverageMigrationCompleteParam = const fb.BoolReader()
+                .vTableGet(buffer, rootOffset, 6, false);
+            final lastReservedGenerationParam = const fb.Int64Reader()
+                .vTableGet(buffer, rootOffset, 8, 0);
+            final object = RouteGraphImportMetadata(
+              id: idParam,
+              multiCoverageMigrationComplete:
+                  multiCoverageMigrationCompleteParam,
+              lastReservedGeneration: lastReservedGenerationParam,
+            );
+
+            return object;
+          },
+        ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -3413,6 +3525,19 @@ class RouteGraphManifest_ {
   static final lastError = obx.QueryStringProperty<RouteGraphManifest>(
     _entities[7].properties[9],
   );
+
+  /// See [RouteGraphManifest.routingCoverageKey].
+  static final routingCoverageKey = obx.QueryStringProperty<RouteGraphManifest>(
+    _entities[7].properties[10],
+  );
+
+  /// See [RouteGraphManifest.sourceRegionKeysJson].
+  static final sourceRegionKeysJson =
+      obx.QueryStringProperty<RouteGraphManifest>(_entities[7].properties[11]);
+
+  /// See [RouteGraphManifest.unavailableFootprintJson].
+  static final unavailableFootprintJson =
+      obx.QueryStringProperty<RouteGraphManifest>(_entities[7].properties[12]);
 }
 
 /// [RouteGraphWayIndex] entity fields to define ObjectBox queries.
@@ -3588,4 +3713,24 @@ class PeakListItemEntity_ {
   static final points = obx.QueryIntegerProperty<PeakListItemEntity>(
     _entities[11].properties[3],
   );
+}
+
+/// [RouteGraphImportMetadata] entity fields to define ObjectBox queries.
+class RouteGraphImportMetadata_ {
+  /// See [RouteGraphImportMetadata.id].
+  static final id = obx.QueryIntegerProperty<RouteGraphImportMetadata>(
+    _entities[12].properties[0],
+  );
+
+  /// See [RouteGraphImportMetadata.multiCoverageMigrationComplete].
+  static final multiCoverageMigrationComplete =
+      obx.QueryBooleanProperty<RouteGraphImportMetadata>(
+        _entities[12].properties[1],
+      );
+
+  /// See [RouteGraphImportMetadata.lastReservedGeneration].
+  static final lastReservedGeneration =
+      obx.QueryIntegerProperty<RouteGraphImportMetadata>(
+        _entities[12].properties[2],
+      );
 }
