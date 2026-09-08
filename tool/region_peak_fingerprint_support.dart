@@ -35,6 +35,9 @@ Future<Map<String, String>> computeSeedableRegionFingerprints({
   final fingerprints = <String, String>{};
 
   for (final entry in manifest.entries) {
+    if (entry.key == 'routingCoverages') {
+      continue;
+    }
     final region = entry.value;
     if (region is! Map<String, dynamic>) {
       throw StateError('Region ${entry.key} must be a JSON object.');
@@ -77,9 +80,12 @@ Future<bool> updateSeedableRegionFingerprints({
   var changed = false;
 
   for (final entry in manifest.entries) {
+    if (entry.key == 'routingCoverages') {
+      continue;
+    }
     final region = entry.value;
     if (region is! Map<String, dynamic>) {
-      continue;
+      throw StateError('Region ${entry.key} must be a JSON object.');
     }
     if (!_isSeedableRegion(region)) {
       continue;
@@ -121,10 +127,12 @@ Future<List<String>> findStaleSeedableRegionFingerprints({
   final staleRegions = <String>[];
 
   for (final entry in manifest.entries) {
+    if (entry.key == 'routingCoverages') {
+      continue;
+    }
     final region = entry.value;
     if (region is! Map<String, dynamic>) {
-      staleRegions.add(entry.key);
-      continue;
+      throw StateError('Region ${entry.key} must be a JSON object.');
     }
     if (!_isSeedableRegion(region)) {
       continue;

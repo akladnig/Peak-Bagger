@@ -15,6 +15,8 @@ import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/objectbox_store_directory.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/route_graph_import_service.dart';
+import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
+import 'package:peak_bagger/services/route_graph_coverage_resolver.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
@@ -108,9 +110,15 @@ void main() async {
   final overpassService = OverpassService();
   final routeGraphRepository = RouteGraphRepository.objectBox(objectboxStore);
   final routeGraphImportService = RouteGraphImportService(routeGraphRepository);
+  final routeGraphImportCoordinator = RouteGraphImportCoordinator(
+    coverageResolver: RouteGraphCoverageResolver(),
+    importService: routeGraphImportService,
+    repository: routeGraphRepository,
+  );
   final routeGraphStore = ObjectBoxRouteGraphStore(
     repository: routeGraphRepository,
     importService: routeGraphImportService,
+    importCoordinator: routeGraphImportCoordinator,
   );
   final tasmapRepo = TasmapRepository(objectboxStore);
   try {
@@ -138,6 +146,9 @@ void main() async {
         overpassServiceProvider.overrideWithValue(overpassService),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepo),
         routeGraphStoreProvider.overrideWithValue(routeGraphStore),
+        routeGraphImportCoordinatorProvider.overrideWithValue(
+          routeGraphImportCoordinator,
+        ),
         objectboxAdminRepositoryProvider.overrideWithValue(
           ObjectBoxAdminRepositoryImpl(store: objectboxStore),
         ),

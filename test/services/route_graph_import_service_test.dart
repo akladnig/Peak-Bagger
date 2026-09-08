@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/models/route_graph_coverage.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
 import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
@@ -18,6 +19,7 @@ void main() {
       final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
       final service = RouteGraphImportService(
         repository,
+        assetPath: 'fixture.json',
         assetLoader: (_) async {
           rawJsonCalls += 1;
           return _fixture;
@@ -60,6 +62,7 @@ void main() {
       );
       final service = RouteGraphImportService(
         repository,
+        assetPath: 'fixture.json',
         assetLoader: (_) async {
           rawJsonCalls += 1;
           return _fixture;
@@ -97,6 +100,7 @@ void main() {
       );
       final service = RouteGraphImportService(
         repository,
+        assetPath: 'fixture.json',
         assetLoader: (_) async {
           rawJsonCalls += 1;
           return _trailFixture;
@@ -132,6 +136,7 @@ void main() {
       );
       final service = RouteGraphImportService(
         repository,
+        assetPath: 'fixture.json',
         assetLoader: (_) async {
           rawJsonCalls += 1;
           return _trailFixture;
@@ -157,6 +162,7 @@ void main() {
       final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
       final service = RouteGraphImportService(
         repository,
+        assetPath: 'fixture.json',
         assetLoader: (_) async {
           rawJsonCalls += 1;
           return 'not-json';
@@ -191,6 +197,7 @@ void main() {
       final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
       final service = RouteGraphImportService(
         repository,
+        assetPath: 'fixture.json',
         assetLoader: (_) async => rawJson,
         generationPreparer: _syncGenerationPreparer,
       );
@@ -219,6 +226,7 @@ void main() {
     final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
     final service = RouteGraphImportService(
       repository,
+      assetPath: 'fixture.json',
       assetLoader: (_) async => _richFixture,
     );
 
@@ -257,6 +265,7 @@ void main() {
       final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
       final service = RouteGraphImportService(
         repository,
+        assetPath: 'fixture.json',
         assetLoader: (_) async => _trailFixture,
       );
 
@@ -283,6 +292,99 @@ void main() {
       expect(cachedWayIds.contains(13), isFalse);
       expect(cachedWayIds.contains(14), isFalse);
     },
+  );
+
+  test(
+    'coverage input fails before writes without accepted ways or chunks',
+    () async {
+      final noWayRepository = RouteGraphRepository.test(
+        InMemoryRouteGraphStorage(),
+      );
+      final noWayService = RouteGraphImportService(
+        noWayRepository,
+        generationPreparer: _syncGenerationPreparer,
+      );
+
+      await expectLater(
+        noWayService.importCoverageInput(
+          _coverageInput(elements: const [], acceptedWayCount: 0),
+          bootstrap: true,
+        ),
+        throwsA(isA<RouteGraphLoadException>()),
+      );
+      expect(noWayRepository.activeChunks(), isEmpty);
+
+      final noChunkRepository = RouteGraphRepository.test(
+        InMemoryRouteGraphStorage(),
+      );
+      final noChunkService = RouteGraphImportService(
+        noChunkRepository,
+        generationPreparer: (rawJson, schemaVersion, generation) async {
+          return {
+            ..._prepare(rawJson, schemaVersion, generation),
+            'chunks': [],
+          };
+        },
+      );
+
+      await expectLater(
+        noChunkService.importCoverageInput(
+          _coverageInput(
+            elements: const [
+              {
+                'type': 'way',
+                'id': 1,
+                'tags': {'highway': 'path'},
+              },
+            ],
+            acceptedWayCount: 1,
+          ),
+          bootstrap: true,
+        ),
+        throwsA(isA<RouteGraphLoadException>()),
+      );
+      expect(noChunkRepository.activeChunks(), isEmpty);
+    },
+  );
+
+  test('coverage input retains its aggregate source hash', () async {
+    final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
+    final service = RouteGraphImportService(
+      repository,
+      generationPreparer: _syncGenerationPreparer,
+    );
+
+    final outcome = await service.importCoverageInput(
+      _coverageInput(
+        elements: const [
+          {
+            'type': 'way',
+            'id': 1,
+            'tags': {'highway': 'path'},
+          },
+        ],
+        acceptedWayCount: 1,
+      ),
+      bootstrap: true,
+    );
+
+    expect(outcome.sourceHash, 'aggregate-source-hash');
+  });
+}
+
+RouteGraphCoverageImportInput _coverageInput({
+  required List<Map<String, Object?>> elements,
+  required int acceptedWayCount,
+}) {
+  return RouteGraphCoverageImportInput(
+    definition: const RouteGraphCoverageDefinition(
+      key: 'tasmania',
+      displayName: 'Tasmania',
+      sourceRegions: [],
+    ),
+    sourceHash: 'aggregate-source-hash',
+    mergedOverpass: {'elements': elements},
+    acceptedWayCount: acceptedWayCount,
   );
 }
 

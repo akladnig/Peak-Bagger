@@ -19,6 +19,9 @@ void main() {
       final manifestFile = File('${tempDir.path}/manifest.json')
         ..writeAsStringSync(
           jsonEncode({
+            'routingCoverages': {
+              'tasmania': {'displayName': 'Tasmania'},
+            },
             'tasmania': {
               'fingerprint': 'stale',
               'peaks': [peakFile.path],

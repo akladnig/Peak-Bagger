@@ -504,6 +504,25 @@ class RouteGraphRepository {
     );
   }
 
+  Future<void> ensureCoverageFootprint({
+    required String routingCoverageKey,
+    required List<String> sourceRegionKeys,
+    required List<RouteGraphFootprintBound> unavailableFootprint,
+  }) async {
+    if (manifestForCoverage(routingCoverageKey) != null) {
+      return;
+    }
+    await _storage.markFailure(
+      RouteGraphManifest(
+        routingCoverageKey: routingCoverageKey,
+        sourceRegionKeysJson: jsonEncode(sourceRegionKeys),
+        unavailableFootprintJson: RouteGraphFootprintBound.encodeList(
+          unavailableFootprint,
+        ),
+      ),
+    );
+  }
+
   List<String> activeCoverageKeysContaining(LatLng point) => manifests
       .where((manifest) => manifest.hasActiveGeneration)
       .where(

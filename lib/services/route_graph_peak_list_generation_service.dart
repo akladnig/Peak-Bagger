@@ -200,6 +200,9 @@ class RouteGraphPeakListGenerationService {
       }
       final regions = <String, _ManifestRegion>{};
       for (final entry in decoded.entries) {
+        if (entry.key == 'routingCoverages') {
+          continue;
+        }
         if (entry.key is! String || entry.value is! Map) {
           throw const FormatException(
             'each region must be an object keyed by name',

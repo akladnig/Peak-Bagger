@@ -175,7 +175,7 @@ void main() {
     () async {
       expect(isBasemapAvailable(Basemap.localTopo), isFalse);
       expect(mapTileUrl(Basemap.localTopo), localTopoPlaceholderTileUrl);
-      expect(buildBasemapTileLayer(Basemap.localTopo).maxNativeZoom, 16);
+      expect(buildBasemapTileLayer(Basemap.localTopo).maxNativeZoom, 18);
 
       final snapshot = LocalTopoCapabilitySnapshot(
         baseUrl: Uri.parse('http://127.0.0.1:8090'),
@@ -194,7 +194,7 @@ void main() {
         mapTileUrl(Basemap.localTopo),
         'http://127.0.0.1:8090/tasmania/local-topo/{z}/{x}/{y}.png',
       );
-      expect(buildBasemapTileLayer(Basemap.localTopo).maxNativeZoom, 16);
+      expect(buildBasemapTileLayer(Basemap.localTopo).maxNativeZoom, 18);
 
       await localTopoRuntime.saveBaseUrl(Uri.parse('http://127.0.0.1:8091'));
 

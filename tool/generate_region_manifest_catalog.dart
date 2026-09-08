@@ -31,7 +31,7 @@ const _appOwnedBasemaps = <_BasemapDefinition>[
     name: 'Local Topo',
     tileUrl: 'https://local-topo.invalid/{z}/{x}/{y}.png',
     attribution: 'OpenStreetMap contributors and State of Tasmania',
-    maxZoom: 16,
+    maxZoom: 18,
     coveragePolygons: [],
   ),
 ];
@@ -59,6 +59,9 @@ void main(List<String> args) {
 
   for (final entry in manifest.entries) {
     final regionKey = entry.key;
+    if (regionKey == 'routingCoverages') {
+      continue;
+    }
     final regionValue = entry.value;
     if (regionValue is! Map<String, dynamic>) {
       stderr.writeln('Region $regionKey must be a JSON object.');

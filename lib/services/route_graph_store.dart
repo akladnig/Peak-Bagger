@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:peak_bagger/services/route_graph_import_service.dart';
+import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
@@ -43,10 +44,12 @@ class ObjectBoxRouteGraphStore extends RouteGraphStore
   ObjectBoxRouteGraphStore({
     required this._repository,
     required this._importService,
+    this.importCoordinator,
   });
 
   final RouteGraphRepository _repository;
   final RouteGraphImportService _importService;
+  final RouteGraphImportCoordinator? importCoordinator;
 
   @override
   RouteGraphRepository get repository => _repository;
@@ -55,6 +58,11 @@ class ObjectBoxRouteGraphStore extends RouteGraphStore
 
   @override
   Future<void> bootstrapData() async {
+    final coordinator = importCoordinator;
+    if (coordinator != null) {
+      await coordinator.bootstrap();
+      return;
+    }
     await _importService.bootstrapIfNeeded();
   }
 
@@ -111,9 +119,19 @@ class ObjectBoxRouteGraphStore extends RouteGraphStore
     bool forceRefresh = false,
   }) async {
     if (forceRefresh) {
-      await _importService.refreshFromBundledAsset();
+      final coordinator = importCoordinator;
+      if (coordinator != null) {
+        await coordinator.refreshAll();
+      } else {
+        await _importService.refreshFromBundledAsset();
+      }
     } else if (allowBootstrap) {
-      await _importService.bootstrapIfNeeded();
+      final coordinator = importCoordinator;
+      if (coordinator != null) {
+        await coordinator.bootstrap();
+      } else {
+        await _importService.bootstrapIfNeeded();
+      }
     }
 
     return _repository.buildTripServiceForActiveGeneration();

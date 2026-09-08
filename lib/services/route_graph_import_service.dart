@@ -8,10 +8,12 @@ import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:peak_bagger/models/route_graph_chunk.dart';
+import 'package:peak_bagger/models/route_graph_coverage.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
 import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 
+import 'route_graph_coverage_resolver.dart';
 import 'route_graph_errors.dart';
 import 'route_graph_query_service.dart';
 import 'route_graph_repository.dart';
@@ -86,19 +88,23 @@ class RouteGraphImportService {
     this._repository, {
     RouteGraphAssetLoader? assetLoader,
     RouteGraphGenerationPreparer? generationPreparer,
-    this.assetPath = _bundledRouteGraphAsset,
+    RouteGraphCoverageResolver? coverageResolver,
+    this.assetPath,
     this.schemaVersion = _schemaVersion,
   }) : _assetLoader = assetLoader ?? rootBundle.loadString,
        _generationPreparer =
-           generationPreparer ?? _prepareGenerationInBackground;
+           generationPreparer ?? _prepareGenerationInBackground,
+       _coverageResolver =
+           coverageResolver ??
+           RouteGraphCoverageResolver(assetLoader: assetLoader);
 
-  static const _bundledRouteGraphAsset = 'assets/highway.json';
-  static const _schemaVersion = 'route-graph-v4';
+  static const _schemaVersion = 'route-graph-v5';
 
   final RouteGraphRepository _repository;
   final RouteGraphAssetLoader _assetLoader;
   final RouteGraphGenerationPreparer _generationPreparer;
-  final String assetPath;
+  final RouteGraphCoverageResolver _coverageResolver;
+  final String? assetPath;
   final String schemaVersion;
 
   Future<RouteGraphImportOutcome> bootstrapIfNeeded() async {
@@ -116,38 +122,108 @@ class RouteGraphImportService {
       return RouteGraphImportOutcome.reused(reusableManifest);
     }
 
-    if (_repository.hasBootstrapFailure) {
-      throw RouteGraphLoadException(
+    if (manifest?.isFailed == true && manifest?.activeGeneration == 0) {
+      throw const RouteGraphLoadException(
         'Route graph bootstrap previously failed. Refresh Route Graph from Settings.',
       );
     }
 
-    final rawJson = await _assetLoader(assetPath);
+    final path = assetPath;
+    if (path == null) {
+      return _importFirstResolvedCoverage(bootstrap: true);
+    }
+    final rawJson = await _assetLoader(path);
     return importRawJson(rawJson, bootstrap: true);
   }
 
   Future<RouteGraphImportOutcome> refreshFromBundledAsset() async {
-    final rawJson = await _assetLoader(assetPath);
+    final path = assetPath;
+    if (path == null) {
+      return _importFirstResolvedCoverage(bootstrap: false);
+    }
+    final rawJson = await _assetLoader(path);
     return importRawJson(rawJson, bootstrap: false);
+  }
+
+  Future<RouteGraphImportOutcome> _importFirstResolvedCoverage({
+    required bool bootstrap,
+  }) async {
+    final inputs = await _coverageResolver.resolve();
+    if (inputs.isEmpty) {
+      throw const RouteGraphLoadException(
+        'Route graph manifest has no routing coverage inputs.',
+      );
+    }
+    await _repository.ensureMultiCoverageMigration();
+    RouteGraphImportOutcome? lastOutcome;
+    for (final input in inputs) {
+      lastOutcome = await importCoverageInput(input, bootstrap: bootstrap);
+    }
+    return lastOutcome!;
+  }
+
+  Future<RouteGraphImportOutcome> importCoverageInput(
+    RouteGraphCoverageImportInput input, {
+    required bool bootstrap,
+  }) async {
+    await _repository.ensureMultiCoverageMigration();
+    final manifest = _repository.manifestForCoverage(input.definition.key);
+    if (_canReuseCoverageGeneration(manifest, input.sourceHash)) {
+      return RouteGraphImportOutcome.reused(manifest!);
+    }
+    return _importRawJson(
+      canonicalJsonEncode(input.mergedOverpass),
+      bootstrap: bootstrap,
+      sourceHash: input.sourceHash,
+      acceptedWayCount: input.acceptedWayCount,
+      routingCoverageKey: input.definition.key,
+      sourceRegionKeys: input.definition.sourceRegions
+          .map((region) => region.key)
+          .toList(growable: false),
+      unavailableFootprint: input.unavailableFootprint,
+    );
   }
 
   Future<RouteGraphImportOutcome> importRawJson(
     String rawJson, {
     required bool bootstrap,
   }) async {
-    final hadUsableActiveGeneration = _repository.hasUsableActiveGeneration;
-    final sourceHash = sha256.convert(utf8.encode(rawJson)).toString();
+    return _importRawJson(rawJson, bootstrap: bootstrap);
+  }
+
+  Future<RouteGraphImportOutcome> _importRawJson(
+    String rawJson, {
+    required bool bootstrap,
+    String? sourceHash,
+    int? acceptedWayCount,
+    String routingCoverageKey = defaultRouteGraphCoverageKey,
+    List<String> sourceRegionKeys = const [],
+    List<RouteGraphFootprintBound> unavailableFootprint = const [],
+  }) async {
+    final resolvedSourceHash =
+        sourceHash ?? sha256.convert(utf8.encode(rawJson)).toString();
 
     try {
-      final nextGeneration = _repository.activeGeneration + 1;
-      final preparedMap = await _generationPreparer(
-        rawJson,
-        schemaVersion,
-        nextGeneration,
-      );
+      if (acceptedWayCount == 0) {
+        throw const RouteGraphLoadException(
+          'Route graph coverage has no accepted route graph ways.',
+        );
+      }
+      final nextGeneration = await _repository.reserveGeneration();
+      final preparedMap = Map<String, Object?>.from(
+        await _generationPreparer(rawJson, schemaVersion, nextGeneration),
+      )..['sourceHash'] = resolvedSourceHash;
       final prepared = _preparedGenerationFromMap(preparedMap);
+      if (prepared.chunks.isEmpty) {
+        throw const RouteGraphLoadException(
+          'Route graph coverage has no prepared chunks.',
+        );
+      }
       await _repository.writePreparedGeneration(
         prepared,
+        routingCoverageKey: routingCoverageKey,
+        sourceRegionKeys: sourceRegionKeys,
+        unavailableFootprint: unavailableFootprint,
         pruneStaleGenerations: true,
       );
       developer.log(
@@ -163,18 +239,22 @@ class RouteGraphImportService {
         edgeCount: prepared.edgeCount,
       );
     } catch (error) {
-      if (!hadUsableActiveGeneration) {
-        await _repository.markBootstrapFailure(
-          sourceHash: sourceHash,
-          schemaVersion: schemaVersion,
-          error: '$error',
-        );
-      }
+      await _repository.markImportFailure(
+        routingCoverageKey: routingCoverageKey,
+        sourceHash: resolvedSourceHash,
+        schemaVersion: schemaVersion,
+        error: '$error',
+        sourceRegionKeys: sourceRegionKeys,
+        unavailableFootprint: unavailableFootprint,
+      );
       throw RouteGraphLoadException('Failed to import route graph: $error');
     }
   }
 
-  bool _canReusePreparedGeneration(RouteGraphManifest? manifest) {
+  bool _canReusePreparedGeneration(
+    RouteGraphManifest? manifest, [
+    String routingCoverageKey = defaultRouteGraphCoverageKey,
+  ]) {
     if (manifest?.hasActiveGeneration != true ||
         manifest?.schemaVersion != schemaVersion) {
       return false;
@@ -182,7 +262,18 @@ class RouteGraphImportService {
 
     // Older prepared generations may be missing persisted trail display rows.
     // Rebuild those once during bootstrap so the map overlay is usable.
-    return _repository.activeTrailDisplayChunks().isNotEmpty;
+    return _repository.activeTrailDisplayChunks(routingCoverageKey).isNotEmpty;
+  }
+
+  bool _canReuseCoverageGeneration(
+    RouteGraphManifest? manifest,
+    String sourceHash,
+  ) {
+    return _canReusePreparedGeneration(
+          manifest,
+          manifest?.routingCoverageKey ?? '',
+        ) &&
+        manifest!.sourceHash == sourceHash;
   }
 }
 

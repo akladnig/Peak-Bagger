@@ -27,6 +27,8 @@ import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/peak_csv_export_service.dart';
 import 'package:peak_bagger/services/route_graph_refresh_service.dart';
+import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
+import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/theme.dart';
@@ -952,9 +954,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return;
       }
 
-      ref.read(routeGraphReadinessProvider.notifier).markReady();
+      final batchResult = result.batchResult;
+      if (batchResult is RouteGraphImportBatchCompleted) {
+        final hasRefreshedCoverage = batchResult.outcomes.any(
+          (outcome) =>
+              outcome.status == RouteGraphCoverageOutcomeStatus.refreshed,
+        );
+        if (hasRefreshedCoverage) {
+          ref.read(routeGraphReadinessProvider.notifier).markReady();
+        } else {
+          final store = ref.read(routeGraphStoreProvider);
+          final hasUsableGraph =
+              store is ObjectBoxRouteGraphStore &&
+              (store.importCoordinator?.states.any(
+                    (state) => state.hasActiveGeneration,
+                  ) ??
+                  false);
+          if (!hasUsableGraph) {
+            ref
+                .read(routeGraphReadinessProvider.notifier)
+                .markFailed('Route graph refresh failed.');
+          }
+        }
+      }
       _setStatus(
-        '${formatCount(result.elementCount)} route graph elements refreshed',
+        batchResult == null
+            ? '${formatCount(result.elementCount)} route graph elements refreshed'
+            : 'Route graph refresh completed',
         key: const Key('route-graph-refresh-status'),
       );
 
@@ -1380,6 +1406,62 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     RouteGraphRefreshResult result,
   ) async {
     if (!mounted) {
+      return;
+    }
+
+    final batchResult = result.batchResult;
+    if (batchResult is RouteGraphImportBatchConfigurationFailure) {
+      await showSingleActionDialog(
+        context: context,
+        title: 'Route Graph Configuration Error',
+        closeKey: 'route-graph-refresh-error-close',
+        content: const Text(
+          'Route graph configuration is invalid. Refresh did not start.',
+        ),
+      );
+      return;
+    }
+
+    if (batchResult is RouteGraphImportBatchCompleted) {
+      final refreshed = batchResult.outcomes
+          .where(
+            (outcome) =>
+                outcome.status == RouteGraphCoverageOutcomeStatus.refreshed,
+          )
+          .map((outcome) => outcome.displayName)
+          .join(', ');
+      final failed = batchResult.outcomes
+          .where(
+            (outcome) =>
+                outcome.status == RouteGraphCoverageOutcomeStatus.failed,
+          )
+          .map((outcome) => outcome.displayName)
+          .join(', ');
+      final title = failed.isEmpty
+          ? 'Route Graph Refreshed'
+          : refreshed.isEmpty
+          ? 'Route Graph Refresh Failed'
+          : 'Route Graph Refresh Partially Completed';
+      final content = refreshed.isEmpty
+          ? Text('Failed: $failed.')
+          : failed.isEmpty
+          ? Text('Refreshed: $refreshed.')
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Refreshed: $refreshed.'),
+                Text('Failed: $failed.'),
+              ],
+            );
+      await showSingleActionDialog(
+        context: context,
+        title: title,
+        closeKey: failed.isEmpty
+            ? 'route-graph-refresh-result-close'
+            : 'route-graph-refresh-error-close',
+        content: content,
+      );
       return;
     }
 
