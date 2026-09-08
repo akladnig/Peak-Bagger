@@ -349,11 +349,14 @@ class _DistanceElevationGroup extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                routeDraftError!,
-                key: const Key('route-error-text'),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
+              Semantics(
+                label: routeDraftError!,
+                child: Text(
+                  routeDraftError!,
+                  key: const Key('route-error-text'),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
+                  ),
                 ),
               ),
               if (routeDraftStage == RouteDraftStage.segmentFailure &&

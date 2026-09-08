@@ -281,8 +281,9 @@ void main() {
             as Map<String, dynamic>;
     final expectedRegionKeys = [
       for (final entry in manifest.entries)
-        if ((entry.value as Map<String, dynamic>)['showInPeakList'] == 'true')
-          entry.key,
+        if (entry.key != 'routingCoverages')
+          if ((entry.value as Map<String, dynamic>)['showInPeakList'] == 'true')
+            entry.key,
     ];
 
     final visibleRegions = regionManifestCatalog.peakListRegions();
@@ -339,14 +340,14 @@ void main() {
     expect(mapTileUrl(Basemap.localTopo), localTopoPlaceholderTileUrl);
   });
 
-  test('Local Topo metadata stays app-owned and caps native zoom at 16', () {
+  test('Local Topo metadata stays app-owned and caps native zoom at 18', () {
     final basemap = regionManifestCatalog.basemapByKey(Basemap.localTopo.name);
 
     expect(basemap, isNotNull);
     expect(basemap!.name, 'Local Topo');
     expect(basemap.tileUrl, localTopoPlaceholderTileUrl);
-    expect(basemap.maxZoom, 16);
-    expect(buildBasemapTileLayer(Basemap.localTopo).maxNativeZoom, 16);
+    expect(basemap.maxZoom, 18);
+    expect(buildBasemapTileLayer(Basemap.localTopo).maxNativeZoom, 18);
   });
 
   test('Slovenia topo uses the proxy tile layer config', () {

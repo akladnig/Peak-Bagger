@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route_graph_chunk.dart';
+import 'package:peak_bagger/models/route_graph_import_metadata.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
 import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
+import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
@@ -223,7 +227,200 @@ void main() {
 
     expect(service, isA<trip_routing.TripService>());
   });
+
+  test('cleans legacy singleton once before coverage generations', () async {
+    final storage = InMemoryRouteGraphStorage(
+      manifest: RouteGraphManifest(
+        id: RouteGraphManifest.manifestId,
+        activeGeneration: 1,
+        readinessState: RouteGraphManifest.readinessReady,
+      ),
+      chunks: [_chunk(generation: 1), _chunk(generation: 2)],
+      wayIndexRows: [_way(generation: 1), _way(generation: 2)],
+      trailDisplayChunks: [
+        _trailDisplayChunk(generation: 1, cacheZoom: 15, chunkKey: '0_0'),
+        _trailDisplayChunk(generation: 2, cacheZoom: 15, chunkKey: '0_0'),
+      ],
+    );
+    final repository = RouteGraphRepository.test(storage);
+
+    await repository.ensureMultiCoverageMigration();
+    await repository.ensureMultiCoverageMigration();
+
+    expect(repository.manifests, isEmpty);
+    expect(storage.activeChunks(), isEmpty);
+    expect(storage.activeWayIndexRows(), isEmpty);
+    expect(storage.activeTrailDisplayChunks(), isEmpty);
+  });
+
+  test('ObjectBox migration removes legacy active and stale rows', () async {
+    final directory = await Directory.systemTemp.createTemp('route-graph-v5');
+    final store = await openStore(directory: directory.path);
+    addTearDown(() async {
+      store.close();
+      await directory.delete(recursive: true);
+    });
+    store.box<RouteGraphManifest>().put(
+      RouteGraphManifest(
+        id: RouteGraphManifest.manifestId,
+        activeGeneration: 1,
+        readinessState: RouteGraphManifest.readinessReady,
+      ),
+    );
+    store.box<RouteGraphChunk>().putMany([
+      _chunk(generation: 1),
+      _chunk(generation: 2),
+    ]);
+    store.box<RouteGraphWayIndex>().putMany([
+      _way(generation: 1),
+      _way(generation: 2),
+    ]);
+    store.box<RouteGraphTrailDisplayChunk>().putMany([
+      _trailDisplayChunk(generation: 1, cacheZoom: 15, chunkKey: '0_0'),
+      _trailDisplayChunk(generation: 2, cacheZoom: 15, chunkKey: '0_0'),
+    ]);
+    final repository = RouteGraphRepository.objectBox(store);
+
+    await repository.ensureMultiCoverageMigration();
+    await repository.writePreparedGeneration(
+      _prepared(generation: 3, chunkKey: 'tas'),
+      routingCoverageKey: 'tasmania',
+      sourceRegionKeys: const ['tasmania'],
+      pruneStaleGenerations: true,
+    );
+    await repository.writePreparedGeneration(
+      _prepared(generation: 4, chunkKey: 'tas-next'),
+      routingCoverageKey: 'tasmania',
+      sourceRegionKeys: const ['tasmania'],
+      pruneStaleGenerations: true,
+    );
+
+    expect(
+      store
+          .box<RouteGraphImportMetadata>()
+          .get(1)
+          ?.multiCoverageMigrationComplete,
+      isTrue,
+    );
+    expect(repository.manifestForCoverage('tasmania')?.activeGeneration, 4);
+    expect(store.box<RouteGraphChunk>().getAll().map((row) => row.generation), [
+      4,
+    ]);
+    expect(
+      store.box<RouteGraphWayIndex>().getAll().map((row) => row.generation),
+      [4],
+    );
+    expect(store.box<RouteGraphTrailDisplayChunk>().getAll(), isEmpty);
+  });
+
+  test('reserves globally unique generation IDs across restart', () async {
+    final metadata = RouteGraphImportMetadata();
+    final first = InMemoryRouteGraphStorage(metadata: metadata);
+    expect(await first.reserveGeneration(), 1);
+    expect(await first.reserveGeneration(), 2);
+
+    final restarted = InMemoryRouteGraphStorage(metadata: metadata);
+    expect(await restarted.reserveGeneration(), 3);
+  });
+
+  test(
+    'isolates child rows and cache entries by coverage generation',
+    () async {
+      final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
+      await repository.writePreparedGeneration(
+        _prepared(generation: 1, chunkKey: 'tas'),
+        routingCoverageKey: 'tasmania',
+        sourceRegionKeys: const ['tasmania'],
+        pruneStaleGenerations: true,
+      );
+      await repository.writePreparedGeneration(
+        _prepared(generation: 2, chunkKey: 'alps'),
+        routingCoverageKey: 'northeast-alps',
+        sourceRegionKeys: const ['fvg', 'veneto', 'slovenia'],
+        pruneStaleGenerations: true,
+      );
+
+      expect(repository.activeChunks('tasmania').single.generation, 1);
+      expect(repository.activeChunks('northeast-alps').single.generation, 2);
+      expect(
+        repository.manifestForCoverage('northeast-alps')?.sourceRegionKeys,
+        ['fvg', 'veneto', 'slovenia'],
+      );
+    },
+  );
+
+  test(
+    'uses exact inclusive active and unavailable footprint matching',
+    () async {
+      final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
+      await repository.writePreparedGeneration(
+        _prepared(generation: 1, chunkKey: 'active'),
+        routingCoverageKey: 'ready',
+        unavailableFootprint: const [
+          RouteGraphFootprintBound(minLat: 0, minLon: 0, maxLat: 1, maxLon: 1),
+        ],
+        pruneStaleGenerations: true,
+      );
+      await repository.markImportFailure(
+        routingCoverageKey: 'loading',
+        sourceHash: 'hash',
+        schemaVersion: 'route-graph-v5',
+        error: 'broken',
+        unavailableFootprint: const [
+          RouteGraphFootprintBound(minLat: 0, minLon: 0, maxLat: 1, maxLon: 1),
+        ],
+      );
+
+      final point = const LatLng(1, 1);
+      expect(repository.selectExactlyOneActiveCoverage(point), 'ready');
+      expect(repository.selectExactlyOneUnavailableCoverage(point), 'loading');
+      expect(repository.selectExactlyOneCoverageForPoint(point), 'ready');
+    },
+  );
 }
+
+RouteGraphPreparedGeneration _prepared({
+  required int generation,
+  required String chunkKey,
+}) => RouteGraphPreparedGeneration(
+  generation: generation,
+  sourceHash: 'hash-$generation',
+  schemaVersion: 'route-graph-v5',
+  importedAt: DateTime.utc(2025),
+  chunkCount: 1,
+  nodeCount: 2,
+  edgeCount: 1,
+  chunks: [_chunk(generation: generation, chunkKey: chunkKey)],
+  wayIndexRows: [_way(generation: generation, chunkKey: chunkKey)],
+);
+
+RouteGraphChunk _chunk({int generation = 1, String chunkKey = '0_0'}) =>
+    RouteGraphChunk(
+      recordKey: '$generation|$chunkKey',
+      chunkKey: chunkKey,
+      generation: generation,
+      minLat: 0,
+      minLon: 0,
+      maxLat: 1,
+      maxLon: 1,
+      elementCount: 3,
+      payloadJson: '{"elements": []}',
+    );
+
+RouteGraphWayIndex _way({int generation = 1, String chunkKey = '0_0'}) =>
+    RouteGraphWayIndex(
+      recordKey: RouteGraphWayIndex.recordKeyFor(
+        generation: generation,
+        chunkKey: chunkKey,
+        osmWayId: 10,
+      ),
+      generation: generation,
+      chunkKey: chunkKey,
+      osmWayId: 10,
+      lengthMeters: 10,
+      tagCount: 1,
+      tagsJson: '{"highway":"path"}',
+    );
 
 RouteGraphTrailDisplayChunk _trailDisplayChunk({
   required int generation,

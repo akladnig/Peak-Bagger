@@ -11,6 +11,7 @@ import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/route_graph_refresh_service.dart';
+import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
@@ -108,7 +109,20 @@ void main() {
     final repository = await TestTasmapRepository.create();
     final notifier = TestPeakNotifier(_baseState());
     final service = _TestRouteGraphRefreshService(
-      () async => const RouteGraphRefreshResult(elementCount: 1234),
+      () async => RouteGraphRefreshResult(
+        batchResult: RouteGraphImportBatchCompleted([
+          const RouteGraphCoverageImportOutcome.refreshed(
+            routingCoverageKey: 'tasmania',
+            displayName: 'Tasmania',
+            elementCount: 1234,
+          ),
+          const RouteGraphCoverageImportOutcome.refreshed(
+            routingCoverageKey: 'northeast-alps',
+            displayName: 'Northeast Alps',
+            elementCount: 5678,
+          ),
+        ]),
+      ),
     );
 
     await tester.pumpWidget(
@@ -148,7 +162,7 @@ void main() {
     expect(
       find.descendant(
         of: resultDialog,
-        matching: find.text('1,234 route graph elements refreshed.'),
+        matching: find.text('Refreshed: Tasmania, Northeast Alps.'),
       ),
       findsOneWidget,
     );

@@ -161,7 +161,103 @@ void main() {
       isTrue,
     );
   });
+
+  test('hitTest selects only the coverage containing the road target', () {
+    final service = RouteGraphDriveEtaHitService(
+      RouteGraphQueryService(
+        RouteGraphRepository.test(
+          InMemoryRouteGraphStorage(
+            manifests: [
+              RouteGraphManifest(
+                routingCoverageKey: 'tasmania',
+                activeGeneration: 1,
+                readinessState: RouteGraphManifest.readinessReady,
+              ),
+              RouteGraphManifest(
+                routingCoverageKey: 'northeast-alps',
+                activeGeneration: 2,
+                readinessState: RouteGraphManifest.readinessReady,
+              ),
+            ],
+            chunks: [
+              _roadChunk(
+                generation: 1,
+                chunkKey: 'tas',
+                minLat: -42,
+                minLon: 146,
+                maxLat: -41,
+                maxLon: 147,
+              ),
+              _roadChunk(
+                generation: 2,
+                chunkKey: 'alps',
+                minLat: 46,
+                minLon: 13,
+                maxLat: 47,
+                maxLon: 14,
+              ),
+            ],
+            wayIndexRows: [
+              _roadIndex(generation: 1, chunkKey: 'tas'),
+              _roadIndex(generation: 2, chunkKey: 'alps'),
+            ],
+          ),
+        ),
+      ),
+    );
+    final camera = MapCamera(
+      crs: const Epsg3857(),
+      center: const LatLng(46.5, 13.5),
+      zoom: 15,
+      rotation: 0,
+      nonRotatedSize: const Size(800, 600),
+    );
+
+    final result = service.hitTest(
+      pointerPosition: camera.latLngToScreenOffset(const LatLng(46.5, 13.5)),
+      camera: camera,
+      tappedLocation: const LatLng(46.5, 13.5),
+    );
+
+    expect(result.status, RouteGraphDriveEtaHitStatus.hit);
+    expect(result.routingCoverageKey, 'northeast-alps');
+  });
 }
+
+RouteGraphChunk _roadChunk({
+  required int generation,
+  required String chunkKey,
+  required double minLat,
+  required double minLon,
+  required double maxLat,
+  required double maxLon,
+}) => RouteGraphChunk(
+  recordKey: '$generation|$chunkKey',
+  chunkKey: chunkKey,
+  generation: generation,
+  minLat: minLat,
+  minLon: minLon,
+  maxLat: maxLat,
+  maxLon: maxLon,
+  elementCount: 3,
+  payloadJson:
+      '{"elements":[{"type":"node","id":1,"lat":46.5,"lon":13.49},{"type":"node","id":2,"lat":46.5,"lon":13.51},{"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"service","name":"Forestry Road"}}]}',
+);
+
+RouteGraphWayIndex _roadIndex({
+  required int generation,
+  required String chunkKey,
+}) => RouteGraphWayIndex(
+  recordKey: '$generation|$chunkKey|10',
+  generation: generation,
+  chunkKey: chunkKey,
+  osmWayId: 10,
+  highway: 'service',
+  access: 'public',
+  lengthMeters: 200,
+  tagCount: 2,
+  tagsJson: '{}',
+);
 
 RouteGraphQueryService _queryServiceWithRoad() {
   return RouteGraphQueryService(

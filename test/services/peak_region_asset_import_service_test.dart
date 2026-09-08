@@ -19,6 +19,9 @@ void main() {
       final service = PeakRegionAssetImportService(
         assetLoader: _assetLoader({
           PeakRegionAssetImportService.manifestAssetPath: jsonEncode({
+            'routingCoverages': {
+              'tasmania': {'displayName': 'Tasmania'},
+            },
             'tasmania': {
               'fingerprint': 'tas-fp',
               'peaks': ['assets/peaks/tas.json'],

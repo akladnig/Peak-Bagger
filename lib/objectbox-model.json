@@ -695,7 +695,7 @@
     },
     {
       "id": "8:1444775778480771967",
-      "lastPropertyId": "10:8758350155907503563",
+      "lastPropertyId": "13:7166793728012339321",
       "name": "RouteGraphManifest",
       "properties": [
         {
@@ -747,6 +747,23 @@
         {
           "id": "10:8758350155907503563",
           "name": "lastError",
+          "type": 9
+        },
+        {
+          "id": "11:1204560604078005955",
+          "name": "routingCoverageKey",
+          "indexId": "24:1139331039385892952",
+          "type": 9,
+          "flags": 2080
+        },
+        {
+          "id": "12:5528715240915828908",
+          "name": "sourceRegionKeysJson",
+          "type": 9
+        },
+        {
+          "id": "13:7166793728012339321",
+          "name": "unavailableFootprintJson",
           "type": 9
         }
       ],
@@ -989,10 +1006,34 @@
         }
       ],
       "relations": []
+    },
+    {
+      "id": "13:2182219865113847556",
+      "lastPropertyId": "3:7561020537100660528",
+      "name": "RouteGraphImportMetadata",
+      "properties": [
+        {
+          "id": "1:2413827913356621736",
+          "name": "id",
+          "type": 6,
+          "flags": 129
+        },
+        {
+          "id": "2:8085531866811708271",
+          "name": "multiCoverageMigrationComplete",
+          "type": 1
+        },
+        {
+          "id": "3:7561020537100660528",
+          "name": "lastReservedGeneration",
+          "type": 6
+        }
+      ],
+      "relations": []
     }
   ],
-  "lastEntityId": "12:2969856472041605845",
-  "lastIndexId": "23:4109953239494006552",
+  "lastEntityId": "13:2182219865113847556",
+  "lastIndexId": "24:1139331039385892952",
   "lastRelationId": "1:8194382659905112901",
   "lastSequenceId": "0:0",
   "modelVersion": 5,

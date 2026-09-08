@@ -19,13 +19,32 @@ class RouteGraphTrailService {
     required double maxLon,
     required double zoom,
   }) {
-    final chunks = _queryService.queryTrailDisplayChunksForBounds(
-      minLat: minLat,
-      minLon: minLon,
-      maxLat: maxLat,
-      maxLon: maxLon,
-      zoom: zoom,
-    );
+    final chunks =
+        <
+          ({
+            String coverageKey,
+            int generation,
+            RouteGraphTrailDisplayChunk chunk,
+          })
+        >[];
+    for (final coverageKey in _queryService.activeCoverageKeys) {
+      final generation = _queryService.activeGenerationFor(coverageKey);
+      for (final chunk
+          in _queryService.queryTrailDisplayChunksForCoverageBounds(
+            coverageKey,
+            minLat: minLat,
+            minLon: minLon,
+            maxLat: maxLat,
+            maxLon: maxLon,
+            zoom: zoom,
+          )) {
+        chunks.add((
+          coverageKey: coverageKey,
+          generation: generation,
+          chunk: chunk,
+        ));
+      }
+    }
     if (chunks.isEmpty) {
       _lastVisibleChunkKey = null;
       _lastVisiblePolylines = const [];
@@ -37,14 +56,17 @@ class RouteGraphTrailService {
       return _lastVisiblePolylines;
     }
 
-    final ways = <int, Polyline>{};
+    final ways = <String, Polyline>{};
     try {
       for (final chunk in chunks) {
-        for (final way in chunk.decodeWays()) {
+        for (final way in chunk.chunk.decodeWays()) {
           if (way.points.length < 2) {
             continue;
           }
-          ways.putIfAbsent(way.osmWayId, () => Polyline(points: way.points));
+          ways.putIfAbsent(
+            '${chunk.coverageKey}:${way.osmWayId}',
+            () => Polyline(points: way.points),
+          );
         }
       }
     } on FormatException {
@@ -77,9 +99,20 @@ class RouteGraphTrailService {
     return polylines;
   }
 
-  String _visibleChunkKeyFor(List<RouteGraphTrailDisplayChunk> chunks) {
-    final keys = chunks.map((chunk) => chunk.recordKey).toList(growable: false)
-      ..sort();
+  String _visibleChunkKeyFor(
+    List<
+      ({String coverageKey, int generation, RouteGraphTrailDisplayChunk chunk})
+    >
+    chunks,
+  ) {
+    final keys =
+        chunks
+            .map(
+              (value) =>
+                  '${value.coverageKey}:${value.generation}:${value.chunk.chunkKey}',
+            )
+            .toList(growable: false)
+          ..sort();
     return keys.join(',');
   }
 }

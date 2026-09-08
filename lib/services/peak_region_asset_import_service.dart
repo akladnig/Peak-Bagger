@@ -189,6 +189,9 @@ class PeakRegionAssetImportService {
 
     final regions = <_ManifestRegion>[];
     for (final entry in decoded.entries) {
+      if (entry.key == 'routingCoverages') {
+        continue;
+      }
       final value = entry.value;
       if (value is! Map<String, dynamic>) {
         throw StateError('Region ${entry.key} must be a JSON object.');

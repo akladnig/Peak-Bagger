@@ -2036,6 +2036,7 @@ class MapTapActionPopupCard extends StatelessWidget {
     required this.onClose,
     this.onDriveEtaHome,
     this.onDriveEtaMarker,
+    this.driveEtaDisabledReason,
     super.key,
   });
 
@@ -2044,6 +2045,7 @@ class MapTapActionPopupCard extends StatelessWidget {
   final VoidCallback onClose;
   final VoidCallback? onDriveEtaHome;
   final VoidCallback? onDriveEtaMarker;
+  final String? driveEtaDisabledReason;
 
   @override
   Widget build(BuildContext context) {
@@ -2086,7 +2088,7 @@ class MapTapActionPopupCard extends StatelessWidget {
               title: const Text('Drop Favourite'),
               onTap: onDropFavourite,
             ),
-            if (onDriveEtaHome != null)
+            if (onDriveEtaHome != null || driveEtaDisabledReason != null)
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 dense: true,
@@ -2095,9 +2097,10 @@ class MapTapActionPopupCard extends StatelessWidget {
                 key: const Key('map-tap-action-drive-home'),
                 leading: Icon(Icons.drive_eta, color: onSurfaceColor),
                 title: const Text('Get driving time from Home'),
+                enabled: onDriveEtaHome != null,
                 onTap: onDriveEtaHome,
               ),
-            if (onDriveEtaMarker != null)
+            if (onDriveEtaMarker != null || driveEtaDisabledReason != null)
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 dense: true,
@@ -2106,7 +2109,20 @@ class MapTapActionPopupCard extends StatelessWidget {
                 key: const Key('map-tap-action-drive-marker'),
                 leading: Icon(Icons.drive_eta, color: onSurfaceColor),
                 title: const Text('Get driving time from Marker'),
+                enabled: onDriveEtaMarker != null,
                 onTap: onDriveEtaMarker,
+              ),
+            if (driveEtaDisabledReason != null)
+              Semantics(
+                label: driveEtaDisabledReason,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    driveEtaDisabledReason!,
+                    key: const Key('map-tap-action-drive-disabled-reason'),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
               ),
           ],
         ),

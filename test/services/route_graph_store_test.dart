@@ -15,6 +15,7 @@ void main() {
     final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
     final importService = RouteGraphImportService(
       repository,
+      assetPath: 'fixture.json',
       assetLoader: (_) async {
         assetCalls += 1;
         return rawJson;
@@ -41,6 +42,7 @@ void main() {
     final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
     final importService = RouteGraphImportService(
       repository,
+      assetPath: 'fixture.json',
       assetLoader: (_) async {
         assetCalls += 1;
         return rawJson;
@@ -65,6 +67,7 @@ void main() {
     final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
     final importService = RouteGraphImportService(
       repository,
+      assetPath: 'fixture.json',
       assetLoader: (_) async {
         assetCalls += 1;
         return rawJson;
@@ -92,6 +95,7 @@ void main() {
       final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
       final importService = RouteGraphImportService(
         repository,
+        assetPath: 'fixture.json',
         assetLoader: (_) async {
           assetCalls += 1;
           return 'not-json';
@@ -121,6 +125,7 @@ void main() {
     final repository = RouteGraphRepository.test(InMemoryRouteGraphStorage());
     final importService = RouteGraphImportService(
       repository,
+      assetPath: 'fixture.json',
       assetLoader: (_) async => _fixture,
       generationPreparer: _syncGenerationPreparer,
     );

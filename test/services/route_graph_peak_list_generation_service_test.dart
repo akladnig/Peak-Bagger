@@ -12,6 +12,9 @@ void main() {
       () async {
         final files = _FakeFiles({
           '/repo/assets/region_manifest.json': jsonEncode({
+            'routingCoverages': {
+              'tasmania': {'displayName': 'Tasmania'},
+            },
             'tasmania': {
               'priority': '1',
               'highways': ['assets/highways/tasmania.json'],

@@ -1,9 +1,21 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 
 final routeGraphStoreProvider = Provider<RouteGraphStore>((ref) {
   throw UnimplementedError('routeGraphStoreProvider must be overridden');
 });
+
+final routeGraphImportCoordinatorProvider =
+    Provider<RouteGraphImportCoordinator>((ref) {
+      final store = ref.watch(routeGraphStoreProvider);
+      if (store case ObjectBoxRouteGraphStore(:final importCoordinator?)) {
+        return importCoordinator;
+      }
+      throw UnimplementedError(
+        'routeGraphImportCoordinatorProvider must be overridden',
+      );
+    });
 
 enum RouteGraphReadinessStatus { preloading, ready, failed }
 
@@ -61,16 +73,63 @@ class RouteGraphReadinessNotifier extends Notifier<RouteGraphReadinessState> {
   }
 }
 
-final routeGraphBootstrapProvider = FutureProvider<void>((ref) async {
-  final readiness = ref.read(routeGraphReadinessProvider.notifier);
+final routeGraphCoverageImportStateProvider =
+    NotifierProvider<
+      RouteGraphCoverageImportStateNotifier,
+      List<RouteGraphCoverageImportState>
+    >(RouteGraphCoverageImportStateNotifier.new);
 
-  try {
-    await ref.read(routeGraphStoreProvider).bootstrapData();
-    readiness.markReady();
-  } catch (error) {
-    readiness.markFailed('$error');
+class RouteGraphCoverageImportStateNotifier
+    extends Notifier<List<RouteGraphCoverageImportState>> {
+  @override
+  List<RouteGraphCoverageImportState> build() {
+    final coordinator = ref.watch(routeGraphImportCoordinatorProvider);
+    void sync() {
+      if (ref.mounted) {
+        state = coordinator.states;
+      }
+    }
+
+    coordinator.addListener(sync);
+    ref.onDispose(() => coordinator.removeListener(sync));
+    return coordinator.states;
   }
-});
+}
+
+final routeGraphBootstrapProvider =
+    FutureProvider<RouteGraphImportBatchResult?>((ref) async {
+      final readiness = ref.read(routeGraphReadinessProvider.notifier);
+
+      try {
+        final store = ref.read(routeGraphStoreProvider);
+        final coordinator = store is ObjectBoxRouteGraphStore
+            ? store.importCoordinator
+            : null;
+        if (coordinator == null) {
+          await store.bootstrapData();
+          readiness.markReady();
+          return null;
+        }
+
+        final result = await coordinator.bootstrap();
+        final hasUsableGraph = coordinator.states.any(
+          (state) => state.hasActiveGeneration,
+        );
+        if (hasUsableGraph) {
+          readiness.markReady();
+        } else {
+          readiness.markFailed(
+            result is RouteGraphImportBatchConfigurationFailure
+                ? result.error
+                : 'Route graph bootstrap failed.',
+          );
+        }
+        return result;
+      } catch (error) {
+        readiness.markFailed('$error');
+        return null;
+      }
+    });
 
 final routeGraphRepositoryProviderAvailableProvider = Provider<bool>((ref) {
   try {
