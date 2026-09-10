@@ -424,7 +424,8 @@
       ],
       "layout": {
         "symbol-placement": "line",
-        "text-keep-upright": false,
+        "text-rotate": 0,
+        "text-keep-upright": true,
         "text-field": ["concat", ["to-string", ["get", "elev"]], " m"],
         "text-font": ["Roboto Regular"],
         "text-size": [
@@ -457,7 +458,8 @@
       ],
       "layout": {
         "symbol-placement": "line",
-        "text-keep-upright": false,
+        "text-rotate": 0,
+        "text-keep-upright": true,
         "text-field": ["concat", ["to-string", ["get", "elev"]], " m"],
         "text-font": ["Roboto Regular"],
         "text-size": [
@@ -478,6 +480,36 @@
       }
     },
     {
+      "id": "standing-water-mask-intermittent",
+      "type": "fill",
+      "source": "tasmania-osm",
+      "source-layer": "water",
+      "filter": [
+        "all",
+        ["match", ["get", "class"], ["lake", "pond"], true, false],
+        ["==", ["get", "intermittent"], 1]
+      ],
+      "paint": {
+        "fill-color": "#9fd2f3",
+        "fill-opacity": 0.9
+      }
+    },
+    {
+      "id": "standing-water-mask",
+      "type": "fill",
+      "source": "tasmania-osm",
+      "source-layer": "water",
+      "filter": [
+        "all",
+        ["match", ["get", "class"], ["lake", "pond"], true, false],
+        ["!=", ["get", "intermittent"], 1]
+      ],
+      "paint": {
+        "fill-color": "#9fd2f3",
+        "fill-opacity": 0.9
+      }
+    },
+    {
       "id": "place-labels",
       "type": "symbol",
       "source": "tasmania-osm",
@@ -486,7 +518,7 @@
       "filter": [
         "match",
         ["get", "class"],
-        ["city", "town", "village", "hamlet", "suburb", "locality", "island"],
+        ["city", "town", "village", "hamlet", "suburb", "locality", "island", "islet"],
         true,
         false
       ],

@@ -7,10 +7,14 @@ DECLARE
     'water',
     'water_name',
     'waterway',
+    'cliff',
     'transportation',
     'transportation_name',
     'building',
     'place',
+    'place_area',
+    'poi',
+    'poi_area',
     'park',
     'boundary'
   ];

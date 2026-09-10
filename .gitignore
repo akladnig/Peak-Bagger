@@ -57,3 +57,4 @@ app.*.map.json
 /objectbox/lock.mdb
 /objectbox/data.mdb
 /dart_defines.local.json
+/local_topo/tasmania/output/*.mbtiles

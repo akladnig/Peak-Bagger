@@ -6,7 +6,8 @@
       "mbtiles": ".",
       "fonts": "fonts",
       "sprites": "sprites"
-    }
+    },
+    "tileMargin": 64
   },
   "styles": {
     "tasmania-local-topo": {

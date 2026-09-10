@@ -40,6 +40,11 @@ local waterway = osm2pgsql.define_way_table('waterway', {
     { column = 'geom', type = 'linestring', projection = 3857, not_null = true },
 }, { schema = schema })
 
+local cliff = osm2pgsql.define_way_table('cliff', {
+    { column = 'name', type = 'text' },
+    { column = 'geom', type = 'linestring', projection = 3857, not_null = true },
+}, { schema = schema })
+
 local transportation = osm2pgsql.define_way_table('transportation', {
     { column = 'class', type = 'text' },
     { column = 'subclass', type = 'text' },
@@ -85,6 +90,25 @@ local place = osm2pgsql.define_node_table('place', {
     { column = 'geom', type = 'point', projection = 3857, not_null = true },
 }, { schema = schema })
 
+local placeArea = osm2pgsql.define_area_table('place_area', {
+    { column = 'class', type = 'text' },
+    { column = 'name', type = 'text' },
+    { column = 'tags', type = 'jsonb' },
+    { column = 'geom', type = 'point', projection = 3857, not_null = true },
+}, { schema = schema })
+
+local poi = osm2pgsql.define_node_table('poi', {
+    { column = 'class', type = 'text' },
+    { column = 'name', type = 'text' },
+    { column = 'geom', type = 'point', projection = 3857, not_null = true },
+}, { schema = schema })
+
+local poiArea = osm2pgsql.define_area_table('poi_area', {
+    { column = 'class', type = 'text' },
+    { column = 'name', type = 'text' },
+    { column = 'geom', type = 'multipolygon', projection = 3857, not_null = true },
+}, { schema = schema })
+
 local park = osm2pgsql.define_area_table('park', {
     { column = 'class', type = 'text' },
     { column = 'name', type = 'text' },
@@ -128,7 +152,45 @@ local function surface_transport_class(tags)
     return first_tag(tags, 'highway', 'railway', 'aerialway')
 end
 
+local function poi_class(tags)
+    if tags.tourism == 'wilderness_hut' or tags.tourism == 'alpine_hut' or tags.tourism == 'camp_site' then
+        return tags.tourism
+    end
+    if tags.building == 'hut' then
+        return 'hut'
+    end
+    if tags.waterway == 'waterfall' then
+        return 'waterfall'
+    end
+    if tags.amenity == 'toilets' then
+        return 'toilets'
+    end
+    return nil
+end
+
+local function poi_area_class(tags)
+    if tags.tourism == 'wilderness_hut' or tags.tourism == 'alpine_hut' then
+        return tags.tourism
+    end
+    if tags.building == 'hut' then
+        return 'hut'
+    end
+    if tags.amenity == 'toilets' then
+        return 'toilets'
+    end
+    return nil
+end
+
 function osm2pgsql.process_node(object)
+    local poiClass = poi_class(object.tags)
+    if poiClass ~= nil then
+        poi:insert({
+            class = poiClass,
+            name = object.tags.name,
+            geom = object:as_point(),
+        })
+    end
+
     local placeClass = object.tags.place
     if placeClass ~= nil then
         place:insert({
@@ -177,6 +239,24 @@ function osm2pgsql.process_way(object)
         })
     end
 
+    local poiAreaClass = poi_area_class(tags)
+    if object.is_closed and poiAreaClass ~= nil then
+        poiArea:insert({
+            class = poiAreaClass,
+            name = tags.name,
+            geom = object:as_polygon(),
+        })
+    end
+
+    if object.is_closed and tags.place == 'islet' then
+        placeArea:insert({
+            class = tags.place,
+            name = tags.name,
+            tags = tags,
+            geom = object:as_polygon():centroid(),
+        })
+    end
+
     if tags.waterway ~= nil and tags.name ~= nil then
         waterName:insert({
             class = tags.waterway,
@@ -193,6 +273,13 @@ function osm2pgsql.process_way(object)
             name = tags.name,
             intermittent = boolean_tag(tags.intermittent),
             tags = tags,
+            geom = object:as_linestring(),
+        })
+    end
+
+    if tags.natural == 'cliff' then
+        cliff:insert({
+            name = tags.name,
             geom = object:as_linestring(),
         })
     end
@@ -269,6 +356,24 @@ function osm2pgsql.process_relation(object)
             intermittent = boolean_tag(tags.intermittent),
             tags = tags,
             geom = object:as_multipolygon(),
+        })
+    end
+
+    local poiAreaClass = poi_area_class(tags)
+    if (tags.type == 'multipolygon' or tags.type == 'boundary') and poiAreaClass ~= nil then
+        poiArea:insert({
+            class = poiAreaClass,
+            name = tags.name,
+            geom = object:as_multipolygon(),
+        })
+    end
+
+    if (tags.type == 'multipolygon' or tags.type == 'boundary') and tags.place == 'islet' then
+        placeArea:insert({
+            class = tags.place,
+            name = tags.name,
+            tags = tags,
+            geom = object:as_multipolygon():centroid(),
         })
     end
 
