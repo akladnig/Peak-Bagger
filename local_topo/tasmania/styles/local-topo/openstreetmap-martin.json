@@ -8,7 +8,14 @@
           "id": "poi",
           "name": "POI",
           "icon": "poi",
-          "layers": []
+          "layers": [
+            "Wilderness huts",
+            "Wilderness hut areas",
+            "Back country camping areas",
+            "Waterfalls",
+            "Restrooms",
+            "Restroom areas"
+          ]
         },
         {
           "id": "administrative",
@@ -18,6 +25,7 @@
             "Other border",
             "Country border",
             "Other labels",
+            "Islet area labels",
             "Village labels",
             "Town labels",
             "State labels",
@@ -221,7 +229,8 @@
             "River bridge",
             "River labels",
             "Lakeline labels",
-            "Water labels"
+            "Water labels",
+            "Natural water labels"
           ]
         },
         {
@@ -295,7 +304,7 @@
   "pitch": 0,
   "sources": {
     "openmaptiles": {
-      "url": "http://martin:3000/boundary,building,landcover,landuse,park,place,transportation,transportation_name,water,water_name,waterway",
+      "url": "http://martin:3000/boundary,building,cliff,landcover,landuse,park,place,place_area,poi,poi_area,transportation,transportation_name,water,water_name,waterway",
       "type": "vector"
     },
     "openmaptiles-water": {
@@ -3484,10 +3493,11 @@
         [
           "in",
           "class",
-          "minor",
-          "unclassified",
-          "street",
-          "street_limited"
+           "minor",
+           "unclassified",
+           "street",
+           "street_limited",
+           "residential"
         ]
       ],
       "layout": {
@@ -5552,10 +5562,11 @@
             [
               "in",
               "class",
-              "minor",
-              "unclassified",
-              "street",
-              "street_limited"
+               "minor",
+               "unclassified",
+               "street",
+               "street_limited",
+               "residential"
             ],
             [
               "in",
@@ -5993,10 +6004,11 @@
         [
           "in",
           "class",
-          "minor",
-          "unclassified",
-          "street",
-          "street_limited"
+           "minor",
+           "unclassified",
+           "street",
+           "street_limited",
+           "residential"
         ],
         [
           "!=",
@@ -7593,10 +7605,11 @@
             [
               "in",
               "class",
-              "minor",
-              "unclassified",
-              "street",
-              "street_limited"
+               "minor",
+               "unclassified",
+               "street",
+               "street_limited",
+               "residential"
             ],
             [
               "in",
@@ -7919,10 +7932,11 @@
         [
           "in",
           "class",
-          "minor",
-          "unclassified",
-          "street",
-          "street_limited"
+           "minor",
+           "unclassified",
+           "street",
+           "street_limited",
+           "residential"
         ]
       ],
       "layout": {
@@ -10680,10 +10694,11 @@
         [
           "in",
           "class",
-          "minor",
-          "unclassified",
-          "street",
-          "street_limited"
+           "minor",
+           "unclassified",
+           "street",
+           "street_limited",
+           "residential"
         ]
       ],
       "layout": {
@@ -11830,6 +11845,42 @@
       }
     },
     {
+      "id": "Natural water labels",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "water",
+      "minzoom": 12,
+      "filter": [
+        "all",
+        [
+          "==",
+          "class",
+          "water"
+        ],
+        [
+          "has",
+          "name"
+        ]
+      ],
+      "layout": {
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-max-width": 10,
+        "text-size": 13,
+        "visibility": "visible"
+      },
+      "paint": {
+        "text-color": "hsl(230, 39%, 49%)",
+        "text-halo-color": "hsla(0, 0%, 100%, 0.8)",
+        "text-halo-width": 1
+      }
+    },
+    {
       "id": "Oneway path",
       "type": "symbol",
       "source": "openmaptiles",
@@ -12752,6 +12803,262 @@
       }
     },
     {
+      "id": "Back country camping areas",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "minzoom": 12,
+      "filter": [
+        "==",
+        "class",
+        "camp_site"
+      ],
+      "layout": {
+        "icon-image": "camping",
+        "icon-size": 1,
+        "icon-allow-overlap": false,
+        "text-anchor": "top",
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-offset": [
+          0,
+          0.9
+        ],
+        "text-optional": true,
+        "text-size": 11,
+        "visibility": "visible"
+      },
+      "paint": {
+        "icon-halo-color": "rgba(255, 255, 255, 0.9)",
+        "icon-halo-width": 1,
+        "text-color": "#4d4338",
+        "text-halo-color": "rgba(255, 255, 255, 0.9)",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "Wilderness huts",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "minzoom": 12,
+      "filter": [
+        "in",
+        "class",
+        "wilderness_hut",
+        "alpine_hut",
+        "hut"
+      ],
+      "layout": {
+        "icon-image": "alpinehut",
+        "icon-size": 1,
+        "icon-allow-overlap": true,
+        "text-anchor": "top",
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-offset": [
+          0,
+          0.9
+        ],
+        "text-optional": true,
+        "text-size": 11,
+        "visibility": "visible"
+      },
+      "paint": {
+        "icon-halo-color": "rgba(255, 255, 255, 0.9)",
+        "icon-halo-width": 1,
+        "text-color": "#4d4338",
+        "text-halo-color": "rgba(255, 255, 255, 0.9)",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "Wilderness hut areas",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi_area",
+      "minzoom": 12,
+      "filter": [
+        "in",
+        "class",
+        "wilderness_hut",
+        "alpine_hut",
+        "hut"
+      ],
+      "layout": {
+        "icon-image": "alpinehut",
+        "icon-size": 1,
+        "icon-allow-overlap": true,
+        "text-anchor": "top",
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-offset": [
+          0,
+          0.9
+        ],
+        "text-optional": true,
+        "text-size": 11,
+        "visibility": "visible"
+      },
+      "paint": {
+        "icon-halo-color": "rgba(255, 255, 255, 0.9)",
+        "icon-halo-width": 1,
+        "text-color": "#4d4338",
+        "text-halo-color": "rgba(255, 255, 255, 0.9)",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "Cliffs",
+      "type": "line",
+      "source": "openmaptiles",
+      "source-layer": "cliff",
+      "minzoom": 12,
+      "layout": {
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "#a52a2a",
+        "line-width": {
+          "stops": [
+            [
+              13,
+              1.6
+            ],
+            [
+              16,
+              2.8
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "id": "Cliff hachures",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "cliff",
+      "minzoom": 12,
+      "layout": {
+        "symbol-placement": "line",
+        "symbol-spacing": 16,
+        "icon-image": "cliff2",
+        "icon-size": 1,
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
+        "icon-rotation-alignment": "map",
+        "visibility": "visible"
+      },
+      "paint": {
+        "icon-color": "#a52a2a"
+      }
+    },
+    {
+      "id": "Waterfalls",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "minzoom": 12,
+      "filter": [
+        "==",
+        "class",
+        "waterfall"
+      ],
+      "layout": {
+        "icon-image": "waterfall",
+        "icon-size": 0.75,
+        "icon-allow-overlap": true,
+        "text-anchor": "top",
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-offset": [
+          0,
+          0.9
+        ],
+        "text-optional": true,
+        "text-size": 11,
+        "visibility": "visible"
+      },
+      "paint": {
+        "icon-color": "#2d7fb8",
+        "icon-halo-color": "rgba(255, 255, 255, 0.9)",
+        "icon-halo-width": 1,
+        "text-color": "#2d7fb8",
+        "text-halo-color": "rgba(255, 255, 255, 0.9)",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "Restrooms",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi",
+      "minzoom": 12,
+      "filter": [
+        "==",
+        "class",
+        "toilets"
+      ],
+      "layout": {
+        "icon-image": "toilets",
+        "icon-size": 1,
+        "icon-allow-overlap": false,
+        "visibility": "visible"
+      },
+      "paint": {
+        "icon-halo-color": "rgba(255, 255, 255, 0.9)",
+        "icon-halo-width": 1,
+        "text-color": "#4d4338",
+        "text-halo-color": "rgba(255, 255, 255, 0.9)",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "Restroom areas",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "poi_area",
+      "minzoom": 12,
+      "filter": [
+        "==",
+        "class",
+        "toilets"
+      ],
+      "layout": {
+        "icon-image": "toilets",
+        "icon-size": 1,
+        "icon-allow-overlap": false,
+        "visibility": "visible"
+      },
+      "paint": {
+        "icon-halo-color": "rgba(255, 255, 255, 0.9)",
+        "icon-halo-width": 1,
+        "text-color": "#4d4338",
+        "text-halo-color": "rgba(255, 255, 255, 0.9)",
+        "text-halo-width": 1
+      }
+    },
+    {
       "id": "Other labels",
       "type": "symbol",
       "metadata": {},
@@ -12791,8 +13098,7 @@
           ]
         ],
         "text-font": [
-          "Open Sans Semi Bold",
-          "Noto Sans Regular"
+          "Roboto Regular"
         ],
         "text-max-width": 10,
         "text-size": {
@@ -12853,6 +13159,59 @@
             ]
           ]
         }
+      }
+    },
+    {
+      "id": "Islet area labels",
+      "type": "symbol",
+      "source": "openmaptiles",
+      "source-layer": "place_area",
+      "minzoom": 8,
+      "filter": [
+        "==",
+        "class",
+        "islet"
+      ],
+      "layout": {
+        "text-field": [
+          "coalesce",
+          [
+            "get",
+            "name:en"
+          ],
+          [
+            "get",
+            "name"
+          ]
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-max-width": 10,
+        "text-size": {
+          "base": 1.2,
+          "stops": [
+            [
+              11,
+              10
+            ],
+            [
+              14,
+              14
+            ],
+            [
+              18,
+              16
+            ]
+          ]
+        },
+        "text-allow-overlap": false,
+        "visibility": "visible"
+      },
+      "paint": {
+        "text-color": "hsl(0, 0%, 47%)",
+        "text-halo-color": "hsl(0, 0%, 100%)",
+        "text-halo-width": 1.5
       }
     },
     {

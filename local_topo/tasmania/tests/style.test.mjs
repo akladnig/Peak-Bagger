@@ -27,11 +27,16 @@ const previewStyleVariants = [
 const martinRequiredSourceLayers = [
   'boundary',
   'building',
+  'cliff',
   'landuse',
   'park',
   'place',
+  'place_area',
+  'poi',
+  'poi_area',
   'transportation',
   'transportation_name',
+  'water',
 ];
 const martinWaterExceptionSourceLayers = ['water', 'water_name', 'waterway'];
 const martinLandcoverExceptionSourceLayers = ['landcover'];
@@ -48,7 +53,7 @@ const localPreviewSourceUrls = new Set([
   'mbtiles://{tasmania-relief}',
 ]);
 const martinOpenmaptilesSourceUrl =
-  'http://martin:3000/boundary,building,landcover,landuse,park,place,transportation,transportation_name,water,water_name,waterway';
+  'http://martin:3000/boundary,building,cliff,landcover,landuse,park,place,place_area,poi,poi_area,transportation,transportation_name,water,water_name,waterway';
 const legacyOpenmaptilesSourceUrl = 'mbtiles://{tasmania-osm}';
 const openStreetMapComparisonVariants = [
   {
@@ -82,6 +87,7 @@ const martinLayerOverrides = new Map([
   ['Contours', { minzoom: 12 }],
   ['Contours intermediate 50m', { minzoom: 11 }],
   ['Contours index 100m', { minzoom: 11 }],
+  ['Landcover outline', { minzoom: 12 }],
   ['Track road outline', {
     filter: [
       'all',
@@ -91,7 +97,7 @@ const martinLayerOverrides = new Map([
         ['in', 'class', 'track'],
         [
           'all',
-          ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+          ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited', 'residential'],
           ['in', 'surface', 'gravel', 'fine_gravel', 'unpaved', 'dirt', 'earth'],
         ],
       ],
@@ -106,7 +112,7 @@ const martinLayerOverrides = new Map([
         ['in', 'class', 'track'],
         [
           'all',
-          ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+          ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited', 'residential'],
           ['in', 'surface', 'gravel', 'fine_gravel', 'unpaved', 'dirt', 'earth'],
         ],
       ],
@@ -116,7 +122,7 @@ const martinLayerOverrides = new Map([
     filter: [
       'all',
       ['==', 'brunnel', 'tunnel'],
-      ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+      ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited', 'residential'],
     ],
   }],
   ['Minor road outline', {
@@ -124,7 +130,7 @@ const martinLayerOverrides = new Map([
       'all',
       ['==', '$type', 'LineString'],
       ['!in', 'brunnel', 'bridge', 'tunnel'],
-      ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+      ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited', 'residential'],
       ['!=', 'ramp', '1'],
     ],
   }],
@@ -133,14 +139,14 @@ const martinLayerOverrides = new Map([
       'all',
       ['==', '$type', 'LineString'],
       ['!in', 'brunnel', 'bridge', 'tunnel'],
-      ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+      ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited', 'residential'],
     ],
   }],
   ['Minor bridge', {
     filter: [
       'all',
       ['==', 'brunnel', 'bridge'],
-      ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+      ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited', 'residential'],
     ],
   }],
 ]);
@@ -372,6 +378,7 @@ test('canonical richer Local Topo style includes relief, labels, and no mountain
   const layers = new Map(style.layers.map((layer) => [layer.id, layer]));
   assert.ok(layers.has('terrain-relief-shading'));
   assert.ok(layers.has('place-labels'));
+  assert.equal(layers.get('place-labels')?.filter?.[2]?.includes('islet'), true);
   assert.ok(layers.has('water-name-labels'));
   assert.ok(layers.has('waterway-labels'));
   assert.ok(layers.has('road-labels'));
@@ -475,6 +482,25 @@ test('canonical richer Local Topo style includes relief, labels, and no mountain
     .map((layer) => layer['source-layer'])
     .filter((value) => typeof value === 'string');
   assert.equal(sourceLayers.includes('mountain_peak'), false);
+});
+
+test('Martin preview import preserves area-mapped islets for labels', async () => {
+  const importStyle = await readFile(
+    join(stackRoot, 'config/osm2pgsql/preview-flex.lua'),
+    'utf8',
+  );
+
+  assert.match(importStyle, /define_area_table\('place_area'/);
+  assert.match(importStyle, /column = 'geom', type = 'point'/);
+  assert.match(importStyle, /object\.is_closed and tags\.place == 'islet'/);
+  assert.match(
+    importStyle,
+    /object\.is_closed and tags\.place == 'islet' then\s+placeArea:insert\(\{[\s\S]*geom = object:as_polygon\(\):centroid\(\)/,
+  );
+  assert.match(
+    importStyle,
+    /tags\.place == 'islet' then\s+placeArea:insert\(\{[\s\S]*geom = object:as_multipolygon\(\):centroid\(\)/,
+  );
 });
 
 test('MapTiler preview variants stay on local sprite, glyph, and source contracts', async () => {
@@ -745,6 +771,8 @@ test('openstreetmap preview styles include aligned local contour overlays and ar
 
 test('OpenStreetMap comparison preview styles keep local sprite contract and targeted water and scrub wiring', async () => {
   const config = await loadJson('config/tileserver-config.json');
+  const sprite = await loadJson('sprites/sprite.json');
+  const retinaSprite = await loadJson('sprites/sprite@2x.json');
   await assertLocalSpriteBundleExists();
 
   for (const variant of openStreetMapComparisonVariants) {
@@ -752,6 +780,7 @@ test('OpenStreetMap comparison preview styles keep local sprite contract and tar
     const layers = new Map(style.layers.map((layer) => [layer.id, layer]));
 
     assert.equal(config.styles[variant.styleId]?.style, variant.stylePath.replace('styles/', ''));
+    assert.equal(config.options.tileMargin, 64);
     assert.equal(style.sprite, localSpriteBase);
     assert.equal(style.glyphs, localGlyphsPath);
     assert.deepEqual(style.sources.openmaptiles, variant.openmaptilesSource);
@@ -830,6 +859,70 @@ test('OpenStreetMap comparison preview styles keep local sprite contract and tar
     assert.deepEqual(landcoverPatterns?.paint?.['fill-pattern']?.[1], landcoverClassFallback);
 
     if (variant.styleId === 'tasmania-openstreetmap-contours-martin') {
+      assert.deepEqual(layers.get('Wilderness huts')?.filter, [
+        'in',
+        'class',
+        'wilderness_hut',
+        'alpine_hut',
+        'hut',
+      ]);
+      assert.equal(layers.get('Wilderness huts')?.source, 'openmaptiles');
+      assert.equal(layers.get('Wilderness huts')?.['source-layer'], 'poi');
+      assert.equal(layers.get('Wilderness huts')?.layout?.['icon-image'], 'alpinehut');
+      assert.deepEqual(layers.get('Back country camping areas')?.filter, [
+        '==',
+        'class',
+        'camp_site',
+      ]);
+      assert.equal(layers.get('Back country camping areas')?.source, 'openmaptiles');
+      assert.equal(layers.get('Back country camping areas')?.['source-layer'], 'poi');
+      assert.equal(layers.get('Back country camping areas')?.layout?.['icon-image'], 'camping');
+      assert.equal(layers.get('Waterfalls')?.source, 'openmaptiles');
+      assert.equal(layers.get('Waterfalls')?.['source-layer'], 'poi');
+      assert.deepEqual(layers.get('Waterfalls')?.filter, ['==', 'class', 'waterfall']);
+      assert.equal(layers.get('Waterfalls')?.layout?.['icon-image'], 'waterfall');
+      assert.equal(layers.get('Wilderness hut areas')?.source, 'openmaptiles');
+      assert.equal(layers.get('Wilderness hut areas')?.['source-layer'], 'poi_area');
+      assert.deepEqual(layers.get('Wilderness hut areas')?.filter, [
+        'in',
+        'class',
+        'wilderness_hut',
+        'alpine_hut',
+        'hut',
+      ]);
+      assert.equal(layers.get('Restrooms')?.source, 'openmaptiles');
+      assert.equal(layers.get('Restrooms')?.['source-layer'], 'poi');
+      assert.deepEqual(layers.get('Restrooms')?.filter, ['==', 'class', 'toilets']);
+      assert.equal(layers.get('Restrooms')?.layout?.['icon-image'], 'toilets');
+      assert.equal(layers.get('Restroom areas')?.source, 'openmaptiles');
+      assert.equal(layers.get('Restroom areas')?.['source-layer'], 'poi_area');
+      assert.deepEqual(layers.get('Restroom areas')?.filter, ['==', 'class', 'toilets']);
+      assert.equal(layers.get('Cliffs')?.source, 'openmaptiles');
+      assert.equal(layers.get('Cliffs')?.['source-layer'], 'cliff');
+      assert.equal(layers.get('Cliff hachures')?.source, 'openmaptiles');
+      assert.equal(layers.get('Cliff hachures')?.['source-layer'], 'cliff');
+       assert.equal(layers.get('Cliff hachures')?.layout?.['symbol-placement'], 'line');
+       assert.equal(layers.get('Cliff hachures')?.layout?.['icon-image'], 'cliff2');
+      assert.equal(layers.get('Cliff hachures')?.paint?.['icon-color'], '#a52a2a');
+      assert.equal(sprite.cliff2?.sdf, true);
+      assert.equal(retinaSprite.cliff2?.sdf, true);
+      assert.deepEqual(layers.get('Other labels')?.layout?.['text-font'], ['Roboto Regular']);
+      assert.deepEqual(layers.get('Other labels')?.filter, [
+        'all',
+        ['in', 'class', 'hamlet', 'island', 'islet', 'neighbourhood', 'suburb'],
+      ]);
+      assert.equal(layers.get('Islet area labels')?.source, 'openmaptiles');
+      assert.equal(layers.get('Islet area labels')?.['source-layer'], 'place_area');
+      assert.deepEqual(layers.get('Islet area labels')?.filter, ['==', 'class', 'islet']);
+      assert.deepEqual(layers.get('Islet area labels')?.layout?.['text-font'], ['Roboto Regular']);
+      assert.equal(layers.get('Islet area labels')?.layout?.['text-allow-overlap'], false);
+      assert.equal(layers.get('Natural water labels')?.source, 'openmaptiles');
+      assert.equal(layers.get('Natural water labels')?.['source-layer'], 'water');
+      assert.deepEqual(layers.get('Natural water labels')?.filter, [
+        'all',
+        ['==', 'class', 'water'],
+        ['has', 'name'],
+      ]);
       assert.deepEqual(layers.get('Track road outline')?.filter, [
         'all',
         ['!in', 'brunnel', 'bridge', 'tunnel'],
@@ -838,7 +931,7 @@ test('OpenStreetMap comparison preview styles keep local sprite contract and tar
           ['in', 'class', 'track'],
           [
             'all',
-            ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+            ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited', 'residential'],
             ['in', 'surface', 'gravel', 'fine_gravel', 'unpaved', 'dirt', 'earth'],
           ],
         ],
@@ -851,7 +944,7 @@ test('OpenStreetMap comparison preview styles keep local sprite contract and tar
           ['in', 'class', 'track'],
           [
             'all',
-            ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+            ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited', 'residential'],
             ['in', 'surface', 'gravel', 'fine_gravel', 'unpaved', 'dirt', 'earth'],
           ],
         ],
@@ -860,14 +953,14 @@ test('OpenStreetMap comparison preview styles keep local sprite contract and tar
         'all',
         ['==', '$type', 'LineString'],
         ['!in', 'brunnel', 'bridge', 'tunnel'],
-        ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+        ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited', 'residential'],
         ['!=', 'ramp', '1'],
       ]);
       assert.deepEqual(layers.get('Minor road')?.filter, [
         'all',
         ['==', '$type', 'LineString'],
         ['!in', 'brunnel', 'bridge', 'tunnel'],
-        ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited'],
+        ['in', 'class', 'minor', 'unclassified', 'street', 'street_limited', 'residential'],
       ]);
       assert.equal(layers.get('Minor road outline')?.paint?.['line-color'], 'hsl(32, 22%, 52%)');
       assert.deepEqual(layers.get('Minor road')?.paint?.['line-color'], {
