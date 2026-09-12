@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/local_topo_overlay_outage_provider.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -184,6 +185,9 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
         loadPreferences: prefsLoader,
       );
       await _persistValidationStatus(LocalTopoValidationStatus.liveValidated);
+      ref
+          .read(localTopoOverlayOutageReporterProvider)
+          .resetAfterCapabilityValidation();
 
       state = LocalTopoSettingsState(
         savedBaseUrlText: snapshot.baseUrl.toString(),

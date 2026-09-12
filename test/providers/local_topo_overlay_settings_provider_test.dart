@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/providers/local_topo_overlay_outage_provider.dart';
 import 'package:peak_bagger/providers/local_topo_overlay_settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -75,4 +76,31 @@ void main() {
       );
     },
   );
+
+  test('disabling an overlay resets only its outage suppression', () async {
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final messages = <String>[];
+    final subscription = container
+        .read(localTopoOverlayOutageReporterProvider)
+        .messages
+        .listen(messages.add);
+    addTearDown(subscription.cancel);
+    final reporter = container.read(localTopoOverlayOutageReporterProvider);
+
+    reporter.report(terrainReliefShadingOverlayKey);
+    await container
+        .read(localTopoOverlaySettingsProvider.notifier)
+        .setEnabled(terrainReliefShadingOverlayKey, true);
+    await container
+        .read(localTopoOverlaySettingsProvider.notifier)
+        .setEnabled(terrainReliefShadingOverlayKey, false);
+    reporter.report(terrainReliefShadingOverlayKey);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(messages, [
+      'Terrain relief shading is unavailable from the local tile server',
+      'Terrain relief shading is unavailable from the local tile server',
+    ]);
+  });
 }

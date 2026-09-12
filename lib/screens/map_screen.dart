@@ -30,6 +30,7 @@ import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/local_topo_overlay_settings_provider.dart';
+import 'package:peak_bagger/providers/local_topo_overlay_outage_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
@@ -55,6 +56,7 @@ import 'package:peak_bagger/services/route_graph_drive_eta_hit_service.dart';
 import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
+import 'package:peak_bagger/services/local_topo_overlay_tile_provider.dart';
 import '../core/constants.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
@@ -207,6 +209,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   List<RouteHoverCandidate>? _cachedRouteHoverCandidates;
   Basemap? _cachedTileProviderBasemap;
   TileProvider? _cachedTileProvider;
+  StreamSubscription<String>? _overlayOutageSubscription;
   int _driveEtaRequestId = 0;
   @override
   void initState() {
@@ -215,6 +218,18 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _mapController = MapController();
     _mapNotifier = ref.read(mapProvider.notifier);
     _mapChartHoverNotifier = ref.read(mapChartHoverProvider.notifier);
+    _overlayOutageSubscription = ref
+        .read(localTopoOverlayOutageReporterProvider)
+        .messages
+        .listen((message) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text(message)));
+            }
+          });
+        });
     ref.listenManual<
       ({
         bool isRouteDrafting,
@@ -2503,6 +2518,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   @override
   void dispose() {
     _mapChartHoverNotifier.clear();
+    _overlayOutageSubscription?.cancel();
     _removeRouteDraftOverlays();
     _pendingCameraSaveTimer?.cancel();
     _pendingCameraSaveTimer = null;
@@ -2869,6 +2885,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     );
                     final overlaySettings = ref.watch(
                       localTopoOverlaySettingsProvider,
+                    );
+                    final overlayOutageReporter = ref.read(
+                      localTopoOverlayOutageReporterProvider,
                     );
                     final localTopoSnapshot =
                         localTopoRuntime.capabilitySnapshot;
@@ -3526,6 +3545,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   terrainReliefShadingOverlayKey,
                                               opacityPercent: overlaySettings
                                                   .terrainReliefShadingOpacity,
+                                              tileProvider: OverlayTileProvider(
+                                                overlayKey:
+                                                    terrainReliefShadingOverlayKey,
+                                                reporter: overlayOutageReporter,
+                                              ),
                                             ),
                                           if (overlaySettings
                                               .contourLinesEnabled)
@@ -3535,6 +3559,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   contourLinesOverlayKey,
                                               opacityPercent: overlaySettings
                                                   .contourLinesOpacity,
+                                              tileProvider: OverlayTileProvider(
+                                                overlayKey:
+                                                    contourLinesOverlayKey,
+                                                reporter: overlayOutageReporter,
+                                              ),
                                             ),
                                         ],
                                         if (trailPolylines.isNotEmpty)

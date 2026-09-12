@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:peak_bagger/providers/local_topo_overlay_outage_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const terrainReliefShadingOverlayKey = 'terrainReliefShading';
@@ -74,17 +75,22 @@ class LocalTopoOverlaySettingsNotifier
     return const LocalTopoOverlaySettings();
   }
 
-  Future<void> setEnabled(String key, bool value) => _persist(
-    key: key,
-    value: value,
-    update: (settings) => switch (key) {
-      terrainReliefShadingOverlayKey => settings.copyWith(
-        terrainReliefShadingEnabled: value,
-      ),
-      contourLinesOverlayKey => settings.copyWith(contourLinesEnabled: value),
-      _ => settings,
-    },
-  );
+  Future<void> setEnabled(String key, bool value) async {
+    final persisted = await _persist(
+      key: key,
+      value: value,
+      update: (settings) => switch (key) {
+        terrainReliefShadingOverlayKey => settings.copyWith(
+          terrainReliefShadingEnabled: value,
+        ),
+        contourLinesOverlayKey => settings.copyWith(contourLinesEnabled: value),
+        _ => settings,
+      },
+    );
+    if (!value && persisted) {
+      ref.read(localTopoOverlayOutageReporterProvider).resetOverlay(key);
+    }
+  }
 
   Future<void> setOpacity(String key, int value) {
     if (value < 0 || value > 100) {
@@ -100,10 +106,10 @@ class LocalTopoOverlaySettingsNotifier
         contourLinesOverlayKey => settings.copyWith(contourLinesOpacity: value),
         _ => settings,
       },
-    );
+    ).then((_) {});
   }
 
-  Future<void> _persist({
+  Future<bool> _persist({
     required String key,
     required Object value,
     required LocalTopoOverlaySettings Function(LocalTopoOverlaySettings) update,
@@ -111,7 +117,7 @@ class LocalTopoOverlaySettingsNotifier
     final previous = state;
     final updated = update(previous);
     if (identical(updated, previous)) {
-      return;
+      return false;
     }
     _hasUserOverride = true;
     state = updated;
@@ -124,10 +130,12 @@ class LocalTopoOverlaySettingsNotifier
       } else {
         await prefs.setInt(_prefsKeyFor(key, value: value), value as int);
       }
+      return true;
     } catch (_) {
       if (ref.mounted) {
         state = previous;
       }
+      return false;
     }
   }
 
