@@ -1,0 +1,55 @@
+{
+  "version": 8,
+  "name": "Peak Bagger Tasmania contour lines overlay",
+  "sources": {
+    "tasmania-contours": {
+      "type": "vector",
+      "url": "mbtiles://{tasmania-contours}"
+    }
+  },
+  "layers": [
+    {
+      "id": "contours",
+      "type": "line",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 13,
+      "filter": [
+        "all",
+        ["!=", ["%", ["to-number", ["get", "elev"]], 100], 0],
+        ["!=", ["%", ["to-number", ["get", "elev"]], 100], 50]
+      ],
+      "paint": {
+        "line-color": "#8c6a43",
+        "line-opacity": 0.3,
+        "line-width": 0.55
+      }
+    },
+    {
+      "id": "contours-intermediate-50m",
+      "type": "line",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 12,
+      "filter": ["==", ["%", ["to-number", ["get", "elev"]], 100], 50],
+      "paint": {
+        "line-color": "#7d5c37",
+        "line-opacity": 0.4,
+        "line-width": 0.8
+      }
+    },
+    {
+      "id": "contours-index-100m",
+      "type": "line",
+      "source": "tasmania-contours",
+      "source-layer": "contours",
+      "minzoom": 12,
+      "filter": ["==", ["%", ["to-number", ["get", "elev"]], 100], 0],
+      "paint": {
+        "line-color": "#6f4f2d",
+        "line-opacity": 0.5,
+        "line-width": 1.1
+      }
+    }
+  ]
+}
