@@ -29,6 +29,7 @@ import 'package:peak_bagger/providers/polygon_assets_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/local_topo_overlay_settings_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
@@ -53,6 +54,7 @@ import 'package:peak_bagger/services/open_route_service.dart';
 import 'package:peak_bagger/services/route_graph_drive_eta_hit_service.dart';
 import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
+import 'package:peak_bagger/services/local_topo_runtime.dart';
 import '../core/constants.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
@@ -153,6 +155,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   int? _pendingCameraRequestSerial;
   int? _appliedCameraRequestSerial;
   List<String>? _basemapDrawerBasemapKeys;
+  bool _basemapDrawerShowOverlays = false;
   bool _isPointerDown = false;
   Offset? _pointerDownPosition;
   bool _primaryClickPending = false;
@@ -2809,13 +2812,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
             endDrawer: switch (routeChrome.endDrawerMode) {
               EndDrawerMode.basemaps => MapBasemapsDrawer(
                 basemapKeys: _basemapDrawerBasemapKeys ?? const [],
+                showOverlays: _basemapDrawerShowOverlays,
               ),
               EndDrawerMode.peakLists => const MapPeakListsDrawer(),
               EndDrawerMode.tracksRoutes => const MapTracksRoutesDrawer(),
             },
             onEndDrawerChanged: (isOpen) {
               if (!isOpen && mounted) {
-                setState(() => _basemapDrawerBasemapKeys = null);
+                setState(() {
+                  _basemapDrawerBasemapKeys = null;
+                  _basemapDrawerShowOverlays = false;
+                });
                 _mapFocusNode.requestFocus();
               }
             },
@@ -2835,6 +2842,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           selectedPeaks: state.selectedPeaks,
                           selectedMap: state.selectedMap,
                           visibleBounds: state.visibleBounds,
+                          cursorPoint: state.cursorPoint,
                           showSelectedMapLayer: state.showSelectedMapLayer,
                           showMapOverlay: state.showMapOverlay,
                           showDistanceGrid: state.showDistanceGrid,
@@ -2859,6 +2867,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     final isTrackStatisticsRecalculating = ref.watch(
                       mapProvider.select((state) => state.isLoadingTracks),
                     );
+                    final overlaySettings = ref.watch(
+                      localTopoOverlaySettingsProvider,
+                    );
+                    final localTopoSnapshot =
+                        localTopoRuntime.capabilitySnapshot;
                     final routeGraphAvailable = ref.watch(
                       routeGraphReadinessProvider.select(
                         (state) =>
@@ -3497,6 +3510,33 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                 mapScene.basemap,
                                               ),
                                         ),
+                                        if (_shouldShowStandaloneOverlays(
+                                          point:
+                                              mapScene.cursorPoint ??
+                                              mapScene.center,
+                                          visibleBounds: mapScene.visibleBounds,
+                                          basemap: mapScene.basemap,
+                                          snapshot: localTopoSnapshot,
+                                        )) ...[
+                                          if (overlaySettings
+                                              .terrainReliefShadingEnabled)
+                                            ?buildStandaloneOverlayTileLayer(
+                                              snapshot: localTopoSnapshot!,
+                                              overlayKey:
+                                                  terrainReliefShadingOverlayKey,
+                                              opacityPercent: overlaySettings
+                                                  .terrainReliefShadingOpacity,
+                                            ),
+                                          if (overlaySettings
+                                              .contourLinesEnabled)
+                                            ?buildStandaloneOverlayTileLayer(
+                                              snapshot: localTopoSnapshot!,
+                                              overlayKey:
+                                                  contourLinesOverlayKey,
+                                              opacityPercent: overlaySettings
+                                                  .contourLinesOpacity,
+                                            ),
+                                        ],
                                         if (trailPolylines.isNotEmpty)
                                           buildTrailPolylines(trailPolylines),
                                         if (routeChrome.isRouteDrafting)
@@ -4883,9 +4923,28 @@ class _MapScreenState extends ConsumerState<MapScreen>
       _basemapDrawerBasemapKeys = availableBasemaps
           .map((basemap) => basemap.key)
           .toList(growable: false);
+      _basemapDrawerShowOverlays = isTasmaniaOverlayEligible(
+        point: point,
+        visibleBounds: mapState.visibleBounds,
+      );
     });
     ref.read(mapProvider.notifier).setEndDrawerMode(EndDrawerMode.basemaps);
     _scaffoldKey.currentState?.openEndDrawer();
+  }
+
+  bool _shouldShowStandaloneOverlays({
+    required LatLng point,
+    required LatLngBounds? visibleBounds,
+    required Basemap basemap,
+    required LocalTopoCapabilitySnapshot? snapshot,
+  }) {
+    return basemap != Basemap.localTopo &&
+        snapshot != null &&
+        isTasmaniaOverlayEligible(
+          point: point,
+          visibleBounds: visibleBounds,
+          snapshot: snapshot,
+        );
   }
 
   String _readoutMapName({

@@ -121,6 +121,30 @@ TileLayer buildBasemapTileLayer(
         );
 }
 
+TileLayer? buildStandaloneOverlayTileLayer({
+  required LocalTopoCapabilitySnapshot snapshot,
+  required String overlayKey,
+  required int opacityPercent,
+}) {
+  final urlTemplate = snapshot.resolvedOverlayTileUrlTemplate(
+    key: overlayKey,
+    regionKey: 'tasmania',
+  );
+  if (urlTemplate == null) {
+    return null;
+  }
+
+  return TileLayer(
+    key: Key('standalone-overlay-layer-$overlayKey'),
+    urlTemplate: urlTemplate,
+    tileProvider: NetworkTileProvider(
+      cachingProvider: DisabledMapCachingProvider(),
+    ),
+    tileBuilder: (context, tileWidget, tile) =>
+        Opacity(opacity: opacityPercent / 100, child: tileWidget),
+  );
+}
+
 int _maxNativeZoomForBasemap(Basemap basemap) {
   final manifestMaxZoom = regionManifestCatalog
       .basemapByKey(basemap.name)
