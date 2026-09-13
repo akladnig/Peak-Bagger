@@ -480,6 +480,13 @@ test('rebuild uses the explicitly selected thelist DEM and writes source metadat
   assert.equal(metadata.contours.sourcePath, thelistDemPath);
   assert.equal(contoursGeojson.features[0]?.properties?.elev, 100);
   assert.equal(await readFile(reliefPath, 'utf8'), 'mbtiles');
+  await Promise.all(
+    [
+      'tasmania/local-topo/0/0/0.png',
+      'tasmania/terrain-relief-shading/0/0/0.png',
+      'tasmania/contour-lines/0/0/0.png',
+    ].map((relativePath) => readFile(join(workspace.outputDir, 'tiles', relativePath))),
+  );
 
   await cleanupWorkspace(workspace);
 });

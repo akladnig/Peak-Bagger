@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/local_topo_overlay_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
@@ -212,6 +213,86 @@ void main() {
       expect(container.read(mapProvider).basemap, Basemap.localTopo);
     },
   );
+
+  testWidgets('v2 overlays remain open when independently enabled', (
+    tester,
+  ) async {
+    await localTopoRuntime.saveValidatedSnapshot(_overlaySnapshot());
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        cursorPoint: const LatLng(-41.5, 146.5),
+        zoom: 12,
+        basemap: Basemap.tasmap50k,
+      ),
+    );
+
+    await _pumpRawMapScreen(tester, notifier, size: const Size(1600, 900));
+    await tester.tap(find.byKey(const Key('show-basemaps-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('overlays-section')), findsOneWidget);
+    expect(
+      find.byKey(const Key('overlay-switch-terrainReliefShading')),
+      findsOneWidget,
+    );
+    final contours = tester.widget<SwitchListTile>(
+      find.byKey(const Key('overlay-switch-contourLines')),
+    );
+    expect(contours.onChanged, isNull);
+    expect(find.text('Unavailable from the local tile server'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('overlay-switch-terrainReliefShading')),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key('basemaps-drawer')), findsOneWidget);
+    expect(
+      find.byKey(const Key('overlay-opacity-terrainReliefShading')),
+      findsOneWidget,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    expect(
+      container
+          .read(localTopoOverlaySettingsProvider)
+          .terrainReliefShadingEnabled,
+      isTrue,
+    );
+  });
+
+  testWidgets('Local Topo shows included overlay states without opacity', (
+    tester,
+  ) async {
+    await localTopoRuntime.saveValidatedSnapshot(_overlaySnapshot());
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        cursorPoint: const LatLng(-41.5, 146.5),
+        zoom: 12,
+        basemap: Basemap.localTopo,
+      ),
+    );
+
+    await _pumpRawMapScreen(tester, notifier, size: const Size(1600, 900));
+    await tester.tap(find.byKey(const Key('show-basemaps-fab')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Included in Local Topo'), findsNWidgets(2));
+    expect(
+      tester
+          .widget<SwitchListTile>(
+            find.byKey(const Key('overlay-switch-terrainReliefShading')),
+          )
+          .onChanged,
+      isNull,
+    );
+    expect(
+      find.byKey(const Key('overlay-opacity-terrainReliefShading')),
+      findsNothing,
+    );
+  });
 }
 
 LocalTopoCapabilitySnapshot _localTopoSnapshot() => LocalTopoCapabilitySnapshot(
@@ -220,6 +301,28 @@ LocalTopoCapabilitySnapshot _localTopoSnapshot() => LocalTopoCapabilitySnapshot(
     LocalTopoRegionCapability(
       regionKey: 'tasmania',
       tilePathTemplate: '/tasmania/local-topo/{z}/{x}/{y}.png',
+    ),
+  ],
+);
+
+LocalTopoCapabilitySnapshot _overlaySnapshot() => LocalTopoCapabilitySnapshot(
+  baseUrl: Uri.parse('http://127.0.0.1:8090'),
+  regions: const [
+    LocalTopoRegionCapability(
+      regionKey: 'tasmania',
+      tilePathTemplate: '/tasmania/local-topo/{z}/{x}/{y}.png',
+    ),
+  ],
+  overlays: const [
+    LocalTopoOverlayCapability(
+      key: 'terrainReliefShading',
+      label: 'Terrain relief shading',
+      regions: [
+        LocalTopoRegionCapability(
+          regionKey: 'tasmania',
+          tilePathTemplate: '/tasmania/terrain-relief-shading/{z}/{x}/{y}.png',
+        ),
+      ],
     ),
   ],
 );

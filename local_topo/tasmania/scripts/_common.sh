@@ -80,6 +80,11 @@ tippecanoe_bin="${LOCAL_TOPO_TIPPECANOE_BIN:-tippecanoe}"
 ogr_geojson_max_obj_size="${LOCAL_TOPO_OGR_GEOJSON_MAX_OBJ_SIZE:-0}"
 smoke_png_hex="89504E470D0A1A0A0000000D4948445200000001000000010804000000B51C0C020000000B4944415478DA63FCFF1F0003030200EDA5610D0000000049454E44AE426082"
 prerender_runtime_base_url=""
+static_tile_styles=(
+  "tasmania-local-topo:tasmania/local-topo"
+  "tasmania-terrain-relief-shading:tasmania/terrain-relief-shading"
+  "tasmania-contour-lines:tasmania/contour-lines"
+)
 
 selected_osm_extract_path=""
 selected_osm_source_kind=""
@@ -812,9 +817,10 @@ prerender_static_tiles() {
   local container_name=""
 
   if [ "$prerender_resume" != "1" ]; then
-    run_command "$dry_run" rm -rf "$static_tiles_layout_root"
+    for static_tile_style in "${static_tile_styles[@]}"; do
+      run_command "$dry_run" rm -rf "$static_tiles_root/${static_tile_style#*:}"
+    done
   fi
-  run_command "$dry_run" mkdir -p "$static_tiles_layout_root"
 
   if [ -z "$runtime_base_url" ]; then
     container_name="peak-bagger-local-topo-prerender-$$-$RANDOM"
@@ -826,18 +832,24 @@ prerender_static_tiles() {
     trap "stop_prerender_tileserver \"$container_name\"" EXIT
   fi
 
-  run_command \
-    "$dry_run" \
-    env \
-      "LOCAL_TOPO_PRERENDER_BASE_URL=$runtime_base_url" \
-      "LOCAL_TOPO_PRERENDER_OUTPUT_ROOT=$static_tiles_layout_root" \
-      "LOCAL_TOPO_PRERENDER_MIN_ZOOM=$prerender_min_zoom" \
-      "LOCAL_TOPO_PRERENDER_MAX_ZOOM=$prerender_max_zoom" \
-      "LOCAL_TOPO_PRERENDER_BOUNDS=$prerender_bounds" \
-      "LOCAL_TOPO_PRERENDER_CONCURRENCY=$prerender_concurrency" \
-      "LOCAL_TOPO_PRERENDER_SKIP_EXISTING=$prerender_resume" \
-      "$node_bin" \
-      "$script_dir/prerender_tiles.mjs"
+  for static_tile_style in "${static_tile_styles[@]}"; do
+    local style_id="${static_tile_style%%:*}"
+    local output_path="$static_tiles_root/${static_tile_style#*:}"
+    run_command "$dry_run" mkdir -p "$output_path"
+    run_command \
+      "$dry_run" \
+      env \
+        "LOCAL_TOPO_PRERENDER_BASE_URL=$runtime_base_url" \
+        "LOCAL_TOPO_PRERENDER_OUTPUT_ROOT=$output_path" \
+        "LOCAL_TOPO_PRERENDER_STYLE_ID=$style_id" \
+        "LOCAL_TOPO_PRERENDER_MIN_ZOOM=$prerender_min_zoom" \
+        "LOCAL_TOPO_PRERENDER_MAX_ZOOM=$prerender_max_zoom" \
+        "LOCAL_TOPO_PRERENDER_BOUNDS=$prerender_bounds" \
+        "LOCAL_TOPO_PRERENDER_CONCURRENCY=$prerender_concurrency" \
+        "LOCAL_TOPO_PRERENDER_SKIP_EXISTING=$prerender_resume" \
+        "$node_bin" \
+        "$script_dir/prerender_tiles.mjs"
+  done
 
   if [ "$dry_run" -eq 0 ] && [ -n "$container_name" ]; then
     stop_prerender_tileserver "$container_name"

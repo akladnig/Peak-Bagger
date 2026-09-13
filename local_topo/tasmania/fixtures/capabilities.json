@@ -1,6 +1,6 @@
 {
   "service": "peak-bagger-local-topo",
-  "version": 1,
+  "version": 2,
   "basemaps": [
     {
       "key": "localTopo",
@@ -9,6 +9,28 @@
         {
           "regionKey": "tasmania",
           "tilePathTemplate": "/tasmania/local-topo/{z}/{x}/{y}.png"
+        }
+      ]
+    }
+  ],
+  "overlays": [
+    {
+      "key": "terrainReliefShading",
+      "label": "Terrain relief shading",
+      "regions": [
+        {
+          "regionKey": "tasmania",
+          "tilePathTemplate": "/tasmania/terrain-relief-shading/{z}/{x}/{y}.png"
+        }
+      ]
+    },
+    {
+      "key": "contourLines",
+      "label": "Contour lines",
+      "regions": [
+        {
+          "regionKey": "tasmania",
+          "tilePathTemplate": "/tasmania/contour-lines/{z}/{x}/{y}.png"
         }
       ]
     }

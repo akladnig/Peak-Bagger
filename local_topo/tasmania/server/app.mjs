@@ -4,7 +4,20 @@ import { resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const capabilitiesFileUrl = new URL('../fixtures/capabilities.json', import.meta.url);
-const tileRoutePattern = /^\/tasmania\/local-topo\/(\d+)\/(\d+)\/(\d+)\.png$/;
+const tileRoutes = [
+  {
+    pattern: /^\/tasmania\/local-topo\/(\d+)\/(\d+)\/(\d+)\.png$/,
+    styleId: null,
+  },
+  {
+    pattern: /^\/tasmania\/terrain-relief-shading\/(\d+)\/(\d+)\/(\d+)\.png$/,
+    styleId: 'tasmania-terrain-relief-shading',
+  },
+  {
+    pattern: /^\/tasmania\/contour-lines\/(\d+)\/(\d+)\/(\d+)\.png$/,
+    styleId: 'tasmania-contour-lines',
+  },
+];
 const defaultDataSetId = 'tasmania-local-topo-smoke';
 
 async function loadCapabilities() {
@@ -120,8 +133,9 @@ export async function createApp({
       return;
     }
 
-    const tileMatch = tileRoutePattern.exec(requestUrl.pathname);
-    if (tileMatch == null) {
+    const tileRoute = tileRoutes.find(({ pattern }) => pattern.test(requestUrl.pathname));
+    const tileMatch = tileRoute?.pattern.exec(requestUrl.pathname);
+    if (tileMatch == null || tileRoute == null) {
       json(response, 404, { error: 'not-found' });
       return;
     }
@@ -139,7 +153,7 @@ export async function createApp({
       }
 
       const tileResponse = await fetch(
-        trimmedStyleId.length === 0
+        tileRoute.styleId == null && trimmedStyleId.length === 0
             ? buildTileserverTileUrl({
                 tileserverInternalUrl,
                 dataSetId,
@@ -150,7 +164,7 @@ export async function createApp({
               })
             : buildTileserverStyleTileUrl({
                 tileserverInternalUrl,
-                styleId: trimmedStyleId,
+                styleId: tileRoute.styleId ?? trimmedStyleId,
                 z,
                 x,
                 y,
@@ -162,7 +176,7 @@ export async function createApp({
       const contentType =
         tileResponse.headers.get('content-type') ?? 'application/octet-stream';
       const cacheControl =
-        trimmedStyleId.length === 0
+        tileRoute.styleId == null && trimmedStyleId.length === 0
           ? tileResponse.headers.get('cache-control') ?? 'public, max-age=300'
           : 'no-store';
 

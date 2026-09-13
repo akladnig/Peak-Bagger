@@ -47,6 +47,31 @@ bool isLocalTopoAvailableForBounds(
   return localTopoRegionKeysForBounds(bounds, snapshot: snapshot).isNotEmpty;
 }
 
+bool isTasmaniaOverlayEligible({
+  required LatLng point,
+  required LatLngBounds? visibleBounds,
+  LocalTopoCapabilitySnapshot? snapshot,
+}) {
+  final activeSnapshot = snapshot ?? localTopoRuntime.capabilitySnapshot;
+  if (activeSnapshot == null ||
+      regionManifestCatalog.regionKeyForPoint(point) != 'tasmania') {
+    return false;
+  }
+
+  final boundsIntersectTasmania =
+      visibleBounds != null &&
+      regionManifestCatalog
+          .regionsForBounds(visibleBounds)
+          .any((region) => region.key == 'tasmania');
+  if (!boundsIntersectTasmania) {
+    return false;
+  }
+
+  return activeSnapshot.overlayCapabilities.any(
+    (overlay) => overlay.resolveRegion('tasmania') != null,
+  );
+}
+
 List<RegionManifestBasemapData> basemapsForDrawer({
   required LatLng point,
   required LatLngBounds? visibleBounds,

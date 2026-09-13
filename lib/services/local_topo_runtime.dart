@@ -110,14 +110,87 @@ class LocalTopoRegionCapability {
   }
 }
 
+class LocalTopoOverlayCapability {
+  const LocalTopoOverlayCapability({
+    required this.key,
+    required this.label,
+    required this.regions,
+  });
+
+  final String key;
+  final String label;
+  final List<LocalTopoRegionCapability> regions;
+
+  LocalTopoRegionCapability? resolveRegion(String regionKey) {
+    for (final region in regions) {
+      if (region.regionKey == regionKey) {
+        return region;
+      }
+    }
+    return null;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'key': key,
+    'label': label,
+    'regions': [for (final region in regions) region.toJson()],
+  };
+
+  static LocalTopoOverlayCapability? tryParse(dynamic value) {
+    if (value is! Map) {
+      return null;
+    }
+
+    final key = value['key'];
+    final label = value['label'];
+    if (key is! String ||
+        label is! String ||
+        !_hasAcceptedKeyAndLabel(key, label) ||
+        value['regions'] is! List) {
+      return null;
+    }
+
+    final regions = <LocalTopoRegionCapability>[];
+    final seenRegionKeys = <String>{};
+    for (final region in value['regions'] as List) {
+      final parsed = LocalTopoRegionCapability.tryParse(region);
+      if (parsed == null || !seenRegionKeys.add(parsed.regionKey)) {
+        return null;
+      }
+      regions.add(parsed);
+    }
+    if (regions.isEmpty) {
+      return null;
+    }
+    regions.sort((left, right) => left.regionKey.compareTo(right.regionKey));
+    return LocalTopoOverlayCapability(
+      key: key,
+      label: label,
+      regions: List.unmodifiable(regions),
+    );
+  }
+
+  static bool _hasAcceptedKeyAndLabel(String key, String label) {
+    return (key == 'terrainReliefShading' &&
+            label == 'Terrain relief shading') ||
+        (key == 'contourLines' && label == 'Contour lines');
+  }
+}
+
 class LocalTopoCapabilitySnapshot {
   const LocalTopoCapabilitySnapshot({
     required this.baseUrl,
     required this.regions,
+    this.overlays,
   });
 
   final Uri baseUrl;
   final List<LocalTopoRegionCapability> regions;
+  // Null retains the stored v1 shape; an empty list is a validated v2 response.
+  final List<LocalTopoOverlayCapability>? overlays;
+
+  List<LocalTopoOverlayCapability> get overlayCapabilities =>
+      overlays ?? const [];
 
   Set<String> get supportedRegionKeys => {
     for (final region in regions) region.regionKey,
@@ -141,8 +214,10 @@ class LocalTopoCapabilitySnapshot {
     }
 
     final version = decoded['version'];
-    if (version is! int || version != 1) {
-      throw const FormatException('Local topo capabilities version must be 1.');
+    if (version is! int || (version != 1 && version != 2)) {
+      throw const FormatException(
+        'Local topo capabilities version must be 1 or 2.',
+      );
     }
 
     final basemaps = decoded['basemaps'];
@@ -202,9 +277,12 @@ class LocalTopoCapabilitySnapshot {
       (left, right) => left.regionKey.compareTo(right.regionKey),
     );
 
+    final overlays = version == 2 ? _parseOverlays(decoded['overlays']) : null;
+
     return LocalTopoCapabilitySnapshot(
       baseUrl: baseUrl,
       regions: List.unmodifiable(acceptedRegions),
+      overlays: overlays,
     );
   }
 
@@ -252,10 +330,44 @@ class LocalTopoCapabilitySnapshot {
       (left, right) => left.regionKey.compareTo(right.regionKey),
     );
 
+    final overlaysValue = decoded['overlays'];
+    if (overlaysValue != null && overlaysValue is! List) {
+      throw const FormatException(
+        'Stored local topo snapshot overlays must be a list.',
+      );
+    }
+
     return LocalTopoCapabilitySnapshot(
       baseUrl: baseUrl,
       regions: List.unmodifiable(acceptedRegions),
+      overlays: overlaysValue == null ? null : _parseOverlays(overlaysValue),
     );
+  }
+
+  static List<LocalTopoOverlayCapability> _parseOverlays(dynamic value) {
+    if (value is! List) {
+      throw const FormatException(
+        'Local topo capabilities overlays must be a list.',
+      );
+    }
+
+    final parsedByKey = <String, LocalTopoOverlayCapability>{};
+    final invalidKeys = <String>{};
+    for (final declaration in value) {
+      final parsed = LocalTopoOverlayCapability.tryParse(declaration);
+      if (parsed == null || invalidKeys.contains(parsed.key)) {
+        continue;
+      }
+      if (parsedByKey.containsKey(parsed.key)) {
+        parsedByKey.remove(parsed.key);
+        invalidKeys.add(parsed.key);
+        continue;
+      }
+      parsedByKey[parsed.key] = parsed;
+    }
+    final overlays = parsedByKey.values.toList()
+      ..sort((left, right) => left.key.compareTo(right.key));
+    return List.unmodifiable(overlays);
   }
 
   String? resolvedTileUrlTemplate({String? regionKey}) {
@@ -291,11 +403,33 @@ class LocalTopoCapabilitySnapshot {
     return false;
   }
 
+  LocalTopoOverlayCapability? overlayByKey(String key) {
+    for (final overlay in overlayCapabilities) {
+      if (overlay.key == key) {
+        return overlay;
+      }
+    }
+    return null;
+  }
+
+  String? resolvedOverlayTileUrlTemplate({
+    required String key,
+    required String regionKey,
+  }) {
+    return overlayByKey(
+      key,
+    )?.resolveRegion(regionKey)?.resolveTileUrlTemplate(baseUrl);
+  }
+
   Map<String, dynamic> toJson() {
-    return {
+    final json = <String, dynamic>{
       'baseUrl': baseUrl.toString(),
       'regions': [for (final region in regions) region.toJson()],
     };
+    if (overlays != null) {
+      json['overlays'] = [for (final overlay in overlays!) overlay.toJson()];
+    }
+    return json;
   }
 }
 

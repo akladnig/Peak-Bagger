@@ -9,6 +9,7 @@ import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
+import 'package:peak_bagger/services/local_topo_overlay_tile_provider.dart';
 import 'package:peak_bagger/services/map_grid_geometry.dart';
 import 'package:peak_bagger/services/map_ruler_scale.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
@@ -119,6 +120,34 @@ TileLayer buildBasemapTileLayer(
           tileProvider: resolvedTileProvider,
           userAgentPackageName: userAgentPackageName,
         );
+}
+
+TileLayer? buildStandaloneOverlayTileLayer({
+  required LocalTopoCapabilitySnapshot snapshot,
+  required String overlayKey,
+  required int opacityPercent,
+  TileProvider? tileProvider,
+}) {
+  final urlTemplate = snapshot.resolvedOverlayTileUrlTemplate(
+    key: overlayKey,
+    regionKey: 'tasmania',
+  );
+  if (urlTemplate == null) {
+    return null;
+  }
+
+  return TileLayer(
+    key: Key('standalone-overlay-layer-$overlayKey'),
+    urlTemplate: urlTemplate,
+    tileProvider:
+        tileProvider ??
+        OverlayTileProvider(
+          overlayKey: overlayKey,
+          reporter: OverlayTileOutageReporter(),
+        ),
+    tileBuilder: (context, tileWidget, tile) =>
+        Opacity(opacity: opacityPercent / 100, child: tileWidget),
+  );
 }
 
 int _maxNativeZoomForBasemap(Basemap basemap) {

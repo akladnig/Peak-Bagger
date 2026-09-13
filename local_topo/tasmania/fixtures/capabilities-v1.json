@@ -1,0 +1,16 @@
+{
+  "service": "peak-bagger-local-topo",
+  "version": 1,
+  "basemaps": [
+    {
+      "key": "localTopo",
+      "label": "Local Topo",
+      "regions": [
+        {
+          "regionKey": "tasmania",
+          "tilePathTemplate": "/tasmania/local-topo/{z}/{x}/{y}.png"
+        }
+      ]
+    }
+  ]
+}

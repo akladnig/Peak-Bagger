@@ -99,6 +99,7 @@ function* tileCoordinates(plans) {
 async function main() {
   const baseUrl = new URL(requireEnv('LOCAL_TOPO_PRERENDER_BASE_URL'));
   const outputRoot = requireEnv('LOCAL_TOPO_PRERENDER_OUTPUT_ROOT');
+  const styleId = process.env.LOCAL_TOPO_PRERENDER_STYLE_ID?.trim() || 'tasmania-local-topo';
   const minZoom = parseIntegerEnv('LOCAL_TOPO_PRERENDER_MIN_ZOOM', 0);
   const maxZoom = parseIntegerEnv('LOCAL_TOPO_PRERENDER_MAX_ZOOM', 16);
   const concurrency = parseIntegerEnv('LOCAL_TOPO_PRERENDER_CONCURRENCY', 8);
@@ -141,7 +142,7 @@ async function main() {
         continue;
       }
 
-      const tileUrl = new URL(`/styles/tasmania-local-topo/${z}/${x}/${y}.png`, baseUrl);
+      const tileUrl = new URL(`/styles/${styleId}/${z}/${x}/${y}.png`, baseUrl);
       const response = await fetch(tileUrl);
       if (!response.ok) {
         throw new Error(`Failed to prerender ${tileUrl.pathname}: HTTP ${response.status}`);

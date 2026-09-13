@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/local_topo_settings_provider.dart';
+import 'package:peak_bagger/providers/local_topo_overlay_outage_provider.dart';
+import 'package:peak_bagger/providers/local_topo_overlay_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -221,6 +223,37 @@ void main() {
     expect(state.validationStatus, LocalTopoValidationStatus.invalidUrlSyntax);
     expect(state.savedBaseUrlText, isEmpty);
   });
+
+  test(
+    'successful capability validation resets overlay outage suppression',
+    () async {
+      final container = _buildContainer(
+        client: _FakeHttpClient(
+          (_) async => http.Response(jsonEncode(_capabilitiesJson()), 200),
+        ),
+      );
+      addTearDown(container.dispose);
+      final messages = <String>[];
+      final subscription = container
+          .read(localTopoOverlayOutageReporterProvider)
+          .messages
+          .listen(messages.add);
+      addTearDown(subscription.cancel);
+      final reporter = container.read(localTopoOverlayOutageReporterProvider);
+
+      reporter.report(terrainReliefShadingOverlayKey);
+      await container
+          .read(localTopoSettingsProvider.notifier)
+          .saveAndValidate('http://127.0.0.1:8090');
+      reporter.report(terrainReliefShadingOverlayKey);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(messages, [
+        'Terrain relief shading is unavailable from the local tile server',
+        'Terrain relief shading is unavailable from the local tile server',
+      ]);
+    },
+  );
 }
 
 ProviderContainer _buildContainer({
