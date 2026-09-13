@@ -123,6 +123,22 @@ void main() {
     expect(lineChart.data.maxY, 1400);
   });
 
+  testWidgets('floors the lower bound so all elevation samples are visible', (
+    tester,
+  ) async {
+    final series = ElevationProfileSeriesBuilder.fromRoutePoints(
+      points: const [LatLng(0, 0), LatLng(0, 0.01)],
+      elevations: const [1151, 1390],
+    );
+
+    await _pumpChart(tester, series);
+
+    final lineChart = tester.widget<LineChart>(find.byType(LineChart));
+    expect(lineChart.data.minY, 1100);
+    expect(lineChart.data.maxY, 1400);
+    expect(find.text('1175'), findsOneWidget);
+  });
+
   testWidgets('disables time mode when timestamps are missing', (tester) async {
     final series = ElevationProfileSeriesBuilder.fromRoutePoints(
       points: const [LatLng(0, 0), LatLng(0, 0.01)],

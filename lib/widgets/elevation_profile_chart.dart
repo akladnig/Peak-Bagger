@@ -659,7 +659,7 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
     final rawMin = minElevation ?? values.reduce(math.min);
     final rawMax = maxElevation ?? values.reduce(math.max);
     final place = _elevationPlace(rawMax.abs());
-    var minY = (rawMin / place).roundToDouble() * place;
+    var minY = (rawMin / place).floorToDouble() * place;
     var maxY = (rawMax / place).ceilToDouble() * place;
     if (maxY <= minY) {
       maxY = minY + (place * 4);
