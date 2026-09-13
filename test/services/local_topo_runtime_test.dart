@@ -47,7 +47,7 @@ void main() {
     },
   );
 
-  test('capability parser accepts the v1 fixture contract', () {
+  test('capability parser accepts the v2 fixture contract', () {
     final decoded = jsonDecode(
       File('local_topo/tasmania/fixtures/capabilities.json').readAsStringSync(),
     );
@@ -63,6 +63,79 @@ void main() {
       snapshot.resolvedTileUrlTemplate(),
       'http://127.0.0.1:8090/tasmania/local-topo/{z}/{x}/{y}.png',
     );
+    expect(
+      snapshot.resolvedOverlayTileUrlTemplate(
+        key: 'terrainReliefShading',
+        regionKey: 'tasmania',
+      ),
+      'http://127.0.0.1:8090/tasmania/terrain-relief-shading/{z}/{x}/{y}.png',
+    );
+  });
+
+  test('capability parser keeps v1 snapshots valid without overlays', () {
+    final snapshot = LocalTopoCapabilitySnapshot.fromCapabilitiesResponse(
+      baseUrl: Uri.parse('http://127.0.0.1:8090'),
+      decoded: {
+        'service': 'peak-bagger-local-topo',
+        'version': 1,
+        'basemaps': [
+          {
+            'key': 'localTopo',
+            'label': 'Local Topo',
+            'regions': [
+              {
+                'regionKey': 'tasmania',
+                'tilePathTemplate': '/tasmania/local-topo/{z}/{x}/{y}.png',
+              },
+            ],
+          },
+        ],
+      },
+    );
+
+    expect(snapshot.overlays, isNull);
+    expect(snapshot.overlayCapabilities, isEmpty);
+    expect(snapshot.toJson().containsKey('overlays'), isFalse);
+  });
+
+  test('capability parser discards malformed overlays and duplicate keys', () {
+    final decoded =
+        jsonDecode(
+              File(
+                'local_topo/tasmania/fixtures/capabilities.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    final overlays = (decoded['overlays'] as List<dynamic>)
+      ..add({
+        'key': 'terrainReliefShading',
+        'label': 'Terrain relief shading',
+        'regions': [
+          {
+            'regionKey': 'tasmania',
+            'tilePathTemplate': '/duplicate/{z}/{x}/{y}.png',
+          },
+        ],
+      })
+      ..add({
+        'key': 'contourLines',
+        'label': 'Wrong label',
+        'regions': [
+          {
+            'regionKey': 'tasmania',
+            'tilePathTemplate': '/ignored/{z}/{x}/{y}.png',
+          },
+        ],
+      });
+    decoded['overlays'] = overlays;
+
+    final snapshot = LocalTopoCapabilitySnapshot.fromCapabilitiesResponse(
+      baseUrl: Uri.parse('http://127.0.0.1:8090'),
+      decoded: decoded,
+    );
+
+    expect(snapshot.overlayByKey('terrainReliefShading'), isNull);
+    expect(snapshot.overlayByKey('contourLines'), isNotNull);
   });
 
   test(

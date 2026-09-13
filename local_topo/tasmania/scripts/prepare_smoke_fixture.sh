@@ -6,8 +6,11 @@ source "$script_dir/_common.sh"
 
 ensure_stack_dirs
 
-mkdir -p "$(dirname "$smoke_static_tile_path")"
-perl -e 'print pack("H*", shift)' "$smoke_png_hex" > "$smoke_static_tile_path"
+for route in local-topo terrain-relief-shading contour-lines; do
+  smoke_tile_path="$smoke_static_tile_root/tasmania/$route/0/0/0.png"
+  mkdir -p "$(dirname "$smoke_tile_path")"
+  perl -e 'print pack("H*", shift)' "$smoke_png_hex" > "$smoke_tile_path"
+done
 
 printf 'Prepared static smoke fixture: %s\n' "$smoke_static_tile_path"
 

@@ -1,0 +1,23 @@
+{
+  "version": 8,
+  "name": "Peak Bagger Tasmania terrain relief shading overlay",
+  "sources": {
+    "tasmania-relief": {
+      "type": "raster",
+      "url": "mbtiles://{tasmania-relief}",
+      "tileSize": 256
+    }
+  },
+  "layers": [
+    {
+      "id": "terrain-relief-shading",
+      "type": "raster",
+      "source": "tasmania-relief",
+      "paint": {
+        "raster-saturation": -1,
+        "raster-contrast": 0.2,
+        "raster-brightness-max": 0.92
+      }
+    }
+  ]
+}

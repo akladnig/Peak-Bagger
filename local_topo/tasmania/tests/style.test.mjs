@@ -484,6 +484,38 @@ test('canonical richer Local Topo style includes relief, labels, and no mountain
   assert.equal(sourceLayers.includes('mountain_peak'), false);
 });
 
+test('standalone overlay styles render only prepared DEM artifacts', async () => {
+  const [reliefStyle, contourStyle] = await Promise.all([
+    loadJson('styles/local-topo/terrain-relief-shading.json'),
+    loadJson('styles/local-topo/contour-lines.json'),
+  ]);
+  const contourModuloFilter = ['%', ['to-number', ['get', 'elev']], 100];
+
+  assert.deepEqual(Object.keys(reliefStyle.sources), ['tasmania-relief']);
+  assert.deepEqual(reliefStyle.layers.map((layer) => layer.id), ['terrain-relief-shading']);
+  assert.equal(reliefStyle.layers[0]?.type, 'raster');
+  assert.equal(reliefStyle.layers[0]?.source, 'tasmania-relief');
+
+  assert.deepEqual(Object.keys(contourStyle.sources), ['tasmania-contours']);
+  assert.deepEqual(
+    contourStyle.layers.map((layer) => layer.id),
+    ['contours', 'contours-intermediate-50m', 'contours-index-100m'],
+  );
+  assert.equal(contourStyle.layers.every((layer) => layer.type === 'line'), true);
+  assert.equal(contourStyle.layers.every((layer) => layer.source === 'tasmania-contours'), true);
+  assert.equal(contourStyle.layers.every((layer) => layer.type !== 'symbol'), true);
+  assert.equal(contourStyle.layers[0]?.minzoom, 13);
+  assert.deepEqual(contourStyle.layers[0]?.filter, [
+    'all',
+    ['!=', contourModuloFilter, 0],
+    ['!=', contourModuloFilter, 50],
+  ]);
+  assert.equal(contourStyle.layers[1]?.minzoom, 12);
+  assert.deepEqual(contourStyle.layers[1]?.filter, ['==', contourModuloFilter, 50]);
+  assert.equal(contourStyle.layers[2]?.minzoom, 12);
+  assert.deepEqual(contourStyle.layers[2]?.filter, ['==', contourModuloFilter, 0]);
+});
+
 test('Martin preview import preserves area-mapped islets for labels', async () => {
   const importStyle = await readFile(
     join(stackRoot, 'config/osm2pgsql/preview-flex.lua'),
