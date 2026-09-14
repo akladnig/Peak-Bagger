@@ -423,6 +423,42 @@ void main() {
     );
   });
 
+  testWidgets('rebuild creates a new tile provider', (tester) async {
+    final repository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 10,
+        basemap: Basemap.tasmapTopo,
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(() => notifier),
+          tasmapStateProvider.overrideWith(
+            () => TestTasmapNotifier(repository),
+          ),
+          tasmapRepositoryProvider.overrideWithValue(repository),
+        ],
+        child: const MaterialApp(home: MapScreen()),
+      ),
+    );
+    await tester.pump();
+
+    final firstProvider = tester
+        .widget<TileLayer>(find.byType(TileLayer))
+        .tileProvider;
+    notifier.toggleTracks();
+    await tester.pump();
+
+    expect(
+      tester.widget<TileLayer>(find.byType(TileLayer)).tileProvider,
+      isNot(same(firstProvider)),
+    );
+  });
+
   testWidgets('peak layer defaults on and none selection hides it', (
     tester,
   ) async {

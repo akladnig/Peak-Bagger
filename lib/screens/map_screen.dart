@@ -207,8 +207,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
   int? _cachedRouteHoverDisplayZoom;
   List<app_route.Route>? _cachedRouteHoverRoutes;
   List<RouteHoverCandidate>? _cachedRouteHoverCandidates;
-  Basemap? _cachedTileProviderBasemap;
-  TileProvider? _cachedTileProvider;
   StreamSubscription<String>? _overlayOutageSubscription;
   int _driveEtaRequestId = 0;
   @override
@@ -4383,31 +4381,21 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   TileProvider _buildTileProviderForBasemap(Basemap basemap) {
-    final cachedProvider = _cachedTileProvider;
-    if (_cachedTileProviderBasemap == basemap && cachedProvider != null) {
-      return cachedProvider;
+    if (basemap == Basemap.localTopo ||
+        TileCacheService.getStoreForBasemap(basemap) == null) {
+      return buildNetworkTileProviderForBasemap(basemap);
     }
 
-    final previousProvider = cachedProvider;
-    final nextProvider =
-        basemap == Basemap.localTopo ||
-            TileCacheService.getStoreForBasemap(basemap) == null
-        ? buildNetworkTileProviderForBasemap(basemap)
-        : FMTCTileProvider(
-            stores: {basemap.name: BrowseStoreStrategy.readUpdateCreate},
-            loadingStrategy: BrowseLoadingStrategy.cacheFirst,
-            recordHitsAndMisses: false,
-            headers: mapTileHeaders(basemap),
-            urlTransformer: (url) =>
-                TileCacheService.transformBrowseUrl(basemap, url),
-          );
-
-    _cachedTileProviderBasemap = basemap;
-    _cachedTileProvider = nextProvider;
-    if (previousProvider != null) {
-      previousProvider.dispose();
-    }
-    return nextProvider;
+    // TileLayer owns and disposes its provider. Reusing an FMTC provider after
+    // a rebuild would reuse the HTTP client that the previous layer closed.
+    return FMTCTileProvider(
+      stores: {basemap.name: BrowseStoreStrategy.readUpdateCreate},
+      loadingStrategy: BrowseLoadingStrategy.cacheFirst,
+      recordHitsAndMisses: false,
+      headers: mapTileHeaders(basemap),
+      urlTransformer: (url) =>
+          TileCacheService.transformBrowseUrl(basemap, url),
+    );
   }
 
   Widget _buildPeakInfoPopup(BuildContext context, PeakInfoContent content) {
