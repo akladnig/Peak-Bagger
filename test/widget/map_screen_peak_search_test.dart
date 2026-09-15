@@ -9,6 +9,7 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -18,6 +19,7 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/map_search_region_filter.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/widgets/map_search_popup.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -342,6 +344,138 @@ void main() {
     expect(find.text('Enter a valid date or date range'), findsOneWidget);
     expect(find.byKey(const Key('map-search-result-track-1')), findsNothing);
   });
+
+  testWidgets('typed dates keep raw text and synchronize the active range', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      _mapStateWithPeaks(),
+      gpxTrackRepository: GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([
+          _track(1, 'Bonnet dated walk', trackDate: DateTime(1962, 7, 28)),
+          _track(2, 'Other dated walk', trackDate: DateTime(1962, 7, 30)),
+        ]),
+      ),
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(
+            baggedId: 1,
+            peakId: 6406,
+            gpxId: 1,
+            date: DateTime(1962, 7, 28),
+          ),
+        ]),
+      ),
+    );
+    await _pumpMapAppWithNotifier(tester, notifier);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+    final input = find.byKey(const Key('map-search-input'));
+
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+    await tester.pumpAndSettle();
+
+    for (final query in ['28/7/62', '28/07/1962', '28 Jul 62', '28 JUL 1962']) {
+      await tester.enterText(input, query);
+      await tester.pump();
+
+      expect(container.read(mapProvider).searchPopupQuery, isEmpty);
+      expect(tester.widget<TextField>(input).controller!.text, query);
+      expect(find.text('28 Jul 1962'), findsOneWidget);
+      expect(
+        find.byKey(const Key('map-search-result-track-1')),
+        findsOneWidget,
+      );
+    }
+
+    await tester.enterText(input, '28 Jul 62..30 Jul 62');
+    await tester.pump();
+    expect(find.text('28 Jul 1962 - 30 Jul 1962'), findsOneWidget);
+    expect(find.byKey(const Key('map-search-result-track-2')), findsOneWidget);
+    expect(
+      find.byKey(const Key('map-search-result-peak-6406')),
+      findsOneWidget,
+    );
+
+    await tester.enterText(input, '28/7/62 - 30/7/62');
+    await tester.pump();
+    expect(find.text('28 Jul 1962 - 30 Jul 1962'), findsOneWidget);
+  });
+
+  testWidgets(
+    'typed date replacements clear only typed ranges and reject invalid input',
+    (tester) async {
+      final notifier = TestMapNotifier(
+        _mapStateWithPeaks(),
+        gpxTrackRepository: GpxTrackRepository.test(
+          InMemoryGpxTrackStorage([
+            _track(1, 'Bonnet dated walk', trackDate: DateTime(1962, 7, 28)),
+          ]),
+        ),
+      );
+      await _pumpMapAppWithNotifier(tester, notifier);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('map-interaction-region'))),
+      );
+      final input = find.byKey(const Key('map-search-input'));
+
+      await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+      await tester.pumpAndSettle();
+      await tester.enterText(input, '28 Jul 62');
+      await tester.pump();
+      expect(container.read(mapProvider).searchPopupTrackDateRange, isNotNull);
+
+      await tester.enterText(input, '28 Jul');
+      await tester.pump();
+      expect(container.read(mapProvider).searchPopupTrackDateRange, isNull);
+      expect(
+        find.byKey(const Key('map-search-date-query-validation')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('map-search-result-track-1')), findsNothing);
+
+      await tester.enterText(input, '123 Peak');
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(
+        find.byKey(const Key('map-search-date-query-validation')),
+        findsNothing,
+      );
+      expect(container.read(mapProvider).searchPopupQuery, '123 Peak');
+
+      await tester.enterText(input, 'Bonnet 28 Jul 62');
+      await tester.pump(const Duration(milliseconds: 250));
+      expect(container.read(mapProvider).searchPopupTrackDateRange, isNull);
+      expect(container.read(mapProvider).searchPopupQuery, 'Bonnet 28 Jul 62');
+
+      await tester.enterText(input, '28 Jul 62');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('map-search-date-trigger')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('map-search-date-start-input')));
+      await tester.enterText(
+        find.byKey(const Key('map-search-date-start-input')),
+        '28 Jul 1962',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('map-search-date-apply')));
+      await tester.pumpAndSettle();
+      expect(container.read(mapProvider).searchPopupTrackDateRange, isNotNull);
+      expect(tester.widget<TextField>(input).controller!.text, isEmpty);
+
+      await tester.enterText(input, 'B');
+      await tester.pump();
+      expect(container.read(mapProvider).searchPopupTrackDateRange, isNotNull);
+      expect(
+        find.byKey(const Key('map-search-result-track-1')),
+        findsOneWidget,
+      );
+
+      await tester.enterText(input, '');
+      await tester.pump();
+      expect(container.read(mapProvider).searchPopupTrackDateRange, isNotNull);
+    },
+  );
 
   testWidgets(
     'Search popup keeps empty queries blank, shows helper under threshold, and only shows no-results after a real search',

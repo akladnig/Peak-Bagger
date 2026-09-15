@@ -157,19 +157,21 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
     final dateQuery = const TrackDateQueryParser().parseQuery(value);
     switch (dateQuery.kind) {
       case TrackDateQueryKind.valid:
-        _hasTypedTrackDateRange = true;
-        _isDateQueryInvalid = false;
+        setState(() {
+          _hasTypedTrackDateRange = true;
+          _isDateQueryInvalid = false;
+        });
         widget.onSelectTrackDateRange(dateQuery.range);
         widget.onChanged('');
         return;
       case TrackDateQueryKind.invalidDateLike:
         _clearTypedTrackDateRange();
-        _isDateQueryInvalid = true;
+        setState(() => _isDateQueryInvalid = true);
         widget.onChanged('');
         return;
       case TrackDateQueryKind.nonDateLike:
         _clearTypedTrackDateRange();
-        _isDateQueryInvalid = false;
+        setState(() => _isDateQueryInvalid = false);
     }
     final trimmedQuery = value.trim();
     if (trimmedQuery.isEmpty ||
@@ -344,7 +346,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
     if (!_hasTypedTrackDateRange) {
       return;
     }
-    _hasTypedTrackDateRange = false;
+    setState(() => _hasTypedTrackDateRange = false);
     widget.onSelectTrackDateRange(null);
   }
 
@@ -395,8 +397,13 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                             autofocus: _shouldAutofocusSearchInput,
                             decoration: InputDecoration(
                               labelText: 'Search',
-                              errorText: _isDateQueryInvalid
-                                  ? 'Enter a valid date or date range'
+                              error: _isDateQueryInvalid
+                                  ? const Text(
+                                      'Enter a valid date or date range',
+                                      key: Key(
+                                        'map-search-date-query-validation',
+                                      ),
+                                    )
                                   : null,
                               labelStyle: const TextStyle(
                                 fontSize: searchControlFontSize,
