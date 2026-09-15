@@ -79,6 +79,45 @@ void main() {
     expect(find.text('No results found'), findsOneWidget);
   });
 
+  testWidgets('typed track date searches by range and rejects invalid dates', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      _mapStateWithPeaks(),
+      gpxTrackRepository: GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([
+          _track(1, 'Dated Track', trackDate: DateTime(2024, 7, 28)),
+        ]),
+      ),
+    );
+    await _pumpMapAppWithNotifier(tester, notifier);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('map-search-input')),
+      '28/7/24',
+    );
+    await tester.pump();
+
+    expect(container.read(mapProvider).searchPopupQuery, isEmpty);
+    expect(container.read(mapProvider).searchPopupTrackDateRange, isNotNull);
+    expect(find.byKey(const Key('map-search-result-track-1')), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('map-search-input')),
+      '29/2/2023',
+    );
+    await tester.pump();
+
+    expect(container.read(mapProvider).searchPopupTrackDateRange, isNull);
+    expect(find.text('Enter a valid date or date range'), findsOneWidget);
+    expect(find.byKey(const Key('map-search-result-track-1')), findsNothing);
+  });
+
   testWidgets(
     'Search popup keeps empty queries blank, shows helper under threshold, and only shows no-results after a real search',
     (tester) async {
@@ -991,7 +1030,7 @@ Tasmap50k _alphaMap() {
   );
 }
 
-GpxTrack _track(int id, String name) {
+GpxTrack _track(int id, String name, {DateTime? trackDate}) {
   final segments = [
     [const LatLng(-43.0, 147.0), const LatLng(-43.001, 147.001)],
   ];
@@ -999,6 +1038,7 @@ GpxTrack _track(int id, String name) {
     gpxTrackId: id,
     contentHash: '$id',
     trackName: name,
+    trackDate: trackDate,
     displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(segments),
     distance2d: 1200,
     distance3d: 1230,

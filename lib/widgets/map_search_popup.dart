@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/services/map_search_region_filter.dart';
+import 'package:peak_bagger/services/track_date_query_parser.dart';
 
 import '../core/constants.dart';
 import '../core/widgets/popup_shell.dart';
@@ -20,6 +21,7 @@ class MapSearchPopup extends StatefulWidget {
     required this.isLoadingMore,
     required this.isExhausted,
     required this.searchQuery,
+    required this.trackDateRange,
     required this.entityFilter,
     required this.selectedRegionKey,
     required this.sort,
@@ -27,6 +29,7 @@ class MapSearchPopup extends StatefulWidget {
     required this.availableRegions,
     required this.onChanged,
     required this.onSelectEntityFilter,
+    required this.onSelectTrackDateRange,
     required this.onSelectRegionKey,
     required this.onSelectSort,
     required this.onSelectGroup,
@@ -41,6 +44,7 @@ class MapSearchPopup extends StatefulWidget {
   final bool isLoadingMore;
   final bool isExhausted;
   final String searchQuery;
+  final TrackDateRange? trackDateRange;
   final MapSearchEntityFilter entityFilter;
   final String? selectedRegionKey;
   final MapSearchSort sort;
@@ -48,6 +52,7 @@ class MapSearchPopup extends StatefulWidget {
   final List<MapSearchRegionOption> availableRegions;
   final ValueChanged<String> onChanged;
   final ValueChanged<MapSearchEntityFilter> onSelectEntityFilter;
+  final ValueChanged<TrackDateRange?> onSelectTrackDateRange;
   final ValueChanged<String?> onSelectRegionKey;
   final ValueChanged<MapSearchSort> onSelectSort;
   final ValueChanged<MapSearchGroup> onSelectGroup;
@@ -66,6 +71,8 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   Timer? _searchDebounceTimer;
   double? _popupWidth;
   String _pendingQuery = '';
+  bool _hasTypedTrackDateRange = false;
+  bool _isDateQueryInvalid = false;
 
   @override
   void initState() {
@@ -123,6 +130,23 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   void _handleQueryChanged(String value) {
     _pendingQuery = value;
     _searchDebounceTimer?.cancel();
+    final dateQuery = const TrackDateQueryParser().parseQuery(value);
+    switch (dateQuery.kind) {
+      case TrackDateQueryKind.valid:
+        _hasTypedTrackDateRange = true;
+        _isDateQueryInvalid = false;
+        widget.onSelectTrackDateRange(dateQuery.range);
+        widget.onChanged('');
+        return;
+      case TrackDateQueryKind.invalidDateLike:
+        _clearTypedTrackDateRange();
+        _isDateQueryInvalid = true;
+        widget.onChanged('');
+        return;
+      case TrackDateQueryKind.nonDateLike:
+        _clearTypedTrackDateRange();
+        _isDateQueryInvalid = false;
+    }
     final trimmedQuery = value.trim();
     if (trimmedQuery.isEmpty ||
         trimmedQuery.length < MapConstants.searchPopupMinimumQueryLength) {
@@ -135,6 +159,14 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
       }
       widget.onChanged(value);
     });
+  }
+
+  void _clearTypedTrackDateRange() {
+    if (!_hasTypedTrackDateRange) {
+      return;
+    }
+    _hasTypedTrackDateRange = false;
+    widget.onSelectTrackDateRange(null);
   }
 
   void _flushPendingQuery() {
@@ -173,6 +205,9 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                 autofocus: true,
                 decoration: InputDecoration(
                   labelText: 'Search',
+                  errorText: _isDateQueryInvalid
+                      ? 'Enter a valid date or date range'
+                      : null,
                   labelStyle: const TextStyle(fontSize: searchControlFontSize),
                   isDense: true,
                   border: OutlineInputBorder(
@@ -386,6 +421,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                 child: MapSearchResultsList(
                   key: ValueKey((
                     widget.searchQuery,
+                    widget.trackDateRange,
                     widget.entityFilter,
                     widget.selectedRegionKey,
                     widget.sort,
@@ -395,6 +431,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                   isLoadingMore: widget.isLoadingMore,
                   isExhausted: widget.isExhausted,
                   searchQuery: widget.searchQuery,
+                  isTrackDateRangeActive: widget.trackDateRange != null,
                   sort: widget.sort,
                   group: widget.group,
                   onLoadMore: widget.onLoadMore,

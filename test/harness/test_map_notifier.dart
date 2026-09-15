@@ -23,6 +23,7 @@ import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/services/track_date_query_parser.dart';
 import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/models/waypoints.dart';
@@ -30,6 +31,7 @@ import 'package:peak_bagger/core/number_formatters.dart';
 
 typedef _SearchPopupCriteria = ({
   String query,
+  TrackDateRange? trackDateRange,
   MapSearchEntityFilter entityFilter,
   String? regionKey,
   MapSearchSort sort,
@@ -908,6 +910,14 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
+  void setSearchPopupTrackDateRange(TrackDateRange? trackDateRange) {
+    _refreshSearchPopupResults(
+      trackDateRange: trackDateRange,
+      trackDateRangeChanged: true,
+    );
+  }
+
+  @override
   void setSearchPopupRegionKey(String? regionKey) {
     _refreshSearchPopupResults(regionKey: regionKey, regionKeyChanged: true);
   }
@@ -924,6 +934,8 @@ class TestMapNotifier extends MapNotifier {
 
   void _refreshSearchPopupResults({
     String? query,
+    TrackDateRange? trackDateRange,
+    bool trackDateRangeChanged = false,
     MapSearchEntityFilter? entityFilter,
     String? regionKey,
     bool regionKeyChanged = false,
@@ -932,6 +944,9 @@ class TestMapNotifier extends MapNotifier {
   }) {
     final criteria = (
       query: query ?? state.searchPopupQuery,
+      trackDateRange: trackDateRangeChanged
+          ? trackDateRange
+          : (trackDateRange ?? state.searchPopupTrackDateRange),
       entityFilter: entityFilter ?? state.searchPopupEntityFilter,
       regionKey: regionKeyChanged
           ? regionKey
@@ -942,6 +957,7 @@ class TestMapNotifier extends MapNotifier {
     _searchPopupRequestSerial += 1;
     final page = _buildSearchPopupService().searchPage(
       query: criteria.query,
+      trackDateRange: criteria.trackDateRange,
       entityFilter: criteria.entityFilter,
       regionKey: criteria.regionKey,
       sort: criteria.sort,
@@ -950,6 +966,9 @@ class TestMapNotifier extends MapNotifier {
     );
     state = state.copyWith(
       searchPopupQuery: criteria.query,
+      searchPopupTrackDateRange: criteria.trackDateRange,
+      clearSearchPopupTrackDateRange:
+          trackDateRangeChanged && criteria.trackDateRange == null,
       searchPopupResults: page.results,
       searchPopupLoadedCount: page.results.length,
       searchPopupIsLoadingMore: false,
@@ -982,6 +1001,7 @@ class TestMapNotifier extends MapNotifier {
 
     final page = _buildSearchPopupService().searchPage(
       query: criteria.query,
+      trackDateRange: criteria.trackDateRange,
       entityFilter: criteria.entityFilter,
       regionKey: criteria.regionKey,
       sort: criteria.sort,
@@ -1012,11 +1032,15 @@ class TestMapNotifier extends MapNotifier {
       routeRepository:
           routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
       tasmapRepository: ref.read(tasmapRepositoryProvider),
+      peaksBaggedRepository:
+          peaksBaggedRepository ??
+          PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
     );
   }
 
   _SearchPopupCriteria _searchPopupCriteria({
     String? query,
+    TrackDateRange? trackDateRange,
     MapSearchEntityFilter? entityFilter,
     String? regionKey,
     MapSearchSort? sort,
@@ -1024,6 +1048,7 @@ class TestMapNotifier extends MapNotifier {
   }) {
     return (
       query: query ?? state.searchPopupQuery,
+      trackDateRange: trackDateRange ?? state.searchPopupTrackDateRange,
       entityFilter: entityFilter ?? state.searchPopupEntityFilter,
       regionKey: regionKey ?? state.searchPopupRegionKey,
       sort: sort ?? state.searchPopupSort,

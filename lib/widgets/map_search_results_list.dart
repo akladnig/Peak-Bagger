@@ -11,6 +11,7 @@ class MapSearchResultsList extends StatefulWidget {
     required this.isLoadingMore,
     required this.isExhausted,
     required this.searchQuery,
+    required this.isTrackDateRangeActive,
     required this.sort,
     required this.group,
     required this.onLoadMore,
@@ -22,6 +23,7 @@ class MapSearchResultsList extends StatefulWidget {
   final bool isLoadingMore;
   final bool isExhausted;
   final String searchQuery;
+  final bool isTrackDateRangeActive;
   final MapSearchSort sort;
   final MapSearchGroup group;
   final VoidCallback onLoadMore;
@@ -54,8 +56,9 @@ class _MapSearchResultsListState extends State<MapSearchResultsList> {
     if (widget.isLoadingMore ||
         widget.isExhausted ||
         widget.searchResults.isEmpty ||
-        widget.searchQuery.trim().length <
-            MapConstants.searchPopupMinimumQueryLength) {
+        (!widget.isTrackDateRangeActive &&
+            widget.searchQuery.trim().length <
+                MapConstants.searchPopupMinimumQueryLength)) {
       return;
     }
     final remaining = metrics.maxScrollExtent - metrics.pixels;
@@ -134,11 +137,12 @@ class _MapSearchResultsListState extends State<MapSearchResultsList> {
       );
     }
 
-    if (trimmedQuery.isEmpty) {
+    if (trimmedQuery.isEmpty && !widget.isTrackDateRangeActive) {
       return const SizedBox.shrink();
     }
 
-    if (trimmedQuery.length < MapConstants.searchPopupMinimumQueryLength) {
+    if (!widget.isTrackDateRangeActive &&
+        trimmedQuery.length < MapConstants.searchPopupMinimumQueryLength) {
       return Padding(
         padding: const EdgeInsets.all(8),
         child: Text(
@@ -147,7 +151,7 @@ class _MapSearchResultsListState extends State<MapSearchResultsList> {
       );
     }
 
-    if (trimmedQuery.isNotEmpty) {
+    if (trimmedQuery.isNotEmpty || widget.isTrackDateRangeActive) {
       return const Padding(
         padding: EdgeInsets.all(8),
         child: Text('No results found'),
