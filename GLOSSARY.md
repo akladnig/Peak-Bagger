@@ -12,6 +12,38 @@ _Avoid_: Flutter template, SDK template
 An imported `GpxTrack` that represents a completed recorded walk.
 _Avoid_: route when referring to historical walk data
 
+**Track date**:
+The canonical calendar day recorded for a completed `Track`, stored as `GpxTrack.trackDate`.
+_Avoid_: GPX timestamp when the search or display is concerned with the walk's day
+
+**Peak elevation**:
+The stored metres-above-sea-level value on a `Peak`, used when comparing a peak to recorded GPX elevation.
+_Avoid_: height when precision matters
+
+**Peak correlation**:
+The association of a `Peak` with a completed `Track` based on their recorded location and elevation data.
+_Avoid_: peak match when referring to the persisted track association
+
+**PeaksBagged**:
+The derived entity that records one bagged-peak association between a `Peak` and a completed `Track`.
+_Avoid_: using direct track-to-peak relations when the persisted bagged-peak association is required
+
+**Route-graph way**:
+An imported OpenStreetMap `way` with a `highway` tag that is accepted into the route graph, including paths, tracks, and footways.
+_Avoid_: road when the full route-graph highway set is meant
+
+**Routing coverage**:
+The set of one or more canonical manifest regions whose highway data is imported together as one route graph.
+_Avoid_: using region alone when distinguishing an individual source region from a multi-region route graph
+
+**Northeast Alps routing coverage**:
+The routing coverage composed of the FVG, Veneto, and Slovenia source regions.
+_Avoid_: Italy North East when the coverage includes Slovenia
+
+**Route-graph manifest**:
+The persisted record for one routing coverage and its active route-graph generation.
+_Avoid_: treating the manifest as a single app-wide route-graph record
+
 **Route**:
 A planned path saved in the app for future use, separate from a completed imported walk.
 _Avoid_: track when referring to planned geometry
@@ -167,6 +199,10 @@ _Avoid_: preview zoom cap, style zoom cap
 **Contour cartography**:
 The committed style-layer presentation of contour data in Tasmania preview or `Local Topo` rendering, separate from the DEM-driven contour vector tile generation workflow.
 _Avoid_: contour generation, contour source build
+
+**Contour lines**:
+A reusable DEM-derived line overlay that can be independently displayed over an app basemap.
+_Avoid_: Contour cartography when referring to the standalone overlay
 
 **50 m contour**:
 An emphasized intermediate contour line in Tasmania `Contour cartography`, visually distinct from minor contour lines and separate from the `100 m contour` tier.
