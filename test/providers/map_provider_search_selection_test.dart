@@ -9,6 +9,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/services/track_date_query_parser.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -303,9 +304,66 @@ void main() {
       expect(state.searchPopupGroup, MapSearchGroup.none);
     },
   );
+
+  test('track date range resets popup paging and is transient', () async {
+    final tasmapRepository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      gpxTrackRepository: GpxTrackRepository.test(
+        InMemoryGpxTrackStorage(
+          List.generate(
+            50,
+            (index) => _track(
+              index + 1,
+              'Track $index',
+              trackDate: DateTime(2024, 7, 28),
+            ),
+          ),
+        ),
+      ),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        mapProvider.overrideWith(() => notifier),
+        tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    final mapNotifier = container.read(mapProvider.notifier);
+    mapNotifier.openSearchPopup();
+    mapNotifier.setSearchPopupTrackDateRange(
+      const TrackDateRange(
+        start: TrackCalendarDay(2024, 7, 28),
+        end: TrackCalendarDay(2024, 7, 28),
+      ),
+    );
+
+    var state = container.read(mapProvider);
+    expect(state.searchPopupTrackDateRange, isNotNull);
+    expect(state.searchPopupLoadedCount, 20);
+    expect(state.searchPopupIsExhausted, isFalse);
+
+    await mapNotifier.loadMoreSearchPopupResults();
+    expect(container.read(mapProvider).searchPopupLoadedCount, 40);
+
+    mapNotifier.setSearchPopupTrackDateRange(null);
+    state = container.read(mapProvider);
+    expect(state.searchPopupTrackDateRange, isNull);
+    expect(state.searchPopupResults, isEmpty);
+    expect(state.searchPopupLoadedCount, 0);
+    expect(state.searchPopupIsExhausted, isTrue);
+
+    mapNotifier.closeSearchPopup();
+    expect(container.read(mapProvider).searchPopupTrackDateRange, isNull);
+  });
 }
 
-GpxTrack _track(int id, String name) {
+GpxTrack _track(int id, String name, {DateTime? trackDate}) {
   final segments = [
     [const LatLng(-43.0, 147.0), const LatLng(-43.001, 147.001)],
   ];
@@ -313,6 +371,7 @@ GpxTrack _track(int id, String name) {
     gpxTrackId: id,
     contentHash: '$id',
     trackName: name,
+    trackDate: trackDate,
     displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(segments),
   );
 }

@@ -6,14 +6,17 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/map_search_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/services/track_date_query_parser.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
 
 import '../harness/test_tasmap_repository.dart';
@@ -44,6 +47,9 @@ void main() {
         gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
         routeRepository: RouteRepository.test(InMemoryRouteStorage()),
         tasmapRepository: tasmapRepository,
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage(),
+        ),
       );
 
       final page = service.searchPage(
@@ -56,6 +62,129 @@ void main() {
       expect(page.results, isEmpty);
       expect(page.isExhausted, isTrue);
       expect(MapConstants.searchPopupMinimumQueryLength, 3);
+    },
+  );
+
+  test(
+    'date range returns matching tracks and distinct bagged peaks',
+    () async {
+      final service = await _service(
+        peaks: [_peak(100, 'Bagged Peak')],
+        tracks: [
+          _track(1, 'Matched Track', trackDate: DateTime.utc(2024, 7, 28, 23)),
+          _track(2, 'Other Track', trackDate: DateTime.utc(2024, 7, 30)),
+          _track(3, 'Undated Track'),
+        ],
+        baggedRows: [
+          PeaksBagged(peakId: 100, gpxId: 1, date: DateTime(1990, 1, 1)),
+          PeaksBagged(peakId: 100, gpxId: 1),
+        ],
+      );
+
+      final page = service.searchPage(
+        query: '',
+        trackDateRange: const TrackDateRange(
+          start: TrackCalendarDay(2024, 7, 28),
+          end: TrackCalendarDay(2024, 7, 29),
+        ),
+        entityFilter: MapSearchEntityFilter.all,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.none,
+        offset: 0,
+      );
+
+      expect(page.results.map((result) => result.title), [
+        'Bagged Peak',
+        'Matched Track',
+      ]);
+    },
+  );
+
+  test(
+    'date range applies entity filters optional names and pagination',
+    () async {
+      final range = const TrackDateRange(
+        start: TrackCalendarDay(2024, 7, 28),
+        end: TrackCalendarDay(2024, 7, 28),
+      );
+      final service = await _service(
+        peaks: [
+          Peak(
+            id: 900,
+            osmId: -7,
+            name: 'Alpine Peak',
+            latitude: -43,
+            longitude: 147,
+            elevation: 410,
+            region: 'tasmania',
+          ),
+        ],
+        tracks: List.generate(
+          25,
+          (index) => _track(
+            index + 1,
+            'Alpine Track ${index.toString().padLeft(2, '0')}',
+            trackDate: DateTime(2024, 7, 28),
+          ),
+        ),
+        routes: [_route(1, 'Alpine Route')],
+        maps: [_resolvedMapNamed('Alpine Map', 'TS01')],
+        baggedRows: [PeaksBagged(peakId: -7, gpxId: 1)],
+      );
+
+      final allPage = service.searchPage(
+        query: '',
+        trackDateRange: range,
+        entityFilter: MapSearchEntityFilter.all,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.type,
+        offset: 0,
+      );
+      final secondPage = service.searchPage(
+        query: '',
+        trackDateRange: range,
+        entityFilter: MapSearchEntityFilter.tracksRoutes,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.none,
+        offset: 20,
+      );
+      final peakPage = service.searchPage(
+        query: 'peak',
+        trackDateRange: range,
+        entityFilter: MapSearchEntityFilter.peaks,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.none,
+        offset: 0,
+      );
+      final mapPage = service.searchPage(
+        query: '',
+        trackDateRange: range,
+        entityFilter: MapSearchEntityFilter.maps,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.none,
+        offset: 0,
+      );
+
+      expect(allPage.results, hasLength(20));
+      expect(allPage.isExhausted, isFalse);
+      expect(
+        allPage.results.map((result) => result.type),
+        isNot(contains(MapSearchResultType.route)),
+      );
+      expect(
+        allPage.results.map((result) => result.type),
+        isNot(contains(MapSearchResultType.map)),
+      );
+      expect(secondPage.results, hasLength(5));
+      expect(
+        secondPage.results.every(
+          (result) => result.type == MapSearchResultType.track,
+        ),
+        isTrue,
+      );
+      expect(secondPage.isExhausted, isTrue);
+      expect(peakPage.results.single.id, '-7');
+      expect(mapPage.results, isEmpty);
     },
   );
 
@@ -299,6 +428,9 @@ void main() {
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: RouteRepository.test(InMemoryRouteStorage()),
       tasmapRepository: tasmapRepository,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
     );
 
     final page = service.searchPage(
@@ -556,6 +688,9 @@ void main() {
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: RouteRepository.test(InMemoryRouteStorage()),
       tasmapRepository: tasmapRepository,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage(),
+      ),
     );
 
     final results = service.search(
@@ -608,6 +743,7 @@ Future<MapSearchService> _service({
   List<GpxTrack> tracks = const [],
   List<app_route.Route> routes = const [],
   List<Tasmap50k> maps = const [],
+  List<PeaksBagged> baggedRows = const [],
 }) async {
   final tasmapRepository = await TestTasmapRepository.create(maps: maps);
   return MapSearchService(
@@ -617,6 +753,9 @@ Future<MapSearchService> _service({
     ),
     routeRepository: RouteRepository.test(InMemoryRouteStorage(routes)),
     tasmapRepository: tasmapRepository,
+    peaksBaggedRepository: PeaksBaggedRepository.test(
+      InMemoryPeaksBaggedStorage(baggedRows),
+    ),
   );
 }
 
@@ -631,11 +770,11 @@ Peak _peak(int osmId, String name) {
   );
 }
 
-GpxTrack _track(int id, String name) {
-  return _trackAt(id, name, const LatLng(-43.0, 147.0));
+GpxTrack _track(int id, String name, {DateTime? trackDate}) {
+  return _trackAt(id, name, const LatLng(-43.0, 147.0), trackDate: trackDate);
 }
 
-GpxTrack _trackAt(int id, String name, LatLng start) {
+GpxTrack _trackAt(int id, String name, LatLng start, {DateTime? trackDate}) {
   final segments = [
     [start, LatLng(start.latitude - 0.001, start.longitude + 0.001)],
   ];
@@ -643,6 +782,7 @@ GpxTrack _trackAt(int id, String name, LatLng start) {
     gpxTrackId: id,
     contentHash: '$id',
     trackName: name,
+    trackDate: trackDate,
     displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(segments),
     distance2d: 1200,
     distance3d: 1230,

@@ -10,9 +10,11 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/map_search_region_filter.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
+import 'package:peak_bagger/services/track_date_query_parser.dart';
 
 class MapSearchService {
   static const popupPageSize = 20;
@@ -22,12 +24,14 @@ class MapSearchService {
     required this._gpxTrackRepository,
     required this._routeRepository,
     required this._tasmapRepository,
+    required this._peaksBaggedRepository,
   });
 
   final PeakRepository _peakRepository;
   final GpxTrackRepository _gpxTrackRepository;
   final RouteRepository _routeRepository;
   final TasmapRepository _tasmapRepository;
+  final PeaksBaggedRepository _peaksBaggedRepository;
 
   List<Peak> searchPeaks(String query) {
     final trimmedQuery = query.trim();
@@ -45,6 +49,7 @@ class MapSearchService {
     required MapSearchEntityFilter entityFilter,
     required MapSearchSort sort,
     String? regionKey,
+    TrackDateRange? trackDateRange,
   }) {
     return searchPage(
       query: query,
@@ -52,6 +57,7 @@ class MapSearchService {
       sort: sort,
       regionKey: regionKey,
       group: MapSearchGroup.none,
+      trackDateRange: trackDateRange,
       offset: 0,
       limit: popupPageSize,
     ).results;
@@ -65,10 +71,12 @@ class MapSearchService {
     String? regionKey,
     required int offset,
     int limit = popupPageSize,
+    TrackDateRange? trackDateRange,
   }) {
     final trimmedQuery = query.trim();
-    if (trimmedQuery.isEmpty ||
-        trimmedQuery.length < MapConstants.searchPopupMinimumQueryLength) {
+    if (trackDateRange == null &&
+        (trimmedQuery.isEmpty ||
+            trimmedQuery.length < MapConstants.searchPopupMinimumQueryLength)) {
       return const MapSearchPage(results: [], isExhausted: true);
     }
 
@@ -77,7 +85,8 @@ class MapSearchService {
       return const MapSearchPage(results: [], isExhausted: true);
     }
 
-    if (entityFilter == MapSearchEntityFilter.peaks &&
+    if (trackDateRange == null &&
+        entityFilter == MapSearchEntityFilter.peaks &&
         group == MapSearchGroup.none) {
       return _peakPage(
         trimmedQuery,
@@ -88,13 +97,22 @@ class MapSearchService {
       );
     }
 
-    final entries = _orderedEntries(
-      query: trimmedQuery,
-      entityFilter: entityFilter,
-      regionKey: regionKey,
-      sort: sort,
-      group: group,
-    );
+    final entries = trackDateRange == null
+        ? _orderedEntries(
+            query: trimmedQuery,
+            entityFilter: entityFilter,
+            regionKey: regionKey,
+            sort: sort,
+            group: group,
+          )
+        : _orderedRangeEntries(
+            query: trimmedQuery,
+            range: trackDateRange,
+            entityFilter: entityFilter,
+            regionKey: regionKey,
+            sort: sort,
+            group: group,
+          );
 
     if (pageOffset >= entries.length) {
       return const MapSearchPage(results: [], isExhausted: true);
@@ -164,7 +182,11 @@ class MapSearchService {
         .toList(growable: false);
   }
 
-  MapSearchResult? _peakResult(Peak peak, {String? regionKey}) {
+  MapSearchResult? _peakResult(
+    Peak peak, {
+    String? regionKey,
+    DateTime? displayDate,
+  }) {
     final anchor = LatLng(peak.latitude, peak.longitude);
     final regionData = _regionForPoint(anchor, fallbackRegionKey: peak.region);
     final resolvedRegionKey = regionData?.key ?? peak.region;
@@ -190,6 +212,7 @@ class MapSearchService {
       trailingText: peak.elevation == null
           ? '—'
           : formatElevation(peak.elevation!.round()),
+      displayDate: displayDate,
       regionKey: displayRegionKey,
       regionName: displayRegionName,
       mapName: mapName,
@@ -420,6 +443,86 @@ class MapSearchService {
         (left, right) => _compareEntries(left, right, sort: sort, group: group),
       );
     return ordered;
+  }
+
+  List<_SearchPageEntry> _orderedRangeEntries({
+    required String query,
+    required TrackDateRange range,
+    required MapSearchEntityFilter entityFilter,
+    required String? regionKey,
+    required MapSearchSort sort,
+    required MapSearchGroup group,
+  }) {
+    if (entityFilter == MapSearchEntityFilter.maps ||
+        entityFilter == MapSearchEntityFilter.natural ||
+        entityFilter == MapSearchEntityFilter.roads) {
+      return const [];
+    }
+
+    final loweredQuery = query.toLowerCase();
+    final dateMatchedTracks = _gpxTrackRepository
+        .getAllTracks()
+        .where((track) => range.containsTrackDate(track.trackDate))
+        .toList(growable: false);
+    final tracks = dateMatchedTracks
+        .where(
+          (track) =>
+              loweredQuery.isEmpty ||
+              track.trackName.toLowerCase().contains(loweredQuery),
+        )
+        .toList(growable: false);
+    final matchingTrackIds = dateMatchedTracks
+        .map((track) => track.gpxTrackId)
+        .toSet();
+    final baggedRows = _peaksBaggedRepository
+        .getAll()
+        .where((baggedPeak) => matchingTrackIds.contains(baggedPeak.gpxId))
+        .toList(growable: false);
+    final baggedDatesByPeakId = <int, DateTime?>{};
+    for (final baggedRow in baggedRows) {
+      final currentDate = baggedDatesByPeakId[baggedRow.peakId];
+      final baggedDate = baggedRow.date;
+      if (!baggedDatesByPeakId.containsKey(baggedRow.peakId) ||
+          (baggedDate != null &&
+              (currentDate == null || baggedDate.isAfter(currentDate)))) {
+        baggedDatesByPeakId[baggedRow.peakId] = baggedDate;
+      }
+    }
+    final peakIds = baggedDatesByPeakId.keys;
+    final peaks = peakIds
+        .map(_peakRepository.findByOsmId)
+        .whereType<Peak>()
+        .where(
+          (peak) =>
+              loweredQuery.isEmpty ||
+              peak.name.toLowerCase().contains(loweredQuery),
+        )
+        .toList(growable: false);
+
+    final entries = <_SearchPageEntry>[
+      if (entityFilter == MapSearchEntityFilter.all ||
+          entityFilter == MapSearchEntityFilter.peaks)
+        ...peaks
+            .map(
+              (peak) => _peakResult(
+                peak,
+                regionKey: regionKey,
+                displayDate: baggedDatesByPeakId[peak.osmId],
+              ),
+            )
+            .whereType<MapSearchResult>()
+            .map(_SearchPageResultEntry.new),
+      if (entityFilter == MapSearchEntityFilter.all ||
+          entityFilter == MapSearchEntityFilter.tracksRoutes)
+        ...tracks
+            .map((track) => _trackResult(track, regionKey: regionKey))
+            .whereType<MapSearchResult>()
+            .map(_SearchPageResultEntry.new),
+    ];
+    entries.sort(
+      (left, right) => _compareEntries(left, right, sort: sort, group: group),
+    );
+    return entries;
   }
 
   List<_SearchPageEntry> _allPeakEntries(

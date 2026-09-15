@@ -8,6 +8,7 @@ import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -18,6 +19,7 @@ import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
@@ -32,8 +34,13 @@ class AppBarSearchRobot {
 
   Finder get searchTrigger => find.byKey(const Key('app-bar-search-trigger'));
   Finder get searchInput => find.byKey(const Key('map-search-input'));
+  Finder get dateTrigger => find.byKey(const Key('map-search-date-trigger'));
+  Finder get dateStartInput =>
+      find.byKey(const Key('map-search-date-start-input'));
+  Finder get dateApply => find.byKey(const Key('map-search-date-apply'));
 
   Future<void> pumpApp() async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
     final peakRepository = PeakRepository.test(
       InMemoryPeakStorage([_peak(6406, 'Bonnet Hill')]),
     );
@@ -49,9 +56,22 @@ class AppBarSearchRobot {
         peaks: [_peak(6406, 'Bonnet Hill')],
       ),
       gpxTrackRepository: GpxTrackRepository.test(
-        InMemoryGpxTrackStorage([_track(1, 'Bonnet Track')]),
+        InMemoryGpxTrackStorage([
+          _track(1, 'Bonnet Track', trackDate: DateTime(1962, 7, 28)),
+          _track(2, 'Range Track', trackDate: DateTime(1962, 7, 30)),
+        ]),
       ),
       peakRepository: peakRepository,
+      peaksBaggedRepository: PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(
+            baggedId: 1,
+            peakId: 6406,
+            gpxId: 1,
+            date: DateTime(1962, 7, 28),
+          ),
+        ]),
+      ),
       routeRepository: RouteRepository.test(
         InMemoryRouteStorage([_route(1, 'Bonnet Route')]),
       ),
@@ -105,13 +125,23 @@ class AppBarSearchRobot {
     await tester.pumpAndSettle();
   }
 
-  Future<void> tapPeakResult() async {
-    await tester.tap(find.byKey(const Key('map-search-result-peak-6406')));
+  Future<void> selectTrackDate(String date) async {
+    await tester.tap(dateTrigger);
+    await tester.pumpAndSettle();
+    await tester.tap(dateStartInput);
+    await tester.enterText(dateStartInput, date);
+    await tester.pump();
+    await tester.tap(dateApply);
     await tester.pumpAndSettle();
   }
 
-  Future<void> tapTrackResult() async {
-    await tester.tap(find.byKey(const Key('map-search-result-track-1')));
+  Future<void> tapPeakResult({int osmId = 6406}) async {
+    await tester.tap(find.byKey(Key('map-search-result-peak-$osmId')));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapTrackResult({int id = 1}) async {
+    await tester.tap(find.byKey(Key('map-search-result-track-$id')));
     await tester.pumpAndSettle();
   }
 
@@ -143,7 +173,7 @@ Peak _peak(int osmId, String name) {
   );
 }
 
-GpxTrack _track(int id, String name) {
+GpxTrack _track(int id, String name, {DateTime? trackDate}) {
   final segments = [
     [const LatLng(-43.0, 147.0), const LatLng(-43.001, 147.001)],
   ];
@@ -151,6 +181,7 @@ GpxTrack _track(int id, String name) {
     gpxTrackId: id,
     contentHash: '$id',
     trackName: name,
+    trackDate: trackDate,
     displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(segments),
     distance2d: 1200,
     distance3d: 1230,

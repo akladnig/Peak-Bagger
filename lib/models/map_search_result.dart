@@ -28,6 +28,7 @@ class MapSearchResult {
     required this.subtitle,
     required this.anchor,
     this.trailingText,
+    this.displayDate,
     this.regionKey,
     this.regionName,
     this.mapName,
@@ -43,6 +44,7 @@ class MapSearchResult {
     required String subtitle,
     required LatLng anchor,
     String? trailingText,
+    DateTime? displayDate,
     String? regionKey,
     String? regionName,
     String? mapName,
@@ -54,13 +56,14 @@ class MapSearchResult {
          subtitle: subtitle,
          anchor: anchor,
          trailingText: trailingText,
+         displayDate: displayDate,
          regionKey: regionKey,
          regionName: regionName,
          mapName: mapName,
          peak: peak,
        );
 
-  const MapSearchResult.track({
+  MapSearchResult.track({
     required String id,
     required String title,
     required String subtitle,
@@ -75,6 +78,7 @@ class MapSearchResult {
          title: title,
          subtitle: subtitle,
          anchor: anchor,
+         displayDate: track.startDateTime,
          regionKey: regionKey,
          regionName: regionName,
          mapName: mapName,
@@ -126,6 +130,7 @@ class MapSearchResult {
   final String title;
   final String subtitle;
   final String? trailingText;
+  final DateTime? displayDate;
   final LatLng anchor;
   final String? regionKey;
   final String? regionName;

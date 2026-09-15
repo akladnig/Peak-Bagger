@@ -2599,6 +2599,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
           showPeakSearch: state.showPeakSearch,
           searchResults: state.searchPopupResults,
           searchQuery: state.searchPopupQuery,
+          searchPopupTrackDateRange: state.searchPopupTrackDateRange,
           searchIsLoadingMore: state.searchPopupIsLoadingMore,
           searchIsExhausted: state.searchPopupIsExhausted,
           searchEntityFilter: state.searchPopupEntityFilter,
@@ -4150,6 +4151,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         isLoadingMore: routeChrome.searchIsLoadingMore,
                         isExhausted: routeChrome.searchIsExhausted,
                         searchQuery: routeChrome.searchQuery,
+                        trackDateRange: routeChrome.searchPopupTrackDateRange,
                         entityFilter: routeChrome.searchEntityFilter,
                         selectedRegionKey: routeChrome.searchRegionKey,
                         sort: routeChrome.searchSort,
@@ -4164,6 +4166,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           ref
                               .read(mapProvider.notifier)
                               .setSearchPopupEntityFilter(value);
+                        },
+                        onSelectTrackDateRange: (value) {
+                          ref
+                              .read(mapProvider.notifier)
+                              .setSearchPopupTrackDateRange(value);
                         },
                         onSelectRegionKey: (value) {
                           ref
