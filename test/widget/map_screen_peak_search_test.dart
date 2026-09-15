@@ -302,6 +302,16 @@ void main() {
       '28 Jul 1962',
     );
 
+    await tester.tap(find.byKey(const Key('map-search-date-end-today')));
+    await tester.pump();
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('map-search-date-end-input')))
+          .controller!
+          .text,
+      '28 Jul 1962',
+    );
+
     await tester.pumpWidget(const SizedBox.shrink());
     focusNode.dispose();
   });
@@ -352,7 +362,12 @@ void main() {
       _mapStateWithPeaks(),
       gpxTrackRepository: GpxTrackRepository.test(
         InMemoryGpxTrackStorage([
-          _track(1, 'Bonnet dated walk', trackDate: DateTime(1962, 7, 28)),
+          _track(
+            1,
+            'Bonnet dated walk',
+            trackDate: DateTime(1962, 7, 28),
+            startDateTime: DateTime(1962, 7, 28, 8),
+          ),
           _track(2, 'Other dated walk', trackDate: DateTime(1962, 7, 30)),
         ]),
       ),
@@ -382,9 +397,29 @@ void main() {
 
       expect(container.read(mapProvider).searchPopupQuery, isEmpty);
       expect(tester.widget<TextField>(input).controller!.text, query);
-      expect(find.text('28 Jul 1962'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('map-search-date-trigger')),
+          matching: find.text('28 Jul 1962'),
+        ),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const Key('map-search-result-track-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('map-search-result-track-1')),
+          matching: find.text('Bonnet dated walk · 28 Jul 1962'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('map-search-result-peak-6406')),
+          matching: find.text('Bonnet Hill · 28 Jul 1962'),
+        ),
         findsOneWidget,
       );
     }
@@ -1389,7 +1424,12 @@ Tasmap50k _alphaMap() {
   );
 }
 
-GpxTrack _track(int id, String name, {DateTime? trackDate}) {
+GpxTrack _track(
+  int id,
+  String name, {
+  DateTime? trackDate,
+  DateTime? startDateTime,
+}) {
   final segments = [
     [const LatLng(-43.0, 147.0), const LatLng(-43.001, 147.001)],
   ];
@@ -1398,6 +1438,7 @@ GpxTrack _track(int id, String name, {DateTime? trackDate}) {
     contentHash: '$id',
     trackName: name,
     trackDate: trackDate,
+    startDateTime: startDateTime,
     displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(segments),
     distance2d: 1200,
     distance3d: 1230,

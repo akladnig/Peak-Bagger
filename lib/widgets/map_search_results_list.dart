@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../core/constants.dart';
 
@@ -35,6 +36,7 @@ class MapSearchResultsList extends StatefulWidget {
 
 class _MapSearchResultsListState extends State<MapSearchResultsList> {
   static const _loadMoreThreshold = 120.0;
+  static final _resultDateFormat = DateFormat('d MMM yyyy', 'en_US');
 
   final _scrollController = ScrollController();
 
@@ -118,7 +120,9 @@ class _MapSearchResultsListState extends State<MapSearchResultsList> {
                   children: [
                     Expanded(
                       child: Text(
-                        result.title,
+                        result.displayDate == null
+                            ? result.title
+                            : '${result.title} · ${_resultDateFormat.format(result.displayDate!)}',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),

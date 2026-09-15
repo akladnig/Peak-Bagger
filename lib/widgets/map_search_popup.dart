@@ -311,6 +311,14 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
     });
   }
 
+  void _setDraftEndToToday() {
+    final now = widget.clock();
+    _setDraftDate(
+      isStart: false,
+      date: TrackCalendarDay(now.year, now.month, now.day),
+    );
+  }
+
   void _changeCalendarMonth({required bool isStart, required int delta}) {
     final currentMonth = isStart ? _startCalendarMonth : _endCalendarMonth;
     final nextMonth = _offsetMonth(currentMonth, delta);
@@ -779,19 +787,33 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
-          key: Key('map-search-date-${isStart ? 'start' : 'end'}-input'),
-          controller: controller,
-          decoration: InputDecoration(
-            labelText: '$prefix date',
-            hintText: 'd MMM yyyy',
-            errorText: error,
-            isDense: true,
-          ),
-          onChanged: (value) =>
-              _updateDraftFromText(isStart: isStart, value: value),
-          onSubmitted: (value) =>
-              _updateDraftFromText(isStart: isStart, value: value),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                key: Key('map-search-date-${isStart ? 'start' : 'end'}-input'),
+                controller: controller,
+                decoration: InputDecoration(
+                  labelText: '$prefix date',
+                  hintText: 'd MMM yyyy',
+                  errorText: error,
+                  isDense: true,
+                ),
+                onChanged: (value) =>
+                    _updateDraftFromText(isStart: isStart, value: value),
+                onSubmitted: (value) =>
+                    _updateDraftFromText(isStart: isStart, value: value),
+              ),
+            ),
+            if (!isStart) ...[
+              const SizedBox(width: 8),
+              TextButton(
+                key: const Key('map-search-date-end-today'),
+                onPressed: _setDraftEndToToday,
+                child: const Text('Today'),
+              ),
+            ],
+          ],
         ),
         if (error != null)
           Text(

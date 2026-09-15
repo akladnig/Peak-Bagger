@@ -182,7 +182,11 @@ class MapSearchService {
         .toList(growable: false);
   }
 
-  MapSearchResult? _peakResult(Peak peak, {String? regionKey}) {
+  MapSearchResult? _peakResult(
+    Peak peak, {
+    String? regionKey,
+    DateTime? displayDate,
+  }) {
     final anchor = LatLng(peak.latitude, peak.longitude);
     final regionData = _regionForPoint(anchor, fallbackRegionKey: peak.region);
     final resolvedRegionKey = regionData?.key ?? peak.region;
@@ -208,6 +212,7 @@ class MapSearchService {
       trailingText: peak.elevation == null
           ? '—'
           : formatElevation(peak.elevation!.round()),
+      displayDate: displayDate,
       regionKey: displayRegionKey,
       regionName: displayRegionName,
       mapName: mapName,
@@ -469,11 +474,21 @@ class MapSearchService {
     final matchingTrackIds = dateMatchedTracks
         .map((track) => track.gpxTrackId)
         .toSet();
-    final peakIds = _peaksBaggedRepository
+    final baggedRows = _peaksBaggedRepository
         .getAll()
         .where((baggedPeak) => matchingTrackIds.contains(baggedPeak.gpxId))
-        .map((baggedPeak) => baggedPeak.peakId)
-        .toSet();
+        .toList(growable: false);
+    final baggedDatesByPeakId = <int, DateTime?>{};
+    for (final baggedRow in baggedRows) {
+      final currentDate = baggedDatesByPeakId[baggedRow.peakId];
+      final baggedDate = baggedRow.date;
+      if (!baggedDatesByPeakId.containsKey(baggedRow.peakId) ||
+          (baggedDate != null &&
+              (currentDate == null || baggedDate.isAfter(currentDate)))) {
+        baggedDatesByPeakId[baggedRow.peakId] = baggedDate;
+      }
+    }
+    final peakIds = baggedDatesByPeakId.keys;
     final peaks = peakIds
         .map(_peakRepository.findByOsmId)
         .whereType<Peak>()
@@ -488,7 +503,13 @@ class MapSearchService {
       if (entityFilter == MapSearchEntityFilter.all ||
           entityFilter == MapSearchEntityFilter.peaks)
         ...peaks
-            .map((peak) => _peakResult(peak, regionKey: regionKey))
+            .map(
+              (peak) => _peakResult(
+                peak,
+                regionKey: regionKey,
+                displayDate: baggedDatesByPeakId[peak.osmId],
+              ),
+            )
             .whereType<MapSearchResult>()
             .map(_SearchPageResultEntry.new),
       if (entityFilter == MapSearchEntityFilter.all ||
