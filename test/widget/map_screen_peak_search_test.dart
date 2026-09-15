@@ -15,8 +15,10 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/map_search_region_filter.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/widgets/map_search_popup.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
@@ -77,6 +79,229 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
 
     expect(find.text('No results found'), findsOneWidget);
+  });
+
+  testWidgets(
+    'Track date picker applies a single date and an inclusive range',
+    (tester) async {
+      final notifier = TestMapNotifier(
+        _mapStateWithPeaks(),
+        gpxTrackRepository: GpxTrackRepository.test(
+          InMemoryGpxTrackStorage([
+            _track(1, 'First dated walk', trackDate: DateTime(2024, 7, 28)),
+            _track(2, 'Second dated walk', trackDate: DateTime(2024, 7, 30)),
+          ]),
+        ),
+      );
+      await _pumpMapAppWithNotifier(tester, notifier);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('map-interaction-region'))),
+      );
+
+      await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+      await tester.pumpAndSettle();
+      expect(find.text('Any date'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('map-search-date-trigger')));
+      await tester.pumpAndSettle();
+      final startInput = find.byKey(const Key('map-search-date-start-input'));
+      await tester.tap(startInput);
+      await tester.enterText(startInput, '28 Jul 2024');
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const Key('map-search-date-start-input')),
+            )
+            .controller!
+            .text,
+        '28 Jul 2024',
+      );
+      await tester.tap(find.byKey(const Key('map-search-date-apply')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('28 Jul 2024'), findsOneWidget);
+      expect(
+        find.byKey(const Key('map-search-result-track-1')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('map-search-result-track-2')), findsNothing);
+      expect(container.read(mapProvider).searchPopupTrackDateRange, isNotNull);
+
+      await tester.tap(find.byKey(const Key('map-search-date-trigger')));
+      await tester.pumpAndSettle();
+      final endInput = find.byKey(const Key('map-search-date-end-input'));
+      await tester.tap(endInput);
+      await tester.enterText(endInput, '30 Jul 2024');
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('map-search-date-apply')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('28 Jul 2024 - 30 Jul 2024'), findsOneWidget);
+      expect(
+        find.byKey(const Key('map-search-result-track-2')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('map-search-date-trigger')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('map-search-entity-all')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('map-search-date-picker')), findsNothing);
+      expect(find.text('28 Jul 2024 - 30 Jul 2024'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('map-search-date-trigger')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('map-search-date-close')));
+      await tester.pumpAndSettle();
+      expect(find.text('28 Jul 2024 - 30 Jul 2024'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('map-search-date-trigger')));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('map-search-date-picker')), findsNothing);
+      expect(find.byKey(const Key('map-search-input')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Track date picker keeps drafts local, navigates months, and clears in place',
+    (tester) async {
+      await _pumpMapApp(tester, _mapStateWithPeaks());
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('map-interaction-region'))),
+      );
+
+      await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('map-search-date-trigger')));
+      await tester.pumpAndSettle();
+      final initialMonth = tester.widget<Text>(
+        find.byKey(const Key('map-search-date-start-calendar-label')),
+      );
+      await tester.tap(
+        find.byKey(const Key('map-search-date-start-next-month')),
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const Key('map-search-date-start-calendar-label')),
+            )
+            .data,
+        isNot(initialMonth.data),
+      );
+
+      final endInput = find.byKey(const Key('map-search-date-end-input'));
+      await tester.tap(endInput);
+      await tester.enterText(endInput, '28 Jul 2024');
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const Key('map-search-date-start-input')),
+            )
+            .controller!
+            .text,
+        '28 Jul 2024',
+      );
+      await tester.tap(find.byKey(const Key('map-search-date-cancel')));
+      await tester.pumpAndSettle();
+
+      expect(container.read(mapProvider).searchPopupTrackDateRange, isNull);
+      expect(find.byKey(const Key('map-search-date-picker')), findsNothing);
+
+      await tester.tap(find.byKey(const Key('map-search-date-trigger')));
+      await tester.pumpAndSettle();
+      final startInput = find.byKey(const Key('map-search-date-start-input'));
+      await tester.tap(startInput);
+      await tester.enterText(startInput, '30 Jul 2024');
+      await tester.pump();
+      final reversedEndInput = find.byKey(
+        const Key('map-search-date-end-input'),
+      );
+      await tester.tap(reversedEndInput);
+      await tester.enterText(reversedEndInput, '28 Jul 2024');
+      await tester.pump();
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const Key('map-search-date-apply')),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      await tester.tap(find.byKey(const Key('map-search-date-clear')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('map-search-date-picker')), findsOneWidget);
+      expect(container.read(mapProvider).searchPopupTrackDateRange, isNull);
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const Key('map-search-date-start-input')),
+            )
+            .controller!
+            .text,
+        isEmpty,
+      );
+    },
+  );
+
+  testWidgets('Track date picker uses its injected clock for empty calendars', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    final focusNode = FocusNode();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MapSearchPopup(
+            focusNode: focusNode,
+            searchResults: const [],
+            isLoadingMore: false,
+            isExhausted: true,
+            searchQuery: '',
+            trackDateRange: null,
+            entityFilter: MapSearchEntityFilter.all,
+            selectedRegionKey: null,
+            sort: MapSearchSort.nameAscending,
+            group: MapSearchGroup.none,
+            availableRegions: const <MapSearchRegionOption>[],
+            onChanged: (_) {},
+            onSelectEntityFilter: (_) {},
+            onSelectTrackDateRange: (_) {},
+            onSelectRegionKey: (_) {},
+            onSelectSort: (_) {},
+            onSelectGroup: (_) {},
+            onLoadMore: () {},
+            onClose: () {},
+            onSelectResult: (_) {},
+            clock: () => DateTime(1962, 7, 28),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const Key('map-search-date-trigger')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Jul 1962'), findsNWidgets(2));
+    await tester.tap(find.byKey(const Key('map-search-date-start-day-28')));
+    await tester.pump();
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const Key('map-search-date-start-input')),
+          )
+          .controller!
+          .text,
+      '28 Jul 1962',
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    focusNode.dispose();
   });
 
   testWidgets('typed track date searches by range and rejects invalid dates', (
