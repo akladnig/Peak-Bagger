@@ -159,7 +159,7 @@ class GpxImporter {
     required Future<void> Function() applyDatabaseReplacement,
   }) async {
     final sourceFile = File(sourcePath);
-    final destinationPath = await _resolveReplacementDestinationPath(
+    final destinationPath = await resolveReplacementDestinationPath(
       sourcePath,
       replacementTrack,
     );
@@ -1078,7 +1078,11 @@ class GpxImporter {
     }
   }
 
-  Future<String> _resolveReplacementDestinationPath(
+  Future<bool> appendImportLog(String filePath, String reason) {
+    return _appendImportLog(filePath, reason);
+  }
+
+  Future<String> resolveReplacementDestinationPath(
     String sourcePath,
     GpxTrack replacementTrack,
   ) async {

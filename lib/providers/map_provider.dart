@@ -19,6 +19,7 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/route_marker_display.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/track_replacement_recovery_issue.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/models/waypoints.dart';
@@ -27,6 +28,7 @@ import 'package:peak_bagger/providers/route_planner_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/gpx_managed_file_operations.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/services/item_visibility_backfill_service.dart';
@@ -55,6 +57,7 @@ import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/track_date_query_parser.dart';
 import 'package:peak_bagger/services/track_derived_data_persistence.dart';
+import 'package:peak_bagger/services/track_replacement_recovery_issue_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/grid_reference_parser.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
@@ -1525,6 +1528,8 @@ class MapNotifier extends Notifier<MapState> {
     RoutePlanner? routePlanner,
     PeaksBaggedRepository? peaksBaggedRepository,
     TrackDerivedDataPersistence? trackDerivedDataPersistence,
+    GpxManagedFileOperations? managedFileOperations,
+    TrackReplacementRecoveryIssueStore? trackReplacementRecoveryIssueStore,
     WaypointsRepository? waypointsRepository,
     MigrationMarkerStore? migrationMarkerStore,
     PeakRegionAssetImportService? peakRegionAssetImportService,
@@ -1540,6 +1545,9 @@ class MapNotifier extends Notifier<MapState> {
        _injectedRoutePlanner = routePlanner,
        _injectedPeaksBaggedRepository = peaksBaggedRepository,
        _injectedTrackDerivedDataPersistence = trackDerivedDataPersistence,
+       _injectedManagedFileOperations = managedFileOperations,
+       _injectedTrackReplacementRecoveryIssueStore =
+           trackReplacementRecoveryIssueStore,
        _injectedWaypointsRepository = waypointsRepository,
        _injectedMigrationMarkerStore = migrationMarkerStore,
        _injectedPeakRegionAssetImportService = peakRegionAssetImportService;
@@ -1553,6 +1561,9 @@ class MapNotifier extends Notifier<MapState> {
   final RoutePlanner? _injectedRoutePlanner;
   final PeaksBaggedRepository? _injectedPeaksBaggedRepository;
   final TrackDerivedDataPersistence? _injectedTrackDerivedDataPersistence;
+  final GpxManagedFileOperations? _injectedManagedFileOperations;
+  final TrackReplacementRecoveryIssueStore?
+  _injectedTrackReplacementRecoveryIssueStore;
   final WaypointsRepository? _injectedWaypointsRepository;
   final MigrationMarkerStore? _injectedMigrationMarkerStore;
   final PeakRegionAssetImportService? _injectedPeakRegionAssetImportService;
@@ -1571,6 +1582,8 @@ class MapNotifier extends Notifier<MapState> {
   late final RoutePlanner _routePlanner;
   late final PeaksBaggedRepository _peaksBaggedRepository;
   late final TrackDerivedDataPersistence _trackDerivedDataPersistence;
+  late final TrackReplacementRecoveryIssueStore
+  _trackReplacementRecoveryIssueStore;
   WaypointsRepository? _waypointsRepository;
   late final MigrationMarkerStore _migrationMarkerStore;
   late final ItemVisibilityBackfillService _itemVisibilityBackfillService;
@@ -1722,6 +1735,11 @@ class MapNotifier extends Notifier<MapState> {
                 tracks: _gpxTrackRepository,
                 peaksBagged: _peaksBaggedRepository,
               ));
+    _trackReplacementRecoveryIssueStore =
+        _injectedTrackReplacementRecoveryIssueStore ??
+        (_injectedGpxTrackRepository == null
+            ? ObjectBoxTrackReplacementRecoveryIssueStore(objectboxStore)
+            : InMemoryTrackReplacementRecoveryIssueStore());
     _waypointsRepository =
         _injectedWaypointsRepository ?? _buildWaypointsRepository();
     final restoredMarker = _resolvedWaypointsRepository.getCurrentMarker();
@@ -1943,6 +1961,9 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   bool _hasTrackRecoveryIssue(List<GpxTrack> tracks) {
+    if (_trackReplacementRecoveryIssueStore.getPending() != null) {
+      return true;
+    }
     for (final track in tracks) {
       if (!track.hasValidOptimizedDisplayData()) {
         return true;
@@ -2089,6 +2110,11 @@ class MapNotifier extends Notifier<MapState> {
     if (state.isLoadingTracks) {
       throw Exception('Import already in progress');
     }
+    if (_trackReplacementRecoveryIssueStore.getPending() != null) {
+      throw StateError(
+        'Track operations are unavailable until recovery completes.',
+      );
+    }
 
     state = state.copyWith(
       isLoadingTracks: true,
@@ -2130,26 +2156,21 @@ class MapNotifier extends Notifier<MapState> {
         reportProgress();
       }
 
-      // Apply filter config
       final filterConfig = await ref.read(gpxFilterSettingsProvider.future);
+      final completedItems = <GpxTrackImportItem>[];
+      final executionErrors = <GpxTrackImportError>[];
+      var addedCount = 0;
+      var replacedCount = 0;
 
-      // Apply processing to each planned track
-      for (final item in plan.items.where((item) => !item.isReplacement)) {
-        final selection = importer.selectionForTrack(item.track);
-        final processed = importer.processTrack(
-          selection.xml,
-          filterConfig: filterConfig,
-        );
-        importer.applyProcessedTrackResult(item.track, processed);
-      }
-
-      // Persist tracks additively
-      final addedItems = <GpxTrackImportItem>[];
-      for (final item in plan.items.where((item) => !item.isReplacement)) {
+      for (final item in plan.items) {
         reportProgress(currentFileName: p.basename(item.sourcePath));
-
-        // Apply peak correlation
         try {
+          final selection = importer.selectionForTrack(item.track);
+          final processed = importer.processTrack(
+            selection.xml,
+            filterConfig: filterConfig,
+          );
+          importer.applyProcessedTrackResult(item.track, processed);
           final correlationSettings = await _peakCorrelationSettings();
           final correlationService = TrackPeakCorrelationService(
             peaks: _peakRepository.getAllPeaks(),
@@ -2163,71 +2184,327 @@ class MapNotifier extends Notifier<MapState> {
                 ? item.track.gpxFileRepaired
                 : item.track.gpxFile,
           );
+          if (item.isReplacement) {
+            final errorReason = await _replaceImportedTrack(
+              importer: importer,
+              item: item,
+            );
+            if (errorReason != null) {
+              executionErrors.add(
+                GpxTrackImportError(
+                  sourcePath: item.sourcePath,
+                  reason: errorReason,
+                ),
+              );
+              await importer.appendImportLog(item.sourcePath, errorReason);
+            } else {
+              completedItems.add(GpxTrackImportItem(track: item.track));
+              replacedCount += 1;
+            }
+          } else {
+            _gpxTrackRepository.putTrack(item.track);
+            if (item.shouldPlaceInManagedStorage &&
+                item.plannedManagedRelativePath != null) {
+              await _placeFileInManagedStorage(
+                sourcePath: item.sourcePath,
+                relativePath: item.plannedManagedRelativePath!,
+                track: item.track,
+              );
+            }
+            completedItems.add(GpxTrackImportItem(track: item.track));
+            addedCount += 1;
+          }
         } catch (_) {
-          // Correlation failed, but track is still valid - count as added
+          const reason =
+              'Cannot replace Track because the Track replacement could not be persisted.';
+          executionErrors.add(
+            GpxTrackImportError(sourcePath: item.sourcePath, reason: reason),
+          );
+          await importer.appendImportLog(item.sourcePath, reason);
         }
-
-        // Persist track
-        _gpxTrackRepository.putTrack(item.track);
-        addedItems.add(GpxTrackImportItem(track: item.track));
         completedCount += 1;
         reportProgress(currentFileName: p.basename(item.sourcePath));
       }
 
-      // Move files to managed storage
-      for (final item in plan.items) {
-        if (item.shouldPlaceInManagedStorage &&
-            item.plannedManagedRelativePath != null) {
-          try {
-            await _placeFileInManagedStorage(
-              sourcePath: item.sourcePath,
-              relativePath: item.plannedManagedRelativePath!,
-              track: item.track,
-            );
-          } catch (_) {
-            // Placement failed - track is persisted, recovery is pending.
-          }
-        }
-      }
-
-      // Refresh tracks from repository
       final allTracks = _gpxTrackRepository.getAllTracks();
-      if (addedItems.isNotEmpty) {
+      if (completedItems.isNotEmpty) {
         await _peaksBaggedRepository.syncFromTracks(allTracks);
         ref.read(peaksBaggedRevisionProvider.notifier).increment();
       }
 
-      final selectedImportedTrack = addedItems.isNotEmpty
-          ? addedItems.first.track
-          : null;
+      final replacementIds = plan.items
+          .where((item) => item.isReplacement)
+          .map((item) => item.track.gpxTrackId)
+          .toSet();
+      final selectedImportedTrack =
+          completedItems
+              .where((item) => replacementIds.contains(item.track.gpxTrackId))
+              .firstOrNull ??
+          completedItems.firstOrNull;
+      final errors = _orderedImportErrors(orderedPaths, [
+        ...plan.errors,
+        ...executionErrors,
+      ]);
+      final statusMessage =
+          'Added ${formatCount(addedCount)} tracks, replaced ${formatCount(replacedCount)} tracks, unchanged ${formatCount(plan.unchangedCount)} tracks, unsupported ${formatCount(plan.unsupportedCount)} tracks, errors ${formatCount(errors.length)} tracks';
 
       state = state.copyWith(
         tracks: allTracks,
         selectedTrackId:
-            selectedImportedTrack?.gpxTrackId ?? state.selectedTrackId,
+            selectedImportedTrack?.track.gpxTrackId ?? state.selectedTrackId,
         selectedTrackFocusSerial: selectedImportedTrack == null
             ? state.selectedTrackFocusSerial
             : state.selectedTrackFocusSerial + 1,
         isLoadingTracks: false,
+        hasTrackRecoveryIssue: _hasTrackRecoveryIssue(allTracks),
+        trackOperationStatus: statusMessage,
         clearHoveredTrackId: true,
       );
-      if (addedItems.isNotEmpty) {
+      if (completedItems.isNotEmpty) {
         refreshPeakInfoPopupContent();
       }
 
       return GpxTrackImportResult(
-        items: addedItems,
-        addedCount: addedItems.length,
-        replacedCount: 0,
+        items: completedItems,
+        addedCount: addedCount,
+        replacedCount: replacedCount,
         unchangedCount: plan.unchangedCount,
         unsupportedCount: plan.unsupportedCount,
-        errorCount: plan.errorCount,
-        errors: plan.errors,
+        errorCount: errors.length,
+        errors: errors,
         warningMessage: plan.warningMessage,
       );
     } catch (e) {
       state = state.copyWith(isLoadingTracks: false, clearHoveredTrackId: true);
       rethrow;
+    }
+  }
+
+  Future<String?> _replaceImportedTrack({
+    required GpxImporter importer,
+    required GpxTrackImportPlanItem item,
+  }) async {
+    final existing = item.replacedTrack!;
+    final replacement = item.track
+      ..gpxTrackId = existing.gpxTrackId
+      ..visible = existing.visible
+      ..trackColour = existing.trackColour;
+    final prior = _cloneTrack(existing);
+    final operations =
+        _injectedManagedFileOperations ?? IoGpxManagedFileOperations(importer);
+    String? destinationPath;
+    String? backupPath;
+    var incomingMoved = false;
+    var persisted = false;
+    var failureReason =
+        'Cannot replace Track because the managed-file rollback could not be completed.';
+
+    try {
+      try {
+        destinationPath = await operations.resolveReplacementDestination(
+          sourcePath: item.sourcePath,
+          replacementTrack: replacement,
+        );
+      } catch (_) {
+        return 'Cannot replace Track because its managed-file destination could not be resolved.';
+      }
+      backupPath = '$destinationPath.__bak';
+      if (operations.fileExists(destinationPath)) {
+        failureReason =
+            'Cannot replace Track because the existing managed file could not be backed up.';
+        try {
+          await operations.backupManagedFile(
+            destinationPath: destinationPath,
+            backupPath: backupPath,
+          );
+        } catch (_) {
+          return failureReason;
+        }
+      } else {
+        backupPath = null;
+      }
+
+      failureReason =
+          'Cannot replace Track because the incoming managed file could not be moved.';
+      try {
+        await operations.moveIncomingFile(
+          sourcePath: item.sourcePath,
+          destinationPath: destinationPath,
+        );
+        incomingMoved = true;
+      } catch (_) {
+        return _rollbackReplacement(
+          operations: operations,
+          sourcePath: item.sourcePath,
+          destinationPath: destinationPath,
+          backupPath: backupPath,
+          incomingMoved: incomingMoved,
+          persisted: persisted,
+          prior: prior,
+          replacement: replacement,
+          failureReason: failureReason,
+        );
+      }
+
+      failureReason =
+          'Cannot replace Track because the Track replacement could not be persisted.';
+      try {
+        _trackDerivedDataPersistence.replaceTrackAndSync(
+          existing: existing,
+          replacement: replacement,
+        );
+        persisted = true;
+      } catch (_) {
+        return await _rollbackReplacement(
+          operations: operations,
+          sourcePath: item.sourcePath,
+          destinationPath: destinationPath,
+          backupPath: backupPath,
+          incomingMoved: incomingMoved,
+          persisted: persisted,
+          prior: prior,
+          replacement: replacement,
+          failureReason: failureReason,
+        );
+      }
+
+      if (backupPath != null) {
+        failureReason =
+            'Cannot replace Track because the managed-file backup could not be removed.';
+        try {
+          await operations.removeBackup(backupPath);
+        } catch (_) {
+          return await _rollbackReplacement(
+            operations: operations,
+            sourcePath: item.sourcePath,
+            destinationPath: destinationPath,
+            backupPath: backupPath,
+            incomingMoved: incomingMoved,
+            persisted: persisted,
+            prior: prior,
+            replacement: replacement,
+            failureReason: failureReason,
+          );
+        }
+      }
+      return null;
+    } catch (_) {
+      if (destinationPath == null) {
+        return 'Cannot replace Track because its managed-file destination could not be resolved.';
+      }
+      return _rollbackReplacement(
+        operations: operations,
+        sourcePath: item.sourcePath,
+        destinationPath: destinationPath,
+        backupPath: backupPath,
+        incomingMoved: incomingMoved,
+        persisted: persisted,
+        prior: prior,
+        replacement: replacement,
+        failureReason: failureReason,
+      );
+    }
+  }
+
+  Future<String> _rollbackReplacement({
+    required GpxManagedFileOperations operations,
+    required String sourcePath,
+    required String destinationPath,
+    required String? backupPath,
+    required bool incomingMoved,
+    required bool persisted,
+    required GpxTrack prior,
+    required GpxTrack replacement,
+    required String failureReason,
+  }) async {
+    try {
+      if (persisted) {
+        _trackDerivedDataPersistence.replaceTrackAndSync(
+          existing: replacement,
+          replacement: prior,
+        );
+      }
+      if (incomingMoved) {
+        await operations.restoreIncomingFile(
+          destinationPath: destinationPath,
+          sourcePath: sourcePath,
+        );
+      }
+      if (backupPath != null) {
+        await operations.restoreManagedFile(
+          backupPath: backupPath,
+          destinationPath: destinationPath,
+        );
+      }
+      return failureReason;
+    } catch (_) {
+      const reason =
+          'Cannot replace Track because restoration could not be completed. Recovery is required.';
+      _trackReplacementRecoveryIssueStore.save(
+        TrackReplacementRecoveryIssue(
+          sourcePath: sourcePath,
+          destinationPath: destinationPath,
+          backupPath: backupPath,
+          reason: reason,
+        ),
+      );
+      return reason;
+    }
+  }
+
+  List<GpxTrackImportError> _orderedImportErrors(
+    List<String> orderedPaths,
+    List<GpxTrackImportError> errors,
+  ) {
+    final pathIndexes = <String, int>{
+      for (var index = 0; index < orderedPaths.length; index++)
+        orderedPaths[index]: index,
+    };
+    final ordered = List<GpxTrackImportError>.from(errors);
+    ordered.sort(
+      (left, right) => (pathIndexes[left.sourcePath] ?? orderedPaths.length)
+          .compareTo(pathIndexes[right.sourcePath] ?? orderedPaths.length),
+    );
+    return List<GpxTrackImportError>.unmodifiable(ordered);
+  }
+
+  Future<bool> recoverTrackReplacement() async {
+    final issue = _trackReplacementRecoveryIssueStore.getPending();
+    if (issue == null || state.isLoadingTracks) {
+      return false;
+    }
+    state = state.copyWith(isLoadingTracks: true, clearTrackImportError: true);
+    final operations =
+        _injectedManagedFileOperations ??
+        IoGpxManagedFileOperations(GpxImporter());
+    try {
+      if (operations.fileExists(issue.destinationPath)) {
+        await operations.restoreIncomingFile(
+          destinationPath: issue.destinationPath,
+          sourcePath: issue.sourcePath,
+        );
+      }
+      if (issue.backupPath != null) {
+        await operations.restoreManagedFile(
+          backupPath: issue.backupPath!,
+          destinationPath: issue.destinationPath,
+        );
+      }
+      _trackReplacementRecoveryIssueStore.clear();
+      state = state.copyWith(
+        isLoadingTracks: false,
+        hasTrackRecoveryIssue: _hasTrackRecoveryIssue(
+          _gpxTrackRepository.getAllTracks(),
+        ),
+      );
+      return true;
+    } catch (_) {
+      state = state.copyWith(
+        isLoadingTracks: false,
+        hasTrackRecoveryIssue: true,
+        trackImportError: issue.reason,
+      );
+      return false;
     }
   }
 
@@ -2513,6 +2790,9 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<TrackImportResult?> resetTrackData() async {
+    if (_trackReplacementRecoveryIssueStore.getPending() != null) {
+      return null;
+    }
     final result = await _importTracks(
       includeTasmaniaFolder: true,
       resetExisting: true,
@@ -2531,7 +2811,8 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<TrackNameNormalisationResult?> normaliseTrackNames() async {
-    if (state.isLoadingTracks) {
+    if (state.isLoadingTracks ||
+        _trackReplacementRecoveryIssueStore.getPending() != null) {
       return null;
     }
 
@@ -2560,7 +2841,8 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   Future<TrackStatisticsRecalcResult?> recalculateTrackStatistics() async {
-    if (state.isLoadingTracks) {
+    if (state.isLoadingTracks ||
+        _trackReplacementRecoveryIssueStore.getPending() != null) {
       return null;
     }
 
@@ -2680,7 +2962,8 @@ class MapNotifier extends Notifier<MapState> {
   Future<TrackStatisticsRecalcResult?> recalculateSelectedTrackStatistics(
     int trackId,
   ) async {
-    if (state.isLoadingTracks) {
+    if (state.isLoadingTracks ||
+        _trackReplacementRecoveryIssueStore.getPending() != null) {
       return null;
     }
 
@@ -2766,9 +3049,7 @@ class MapNotifier extends Notifier<MapState> {
       final replacement = _cloneTrack(existing);
       replacement.peaks
         ..clear()
-        ..addAll(
-          existing.peaks.where((peak) => peak.osmId != peakOsmId),
-        );
+        ..addAll(existing.peaks.where((peak) => peak.osmId != peakOsmId));
       _trackDerivedDataPersistence.replaceTrackAndSync(
         existing: existing,
         replacement: replacement,

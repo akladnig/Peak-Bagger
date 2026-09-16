@@ -241,6 +241,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ? null
                   : _confirmNormaliseTrackNames,
             ),
+            if (mapState.hasTrackRecoveryIssue)
+              ListTile(
+                key: const Key('recover-track-replacement-tile'),
+                leading: const Icon(Icons.restore),
+                title: const Text('Recover Track Replacement'),
+                subtitle: const Text(
+                  'Restore managed files from the interrupted replacement',
+                ),
+                trailing: mapState.isLoadingTracks
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : null,
+                onTap: mapState.isLoadingTracks
+                    ? null
+                    : _recoverTrackReplacement,
+              ),
             ListTile(
               key: const Key('track-speed-analysis-tile'),
               leading: const Icon(Icons.analytics_outlined),
@@ -1332,6 +1351,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _showNormaliseTrackNamesResult(result);
       }
     });
+  }
+
+  Future<void> _recoverTrackReplacement() async {
+    final recovered = await ref
+        .read(mapProvider.notifier)
+        .recoverTrackReplacement();
+    if (!mounted || recovered) {
+      return;
+    }
+    await showSingleActionDialog(
+      context: context,
+      title: 'Track Recovery Failed',
+      closeKey: 'recover-track-replacement-error-close',
+      content: Text(
+        ref.read(mapProvider).trackImportError ??
+            'Track replacement recovery could not be completed.',
+      ),
+    );
   }
 
   Future<void> _confirmUpdateTassyFullPeakList() async {

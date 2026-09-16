@@ -32,11 +32,13 @@ void main() {
       'Route',
       'RouteGraphChunk',
       'RouteGraphManifest',
-        'RouteGraphWayIndex',
-        'RouteGraphTrailDisplayChunk',
-        'Waypoints',
-        'PeakListItemEntity',
-      ]);
+      'RouteGraphWayIndex',
+      'RouteGraphTrailDisplayChunk',
+      'Waypoints',
+      'PeakListItemEntity',
+      'RouteGraphImportMetadata',
+      'TrackReplacementRecoveryIssue',
+    ]);
     expect(
       entities.map((entity) => entity.name).toSet().length,
       entities.length,
@@ -150,7 +152,10 @@ void main() {
         'maxLng',
       ]),
     );
-    expect(entities[3].fields.map((field) => field.name), isNot(contains('peakList')));
+    expect(
+      entities[3].fields.map((field) => field.name),
+      isNot(contains('peakList')),
+    );
     expect(
       entities[3].fields.map((field) => field.name),
       isNot(contains('membershipState')),
@@ -889,7 +894,12 @@ void main() {
 
   test('peakListItemEntityToAdminRow exposes relational membership fields', () {
     final peakList = PeakList(peakListId: 9, name: 'Abels');
-    final peak = Peak(osmId: 101, name: 'Alpha Peak', latitude: -42, longitude: 146);
+    final peak = Peak(
+      osmId: 101,
+      name: 'Alpha Peak',
+      latitude: -42,
+      longitude: 146,
+    );
     final row = peakListItemEntityToAdminRow(
       PeakListItemEntity(id: 3, points: 7)
         ..peakList.target = peakList
