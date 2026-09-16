@@ -116,6 +116,10 @@ class GpxTracksRobot {
       find.byKey(const Key('recalculate-track-statistics-tile'));
   Finder get recalcStatsConfirm =>
       find.byKey(const Key('recalculate-stats-confirm'));
+  Finder get normaliseTrackNamesTile =>
+      find.byKey(const Key('normalise-track-names-tile'));
+  Finder get normaliseTrackNamesConfirm =>
+      find.byKey(const Key('normalise-track-names-confirm'));
   Finder get filterSettingsTile =>
       find.byKey(const Key('gpx-filter-settings-section'));
   Finder get outlierFilterField =>
@@ -315,6 +319,18 @@ class GpxTracksRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> normaliseTrackNames() async {
+    await tester.scrollUntilVisible(
+      normaliseTrackNamesTile,
+      300,
+      scrollable: _settingsScrollable,
+    );
+    await tester.tap(normaliseTrackNamesTile);
+    await tester.pumpAndSettle();
+    await tester.tap(normaliseTrackNamesConfirm);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> openImportDialog() async {
     await tester.tap(importFab);
     await tester.pump();
@@ -507,6 +523,8 @@ class GpxTracksRobot {
       300.0,
       scrollable: _settingsScrollable,
     );
+    await tester.ensureVisible(filterSettingsTile);
+    await tester.pumpAndSettle();
     await tester.tap(filterSettingsTile);
     await tester.pumpAndSettle();
   }

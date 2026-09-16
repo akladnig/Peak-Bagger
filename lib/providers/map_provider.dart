@@ -2532,6 +2532,35 @@ class MapNotifier extends Notifier<MapState> {
     return result;
   }
 
+  Future<TrackNameNormalisationResult?> normaliseTrackNames() async {
+    if (state.isLoadingTracks) {
+      return null;
+    }
+
+    state = state.copyWith(
+      isLoadingTracks: true,
+      clearTrackImportError: true,
+      clearTrackOperationStatus: true,
+      clearTrackOperationWarning: true,
+    );
+
+    // Yield once so Settings can render the operation's shared busy state.
+    await Future<void>.delayed(Duration.zero);
+    try {
+      final result = _gpxTrackRepository.normaliseTrackNames();
+      final tracks = _gpxTrackRepository.getAllTracks();
+      state = state.copyWith(tracks: tracks, isLoadingTracks: false);
+      refreshPeakInfoPopupContent();
+      return result;
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingTracks: false,
+        trackImportError: 'Failed to normalise track names: $e',
+      );
+      return null;
+    }
+  }
+
   Future<TrackStatisticsRecalcResult?> recalculateTrackStatistics() async {
     if (state.isLoadingTracks) {
       return null;

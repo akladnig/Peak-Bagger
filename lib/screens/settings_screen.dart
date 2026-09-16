@@ -24,6 +24,7 @@ import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
 import 'package:peak_bagger/screens/track_speed_analysis_screen.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/peak_csv_export_service.dart';
 import 'package:peak_bagger/services/route_graph_refresh_service.dart';
@@ -221,6 +222,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               onTap: mapState.isLoadingTracks
                   ? null
                   : _confirmRecalculateTrackStatistics,
+            ),
+            ListTile(
+              key: const Key('normalise-track-names-tile'),
+              leading: const Icon(Icons.text_format),
+              title: const Text('Normalise Track Names'),
+              subtitle: const Text(
+                'Remove trailing dates from stored track names',
+              ),
+              trailing: mapState.isLoadingTracks
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: mapState.isLoadingTracks
+                  ? null
+                  : _confirmNormaliseTrackNames,
             ),
             ListTile(
               key: const Key('track-speed-analysis-tile'),
@@ -1283,6 +1302,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
   }
 
+  Future<void> _confirmNormaliseTrackNames() async {
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Normalise Track Names?',
+      message:
+          'This will remove trailing dates from stored track names. Track dates will be kept. Do you wish to proceed?',
+      cancelKey: 'normalise-track-names-cancel',
+      cancelLabel: 'Cancel',
+      confirmKey: 'normalise-track-names-confirm',
+      confirmLabel: 'Normalise',
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    final result = await ref.read(mapProvider.notifier).normaliseTrackNames();
+    if (!mounted) {
+      return;
+    }
+    if (result == null) {
+      await _showNormaliseTrackNamesFailure();
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _showNormaliseTrackNamesResult(result);
+      }
+    });
+  }
+
   Future<void> _confirmUpdateTassyFullPeakList() async {
     final confirmed = await showDangerConfirmDialog(
       context: context,
@@ -1544,6 +1595,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       title: 'Track Statistics Recalculation Failed',
       closeKey: 'track-stats-recalc-error-close',
+      content: Text(error),
+    );
+  }
+
+  Future<void> _showNormaliseTrackNamesResult(
+    TrackNameNormalisationResult result,
+  ) async {
+    await showSingleActionDialog(
+      context: context,
+      title: 'Track Names Normalised',
+      closeKey: 'normalise-track-names-result-close',
+      content: Text(
+        'Updated ${formatCount(result.updatedCount)} tracks, unchanged ${formatCount(result.unchangedCount)} tracks',
+      ),
+    );
+  }
+
+  Future<void> _showNormaliseTrackNamesFailure() async {
+    final error = ref.read(mapProvider).trackImportError;
+    if (error == null) {
+      return;
+    }
+
+    await showSingleActionDialog(
+      context: context,
+      title: 'Track Name Normalisation Failed',
+      closeKey: 'normalise-track-names-error-close',
       content: Text(error),
     );
   }

@@ -1304,6 +1304,41 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
+  Future<TrackNameNormalisationResult?> normaliseTrackNames() async {
+    if (state.isLoadingTracks) {
+      return null;
+    }
+
+    state = state.copyWith(
+      isLoadingTracks: true,
+      clearTrackImportError: true,
+      clearTrackOperationStatus: true,
+      clearTrackOperationWarning: true,
+    );
+    await Future<void>.delayed(Duration.zero);
+    try {
+      final result =
+          gpxTrackRepository?.normaliseTrackNames() ??
+          const TrackNameNormalisationResult(
+            updatedCount: 0,
+            unchangedCount: 0,
+          );
+      state = state.copyWith(
+        tracks: gpxTrackRepository?.getAllTracks() ?? state.tracks,
+        isLoadingTracks: false,
+      );
+      refreshPeakInfoPopupContent();
+      return result;
+    } catch (e) {
+      state = state.copyWith(
+        isLoadingTracks: false,
+        trackImportError: 'Failed to normalise track names: $e',
+      );
+      return null;
+    }
+  }
+
+  @override
   Future<TrackStatisticsRecalcResult?> recalculateTrackStatistics() async {
     _startupBackfillWarningMessage = null;
     state = state.copyWith(
