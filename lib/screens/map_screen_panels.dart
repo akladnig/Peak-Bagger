@@ -338,7 +338,11 @@ class MapTrackInfoPanel extends StatelessWidget {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(formatTrackDate(track!.trackDate)),
+                                      Text(
+                                        formatTrackDate(
+                                          track!.trackDate?.toLocal(),
+                                        ),
+                                      ),
                                       Text(
                                         formatTrackTimeRange(
                                           track!.startDateTime,

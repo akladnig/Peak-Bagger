@@ -38,6 +38,31 @@ void main() {
     expect(page.isExhausted, isTrue);
   });
 
+  test('peak results show only the most recent bagged ascent date', () async {
+    final service = await _service(
+      peaks: [_peak(100, 'Bagged Peak'), _peak(200, 'Unbagged Peak')],
+      baggedRows: [
+        PeaksBagged(peakId: 100, gpxId: 1, date: DateTime.utc(2024, 1, 15)),
+        PeaksBagged(peakId: 100, gpxId: 2, date: DateTime.utc(2025, 3, 10)),
+        PeaksBagged(peakId: 100, gpxId: 3),
+      ],
+    );
+
+    final page = service.searchPage(
+      query: 'Peak',
+      entityFilter: MapSearchEntityFilter.peaks,
+      sort: MapSearchSort.nameAscending,
+      group: MapSearchGroup.none,
+      offset: 0,
+    );
+    final datesByTitle = {
+      for (final result in page.results) result.title: result.displayDate,
+    };
+
+    expect(datesByTitle['Bagged Peak'], DateTime.utc(2025, 3, 10));
+    expect(datesByTitle['Unbagged Peak'], isNull);
+  });
+
   test(
     'under-threshold trimmed popup query returns no results without peak search work',
     () async {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/core/date_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/screens/map_screen_panels.dart';
@@ -8,6 +9,28 @@ import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
 
 void main() {
+  testWidgets('renders a persisted track date in local time', (tester) async {
+    final track = GpxTrack(
+      contentHash: 'hash',
+      trackName: 'Arthurs Peak',
+      trackDate: DateTime.utc(2026, 7, 22, 14),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: MyTheme.light,
+        home: Scaffold(
+          body: MapTrackInfoPanel(track: track, onClose: () {}),
+        ),
+      ),
+    );
+
+    expect(
+      find.text(formatTrackDate(track.trackDate!.toLocal())),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('renders combined distance metric for a track', (tester) async {
     final track = GpxTrack(
       contentHash: 'hash',

@@ -145,9 +145,16 @@ class MapSearchService {
         )
         .toList(growable: false);
     final pagePeaks = peaks.take(limit);
+    final latestBaggedDatesByPeakId = _latestBaggedDatesByPeakId();
     return MapSearchPage(
       results: pagePeaks
-          .map((peak) => _peakResult(peak, regionKey: regionKey))
+          .map(
+            (peak) => _peakResult(
+              peak,
+              regionKey: regionKey,
+              displayDate: latestBaggedDatesByPeakId[peak.osmId],
+            ),
+          )
           .whereType<MapSearchResult>()
           .toList(growable: false),
       isExhausted: peaks.length <= limit,
@@ -530,6 +537,8 @@ class MapSearchService {
     required MapSearchSort sort,
     required String? regionKey,
   }) {
+    final latestBaggedDatesByPeakId = _latestBaggedDatesByPeakId();
+
     final entries = <_SearchPageEntry>[];
     var offset = 0;
     while (true) {
@@ -548,6 +557,7 @@ class MapSearchService {
           (peak) => _SearchPagePeakEntry(
             peak: peak,
             displayRegionName: _peakDisplayRegionName(peak),
+            displayDate: latestBaggedDatesByPeakId[peak.osmId],
           ),
         ),
       );
@@ -557,6 +567,21 @@ class MapSearchService {
       offset += peaks.length;
     }
     return entries;
+  }
+
+  Map<int, DateTime> _latestBaggedDatesByPeakId() {
+    final latestDatesByPeakId = <int, DateTime>{};
+    for (final baggedRow in _peaksBaggedRepository.getAll()) {
+      final baggedDate = baggedRow.date;
+      if (baggedDate == null) {
+        continue;
+      }
+      final currentDate = latestDatesByPeakId[baggedRow.peakId];
+      if (currentDate == null || baggedDate.isAfter(currentDate)) {
+        latestDatesByPeakId[baggedRow.peakId] = baggedDate;
+      }
+    }
+    return latestDatesByPeakId;
   }
 
   int _compareEntries(
@@ -670,10 +695,12 @@ class _SearchPagePeakEntry extends _SearchPageEntry {
   const _SearchPagePeakEntry({
     required this.peak,
     required this.displayRegionName,
+    required this.displayDate,
   });
 
   final Peak peak;
   final String displayRegionName;
+  final DateTime? displayDate;
 
   @override
   String get id => '${peak.osmId}';
@@ -692,6 +719,10 @@ class _SearchPagePeakEntry extends _SearchPageEntry {
 
   @override
   MapSearchResult toResult(MapSearchService service) {
-    return service._peakResult(peak, regionKey: null)!;
+    return service._peakResult(
+      peak,
+      regionKey: null,
+      displayDate: displayDate,
+    )!;
   }
 }
