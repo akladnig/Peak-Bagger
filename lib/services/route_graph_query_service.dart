@@ -1,3 +1,4 @@
+import 'dart:developer' as developer;
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
@@ -11,13 +12,44 @@ import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'route_graph_errors.dart';
 import 'route_graph_repository.dart';
 
-class RouteGraphQueryService {
+typedef RouteGraphWaySearchDiagnostic = void Function(String message);
+
+abstract interface class NamedRouteGraphWaySearch {
+  List<NamedRouteGraphWayCandidate> searchNamedWays(String query);
+}
+
+class NamedRouteGraphWayCandidate {
+  const NamedRouteGraphWayCandidate({
+    required this.osmWayId,
+    required this.name,
+    required this.highway,
+    required this.surface,
+    required this.anchor,
+    required this.routingCoverageKey,
+    required this.generation,
+    required this.chunkKey,
+  });
+
+  final int osmWayId;
+  final String name;
+  final String? highway;
+  final String? surface;
+  final LatLng anchor;
+  final String routingCoverageKey;
+  final int generation;
+  final String chunkKey;
+}
+
+class RouteGraphQueryService implements NamedRouteGraphWaySearch {
   RouteGraphQueryService(
     RouteGraphRepository repository, {
     this.bufferMeters = 1000.0,
-  }) : _repository = repository;
+    RouteGraphWaySearchDiagnostic? diagnosticLog,
+  }) : _repository = repository,
+       _diagnosticLog = diagnosticLog ?? developer.log;
 
   final RouteGraphRepository _repository;
+  final RouteGraphWaySearchDiagnostic _diagnosticLog;
   final double bufferMeters;
   final Map<String, Map<int, Map<String, RouteGraphTrailDisplayChunk>>>
   _trailDisplayIndexes = {};
@@ -38,6 +70,146 @@ class RouteGraphQueryService {
 
   List<RouteGraphWayIndex> queryWays(RouteGraphWayQuery query) {
     return queryWaysForCoverage(defaultRouteGraphCoverageKey, query);
+  }
+
+  @override
+  List<NamedRouteGraphWayCandidate> searchNamedWays(String query) {
+    final normalizedQuery = query.toLowerCase();
+    final occurrences = <({String coverageKey, RouteGraphWayIndex row})>[];
+    final coverageKeys = activeCoverageKeys..sort();
+
+    for (final coverageKey in coverageKeys) {
+      for (final row in _repository.activeWayIndexRows(coverageKey)) {
+        final name = row.name?.trim();
+        if (name == null ||
+            name.isEmpty ||
+            !name.toLowerCase().contains(normalizedQuery)) {
+          continue;
+        }
+        occurrences.add((coverageKey: coverageKey, row: row));
+      }
+    }
+
+    occurrences.sort((left, right) {
+      final coverageComparison = left.coverageKey.compareTo(right.coverageKey);
+      if (coverageComparison != 0) return coverageComparison;
+      final chunkComparison = left.row.chunkKey.compareTo(right.row.chunkKey);
+      if (chunkComparison != 0) return chunkComparison;
+      return left.row.osmWayId.compareTo(right.row.osmWayId);
+    });
+
+    final candidates = <NamedRouteGraphWayCandidate>[];
+    for (final occurrence in occurrences) {
+      final row = occurrence.row;
+      final chunk = _repository
+          .activeChunks(occurrence.coverageKey)
+          .where((chunk) => chunk.chunkKey == row.chunkKey)
+          .firstOrNull;
+      try {
+        final anchor = chunk == null
+            ? null
+            : _resolveWayMidpoint(chunk, row.osmWayId);
+        if (anchor == null) {
+          throw const FormatException('Way geometry is unavailable.');
+        }
+        candidates.add(
+          NamedRouteGraphWayCandidate(
+            osmWayId: row.osmWayId,
+            name: row.name!.trim(),
+            highway: row.highway,
+            surface: row.surface,
+            anchor: anchor,
+            routingCoverageKey: occurrence.coverageKey,
+            generation: row.generation,
+            chunkKey: row.chunkKey,
+          ),
+        );
+      } catch (error) {
+        _reportSkippedResolution(
+          osmWayId: row.osmWayId,
+          chunkKey: row.chunkKey,
+          error: error,
+        );
+      }
+    }
+    return candidates;
+  }
+
+  LatLng? _resolveWayMidpoint(RouteGraphChunk chunk, int osmWayId) {
+    final payload = chunk.decodePayload();
+    final elements = payload['elements'];
+    if (elements is! List) return null;
+
+    final nodesById = <int, LatLng>{};
+    Map<String, dynamic>? way;
+    for (final element in elements) {
+      if (element is! Map) continue;
+      final typed = Map<String, dynamic>.from(element);
+      if (typed['type'] == 'node') {
+        final id = typed['id'];
+        final lat = typed['lat'];
+        final lon = typed['lon'];
+        if (id is int && lat is num && lon is num) {
+          nodesById[id] = LatLng(lat.toDouble(), lon.toDouble());
+        }
+      } else if (typed['type'] == 'way' && typed['id'] == osmWayId) {
+        way = typed;
+      }
+    }
+
+    final nodeIds = way?['nodes'];
+    if (nodeIds is! List || nodeIds.length < 2) return null;
+    final points = <LatLng>[];
+    for (final nodeId in nodeIds) {
+      if (nodeId is! int) return null;
+      final point = nodesById[nodeId];
+      if (point == null) return null;
+      points.add(point);
+    }
+
+    final segments = <double>[];
+    var totalLength = 0.0;
+    const distance = Distance();
+    for (var index = 0; index < points.length - 1; index++) {
+      final segmentLength = distance.as(
+        LengthUnit.Meter,
+        points[index],
+        points[index + 1],
+      );
+      segments.add(segmentLength);
+      totalLength += segmentLength;
+    }
+    if (totalLength <= 0) return null;
+
+    final halfwayDistance = totalLength / 2;
+    var traversedLength = 0.0;
+    for (var index = 0; index < segments.length; index++) {
+      final segmentLength = segments[index];
+      if (traversedLength + segmentLength >= halfwayDistance) {
+        if (segmentLength <= 0) continue;
+        return _interpolateGeodesic(
+          points[index],
+          points[index + 1],
+          (halfwayDistance - traversedLength) / segmentLength,
+        );
+      }
+      traversedLength += segmentLength;
+    }
+    return null;
+  }
+
+  void _reportSkippedResolution({
+    required int osmWayId,
+    required String chunkKey,
+    required Object error,
+  }) {
+    try {
+      _diagnosticLog(
+        'Skipped named route-graph way $osmWayId in chunk $chunkKey: $error',
+      );
+    } catch (_) {
+      // A diagnostic callback must not prevent other occurrences from resolving.
+    }
   }
 
   List<RouteGraphWayIndex> queryWaysForCoverage(
@@ -740,4 +912,35 @@ double _metersToLongitudeDegrees(double meters, double latitude) {
     1e-6,
   );
   return meters / denominator;
+}
+
+LatLng _interpolateGeodesic(LatLng start, LatLng end, double fraction) {
+  final startLatitude = start.latitude * math.pi / 180.0;
+  final startLongitude = start.longitude * math.pi / 180.0;
+  final endLatitude = end.latitude * math.pi / 180.0;
+  final endLongitude = end.longitude * math.pi / 180.0;
+  final cosineAngle =
+      (math.sin(startLatitude) * math.sin(endLatitude) +
+              math.cos(startLatitude) *
+                  math.cos(endLatitude) *
+                  math.cos(endLongitude - startLongitude))
+          .clamp(-1.0, 1.0);
+  final angle = math.acos(cosineAngle);
+  if (angle < 1e-12) return start;
+
+  final sineAngle = math.sin(angle);
+  final startWeight = math.sin((1 - fraction) * angle) / sineAngle;
+  final endWeight = math.sin(fraction * angle) / sineAngle;
+  final x =
+      startWeight * math.cos(startLatitude) * math.cos(startLongitude) +
+      endWeight * math.cos(endLatitude) * math.cos(endLongitude);
+  final y =
+      startWeight * math.cos(startLatitude) * math.sin(startLongitude) +
+      endWeight * math.cos(endLatitude) * math.sin(endLongitude);
+  final z =
+      startWeight * math.sin(startLatitude) + endWeight * math.sin(endLatitude);
+  return LatLng(
+    math.atan2(z, math.sqrt(x * x + y * y)) * 180.0 / math.pi,
+    math.atan2(y, x) * 180.0 / math.pi,
+  );
 }

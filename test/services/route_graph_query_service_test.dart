@@ -142,6 +142,306 @@ void main() {
     expect(rows.single.osmWayId, 10);
   });
 
+  test('searchNamedWays matches indexed names case-insensitively', () {
+    final service = RouteGraphQueryService(
+      RouteGraphRepository.test(
+        InMemoryRouteGraphStorage(
+          manifest: _manifest,
+          chunks: [
+            _chunk(
+              '1|0_0',
+              '0_0',
+              -42.0,
+              146.0,
+              -41.0,
+              147.0,
+              payloadJson: '''
+                {"elements":[
+                  {"type":"node","id":1,"lat":-41.5,"lon":146.5},
+                  {"type":"node","id":2,"lat":-41.6,"lon":146.6},
+                  {"type":"way","id":10,"nodes":[1,2]}
+                ]}
+              ''',
+            ),
+          ],
+          wayIndexRows: [
+            _wayRow(
+              recordKey: '1|0_0|10',
+              chunkKey: '0_0',
+              osmWayId: 10,
+              highway: 'path',
+              access: 'public',
+              name: 'Summit Path',
+              normalizedName: 'summit path',
+              lengthMeters: 100,
+              tagCount: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final candidates = service.searchNamedWays('SUMMIT');
+
+    expect(candidates, hasLength(1));
+    expect(candidates.single.osmWayId, 10);
+    expect(candidates.single.name, 'Summit Path');
+    expect(candidates.single.highway, 'path');
+    expect(candidates.single.anchor.latitude, closeTo(-41.55, 0.0001));
+    expect(candidates.single.anchor.longitude, closeTo(146.55, 0.0001));
+  });
+
+  test('searchNamedWays includes named paths tracks and footways', () {
+    final service = RouteGraphQueryService(
+      RouteGraphRepository.test(
+        InMemoryRouteGraphStorage(
+          manifest: _manifest,
+          chunks: [
+            _chunk(
+              '1|0_0',
+              '0_0',
+              -42.0,
+              146.0,
+              -41.0,
+              147.0,
+              payloadJson: '''
+                {"elements":[
+                  {"type":"node","id":1,"lat":-41.50,"lon":146.50},
+                  {"type":"node","id":2,"lat":-41.51,"lon":146.51},
+                  {"type":"node","id":3,"lat":-41.52,"lon":146.52},
+                  {"type":"node","id":4,"lat":-41.53,"lon":146.53},
+                  {"type":"node","id":5,"lat":-41.54,"lon":146.54},
+                  {"type":"node","id":6,"lat":-41.55,"lon":146.55},
+                  {"type":"way","id":10,"nodes":[1,2]},
+                  {"type":"way","id":11,"nodes":[3,4]},
+                  {"type":"way","id":12,"nodes":[5,6]}
+                ]}
+              ''',
+            ),
+          ],
+          wayIndexRows: [
+            _wayRow(
+              recordKey: '1|0_0|10',
+              chunkKey: '0_0',
+              osmWayId: 10,
+              highway: 'path',
+              access: 'private',
+              name: 'North Route',
+              normalizedName: 'north route',
+              lengthMeters: 100,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|11',
+              chunkKey: '0_0',
+              osmWayId: 11,
+              highway: 'track',
+              access: 'public',
+              surface: 'earth',
+              name: 'Forest Route',
+              normalizedName: 'forest route',
+              lengthMeters: 100,
+              tagCount: 2,
+            ),
+            _wayRow(
+              recordKey: '1|0_0|12',
+              chunkKey: '0_0',
+              osmWayId: 12,
+              highway: 'footway',
+              access: 'public',
+              name: 'River Route',
+              normalizedName: 'river route',
+              lengthMeters: 100,
+              tagCount: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final candidates = service.searchNamedWays('route');
+
+    expect(candidates.map((candidate) => candidate.osmWayId), [10, 11, 12]);
+  });
+
+  test('searchNamedWays interpolates halfway along total geodesic length', () {
+    final service = RouteGraphQueryService(
+      RouteGraphRepository.test(
+        InMemoryRouteGraphStorage(
+          manifest: _manifest,
+          chunks: [
+            _chunk(
+              '1|0_0',
+              '0_0',
+              -1.0,
+              -1.0,
+              1.0,
+              4.0,
+              payloadJson: '''
+                {"elements":[
+                  {"type":"node","id":1,"lat":0.0,"lon":0.0},
+                  {"type":"node","id":2,"lat":0.0,"lon":1.0},
+                  {"type":"node","id":3,"lat":0.0,"lon":3.0},
+                  {"type":"way","id":10,"nodes":[1,2,3]}
+                ]}
+              ''',
+            ),
+          ],
+          wayIndexRows: [
+            _wayRow(
+              recordKey: '1|0_0|10',
+              chunkKey: '0_0',
+              osmWayId: 10,
+              highway: 'path',
+              access: 'public',
+              name: 'Long Route',
+              normalizedName: 'long route',
+              lengthMeters: 100,
+              tagCount: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final anchor = service.searchNamedWays('long').single.anchor;
+
+    expect(anchor.latitude, closeTo(0.0, 0.000001));
+    expect(anchor.longitude, closeTo(1.5, 0.00001));
+  });
+
+  test(
+    'searchNamedWays skips failed occurrences and keeps the first usable one',
+    () {
+      final diagnostics = <String>[];
+      final service = RouteGraphQueryService(
+        RouteGraphRepository.test(
+          InMemoryRouteGraphStorage(
+            manifests: [
+              _manifest.copyWith(routingCoverageKey: 'alpha'),
+              _manifest.copyWith(
+                routingCoverageKey: 'beta',
+                activeGeneration: 2,
+              ),
+            ],
+            chunks: [
+              _chunk(
+                '1|a',
+                'a',
+                -42.0,
+                146.0,
+                -41.0,
+                147.0,
+                payloadJson: '{"elements":[]}',
+              ),
+              _chunk(
+                '2|b',
+                'b',
+                -42.0,
+                146.0,
+                -41.0,
+                147.0,
+                payloadJson: '''
+                {"elements":[
+                  {"type":"node","id":1,"lat":-41.5,"lon":146.5},
+                  {"type":"node","id":2,"lat":-41.6,"lon":146.6},
+                  {"type":"way","id":10,"nodes":[1,2]}
+                ]}
+              ''',
+              ).copyWith(generation: 2),
+            ],
+            wayIndexRows: [
+              _wayRow(
+                recordKey: '1|a|10',
+                chunkKey: 'a',
+                osmWayId: 10,
+                highway: 'service',
+                access: 'public',
+                name: 'Ridge Route',
+                normalizedName: 'ridge route',
+                lengthMeters: 100,
+                tagCount: 2,
+              ),
+              _wayRow(
+                recordKey: '2|b|10',
+                chunkKey: 'b',
+                osmWayId: 10,
+                highway: 'path',
+                access: 'public',
+                name: 'Ridge Route',
+                normalizedName: 'ridge route',
+                lengthMeters: 100,
+                tagCount: 2,
+              ).copyWith(generation: 2),
+            ],
+          ),
+        ),
+        diagnosticLog: diagnostics.add,
+      );
+
+      final candidates = service.searchNamedWays('ridge');
+
+      expect(candidates, hasLength(1));
+      expect(candidates.single.routingCoverageKey, 'beta');
+      expect(candidates.single.chunkKey, 'b');
+      expect(candidates.single.generation, 2);
+      expect(candidates.single.highway, 'path');
+      expect(diagnostics, hasLength(1));
+      expect(diagnostics.single, contains('10'));
+      expect(diagnostics.single, contains('a'));
+    },
+  );
+
+  test('searchNamedWays returns no candidates without active coverage', () {
+    final service = RouteGraphQueryService(
+      RouteGraphRepository.test(InMemoryRouteGraphStorage()),
+    );
+
+    expect(service.searchNamedWays('route'), isEmpty);
+  });
+
+  test('searchNamedWays does not match non-name index metadata', () {
+    final service = RouteGraphQueryService(
+      RouteGraphRepository.test(
+        InMemoryRouteGraphStorage(
+          manifest: _manifest,
+          chunks: [
+            _chunk(
+              '1|0_0',
+              '0_0',
+              -42.0,
+              146.0,
+              -41.0,
+              147.0,
+              payloadJson: '''
+                {"elements":[
+                  {"type":"node","id":1,"lat":-41.5,"lon":146.5},
+                  {"type":"node","id":2,"lat":-41.6,"lon":146.6},
+                  {"type":"way","id":10,"nodes":[1,2]}
+                ]}
+              ''',
+            ),
+          ],
+          wayIndexRows: [
+            _wayRow(
+              recordKey: '1|0_0|10',
+              chunkKey: '0_0',
+              osmWayId: 10,
+              highway: 'service',
+              access: 'public',
+              name: 'Old Road',
+              normalizedName: 'old road',
+              lengthMeters: 100,
+              tagCount: 2,
+            ).copyWith(tagsJson: '{"ref":"R1","alt_name":"Ridge Route"}'),
+          ],
+        ),
+      ),
+    );
+
+    expect(service.searchNamedWays('ridge'), isEmpty);
+  });
+
   test('queryTrailWays applies the exact trail source filter', () {
     final service = RouteGraphQueryService(
       RouteGraphRepository.test(
