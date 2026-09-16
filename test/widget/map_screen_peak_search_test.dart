@@ -103,10 +103,18 @@ void main() {
       await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
       await tester.pumpAndSettle();
       expect(find.text('Any date'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('map-search-input')))
+            .focusNode!
+            .hasFocus,
+        isTrue,
+      );
 
       await tester.tap(find.byKey(const Key('map-search-date-trigger')));
       await tester.pumpAndSettle();
       final startInput = find.byKey(const Key('map-search-date-start-input'));
+      expect(tester.widget<TextField>(startInput).focusNode!.hasFocus, isTrue);
       await tester.tap(startInput);
       await tester.enterText(startInput, '28 Jul 2024');
       await tester.pump();

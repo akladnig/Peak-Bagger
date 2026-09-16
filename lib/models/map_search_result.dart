@@ -78,7 +78,8 @@ class MapSearchResult {
          title: title,
          subtitle: subtitle,
          anchor: anchor,
-         displayDate: track.startDateTime,
+         displayDate:
+             track.trackDate?.toLocal() ?? track.startDateTime?.toLocal(),
          regionKey: regionKey,
          regionName: regionName,
          mapName: mapName,
