@@ -18,6 +18,7 @@ import '../providers/tasmap_provider.dart';
 import '../router.dart';
 import '../services/peak_list_repository.dart';
 import '../services/peak_list_visibility.dart';
+import '../services/peak_metadata_rules.dart';
 import '../services/tassy_full_peak_list_sync_service.dart';
 import '../core/widgets/popup_keyboard_dismiss.dart';
 import 'dialog_helpers.dart';
@@ -73,6 +74,8 @@ class PeakListPeakDialog extends ConsumerStatefulWidget {
 
 class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   final _searchController = TextEditingController();
+  final _difficultyController = TextEditingController();
+  final _durationController = TextEditingController();
   final _pointValues = List<int>.generate(11, (index) => index);
 
   late PeakListPeakDialogMode _mode;
@@ -82,17 +85,25 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   String _searchQuery = '';
   bool _saving = false;
   Offset _dialogOffset = Offset.zero;
+  String? _durationError;
 
   @override
   void initState() {
     super.initState();
     _mode = widget.mode;
     _editPoints = widget.points ?? 0;
+    _difficultyController.text = widget.peak?.difficulty ?? '';
+    final peak = widget.peak;
+    _durationController.text = peak == null
+        ? ''
+        : peakDurationDisplayLabel(peak);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _difficultyController.dispose();
+    _durationController.dispose();
     super.dispose();
   }
 
@@ -498,6 +509,39 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
             });
           },
         ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('peak-list-peak-difficulty'),
+          controller: _difficultyController,
+          decoration: const InputDecoration(
+            labelText: 'Difficulty',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          key: const Key('peak-list-peak-duration'),
+          controller: _durationController,
+          decoration: const InputDecoration(
+            labelText: 'Duration',
+            border: OutlineInputBorder(),
+          ),
+          onChanged: (_) {
+            if (_durationError != null) {
+              setState(() {
+                _durationError = null;
+              });
+            }
+          },
+        ),
+        if (_durationError case final durationError?) ...[
+          const SizedBox(height: 4),
+          Text(
+            durationError,
+            key: const Key('peak-list-peak-duration-error'),
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
       ],
     );
   }
@@ -600,6 +644,12 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
     setState(() {
       _mode = PeakListPeakDialogMode.edit;
       _editPoints = _pointsForPeak(widget.peak?.osmId ?? 0);
+      _difficultyController.text = widget.peak?.difficulty ?? '';
+      final peak = widget.peak;
+      _durationController.text = peak == null
+          ? ''
+          : peakDurationDisplayLabel(peak);
+      _durationError = null;
     });
   }
 
@@ -655,7 +705,10 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       for (final peak in saveOrder) {
         if (existingPeakIds.contains(peak.osmId) ||
             !addedPeakIds.add(peak.osmId)) {
-          failures.add((peak: peak, error: StateError('Peak already exists in list')));
+          failures.add((
+            peak: peak,
+            error: StateError('Peak already exists in list'),
+          ));
           continue;
         }
         itemsToAdd.add(
@@ -756,17 +809,36 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       return;
     }
 
+    ParsedPeakDuration? parsedDuration;
+    try {
+      parsedDuration = parsePeakDuration(_durationController.text);
+    } on FormatException catch (error) {
+      setState(() {
+        _durationError = error.message;
+      });
+      return;
+    }
+
     setState(() {
       _saving = true;
     });
 
     try {
+      final updatedPeak = peak.copyWith(
+        difficulty: _difficultyController.text.trim().isEmpty
+            ? ''
+            : _difficultyController.text,
+        durationLabel: parsedDuration?.durationLabel ?? '',
+      )..durationMinutes = parsedDuration?.durationMinutes;
+      await ref.read(peakRepositoryProvider).save(updatedPeak);
       await widget.peakListRepository.updatePeakItemPoints(
         peakListId: widget.peakList.peakListId,
         peakOsmId: peak.osmId,
         points: _editPoints,
       );
+      ref.read(peakRevisionProvider.notifier).increment();
       await _refreshPeakListSelection();
+      await ref.read(mapProvider.notifier).reloadPeakMarkers();
       if (!mounted) {
         return;
       }
