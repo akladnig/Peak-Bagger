@@ -560,6 +560,41 @@ void main() {
     );
   });
 
+  testWidgets(
+    'normalise track names from Settings reports the committed counts',
+    (tester) async {
+      final repository = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([
+          GpxTrack(
+            gpxTrackId: 1,
+            contentHash: 'hash',
+            trackName: 'Mount Anne 15-01-2024',
+            gpxFile: '<gpx />',
+          ),
+        ]),
+      );
+      final initialState = MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+        tracks: repository.getAllTracks(),
+      );
+      final robot = GpxTracksRobot(
+        tester,
+        initialState,
+        notifier: TestMapNotifier(initialState, gpxTrackRepository: repository),
+      );
+      addTearDown(robot.dispose);
+      await robot.pumpApp();
+
+      await robot.openSettings();
+      await robot.normaliseTrackNames();
+
+      expect(find.text('Track Names Normalised'), findsOneWidget);
+      expect(find.text('Updated 1 tracks, unchanged 0 tracks'), findsOneWidget);
+    },
+  );
+
   testWidgets('filter settings persist from the settings screen', (
     tester,
   ) async {

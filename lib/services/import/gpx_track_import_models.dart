@@ -3,21 +3,26 @@ import 'package:peak_bagger/models/route.dart';
 
 /// Importer-facing plan returned by the selective-import API.
 ///
-/// Contains only successful additive-import candidates. Duplicates, skipped files,
-/// and hard failures are represented through counts and warning text instead.
+/// Contains prospective additive and replacement candidates in selected-file order.
 class GpxTrackImportPlan {
   const GpxTrackImportPlan({
     required this.items,
+    required this.addedCount,
+    required this.replacedCount,
     required this.unchangedCount,
     required this.unsupportedCount,
     required this.errorCount,
+    required this.errors,
     this.warningMessage,
   });
 
   final List<GpxTrackImportPlanItem> items;
+  final int addedCount;
+  final int replacedCount;
   final int unchangedCount;
   final int unsupportedCount;
   final int errorCount;
+  final List<GpxTrackImportError> errors;
   final String? warningMessage;
 }
 
@@ -26,14 +31,25 @@ class GpxTrackImportPlanItem {
   const GpxTrackImportPlanItem({
     required this.sourcePath,
     required this.track,
+    this.replacedTrack,
     this.plannedManagedRelativePath,
     this.shouldPlaceInManagedStorage = false,
   });
 
   final String sourcePath;
   final GpxTrack track;
+  final GpxTrack? replacedTrack;
   final String? plannedManagedRelativePath;
   final bool shouldPlaceInManagedStorage;
+
+  bool get isReplacement => replacedTrack != null;
+}
+
+class GpxTrackImportError {
+  const GpxTrackImportError({required this.sourcePath, required this.reason});
+
+  final String sourcePath;
+  final String reason;
 }
 
 abstract class GpxImportItem {
@@ -59,17 +75,21 @@ class GpxImportResult<TItem extends GpxImportItem> {
   const GpxImportResult({
     required this.items,
     required this.addedCount,
+    this.replacedCount = 0,
     required this.unchangedCount,
     required this.unsupportedCount,
     required this.errorCount,
+    this.errors = const [],
     this.warningMessage,
   });
 
   final List<TItem> items;
   final int addedCount;
+  final int replacedCount;
   final int unchangedCount;
   final int unsupportedCount;
   final int errorCount;
+  final List<GpxTrackImportError> errors;
   final String? warningMessage;
 }
 

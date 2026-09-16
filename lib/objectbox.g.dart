@@ -25,6 +25,7 @@ import 'models/route_graph_manifest.dart';
 import 'models/route_graph_trail_display_chunk.dart';
 import 'models/route_graph_way_index.dart';
 import 'models/tasmap50k.dart';
+import 'models/track_replacement_recovery_issue.dart';
 import 'models/waypoints.dart';
 
 export 'package:objectbox/objectbox.dart'; // so that callers only have to import this file
@@ -1220,6 +1221,46 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(14, 3265721523902364308),
+    name: 'TrackReplacementRecoveryIssue',
+    lastPropertyId: const obx_int.IdUid(5, 5000030146267846603),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 8449367706061677744),
+        name: 'id',
+        type: 6,
+        flags: 1,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 4912810924657256382),
+        name: 'sourcePath',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 2395584381778666672),
+        name: 'destinationPath',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 5987889743681170645),
+        name: 'backupPath',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 5000030146267846603),
+        name: 'reason',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -1265,7 +1306,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(13, 2182219865113847556),
+    lastEntityId: const obx_int.IdUid(14, 3265721523902364308),
     lastIndexId: const obx_int.IdUid(24, 1139331039385892952),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
@@ -2834,6 +2875,65 @@ obx_int.ModelDefinition getObjectBoxModel() {
             return object;
           },
         ),
+    TrackReplacementRecoveryIssue:
+        obx_int.EntityDefinition<TrackReplacementRecoveryIssue>(
+          model: _entities[13],
+          toOneRelations: (TrackReplacementRecoveryIssue object) => [],
+          toManyRelations: (TrackReplacementRecoveryIssue object) => {},
+          getId: (TrackReplacementRecoveryIssue object) => object.id,
+          setId: (TrackReplacementRecoveryIssue object, int id) {
+            object.id = id;
+          },
+          objectToFB: (TrackReplacementRecoveryIssue object, fb.Builder fbb) {
+            final sourcePathOffset = fbb.writeString(object.sourcePath);
+            final destinationPathOffset = fbb.writeString(
+              object.destinationPath,
+            );
+            final backupPathOffset = object.backupPath == null
+                ? null
+                : fbb.writeString(object.backupPath!);
+            final reasonOffset = fbb.writeString(object.reason);
+            fbb.startTable(6);
+            fbb.addInt64(0, object.id);
+            fbb.addOffset(1, sourcePathOffset);
+            fbb.addOffset(2, destinationPathOffset);
+            fbb.addOffset(3, backupPathOffset);
+            fbb.addOffset(4, reasonOffset);
+            fbb.finish(fbb.endTable());
+            return object.id;
+          },
+          objectFromFB: (obx.Store store, ByteData fbData) {
+            final buffer = fb.BufferContext(fbData);
+            final rootOffset = buffer.derefObject(0);
+            final idParam = const fb.Int64Reader().vTableGet(
+              buffer,
+              rootOffset,
+              4,
+              0,
+            );
+            final sourcePathParam = const fb.StringReader(
+              asciiOptimization: true,
+            ).vTableGet(buffer, rootOffset, 6, '');
+            final destinationPathParam = const fb.StringReader(
+              asciiOptimization: true,
+            ).vTableGet(buffer, rootOffset, 8, '');
+            final backupPathParam = const fb.StringReader(
+              asciiOptimization: true,
+            ).vTableGetNullable(buffer, rootOffset, 10);
+            final reasonParam = const fb.StringReader(
+              asciiOptimization: true,
+            ).vTableGet(buffer, rootOffset, 12, '');
+            final object = TrackReplacementRecoveryIssue(
+              id: idParam,
+              sourcePath: sourcePathParam,
+              destinationPath: destinationPathParam,
+              backupPath: backupPathParam,
+              reason: reasonParam,
+            );
+
+            return object;
+          },
+        ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -3733,4 +3833,35 @@ class RouteGraphImportMetadata_ {
       obx.QueryIntegerProperty<RouteGraphImportMetadata>(
         _entities[12].properties[2],
       );
+}
+
+/// [TrackReplacementRecoveryIssue] entity fields to define ObjectBox queries.
+class TrackReplacementRecoveryIssue_ {
+  /// See [TrackReplacementRecoveryIssue.id].
+  static final id = obx.QueryIntegerProperty<TrackReplacementRecoveryIssue>(
+    _entities[13].properties[0],
+  );
+
+  /// See [TrackReplacementRecoveryIssue.sourcePath].
+  static final sourcePath =
+      obx.QueryStringProperty<TrackReplacementRecoveryIssue>(
+        _entities[13].properties[1],
+      );
+
+  /// See [TrackReplacementRecoveryIssue.destinationPath].
+  static final destinationPath =
+      obx.QueryStringProperty<TrackReplacementRecoveryIssue>(
+        _entities[13].properties[2],
+      );
+
+  /// See [TrackReplacementRecoveryIssue.backupPath].
+  static final backupPath =
+      obx.QueryStringProperty<TrackReplacementRecoveryIssue>(
+        _entities[13].properties[3],
+      );
+
+  /// See [TrackReplacementRecoveryIssue.reason].
+  static final reason = obx.QueryStringProperty<TrackReplacementRecoveryIssue>(
+    _entities[13].properties[4],
+  );
 }

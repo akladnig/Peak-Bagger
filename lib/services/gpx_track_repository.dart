@@ -1,5 +1,18 @@
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/services/track_name_normalisation.dart';
 import '../objectbox.g.dart';
+
+class TrackNameNormalisationResult {
+  const TrackNameNormalisationResult({
+    required this.updatedCount,
+    required this.unchangedCount,
+  });
+
+  final int updatedCount;
+  final int unchangedCount;
+}
+
+enum TrackNameNormalisationFailure { afterFirstWrite }
 
 abstract class GpxTrackStorage {
   GpxTrack? getById(int id);
@@ -7,12 +20,17 @@ abstract class GpxTrackStorage {
   List<GpxTrack> getAll();
 
   int save(GpxTrack track);
+
+  TrackNameNormalisationResult normaliseTrackNames();
 }
 
 class ObjectBoxGpxTrackStorage implements GpxTrackStorage {
-  ObjectBoxGpxTrackStorage(this._box);
+  ObjectBoxGpxTrackStorage(this._store, {this.failureForTest});
 
-  final Box<GpxTrack> _box;
+  final Store _store;
+  final TrackNameNormalisationFailure? failureForTest;
+
+  Box<GpxTrack> get _box => _store.box<GpxTrack>();
 
   int get count => _box.count();
 
@@ -34,13 +52,47 @@ class ObjectBoxGpxTrackStorage implements GpxTrackStorage {
   List<GpxTrack> getAll() {
     return _box.getAll();
   }
+
+  @override
+  TrackNameNormalisationResult normaliseTrackNames() {
+    return _store.runInTransaction(TxMode.write, () {
+      var updatedCount = 0;
+      var unchangedCount = 0;
+      for (final track in _box.getAll()) {
+        final normalisedName = normaliseTrackName(track.trackName);
+        if (normalisedName == track.trackName) {
+          unchangedCount++;
+          continue;
+        }
+
+        track.trackName = normalisedName;
+        _box.put(track);
+        updatedCount++;
+        if (failureForTest == TrackNameNormalisationFailure.afterFirstWrite &&
+            updatedCount == 1) {
+          throw StateError('Injected failure after the first Track-name write');
+        }
+      }
+      return TrackNameNormalisationResult(
+        updatedCount: updatedCount,
+        unchangedCount: unchangedCount,
+      );
+    });
+  }
 }
 
 class InMemoryGpxTrackStorage implements GpxTrackStorage {
   InMemoryGpxTrackStorage([List<GpxTrack> tracks = const []])
-    : _tracks = List<GpxTrack>.from(tracks);
+    : _tracks = List<GpxTrack>.from(tracks),
+      failureForTest = null;
+
+  InMemoryGpxTrackStorage.withFailureForTest({
+    required List<GpxTrack> tracks,
+    required this.failureForTest,
+  }) : _tracks = List<GpxTrack>.from(tracks);
 
   final List<GpxTrack> _tracks;
+  final TrackNameNormalisationFailure? failureForTest;
 
   @override
   GpxTrack? getById(int id) {
@@ -76,13 +128,44 @@ class InMemoryGpxTrackStorage implements GpxTrackStorage {
     _tracks.add(track);
     return track.gpxTrackId;
   }
+
+  @override
+  TrackNameNormalisationResult normaliseTrackNames() {
+    final originalNames = [for (final track in _tracks) track.trackName];
+    var updatedCount = 0;
+    var unchangedCount = 0;
+    try {
+      for (final track in _tracks) {
+        final normalisedName = normaliseTrackName(track.trackName);
+        if (normalisedName == track.trackName) {
+          unchangedCount++;
+          continue;
+        }
+
+        track.trackName = normalisedName;
+        updatedCount++;
+        if (failureForTest == TrackNameNormalisationFailure.afterFirstWrite &&
+            updatedCount == 1) {
+          throw StateError('Injected failure after the first Track-name write');
+        }
+      }
+    } catch (_) {
+      for (var index = 0; index < _tracks.length; index++) {
+        _tracks[index].trackName = originalNames[index];
+      }
+      rethrow;
+    }
+    return TrackNameNormalisationResult(
+      updatedCount: updatedCount,
+      unchangedCount: unchangedCount,
+    );
+  }
 }
 
 class GpxTrackRepository {
   final GpxTrackStorage _storage;
 
-  GpxTrackRepository(Store store)
-    : _storage = ObjectBoxGpxTrackStorage(store.box<GpxTrack>());
+  GpxTrackRepository(Store store) : _storage = ObjectBoxGpxTrackStorage(store);
 
   GpxTrackRepository.test(GpxTrackStorage storage) : _storage = storage;
 
@@ -101,6 +184,10 @@ class GpxTrackRepository {
 
   List<GpxTrack> getAllTracks() {
     return _storage.getAll();
+  }
+
+  TrackNameNormalisationResult normaliseTrackNames() {
+    return _storage.normaliseTrackNames();
   }
 
   int getTrackCount() {

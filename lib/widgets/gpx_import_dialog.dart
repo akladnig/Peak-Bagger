@@ -7,6 +7,7 @@ import 'package:xml/xml.dart';
 
 import 'package:peak_bagger/core/widgets/popup_shell.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
+import 'package:peak_bagger/services/track_name_normalisation.dart';
 import 'dialog_helpers.dart';
 
 typedef GpxImportRunner =
@@ -397,11 +398,11 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
       if (nameElement != null) {
         final text = nameElement.innerText.trim();
         if (text.isNotEmpty) {
-          return text;
+          return normaliseTrackName(text);
         }
       }
     } catch (_) {}
-    return _basenameWithoutExtension(filePath);
+    return normaliseTrackName(_basenameWithoutExtension(filePath));
   }
 
   String _basenameWithoutExtension(String filePath) {

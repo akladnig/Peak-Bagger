@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -279,6 +282,238 @@ void main() {
         of: find.byKey(const Key('recalculate-track-statistics-tile')),
         matching: find.byType(CircularProgressIndicator),
       ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'normalise track names confirms, preserves cancel, and reports counts',
+    (tester) async {
+      _setTallSurface(tester);
+      final repository = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([
+          GpxTrack(
+            gpxTrackId: 1,
+            contentHash: 'one',
+            trackName: 'Mount Anne 15-01-2024',
+            gpxFile: '<gpx />',
+          ),
+          GpxTrack(
+            gpxTrackId: 2,
+            contentHash: 'two',
+            trackName: 'Frenchmans Cap',
+            gpxFile: '<gpx />',
+          ),
+        ]),
+      );
+      final notifier = TestMapNotifier(
+        _baseState().copyWith(tracks: repository.getAllTracks()),
+        gpxTrackRepository: repository,
+      );
+      await _pumpApp(tester, notifier);
+
+      router.go('/settings');
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('normalise-track-names-tile')),
+        300,
+        scrollable: _settingsScrollable(),
+      );
+
+      expect(
+        tester
+            .getTopLeft(find.byKey(const Key('normalise-track-names-tile')))
+            .dy,
+        greaterThan(
+          tester
+              .getTopLeft(
+                find.byKey(const Key('recalculate-track-statistics-tile')),
+              )
+              .dy,
+        ),
+      );
+      await tester.tap(find.byKey(const Key('normalise-track-names-tile')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Normalise Track Names?'), findsOneWidget);
+      expect(
+        find.text(
+          'This will remove trailing dates from stored track names. Track dates will be kept. Do you wish to proceed?',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('Normalise'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('normalise-track-names-cancel')));
+      await tester.pumpAndSettle();
+      expect(
+        repository.getAllTracks().first.trackName,
+        'Mount Anne 15-01-2024',
+      );
+
+      await tester.tap(find.byKey(const Key('normalise-track-names-tile')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('normalise-track-names-confirm')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Track Names Normalised'), findsOneWidget);
+      expect(find.text('Updated 1 tracks, unchanged 1 tracks'), findsOneWidget);
+      expect(
+        find.byKey(const Key('normalise-track-names-result-close')),
+        findsOneWidget,
+      );
+      expect(notifier.state.tracks.first.trackName, 'Mount Anne');
+    },
+  );
+
+  testWidgets('normalise track names failure shows the persisted error detail', (
+    tester,
+  ) async {
+    _setTallSurface(tester);
+    final repository = GpxTrackRepository.test(
+      InMemoryGpxTrackStorage.withFailureForTest(
+        tracks: [
+          GpxTrack(
+            gpxTrackId: 1,
+            contentHash: 'one',
+            trackName: 'Mount Anne 15-01-2024',
+            gpxFile: '<gpx />',
+          ),
+        ],
+        failureForTest: TrackNameNormalisationFailure.afterFirstWrite,
+      ),
+    );
+    await _pumpApp(
+      tester,
+      TestMapNotifier(
+        _baseState().copyWith(tracks: repository.getAllTracks()),
+        gpxTrackRepository: repository,
+      ),
+    );
+
+    router.go('/settings');
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('normalise-track-names-tile')),
+      300,
+      scrollable: _settingsScrollable(),
+    );
+    await tester.tap(find.byKey(const Key('normalise-track-names-tile')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('normalise-track-names-confirm')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Track Name Normalisation Failed'), findsOneWidget);
+    expect(
+      find.byKey(const Key('normalise-track-names-error-close')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Failed to normalise track names: Bad state: Injected failure after the first Track-name write',
+      ),
+      findsWidgets,
+    );
+    expect(repository.getAllTracks().single.trackName, 'Mount Anne 15-01-2024');
+  });
+
+  testWidgets('track maintenance actions show consistent busy state', (
+    tester,
+  ) async {
+    _setTallSurface(tester);
+    await _pumpApp(
+      tester,
+      TestMapNotifier(_baseState().copyWith(isLoadingTracks: true)),
+    );
+
+    router.go('/settings');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    for (final key in const [
+      Key('reset-track-data-tile'),
+      Key('recalculate-track-statistics-tile'),
+      Key('normalise-track-names-tile'),
+    ]) {
+      await tester.scrollUntilVisible(
+        find.byKey(key),
+        300,
+        scrollable: _settingsScrollable(),
+      );
+      final tile = tester.widget<ListTile>(find.byKey(key));
+      expect(tile.onTap, isNull);
+      expect(
+        find.descendant(
+          of: find.byKey(key),
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+    }
+    expect(
+      tester
+          .widget<ListTile>(find.byKey(const Key('track-speed-analysis-tile')))
+          .onTap,
+      isNotNull,
+    );
+  });
+
+  testWidgets('normalise track names confirmation remains reachable at 2x text', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1024, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final repository = GpxTrackRepository.test(
+      InMemoryGpxTrackStorage([
+        GpxTrack(
+          gpxTrackId: 1,
+          contentHash: 'one',
+          trackName: 'Mount Anne 15-01-2024',
+          gpxFile: '<gpx />',
+        ),
+      ]),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              _baseState().copyWith(tracks: repository.getAllTracks()),
+              gpxTrackRepository: repository,
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
+            child: const SettingsScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('normalise-track-names-tile')),
+      300,
+      scrollable: _settingsScrollable(),
+    );
+    await tester.tap(find.byKey(const Key('normalise-track-names-tile')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'This will remove trailing dates from stored track names. Track dates will be kept. Do you wish to proceed?',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('normalise-track-names-cancel')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('normalise-track-names-confirm')),
       findsOneWidget,
     );
   });

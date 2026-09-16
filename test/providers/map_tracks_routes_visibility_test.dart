@@ -383,4 +383,9 @@ class _CountingGpxTrackStorage implements GpxTrackStorage {
     saveCount += 1;
     return _storage.save(track);
   }
+
+  @override
+  TrackNameNormalisationResult normaliseTrackNames() {
+    return _storage.normaliseTrackNames();
+  }
 }
