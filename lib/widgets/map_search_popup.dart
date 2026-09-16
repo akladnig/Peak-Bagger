@@ -76,6 +76,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   final _dateTriggerFocusNode = FocusNode();
   final _startDateController = TextEditingController();
   final _endDateController = TextEditingController();
+  final _startDateFocusNode = FocusNode();
   Timer? _searchDebounceTimer;
   double? _popupWidth;
   String _pendingQuery = '';
@@ -98,7 +99,12 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
     final fallbackMonth = _monthFor(null, fallback: widget.clock);
     _startCalendarMonth = fallbackMonth;
     _endCalendarMonth = fallbackMonth;
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updatePopupWidth());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updatePopupWidth();
+      if (mounted && !_isPickerOpen) {
+        widget.focusNode.requestFocus();
+      }
+    });
   }
 
   @override
@@ -118,6 +124,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
     _dateTriggerFocusNode.dispose();
     _startDateController.dispose();
     _endDateController.dispose();
+    _startDateFocusNode.dispose();
     super.dispose();
   }
 
@@ -201,6 +208,11 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
       _endDateController.text = _formatEditableDate(_draftEnd);
       _startCalendarMonth = _monthFor(_draftStart, fallback: widget.clock);
       _endCalendarMonth = _monthFor(_draftEnd, fallback: widget.clock);
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _isPickerOpen) {
+        FocusScope.of(context).requestFocus(_startDateFocusNode);
+      }
     });
   }
 
@@ -793,6 +805,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
               child: TextField(
                 key: Key('map-search-date-${isStart ? 'start' : 'end'}-input'),
                 controller: controller,
+                focusNode: isStart ? _startDateFocusNode : null,
                 decoration: InputDecoration(
                   labelText: '$prefix date',
                   hintText: 'd MMM yyyy',

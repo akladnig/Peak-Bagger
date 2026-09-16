@@ -489,7 +489,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
   }
 
   void _onSearchFocusChange() {
-    if (!_searchFocusNode.hasFocus && mounted) {
+    if (!_searchFocusNode.hasFocus &&
+        mounted &&
+        !ref.read(mapProvider).showPeakSearch) {
       _mapFocusNode.requestFocus();
     }
   }
@@ -2636,9 +2638,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
       ),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (routeChrome.showPeakSearch && !_searchFocusNode.hasFocus) {
-        _searchFocusNode.requestFocus();
-      }
       if (routeChrome.showGotoInput && !_gotoFocusNode.hasFocus) {
         _gotoFocusNode.requestFocus();
       }
