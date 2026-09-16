@@ -14,6 +14,7 @@ import 'package:peak_bagger/services/map_search_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/track_date_query_parser.dart';
@@ -509,6 +510,199 @@ void main() {
     );
   });
 
+  test('roads and all include each matching named route-graph way', () async {
+    final service = await _service(
+      namedWaySearch: _FakeNamedWaySearch([
+        _wayCandidate(
+          osmWayId: 1,
+          name: 'Alpha Route',
+          highway: 'path',
+          surface: 'fine_gravel',
+        ),
+        _wayCandidate(
+          osmWayId: 2,
+          name: 'Alpha Route',
+          highway: 'track',
+          surface: 'asphalt;paving_stones',
+        ),
+        _wayCandidate(osmWayId: 3, name: 'Alpha Footway', highway: 'footway'),
+        _wayCandidate(
+          osmWayId: 4,
+          name: 'Alpha Road',
+          highway: 'motorway_link',
+        ),
+      ]),
+    );
+
+    final roads = service.search(
+      query: 'alpha',
+      entityFilter: MapSearchEntityFilter.roads,
+      sort: MapSearchSort.nameAscending,
+    );
+    final all = service.search(
+      query: 'alpha',
+      entityFilter: MapSearchEntityFilter.all,
+      sort: MapSearchSort.nameAscending,
+    );
+
+    expect(roads.map((result) => result.id), ['3', '4', '1', '2']);
+    expect(roads.map((result) => result.subtitle), [
+      'Footway',
+      'Motorway Link',
+      'Path · Fine Gravel',
+      'Track · Asphalt / Paving Stones',
+    ]);
+    expect(
+      roads.every((result) => result.type == MapSearchResultType.road),
+      isTrue,
+    );
+    expect(all.map((result) => result.id), ['3', '4', '1', '2']);
+  });
+
+  test(
+    'roads deduplicate by way ID before pagination using canonical metadata',
+    () async {
+      final candidates = [
+        _wayCandidate(
+          osmWayId: 100,
+          name: 'Alpine Road 00',
+          highway: 'track',
+          routingCoverageKey: 'z',
+          chunkKey: 'z',
+        ),
+        _wayCandidate(
+          osmWayId: 100,
+          name: 'Alpine Road 00',
+          highway: 'primary',
+          surface: 'asphalt',
+          routingCoverageKey: 'a',
+          chunkKey: 'a',
+        ),
+        ...List.generate(
+          20,
+          (index) => _wayCandidate(
+            osmWayId: index + 101,
+            name: 'Alpine Road ${(index + 1).toString().padLeft(2, '0')}',
+            highway: 'path',
+          ),
+        ),
+      ];
+      final service = await _service(
+        namedWaySearch: _FakeNamedWaySearch(candidates),
+      );
+
+      final firstPage = service.searchPage(
+        query: 'alpine',
+        entityFilter: MapSearchEntityFilter.roads,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.type,
+        offset: 0,
+      );
+      final secondPage = service.searchPage(
+        query: 'alpine',
+        entityFilter: MapSearchEntityFilter.roads,
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.type,
+        offset: 20,
+      );
+
+      expect(firstPage.results, hasLength(20));
+      expect(firstPage.results.first.subtitle, 'Primary · Asphalt');
+      expect(firstPage.results.first.road!.routingCoverageKey, 'a');
+      expect(firstPage.isExhausted, isFalse);
+      expect(secondPage.results.map((result) => result.id), ['120']);
+      expect(secondPage.isExhausted, isTrue);
+    },
+  );
+
+  test('roads region filtering uses the resolved midpoint', () async {
+    final service = await _service(
+      namedWaySearch: _FakeNamedWaySearch([
+        _wayCandidate(
+          osmWayId: 1,
+          name: 'Tasmania Road',
+          anchor: const LatLng(-43, 147),
+        ),
+        _wayCandidate(
+          osmWayId: 2,
+          name: 'Outside Road',
+          anchor: const LatLng(0, 0),
+        ),
+      ]),
+    );
+
+    final results = service.search(
+      query: 'road',
+      entityFilter: MapSearchEntityFilter.roads,
+      regionKey: 'tasmania',
+      sort: MapSearchSort.nameAscending,
+    );
+
+    expect(results.map((result) => result.id), ['1']);
+    expect(results.single.regionKey, 'tasmania');
+  });
+
+  test('unavailable or empty named-way search produces no roads', () async {
+    final unavailable = await _service();
+    final emptySearch = _FakeNamedWaySearch(const []);
+    final available = await _service(namedWaySearch: emptySearch);
+
+    final unavailableResults = unavailable.search(
+      query: 'road',
+      entityFilter: MapSearchEntityFilter.roads,
+      sort: MapSearchSort.nameAscending,
+    );
+    final underThresholdResults = available.search(
+      query: 'ro',
+      entityFilter: MapSearchEntityFilter.roads,
+      sort: MapSearchSort.nameAscending,
+    );
+    final availableResults = available.search(
+      query: 'road',
+      entityFilter: MapSearchEntityFilter.roads,
+      sort: MapSearchSort.nameAscending,
+    );
+
+    expect(unavailableResults, isEmpty);
+    expect(underThresholdResults, isEmpty);
+    expect(availableResults, isEmpty);
+    expect(emptySearch.queries, ['road']);
+  });
+
+  test(
+    'track date ranges omit roads while retaining date-scoped results',
+    () async {
+      final namedWaySearch = _FakeNamedWaySearch([
+        _wayCandidate(osmWayId: 1, name: 'Road Track'),
+      ]);
+      final service = await _service(
+        tracks: [_track(1, 'Road Track', trackDate: DateTime.utc(2024, 7, 28))],
+        namedWaySearch: namedWaySearch,
+      );
+      const range = TrackDateRange(
+        start: TrackCalendarDay(2024, 7, 28),
+        end: TrackCalendarDay(2024, 7, 28),
+      );
+
+      final roads = service.search(
+        query: 'road',
+        entityFilter: MapSearchEntityFilter.roads,
+        sort: MapSearchSort.nameAscending,
+        trackDateRange: range,
+      );
+      final all = service.search(
+        query: 'road',
+        entityFilter: MapSearchEntityFilter.all,
+        sort: MapSearchSort.nameAscending,
+        trackDateRange: range,
+      );
+
+      expect(roads, isEmpty);
+      expect(all.map((result) => result.type), [MapSearchResultType.track]);
+      expect(namedWaySearch.queries, isEmpty);
+    },
+  );
+
   test('track without runtime geometry is excluded', () async {
     final service = await _service(
       tracks: [GpxTrack(contentHash: 'a', trackName: 'Broken Track')],
@@ -769,6 +963,7 @@ Future<MapSearchService> _service({
   List<app_route.Route> routes = const [],
   List<Tasmap50k> maps = const [],
   List<PeaksBagged> baggedRows = const [],
+  NamedRouteGraphWaySearch? namedWaySearch,
 }) async {
   final tasmapRepository = await TestTasmapRepository.create(maps: maps);
   return MapSearchService(
@@ -781,7 +976,42 @@ Future<MapSearchService> _service({
     peaksBaggedRepository: PeaksBaggedRepository.test(
       InMemoryPeaksBaggedStorage(baggedRows),
     ),
+    namedWaySearch: namedWaySearch,
   );
+}
+
+NamedRouteGraphWayCandidate _wayCandidate({
+  required int osmWayId,
+  required String name,
+  String? highway = 'path',
+  String? surface,
+  LatLng anchor = const LatLng(-43, 147),
+  String routingCoverageKey = 'coverage',
+  String chunkKey = 'chunk',
+}) {
+  return NamedRouteGraphWayCandidate(
+    osmWayId: osmWayId,
+    name: name,
+    highway: highway,
+    surface: surface,
+    anchor: anchor,
+    routingCoverageKey: routingCoverageKey,
+    generation: 1,
+    chunkKey: chunkKey,
+  );
+}
+
+class _FakeNamedWaySearch implements NamedRouteGraphWaySearch {
+  _FakeNamedWaySearch(this.candidates);
+
+  final List<NamedRouteGraphWayCandidate> candidates;
+  final queries = <String>[];
+
+  @override
+  List<NamedRouteGraphWayCandidate> searchNamedWays(String query) {
+    queries.add(query);
+    return candidates;
+  }
 }
 
 Peak _peak(int osmId, String name) {

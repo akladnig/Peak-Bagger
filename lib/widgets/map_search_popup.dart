@@ -528,8 +528,14 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                       key: const Key('map-search-entity-roads'),
                       icon: Icons.directions_car,
                       label: 'Roads',
-                      isSelected: false,
-                      onPressed: null,
+                      isSelected:
+                          widget.entityFilter == MapSearchEntityFilter.roads,
+                      onPressed: () {
+                        _flushPendingQuery();
+                        widget.onSelectEntityFilter(
+                          MapSearchEntityFilter.roads,
+                        );
+                      },
                     ),
                     const SizedBox(width: 8),
                     _entityButton(

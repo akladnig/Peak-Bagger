@@ -5,7 +5,7 @@ import 'peak.dart';
 import 'route.dart' as app_route;
 import 'tasmap50k.dart';
 
-enum MapSearchResultType { peak, track, route, map }
+enum MapSearchResultType { peak, track, route, road, map }
 
 enum MapSearchEntityFilter { all, peaks, tracksRoutes, natural, roads, maps }
 
@@ -35,6 +35,7 @@ class MapSearchResult {
     this.peak,
     this.track,
     this.route,
+    this.road,
     this.map,
   });
 
@@ -126,6 +127,22 @@ class MapSearchResult {
          map: map,
        );
 
+  MapSearchResult.road({
+    required String subtitle,
+    String? regionKey,
+    String? regionName,
+    required MapSearchRoad road,
+  }) : this._(
+         type: MapSearchResultType.road,
+         id: '${road.osmWayId}',
+         title: road.name,
+         subtitle: subtitle,
+         anchor: road.anchor,
+         regionKey: regionKey,
+         regionName: regionName,
+         road: road,
+       );
+
   final MapSearchResultType type;
   final String id;
   final String title;
@@ -139,7 +156,30 @@ class MapSearchResult {
   final Peak? peak;
   final GpxTrack? track;
   final app_route.Route? route;
+  final MapSearchRoad? road;
   final Tasmap50k? map;
 
   String get normalizedTitle => title.trim().toLowerCase();
+}
+
+class MapSearchRoad {
+  const MapSearchRoad({
+    required this.osmWayId,
+    required this.name,
+    required this.highway,
+    required this.surface,
+    required this.anchor,
+    required this.routingCoverageKey,
+    required this.generation,
+    required this.chunkKey,
+  });
+
+  final int osmWayId;
+  final String name;
+  final String? highway;
+  final String? surface;
+  final LatLng anchor;
+  final String routingCoverageKey;
+  final int generation;
+  final String chunkKey;
 }

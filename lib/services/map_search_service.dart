@@ -13,6 +13,7 @@ import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/track_date_query_parser.dart';
 
@@ -25,6 +26,7 @@ class MapSearchService {
     required this._routeRepository,
     required this._tasmapRepository,
     required this._peaksBaggedRepository,
+    this.namedWaySearch,
   });
 
   final PeakRepository _peakRepository;
@@ -32,6 +34,7 @@ class MapSearchService {
   final RouteRepository _routeRepository;
   final TasmapRepository _tasmapRepository;
   final PeaksBaggedRepository _peaksBaggedRepository;
+  final NamedRouteGraphWaySearch? namedWaySearch;
 
   List<Peak> searchPeaks(String query) {
     final trimmedQuery = query.trim();
@@ -189,6 +192,30 @@ class MapSearchService {
         .toList(growable: false);
   }
 
+  List<MapSearchResult> _roadResults(String query, {String? regionKey}) {
+    final candidates = namedWaySearch?.searchNamedWays(query) ?? const [];
+    final orderedCandidates = List<NamedRouteGraphWayCandidate>.from(candidates)
+      ..sort((left, right) {
+        final coverageComparison = left.routingCoverageKey.compareTo(
+          right.routingCoverageKey,
+        );
+        if (coverageComparison != 0) {
+          return coverageComparison;
+        }
+        final chunkComparison = left.chunkKey.compareTo(right.chunkKey);
+        if (chunkComparison != 0) {
+          return chunkComparison;
+        }
+        return left.osmWayId.compareTo(right.osmWayId);
+      });
+    final seenWayIds = <int>{};
+    return orderedCandidates
+        .where((candidate) => seenWayIds.add(candidate.osmWayId))
+        .map((candidate) => _roadResult(candidate, regionKey: regionKey))
+        .whereType<MapSearchResult>()
+        .toList(growable: false);
+  }
+
   MapSearchResult? _peakResult(
     Peak peak, {
     String? regionKey,
@@ -312,6 +339,37 @@ class MapSearchService {
     );
   }
 
+  MapSearchResult? _roadResult(
+    NamedRouteGraphWayCandidate candidate, {
+    String? regionKey,
+  }) {
+    final regionData = _regionForPoint(candidate.anchor);
+    if (!nonPeakMatchesSearchRegion(
+      resolvedRegionKey: regionData?.key,
+      filterRegionKey: regionKey,
+    )) {
+      return null;
+    }
+    return MapSearchResult.road(
+      subtitle: _joinSummaryParts([
+        _formatRoadTag(candidate.highway),
+        _formatRoadTag(candidate.surface),
+      ]),
+      regionKey: regionData?.key,
+      regionName: regionData?.name,
+      road: MapSearchRoad(
+        osmWayId: candidate.osmWayId,
+        name: candidate.name,
+        highway: candidate.highway,
+        surface: candidate.surface,
+        anchor: candidate.anchor,
+        routingCoverageKey: candidate.routingCoverageKey,
+        generation: candidate.generation,
+        chunkKey: candidate.chunkKey,
+      ),
+    );
+  }
+
   LatLng? _firstPointForTrack(GpxTrack track) {
     final points = track.getPoints();
     if (points.isNotEmpty) {
@@ -399,6 +457,28 @@ class MapSearchService {
     return filtered.join(' · ');
   }
 
+  String? _formatRoadTag(String? value) {
+    final formattedValues = value
+        ?.split(';')
+        .map((part) => part.trim().replaceAll('_', ' '))
+        .where((part) => part.isNotEmpty)
+        .map(
+          (part) => part
+              .split(RegExp(r'\s+'))
+              .map(
+                (word) => word.isEmpty
+                    ? word
+                    : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}',
+              )
+              .join(' '),
+        )
+        .toList(growable: false);
+    if (formattedValues == null || formattedValues.isEmpty) {
+      return null;
+    }
+    return formattedValues.join(' / ');
+  }
+
   List<_SearchPageEntry> _orderedEntries({
     required String query,
     required MapSearchEntityFilter entityFilter,
@@ -418,6 +498,10 @@ class MapSearchService {
           regionKey: regionKey,
         ).map(_SearchPageResultEntry.new),
         ..._mapResults(
+          query,
+          regionKey: regionKey,
+        ).map(_SearchPageResultEntry.new),
+        ..._roadResults(
           query,
           regionKey: regionKey,
         ).map(_SearchPageResultEntry.new),
@@ -441,8 +525,11 @@ class MapSearchService {
         query,
         regionKey: regionKey,
       ).map(_SearchPageResultEntry.new).toList(growable: false),
-      MapSearchEntityFilter.natural ||
-      MapSearchEntityFilter.roads => const <_SearchPageEntry>[],
+      MapSearchEntityFilter.roads => _roadResults(
+        query,
+        regionKey: regionKey,
+      ).map(_SearchPageResultEntry.new).toList(growable: false),
+      MapSearchEntityFilter.natural => const <_SearchPageEntry>[],
     };
 
     final ordered = List<_SearchPageEntry>.from(entries)
@@ -682,6 +769,7 @@ class _SearchPageResultEntry extends _SearchPageEntry {
         MapSearchResultType.peak => 'Peaks',
         MapSearchResultType.track ||
         MapSearchResultType.route => 'Tracks/Routes',
+        MapSearchResultType.road => 'Roads',
         MapSearchResultType.map => 'Maps',
       },
     };

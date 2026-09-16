@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -12,6 +13,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 
@@ -79,11 +81,11 @@ void main() {
     expect(find.text('Bonnet Route'), findsOneWidget);
   });
 
-  testWidgets('selecting track route and map results updates map state', (
+  testWidgets('selecting every result clears the prior search selection', (
     tester,
   ) async {
     final notifier = TestMapNotifier(
-      _baseState(),
+      _stateWithSearchSelection(),
       gpxTrackRepository: GpxTrackRepository.test(
         InMemoryGpxTrackStorage([_track(1, 'Bonnet Track')]),
       ),
@@ -103,10 +105,26 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.byKey(const Key('map-search-result-peak-6406')));
+    await tester.pumpAndSettle();
+    expect(container.read(mapProvider).selectedPeaks.single.osmId, 6406);
+    expect(container.read(mapProvider).selectedTrackId, isNull);
+    expect(container.read(mapProvider).selectedRouteId, isNull);
+    expect(container.read(mapProvider).selectedMap, isNull);
+
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+
     await tester.tap(find.byKey(const Key('map-search-result-track-1')));
     await tester.pumpAndSettle();
     expect(container.read(mapProvider).selectedTrackId, 1);
     expect(container.read(mapProvider).selectedLocation, isNotNull);
+    expect(container.read(mapProvider).selectedPeaks, isEmpty);
+    expect(container.read(mapProvider).selectedRouteId, isNull);
+    expect(container.read(mapProvider).selectedMap, isNull);
 
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
@@ -118,6 +136,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(container.read(mapProvider).selectedRouteId, 1);
     expect(container.read(mapProvider).selectedLocation, isNotNull);
+    expect(container.read(mapProvider).selectedPeaks, isEmpty);
+    expect(container.read(mapProvider).selectedTrackId, isNull);
+    expect(container.read(mapProvider).selectedMap, isNull);
 
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
@@ -131,6 +152,113 @@ void main() {
     await tester.pumpAndSettle();
     expect(container.read(mapProvider).selectedMap?.name, 'Alpha Map');
     expect(container.read(mapProvider).selectedMapFocusSerial, greaterThan(0));
+    expect(container.read(mapProvider).selectedPeaks, isEmpty);
+    expect(container.read(mapProvider).selectedTrackId, isNull);
+    expect(container.read(mapProvider).selectedRouteId, isNull);
+  });
+
+  testWidgets(
+    'Roads selects a route-graph way at the current zoom and clears selection',
+    (tester) async {
+      const anchor = LatLng(-43.1, 147.1);
+      final notifier = TestMapNotifier(
+        _stateWithSearchSelection(),
+        namedWaySearch: _FakeNamedWaySearch([
+          const NamedRouteGraphWayCandidate(
+            osmWayId: 123,
+            name: 'Road to Bonnet',
+            highway: 'track',
+            surface: 'fine_gravel',
+            anchor: anchor,
+            routingCoverageKey: 'tasmania',
+            generation: 1,
+            chunkKey: 'chunk-1',
+          ),
+        ]),
+      );
+      await _pumpApp(tester, notifier);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('map-interaction-region'))),
+      );
+      final zoomBeforeSelection = container.read(mapProvider).zoom;
+
+      await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('map-search-input')), 'Road');
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('map-search-entity-roads')));
+      await tester.pumpAndSettle();
+
+      expect(
+        container.read(mapProvider).searchPopupEntityFilter,
+        MapSearchEntityFilter.roads,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-road-123')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const Key('map-search-result-road-123')));
+      await tester.pumpAndSettle();
+
+      final state = container.read(mapProvider);
+      expect(find.byKey(const Key('map-search-popup')), findsNothing);
+      expect(state.center, anchor);
+      expect(state.zoom, zoomBeforeSelection);
+      expect(state.selectedLocation, anchor);
+      expect(state.selectedPeaks, isEmpty);
+      expect(state.selectedTrackId, isNull);
+      expect(state.selectedRouteId, isNull);
+      expect(state.selectedMap, isNull);
+    },
+  );
+
+  testWidgets('search-result selection clears associated popups', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(_stateWithSearchSelection());
+    await _pumpApp(tester, notifier);
+    notifier.state = notifier.state.copyWith(
+      driveEtaPopup: const DriveEtaPopupState(
+        requestId: 1,
+        anchor: LatLng(-43.0, 147.0),
+        title: 'Previous result',
+        status: DriveEtaPopupStatus.success,
+      ),
+    );
+    await tester.pump();
+
+    notifier.clearSearchResultSelection();
+
+    expect(notifier.state.selectedPeaks, isEmpty);
+    expect(notifier.state.selectedTrackId, isNull);
+    expect(notifier.state.selectedRouteId, isNull);
+    expect(notifier.state.selectedMap, isNull);
+    expect(notifier.state.driveEtaPopup, isNull);
+  });
+
+  testWidgets('Roads stays enabled without route-graph coverage', (
+    tester,
+  ) async {
+    await _pumpApp(tester, TestMapNotifier(_baseState()));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('map-search-input')), 'Road');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map-search-entity-roads')));
+    await tester.pumpAndSettle();
+
+    expect(
+      container.read(mapProvider).searchPopupEntityFilter,
+      MapSearchEntityFilter.roads,
+    );
+    expect(find.text('No results found'), findsOneWidget);
   });
 }
 
@@ -165,6 +293,26 @@ MapState _baseState() {
     basemap: Basemap.tracestrack,
     peaks: [_peak(6406, 'Bonnet Hill')],
   );
+}
+
+MapState _stateWithSearchSelection() {
+  final peak = _peak(6406, 'Bonnet Hill');
+  return _baseState().copyWith(
+    selectedPeaks: [peak],
+    selectedTrackId: 1,
+    selectedRouteId: 1,
+    selectedMap: _resolvedMap(),
+    tasmapDisplayMode: TasmapDisplayMode.selectedMap,
+  );
+}
+
+class _FakeNamedWaySearch implements NamedRouteGraphWaySearch {
+  const _FakeNamedWaySearch(this.candidates);
+
+  final List<NamedRouteGraphWayCandidate> candidates;
+
+  @override
+  List<NamedRouteGraphWayCandidate> searchNamedWays(String query) => candidates;
 }
 
 Peak _peak(int osmId, String name) {
