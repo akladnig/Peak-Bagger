@@ -4213,6 +4213,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                     result.route!.id,
                                     selectedLocation: result.anchor,
                                   );
+                            case MapSearchResultType.road:
+                              break;
                             case MapSearchResultType.map:
                               ref
                                   .read(mapProvider.notifier)

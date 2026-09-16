@@ -170,6 +170,7 @@ class _MapSearchResultsListState extends State<MapSearchResultsList> {
       MapSearchResultType.peak => Icons.landscape,
       MapSearchResultType.track => Icons.hiking,
       MapSearchResultType.route => Icons.route,
+      MapSearchResultType.road => Icons.directions_car,
       MapSearchResultType.map => Icons.map,
     };
   }
@@ -217,6 +218,7 @@ class _MapSearchResultsListState extends State<MapSearchResultsList> {
         MapSearchResultType.peak => 'Peaks',
         MapSearchResultType.track ||
         MapSearchResultType.route => 'Tracks/Routes',
+        MapSearchResultType.road => 'Roads',
         MapSearchResultType.map => 'Maps',
       },
     };
