@@ -16,6 +16,10 @@ _Avoid_: route when referring to historical walk data
 The canonical calendar day recorded for a completed `Track`, stored as `GpxTrack.trackDate`.
 _Avoid_: GPX timestamp when the search or display is concerned with the walk's day
 
+**Track name normalisation**:
+The maintenance operation that removes a trailing date from a stored `Track` name while retaining its separate `Track date`.
+_Avoid_: track-date removal, date deletion
+
 **Peak elevation**:
 The stored metres-above-sea-level value on a `Peak`, used when comparing a peak to recorded GPX elevation.
 _Avoid_: height when precision matters
