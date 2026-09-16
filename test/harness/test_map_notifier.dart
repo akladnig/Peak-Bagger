@@ -20,6 +20,7 @@ import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_planner.dart';
+import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
@@ -61,6 +62,7 @@ class TestMapNotifier extends MapNotifier {
     this.waypointsRepository,
     this.gpxTrackRepository,
     this.routeRepository,
+    this.namedWaySearch,
     this.routePlanningOutcomes = const [],
     this.routeSaveErrorMessage,
     this.searchPopupLoadMoreDelay = Duration.zero,
@@ -87,6 +89,7 @@ class TestMapNotifier extends MapNotifier {
   final WaypointsRepository? waypointsRepository;
   final GpxTrackRepository? gpxTrackRepository;
   final RouteRepository? routeRepository;
+  final NamedRouteGraphWaySearch? namedWaySearch;
   final List<Object> routePlanningOutcomes;
   final String? routeSaveErrorMessage;
   final Duration searchPopupLoadMoreDelay;
@@ -1035,6 +1038,7 @@ class TestMapNotifier extends MapNotifier {
       peaksBaggedRepository:
           peaksBaggedRepository ??
           PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+      namedWaySearch: namedWaySearch,
     );
   }
 

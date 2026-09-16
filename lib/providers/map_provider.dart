@@ -51,6 +51,7 @@ import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
+import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/track_peak_correlation_service.dart';
@@ -1101,6 +1102,7 @@ class MapState {
     List<Peak>? selectedPeaks,
     LatLngBounds? visibleBounds,
     Tasmap50k? selectedMap,
+    bool clearSelectedMap = false,
     TasmapDisplayMode? tasmapDisplayMode,
     MapGridVisibility? gridVisibility,
     PeakVisibilityMode? peakVisibilityMode,
@@ -1277,7 +1279,7 @@ class MapState {
           : (peakDifficultyFilter ?? this.peakDifficultyFilter),
       peakDurationFilter: peakDurationFilter ?? this.peakDurationFilter,
       selectedPeaks: selectedPeaks ?? this.selectedPeaks,
-      selectedMap: selectedMap ?? this.selectedMap,
+      selectedMap: clearSelectedMap ? null : (selectedMap ?? this.selectedMap),
       tasmapDisplayMode: tasmapDisplayMode ?? this.tasmapDisplayMode,
       gridVisibility: gridVisibility ?? this.gridVisibility,
       peakVisibilityMode: peakVisibilityMode ?? this.peakVisibilityMode,
@@ -1533,6 +1535,7 @@ class MapNotifier extends Notifier<MapState> {
     WaypointsRepository? waypointsRepository,
     MigrationMarkerStore? migrationMarkerStore,
     PeakRegionAssetImportService? peakRegionAssetImportService,
+    NamedRouteGraphWaySearch? namedWaySearch,
     this._loadPositionOnBuild = true,
     this._loadPeaksOnBuild = true,
     this._loadTracksOnBuild = true,
@@ -1550,7 +1553,8 @@ class MapNotifier extends Notifier<MapState> {
            trackReplacementRecoveryIssueStore,
        _injectedWaypointsRepository = waypointsRepository,
        _injectedMigrationMarkerStore = migrationMarkerStore,
-       _injectedPeakRegionAssetImportService = peakRegionAssetImportService;
+       _injectedPeakRegionAssetImportService = peakRegionAssetImportService,
+       _injectedNamedWaySearch = namedWaySearch;
 
   final PeakRepository? _injectedPeakRepository;
   final OverpassService? _injectedOverpassService;
@@ -1567,6 +1571,7 @@ class MapNotifier extends Notifier<MapState> {
   final WaypointsRepository? _injectedWaypointsRepository;
   final MigrationMarkerStore? _injectedMigrationMarkerStore;
   final PeakRegionAssetImportService? _injectedPeakRegionAssetImportService;
+  final NamedRouteGraphWaySearch? _injectedNamedWaySearch;
   final bool _loadPositionOnBuild;
   final bool _loadPeaksOnBuild;
   final bool _loadTracksOnBuild;
@@ -1721,6 +1726,8 @@ class MapNotifier extends Notifier<MapState> {
       routeRepository: _routeRepository,
       tasmapRepository: _tasmapRepository,
       peaksBaggedRepository: _peaksBaggedRepository,
+      namedWaySearch:
+          _injectedNamedWaySearch ?? ref.read(routeGraphQueryServiceProvider),
     );
     _routeElevationSampler =
         _injectedRouteElevationSampler ??
@@ -8026,6 +8033,37 @@ class MapNotifier extends Notifier<MapState> {
       mapSuggestions: [],
       mapSearchQuery: '',
       clearGotoMgrs: true,
+    );
+  }
+
+  void clearSearchResultSelection() {
+    final nextTasmapDisplayMode = state.selectedMap == null
+        ? state.tasmapDisplayMode
+        : state.gridVisibility == MapGridVisibility.hidden
+        ? TasmapDisplayMode.none
+        : TasmapDisplayMode.overlay;
+    state = state.copyWith(
+      selectedPeaks: const [],
+      clearSelectedTrackId: true,
+      clearSelectedRouteId: true,
+      clearSelectedMap: true,
+      tasmapDisplayMode: nextTasmapDisplayMode,
+      clearPeakInfoPopup: true,
+      clearDriveEtaPopup: true,
+      clearInfoPopup: true,
+    );
+  }
+
+  void selectRoadFromSearch(LatLng location, {required double zoom}) {
+    requestCameraMove(
+      center: location,
+      zoom: zoom,
+      selectedLocation: location,
+      updateSelectedLocation: true,
+      updateSelectedPeaks: true,
+      clearGotoMgrs: true,
+      clearHoveredPeakId: true,
+      clearHoveredTrackId: true,
     );
   }
 

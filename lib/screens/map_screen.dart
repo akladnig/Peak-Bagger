@@ -4196,34 +4196,33 @@ class _MapScreenState extends ConsumerState<MapScreen>
                           ref.read(mapProvider.notifier).closeSearchPopup();
                         },
                         onSelectResult: (result) {
+                          final mapNotifier = ref.read(mapProvider.notifier);
+                          mapNotifier.clearSearchResultSelection();
                           switch (result.type) {
                             case MapSearchResultType.peak:
                               _focusPeakDirect(result.peak!);
                             case MapSearchResultType.track:
-                              ref
-                                  .read(mapProvider.notifier)
-                                  .showTrack(
-                                    result.track!.gpxTrackId,
-                                    selectedLocation: result.anchor,
-                                  );
+                              mapNotifier.showTrack(
+                                result.track!.gpxTrackId,
+                                selectedLocation: result.anchor,
+                              );
                             case MapSearchResultType.route:
-                              ref
-                                  .read(mapProvider.notifier)
-                                  .showRoute(
-                                    result.route!.id,
-                                    selectedLocation: result.anchor,
-                                  );
+                              mapNotifier.showRoute(
+                                result.route!.id,
+                                selectedLocation: result.anchor,
+                              );
                             case MapSearchResultType.road:
-                              break;
+                              mapNotifier.selectRoadFromSearch(
+                                result.anchor,
+                                zoom: _mapController.camera.zoom,
+                              );
                             case MapSearchResultType.map:
-                              ref
-                                  .read(mapProvider.notifier)
-                                  .selectMapFromSearch(
-                                    result.map!,
-                                    selectedLocation: result.anchor,
-                                  );
+                              mapNotifier.selectMapFromSearch(
+                                result.map!,
+                                selectedLocation: result.anchor,
+                              );
                           }
-                          ref.read(mapProvider.notifier).closeSearchPopup();
+                          mapNotifier.closeSearchPopup();
                         },
                       ),
                     ),
