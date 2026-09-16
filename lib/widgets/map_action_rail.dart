@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/constants.dart';
+import '../core/number_formatters.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -663,27 +664,25 @@ class MapActionRail extends ConsumerWidget {
   String _importResultSummary<TItem extends GpxImportItem>(
     GpxImportResult<TItem> result,
   ) {
-    final parts = <String>['${result.addedCount} added'];
-    if (result.unchangedCount > 0) {
-      parts.add('${result.unchangedCount} unchanged');
-    }
-    if (result.unsupportedCount > 0) {
-      parts.add('${result.unsupportedCount} unsupported');
-    }
-    if (result.errorCount > 0) {
-      parts.add('${result.errorCount} errors');
-    }
-    return parts.join(', ');
+    return 'Added ${formatCount(result.addedCount)} tracks, '
+        'replaced ${formatCount(result.replacedCount)} tracks, '
+        'unchanged ${formatCount(result.unchangedCount)} tracks, '
+        'unsupported ${formatCount(result.unsupportedCount)} tracks, '
+        'errors ${formatCount(result.errorCount)} tracks';
   }
 
   List<String> _importResultDetails<TItem extends GpxImportItem>(
     GpxImportResult<TItem> result,
   ) {
     return <String>[
-      'Added: ${result.addedCount}',
-      'Unchanged: ${result.unchangedCount}',
-      'Unsupported: ${result.unsupportedCount}',
-      'Errors: ${result.errorCount}',
+      'Added: ${formatCount(result.addedCount)}',
+      'Replaced: ${formatCount(result.replacedCount)}',
+      'Unchanged: ${formatCount(result.unchangedCount)}',
+      'Unsupported: ${formatCount(result.unsupportedCount)}',
+      'Errors: ${formatCount(result.errorCount)}',
+      ...result.errors.map(
+        (error) => '${p.basename(error.sourcePath)}: ${error.reason}',
+      ),
       ...?switch (result.warningMessage) {
         null => null,
         final warning => <String>[warning],

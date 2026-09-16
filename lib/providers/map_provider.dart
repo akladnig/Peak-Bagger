@@ -2111,10 +2111,6 @@ class MapNotifier extends Notifier<MapState> {
       }
 
       final existingTracks = _gpxTrackRepository.getAllTracks();
-      final existingContentHashes = existingTracks
-          .map((t) => t.contentHash)
-          .where((h) => h.isNotEmpty)
-          .toSet();
 
       final orderedPaths = pathToEditedNames.keys.toList(growable: false);
       if (orderedPaths.isNotEmpty) {
@@ -2125,7 +2121,7 @@ class MapNotifier extends Notifier<MapState> {
       final plan = await importer.planSelectiveImport(
         paths: pathToEditedNames.keys.toList(),
         pathToEditedNames: pathToEditedNames,
-        existingContentHashes: existingContentHashes,
+        existingTracks: existingTracks,
       );
 
       completedCount =
@@ -2138,7 +2134,7 @@ class MapNotifier extends Notifier<MapState> {
       final filterConfig = await ref.read(gpxFilterSettingsProvider.future);
 
       // Apply processing to each planned track
-      for (final item in plan.items) {
+      for (final item in plan.items.where((item) => !item.isReplacement)) {
         final selection = importer.selectionForTrack(item.track);
         final processed = importer.processTrack(
           selection.xml,
@@ -2149,7 +2145,7 @@ class MapNotifier extends Notifier<MapState> {
 
       // Persist tracks additively
       final addedItems = <GpxTrackImportItem>[];
-      for (final item in plan.items) {
+      for (final item in plan.items.where((item) => !item.isReplacement)) {
         reportProgress(currentFileName: p.basename(item.sourcePath));
 
         // Apply peak correlation
@@ -2222,9 +2218,11 @@ class MapNotifier extends Notifier<MapState> {
       return GpxTrackImportResult(
         items: addedItems,
         addedCount: addedItems.length,
+        replacedCount: 0,
         unchangedCount: plan.unchangedCount,
         unsupportedCount: plan.unsupportedCount,
         errorCount: plan.errorCount,
+        errors: plan.errors,
         warningMessage: plan.warningMessage,
       );
     } catch (e) {

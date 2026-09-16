@@ -17,6 +17,7 @@ import 'package:peak_bagger/services/polygon_asset_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
+import 'package:peak_bagger/services/track_name_normalisation.dart';
 import 'package:peak_bagger/services/gpx_point_sample.dart';
 import 'package:peak_bagger/services/gpx_filter.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
@@ -517,10 +518,10 @@ class GpxImporter {
     if (nameElement != null) {
       final text = nameElement.innerText.trim();
       if (text.isNotEmpty) {
-        return text;
+        return normaliseTrackName(text);
       }
     }
-    return _basenameWithoutExtension(filePath);
+    return normaliseTrackName(_basenameWithoutExtension(filePath));
   }
 
   DateTime? _extractStartDateTime(XmlDocument doc) {
@@ -1199,7 +1200,7 @@ class GpxImporter {
   bool _isSameLogicalMatch(GpxTrack a, GpxTrack b) {
     return a.hasMetadataTrackDate &&
         b.hasMetadataTrackDate &&
-        a.trackName == b.trackName &&
+        normaliseTrackName(a.trackName) == normaliseTrackName(b.trackName) &&
         a.trackDate == b.trackDate;
   }
 
@@ -1208,12 +1209,7 @@ class GpxImporter {
     GpxTrack incoming,
   ) {
     final matches = existingTracks
-        .where(
-          (track) =>
-              track.hasMetadataTrackDate &&
-              track.trackDate == incoming.trackDate &&
-              track.trackName == incoming.trackName,
-        )
+        .where((track) => _isSameLogicalMatch(track, incoming))
         .toList();
     if (matches.isEmpty) {
       return null;
@@ -1274,7 +1270,7 @@ class GpxImporter {
       final doc = XmlDocument.parse(gpxXml);
       return _extractTrackName(doc, filePath);
     } catch (_) {
-      return _basenameWithoutExtension(filePath);
+      return normaliseTrackName(_basenameWithoutExtension(filePath));
     }
   }
 
@@ -1304,9 +1300,13 @@ class GpxImporter {
   Future<GpxTrackImportPlan> planSelectiveImport({
     required List<String> paths,
     required Map<String, String> pathToEditedNames,
-    required Set<String> existingContentHashes,
+    List<GpxTrack> existingTracks = const [],
+    Set<String> existingContentHashes = const {},
   }) async {
     final items = <GpxTrackImportPlanItem>[];
+    final errors = <GpxTrackImportError>[];
+    var addedCount = 0;
+    var replacedCount = 0;
     var unchangedCount = 0;
     var unsupportedCount = 0;
     var errorCount = 0;
@@ -1314,36 +1314,48 @@ class GpxImporter {
     final warnings = <String>[];
 
     final seenContentHashes = <String>{};
+    final seenLogicalMatches = <String>{};
+    final knownContentHashes = {
+      ...existingContentHashes,
+      ...existingTracks
+          .map((track) => track.contentHash)
+          .where((hash) => hash.isNotEmpty),
+    };
 
     for (final filePath in paths) {
       final track = parseGpxFile(filePath);
 
       if (track == null) {
+        final reason = _classifyParseFailure(filePath);
         errorCount += 1;
-        logWriteFailed = !await _appendImportLog(
-          filePath,
-          _classifyParseFailure(filePath),
-        );
+        errors.add(GpxTrackImportError(sourcePath: filePath, reason: reason));
+        logWriteFailed =
+            logWriteFailed || !await _appendImportLog(filePath, reason);
         continue;
       }
 
+      // The dialog always supplies a name, but retain the parsed default for
+      // programmatic callers and normalise both paths through one boundary.
+      track.trackName = normaliseTrackName(
+        pathToEditedNames[filePath] ?? track.trackName,
+      );
+
       final firstPoint = _getFirstPointFromFile(filePath);
       if (firstPoint == null) {
+        const reason = 'First track point unreadable';
         errorCount += 1;
-        logWriteFailed = !await _appendImportLog(
-          filePath,
-          'First track point unreadable',
-        );
+        errors.add(GpxTrackImportError(sourcePath: filePath, reason: reason));
+        logWriteFailed =
+            logWriteFailed || !await _appendImportLog(filePath, reason);
         continue;
       }
 
       final destination = await _resolveTrackDestination(firstPoint);
       if (destination == null) {
         unsupportedCount += 1;
-        logWriteFailed = !await _appendImportLog(
-          filePath,
-          'Unsupported location',
-        );
+        logWriteFailed =
+            logWriteFailed ||
+            !await _appendImportLog(filePath, 'Unsupported location');
         continue;
       }
 
@@ -1353,14 +1365,36 @@ class GpxImporter {
         continue;
       }
 
-      if (existingContentHashes.contains(track.contentHash)) {
+      if (knownContentHashes.contains(track.contentHash)) {
         unchangedCount += 1;
         continue;
       }
 
-      // Apply edited name from dialog
-      if (pathToEditedNames.containsKey(filePath)) {
-        track.trackName = pathToEditedNames[filePath]!;
+      if (track.hasMetadataTrackDate && track.trackDate != null) {
+        final logicalKey =
+            '${track.trackName}|${track.trackDate!.toIso8601String()}';
+        if (!seenLogicalMatches.add(logicalKey)) {
+          const reason =
+              'Cannot import Track because another selected Track has the same normalised name and date.';
+          errorCount += 1;
+          errors.add(GpxTrackImportError(sourcePath: filePath, reason: reason));
+          logWriteFailed =
+              logWriteFailed || !await _appendImportLog(filePath, reason);
+          continue;
+        }
+      }
+
+      final matchingStoredTracks = existingTracks
+          .where((existing) => _isSameLogicalMatch(existing, track))
+          .toList(growable: false);
+      if (matchingStoredTracks.length > 1) {
+        const reason =
+            'Cannot replace Track because multiple stored Tracks match its name and date.';
+        errorCount += 1;
+        errors.add(GpxTrackImportError(sourcePath: filePath, reason: reason));
+        logWriteFailed =
+            logWriteFailed || !await _appendImportLog(filePath, reason);
+        continue;
       }
 
       // Plan managed storage placement for supported tracks
@@ -1374,10 +1408,16 @@ class GpxImporter {
         GpxTrackImportPlanItem(
           sourcePath: filePath,
           track: track,
+          replacedTrack: matchingStoredTracks.firstOrNull,
           plannedManagedRelativePath: plannedRelativePath,
           shouldPlaceInManagedStorage: true,
         ),
       );
+      if (matchingStoredTracks.isEmpty) {
+        addedCount += 1;
+      } else {
+        replacedCount += 1;
+      }
     }
 
     if (errorCount > 0 || unsupportedCount > 0 || warnings.isNotEmpty) {
@@ -1390,9 +1430,12 @@ class GpxImporter {
 
     return GpxTrackImportPlan(
       items: items,
+      addedCount: addedCount,
+      replacedCount: replacedCount,
       unchangedCount: unchangedCount,
       unsupportedCount: unsupportedCount,
       errorCount: errorCount,
+      errors: List.unmodifiable(errors),
       warningMessage: warnings.isEmpty ? null : warnings.join(' '),
     );
   }
