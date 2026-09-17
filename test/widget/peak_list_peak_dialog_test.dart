@@ -950,19 +950,32 @@ void main() {
     expect(await completer.future, isNotNull);
   });
 
-  testWidgets('edit mode updates points only', (tester) async {
-    final listRepository = _peakListRepository([
-      (
-        peakList: PeakList(peakListId: 1, name: 'Tasmania'),
-        items: const [PeakListItem(peakOsmId: 101, points: 4)],
-      ),
-    ]);
+  testWidgets('edit mode updates list points and shared peak metadata', (
+    tester,
+  ) async {
     final peak = _buildPeak(
       osmId: 101,
       name: 'Mount Edit',
       latitude: -41,
       longitude: 146,
+      difficulty: 'Easy',
+      durationLabel: '1:30',
+      durationMinutes: 90,
     );
+    final listRepository = _peakListRepository(
+      [
+        (
+          peakList: PeakList(peakListId: 1, name: 'Tasmania'),
+          items: const [PeakListItem(peakOsmId: 101, points: 4)],
+        ),
+        (
+          peakList: PeakList(peakListId: 2, name: 'Other List'),
+          items: const [PeakListItem(peakOsmId: 101, points: 2)],
+        ),
+      ],
+      peaks: [peak],
+    );
+    final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
     final mapNotifier = TestMapNotifier(
       MapState(
         center: const LatLng(-41.5, 146.5),
@@ -971,20 +984,232 @@ void main() {
         peakListSelectionMode: PeakListSelectionMode.specificList,
         selectedPeakListIds: {1},
       ),
+      peakRepository: peakRepository,
     );
 
     final completer = await _pumpDialog(
       tester,
       dialog: PeakListPeakDialog(
         mode: PeakListPeakDialogMode.edit,
-        peakList: listRepository.getAllPeakLists().single,
+        peakList: listRepository.getAllPeakLists().firstWhere(
+          (peakList) => peakList.peakListId == 1,
+        ),
         peakListRepository: listRepository,
         peakItems: [const PeakListItem(peakOsmId: 101, points: 4)],
         ascentRows: const [],
         peak: peak,
         points: 4,
       ),
-      peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+      peakRepository: peakRepository,
+      tasmapRepository: await TestTasmapRepository.create(),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      mapNotifier: mapNotifier,
+      peakListRepository: listRepository,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MaterialApp)),
+    );
+
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('peak-list-peak-difficulty')))
+          .controller!
+          .text,
+      'Easy',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('peak-list-peak-duration')))
+          .controller!
+          .text,
+      '1:30',
+    );
+
+    await tester.tap(find.byKey(const Key('peak-list-peak-points')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('7').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('peak-list-peak-difficulty')),
+      'T4',
+    );
+    await tester.enterText(
+      find.byKey(const Key('peak-list-peak-duration')),
+      '2-4 hours',
+    );
+    await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+    await tester.pumpAndSettle();
+
+    final result = await completer.future;
+    expect(result?.selectedPeakId, 101);
+    expect(result?.deleted, isFalse);
+    expect(listRepository.getPeakListItemsForList(1).single.points, 7);
+    expect(listRepository.getPeakListItemsForList(2).single.points, 2);
+    final updatedPeak = peakRepository.findByOsmId(101)!;
+    expect(updatedPeak.difficulty, 'T4');
+    expect(updatedPeak.durationLabel, '2-4 hours');
+    expect(updatedPeak.durationMinutes, 240);
+    expect(mapNotifier.state.peaks.single.difficulty, 'T4');
+    expect(container.read(peakListRevisionProvider), 1);
+    expect(container.read(peakRevisionProvider), 1);
+    expect(mapNotifier.reloadPeakMarkersCallCount, 1);
+  });
+
+  testWidgets('edit mode clears blank difficulty and duration', (tester) async {
+    final peak = _buildPeak(
+      osmId: 101,
+      name: 'Mount Edit',
+      latitude: -41,
+      longitude: 146,
+      difficulty: 'EE',
+      durationLabel: '2 days',
+      durationMinutes: 2880,
+    );
+    final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+    final listRepository = _peakListRepository(
+      [
+        (
+          peakList: PeakList(peakListId: 1, name: 'Tasmania'),
+          items: const [PeakListItem(peakOsmId: 101, points: 4)],
+        ),
+      ],
+      peaks: [peak],
+    );
+
+    await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.edit,
+        peakList: listRepository.getAllPeakLists().single,
+        peakListRepository: listRepository,
+        peakItems: const [PeakListItem(peakOsmId: 101, points: 4)],
+        ascentRows: const [],
+        peak: peak,
+        points: 4,
+      ),
+      peakRepository: peakRepository,
+      tasmapRepository: await TestTasmapRepository.create(),
+      gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      peakListRepository: listRepository,
+    );
+
+    await tester.enterText(
+      find.byKey(const Key('peak-list-peak-difficulty')),
+      '',
+    );
+    await tester.enterText(
+      find.byKey(const Key('peak-list-peak-duration')),
+      '',
+    );
+    await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+    await tester.pumpAndSettle();
+
+    final updatedPeak = peakRepository.findByOsmId(101)!;
+    expect(updatedPeak.difficulty, isEmpty);
+    expect(updatedPeak.durationLabel, isEmpty);
+    expect(updatedPeak.durationMinutes, isNull);
+  });
+
+  testWidgets('edit mode accepts supported duration formats', (tester) async {
+    final durations = <String, int>{
+      '4:30': 270,
+      '2-4 hours': 240,
+      '2-4 days': 5760,
+      '1 day': 1440,
+      '3 days': 4320,
+    };
+
+    for (final entry in durations.entries) {
+      final peak = _buildPeak(
+        osmId: 101,
+        name: 'Mount Edit',
+        latitude: -41,
+        longitude: 146,
+      );
+      final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+      final listRepository = _peakListRepository(
+        [
+          (
+            peakList: PeakList(peakListId: 1, name: 'Tasmania'),
+            items: const [PeakListItem(peakOsmId: 101, points: 4)],
+          ),
+        ],
+        peaks: [peak],
+      );
+      final completer = await _pumpDialog(
+        tester,
+        dialog: PeakListPeakDialog(
+          mode: PeakListPeakDialogMode.edit,
+          peakList: listRepository.getAllPeakLists().single,
+          peakListRepository: listRepository,
+          peakItems: const [PeakListItem(peakOsmId: 101, points: 4)],
+          ascentRows: const [],
+          peak: peak,
+          points: 4,
+        ),
+        peakRepository: peakRepository,
+        tasmapRepository: await TestTasmapRepository.create(),
+        gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+        peakListRepository: listRepository,
+      );
+
+      await tester.enterText(
+        find.byKey(const Key('peak-list-peak-duration')),
+        entry.key,
+      );
+      await tester.tap(find.byKey(const Key('peak-list-peak-save')));
+      await tester.pumpAndSettle();
+
+      expect((await completer.future)?.selectedPeakId, 101);
+      final updatedPeak = peakRepository.findByOsmId(101)!;
+      expect(updatedPeak.durationLabel, entry.key);
+      expect(updatedPeak.durationMinutes, entry.value);
+    }
+  });
+
+  testWidgets('invalid duration preserves edits and does not persist', (
+    tester,
+  ) async {
+    final peak = _buildPeak(
+      osmId: 101,
+      name: 'Mount Edit',
+      latitude: -41,
+      longitude: 146,
+      difficulty: 'Easy',
+      durationLabel: '1:30',
+      durationMinutes: 90,
+    );
+    final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+    final listRepository = _peakListRepository(
+      [
+        (
+          peakList: PeakList(peakListId: 1, name: 'Tasmania'),
+          items: const [PeakListItem(peakOsmId: 101, points: 4)],
+        ),
+      ],
+      peaks: [peak],
+    );
+    final mapNotifier = TestMapNotifier(
+      MapState(
+        center: const LatLng(-41.5, 146.5),
+        zoom: 15,
+        basemap: Basemap.tracestrack,
+      ),
+      peakRepository: peakRepository,
+    );
+
+    await _pumpDialog(
+      tester,
+      dialog: PeakListPeakDialog(
+        mode: PeakListPeakDialogMode.edit,
+        peakList: listRepository.getAllPeakLists().single,
+        peakListRepository: listRepository,
+        peakItems: const [PeakListItem(peakOsmId: 101, points: 4)],
+        ascentRows: const [],
+        peak: peak,
+        points: 4,
+      ),
+      peakRepository: peakRepository,
       tasmapRepository: await TestTasmapRepository.create(),
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       mapNotifier: mapNotifier,
@@ -997,15 +1222,47 @@ void main() {
     await tester.tap(find.byKey(const Key('peak-list-peak-points')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('7').last);
-    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('peak-list-peak-difficulty')),
+      'EE',
+    );
+    await tester.enterText(
+      find.byKey(const Key('peak-list-peak-duration')),
+      'tomorrow',
+    );
     await tester.tap(find.byKey(const Key('peak-list-peak-save')));
     await tester.pumpAndSettle();
 
-    final result = await completer.future;
-    expect(result?.selectedPeakId, 101);
-    expect(result?.deleted, isFalse);
-    expect(listRepository.getPeakListItemsForList(1).single.points, 7);
-    expect(container.read(peakListRevisionProvider), 1);
+    expect(find.byKey(const Key('peak-list-peak-dialog')), findsOneWidget);
+    expect(
+      find.byKey(const Key('peak-list-peak-duration-error')),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('Invalid peak duration "tomorrow"'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('peak-list-peak-difficulty')))
+          .controller!
+          .text,
+      'EE',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('peak-list-peak-duration')))
+          .controller!
+          .text,
+      'tomorrow',
+    );
+    expect(listRepository.getPeakListItemsForList(1).single.points, 4);
+    final storedPeak = peakRepository.findByOsmId(101)!;
+    expect(storedPeak.difficulty, 'Easy');
+    expect(storedPeak.durationLabel, '1:30');
+    expect(storedPeak.durationMinutes, 90);
+    expect(container.read(peakListRevisionProvider), 0);
+    expect(container.read(peakRevisionProvider), 0);
     expect(mapNotifier.reloadPeakMarkersCallCount, 0);
   });
 
@@ -1470,6 +1727,9 @@ Peak _buildPeak({
   String northing = '',
   double? elevation,
   String region = Peak.defaultRegion,
+  String difficulty = '',
+  String durationLabel = '',
+  int? durationMinutes,
 }) {
   return Peak(
     osmId: osmId,
@@ -1478,6 +1738,9 @@ Peak _buildPeak({
     latitude: latitude,
     longitude: longitude,
     region: region,
+    difficulty: difficulty,
+    durationLabel: durationLabel,
+    durationMinutes: durationMinutes,
     gridZoneDesignator: gridZoneDesignator,
     mgrs100kId: mgrs100kId,
     easting: easting,

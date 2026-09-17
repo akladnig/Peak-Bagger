@@ -12,11 +12,20 @@ void main() {
         Peak(
           id: 7,
           osmId: 123,
+          peakbaggerPid: 456,
           name: 'Cradle',
           altName: 'Cradle Mountain',
           elevation: 1545,
+          prominence: 312.5,
+          country: 'Australia',
+          county: 'Kentish',
+          range: 'Central Highlands',
+          rating: 4.5,
           durationMinutes: 255,
           durationLabel: '4:15',
+          difficulty: 'T3',
+          viaFerrata: 'None',
+          notes: 'Summit plateau',
           latitude: -41.5,
           longitude: 146.5,
           region: '  Cradle Country  ',
@@ -32,8 +41,17 @@ void main() {
       expect(draft.name, 'Cradle');
       expect(draft.altName, 'Cradle Mountain');
       expect(draft.osmId, '123');
+      expect(draft.peakbaggerPid, '456');
       expect(draft.elevation, '1545');
+      expect(draft.prominence, '312.5');
+      expect(draft.country, 'Australia');
+      expect(draft.county, 'Kentish');
+      expect(draft.range, 'Central Highlands');
+      expect(draft.rating, '4.5');
       expect(draft.durationLabel, '4:15');
+      expect(draft.difficulty, 'T3');
+      expect(draft.viaFerrata, 'None');
+      expect(draft.notes, 'Summit plateau');
       expect(draft.latitude, '-41.500000');
       expect(draft.longitude, '146.500000');
       expect(draft.region, '  Cradle Country  ');
@@ -86,6 +104,116 @@ void main() {
       expect(result.peak?.easting, expectedComponents.easting);
       expect(result.peak?.northing, expectedComponents.northing);
       expect(result.peak?.sourceOfTruth, Peak.sourceOfTruthHwc);
+    });
+
+    test('persists validated metadata and clears optional values', () {
+      final result = PeakAdminEditor.validateAndBuild(
+        source: Peak(
+          name: 'Old',
+          peakbaggerPid: 1,
+          prominence: 2,
+          country: 'Old country',
+          county: 'Old county',
+          range: 'Old range',
+          rating: 1,
+          difficulty: 'Old difficulty',
+          viaFerrata: 'Old via ferrata',
+          notes: 'Old notes',
+          latitude: -41,
+          longitude: 146,
+        ),
+        form: const PeakAdminFormState(
+          name: 'Cradle',
+          osmId: '123',
+          peakbaggerPid: '456',
+          elevation: '',
+          prominence: '312.5',
+          country: 'Australia',
+          county: 'Kentish',
+          range: 'Central Highlands',
+          rating: '4.26',
+          difficulty: 'T3',
+          viaFerrata: 'None',
+          notes: 'First line\nSecond line',
+          latitude: '-41.5',
+          longitude: '146.5',
+          region: '',
+          gridZoneDesignator: '55G',
+          mgrs100kId: '',
+          easting: '',
+          northing: '',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      );
+
+      expect(result.isValid, isTrue);
+      expect(result.peak?.peakbaggerPid, 456);
+      expect(result.peak?.prominence, 312.5);
+      expect(result.peak?.country, 'Australia');
+      expect(result.peak?.county, 'Kentish');
+      expect(result.peak?.range, 'Central Highlands');
+      expect(result.peak?.rating, 4.3);
+      expect(result.peak?.difficulty, 'T3');
+      expect(result.peak?.viaFerrata, 'None');
+      expect(result.peak?.notes, 'First line\nSecond line');
+
+      final cleared = PeakAdminEditor.validateAndBuild(
+        source: result.peak!,
+        form: const PeakAdminFormState(
+          name: 'Cradle',
+          osmId: '123',
+          elevation: '',
+          latitude: '-41.5',
+          longitude: '146.5',
+          region: '',
+          gridZoneDesignator: '55G',
+          mgrs100kId: '',
+          easting: '',
+          northing: '',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      );
+
+      expect(cleared.isValid, isTrue);
+      expect(cleared.peak?.peakbaggerPid, isNull);
+      expect(cleared.peak?.prominence, isNull);
+      expect(cleared.peak?.rating, isNull);
+      expect(cleared.peak?.country, isEmpty);
+      expect(cleared.peak?.county, isEmpty);
+      expect(cleared.peak?.range, isEmpty);
+      expect(cleared.peak?.difficulty, isEmpty);
+      expect(cleared.peak?.viaFerrata, isEmpty);
+      expect(cleared.peak?.notes, isEmpty);
+    });
+
+    test('rejects invalid PeakBagger PID, prominence, and rating', () {
+      final result = PeakAdminEditor.validateAndBuild(
+        source: Peak(name: 'Old', latitude: -41, longitude: 146),
+        form: const PeakAdminFormState(
+          name: 'Cradle',
+          osmId: '123',
+          peakbaggerPid: '0',
+          elevation: '',
+          prominence: 'unknown',
+          rating: '5.1',
+          latitude: '-41.5',
+          longitude: '146.5',
+          region: '',
+          gridZoneDesignator: '55G',
+          mgrs100kId: '',
+          easting: '',
+          northing: '',
+          sourceOfTruth: Peak.sourceOfTruthOsm,
+        ),
+      );
+
+      expect(result.isValid, isFalse);
+      expect(
+        result.fieldErrors['peakbaggerPid'],
+        PeakAdminEditor.peakbaggerPidError,
+      );
+      expect(result.fieldErrors['prominence'], PeakAdminEditor.prominenceError);
+      expect(result.fieldErrors['rating'], PeakAdminEditor.ratingError);
     });
 
     test('calculates MGRS fields from latitude and longitude input', () {

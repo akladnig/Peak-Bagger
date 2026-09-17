@@ -11,8 +11,17 @@ class PeakAdminFormState {
     required this.name,
     this.altName = '',
     required this.osmId,
+    this.peakbaggerPid = '',
     required this.elevation,
+    this.prominence = '',
+    this.country = '',
+    this.county = '',
+    this.range = '',
+    this.rating = '',
     this.durationLabel = '',
+    this.difficulty = '',
+    this.viaFerrata = '',
+    this.notes = '',
     required this.latitude,
     required this.longitude,
     required this.region,
@@ -27,8 +36,17 @@ class PeakAdminFormState {
   final String name;
   final String altName;
   final String osmId;
+  final String peakbaggerPid;
   final String elevation;
+  final String prominence;
+  final String country;
+  final String county;
+  final String range;
+  final String rating;
   final String durationLabel;
+  final String difficulty;
+  final String viaFerrata;
+  final String notes;
   final String latitude;
   final String longitude;
   final String region;
@@ -43,8 +61,17 @@ class PeakAdminFormState {
     String? name,
     String? altName,
     String? osmId,
+    String? peakbaggerPid,
     String? elevation,
+    String? prominence,
+    String? country,
+    String? county,
+    String? range,
+    String? rating,
     String? durationLabel,
+    String? difficulty,
+    String? viaFerrata,
+    String? notes,
     String? latitude,
     String? longitude,
     String? region,
@@ -59,8 +86,17 @@ class PeakAdminFormState {
       name: name ?? this.name,
       altName: altName ?? this.altName,
       osmId: osmId ?? this.osmId,
+      peakbaggerPid: peakbaggerPid ?? this.peakbaggerPid,
       elevation: elevation ?? this.elevation,
+      prominence: prominence ?? this.prominence,
+      country: country ?? this.country,
+      county: county ?? this.county,
+      range: range ?? this.range,
+      rating: rating ?? this.rating,
       durationLabel: durationLabel ?? this.durationLabel,
+      difficulty: difficulty ?? this.difficulty,
+      viaFerrata: viaFerrata ?? this.viaFerrata,
+      notes: notes ?? this.notes,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       region: region ?? this.region,
@@ -119,7 +155,12 @@ class PeakAdminEditor {
   static const String altNameDuplicateNameError =
       'Alt Name must be different from Name';
   static const String osmIdError = 'osmId must be an integer';
+  static const String peakbaggerPidError =
+      'PeakBagger PID must be a positive integer';
   static const String elevationError = 'Elevation must be an integer';
+  static const String prominenceError = 'Prominence must be a number';
+  static const String ratingError =
+      'Rating must be a number between 0.0 and 5.0';
   static const String tasmaniaError = 'Entered location is not with Tasmania.';
   static const String latLngConversionError =
       'Failed to derive coordinates from marker.';
@@ -129,8 +170,17 @@ class PeakAdminEditor {
       name: peak.name,
       altName: peak.altName,
       osmId: peak.osmId.toString(),
+      peakbaggerPid: peak.peakbaggerPid?.toString() ?? '',
       elevation: _formatOptionalNumber(peak.elevation),
+      prominence: _formatOptionalNumber(peak.prominence),
+      country: peak.country,
+      county: peak.county,
+      range: peak.range,
+      rating: _formatOptionalNumber(peak.rating),
       durationLabel: peakDurationDisplayLabel(peak),
+      difficulty: peak.difficulty,
+      viaFerrata: peak.viaFerrata,
+      notes: peak.notes,
       latitude: formatCoordinate(peak.latitude),
       longitude: formatCoordinate(peak.longitude),
       region: peak.region ?? Peak.defaultRegion,
@@ -164,6 +214,15 @@ class PeakAdminEditor {
       fieldErrors['osmId'] = osmIdError;
     }
 
+    final peakbaggerPidText = form.peakbaggerPid.trim();
+    final peakbaggerPid = peakbaggerPidText.isEmpty
+        ? null
+        : int.tryParse(peakbaggerPidText);
+    if (peakbaggerPidText.isNotEmpty &&
+        (peakbaggerPid == null || peakbaggerPid <= 0)) {
+      fieldErrors['peakbaggerPid'] = peakbaggerPidError;
+    }
+
     final elevationText = form.elevation.trim();
     double? elevation;
     if (elevationText.isNotEmpty) {
@@ -173,6 +232,22 @@ class PeakAdminEditor {
       } else {
         elevation = parsedElevation.toDouble();
       }
+    }
+
+    final prominenceText = form.prominence.trim();
+    final prominence = prominenceText.isEmpty
+        ? null
+        : double.tryParse(prominenceText);
+    if (prominenceText.isNotEmpty &&
+        (prominence == null || !prominence.isFinite)) {
+      fieldErrors['prominence'] = prominenceError;
+    }
+
+    final ratingText = form.rating.trim();
+    final rating = ratingText.isEmpty ? null : double.tryParse(ratingText);
+    if (ratingText.isNotEmpty &&
+        (rating == null || !rating.isFinite || rating < 0.0 || rating > 5.0)) {
+      fieldErrors['rating'] = ratingError;
     }
 
     final durationText = form.durationLabel.trim();
@@ -307,20 +382,20 @@ class PeakAdminEditor {
     final peak = Peak(
       id: source.id,
       osmId: osmId!,
-      peakbaggerPid: source.peakbaggerPid,
+      peakbaggerPid: peakbaggerPid,
       name: name,
       altName: altName,
       elevation: elevation,
-      prominence: source.prominence,
-      country: source.country,
-      county: source.county,
-      range: source.range,
-      rating: source.rating,
+      prominence: prominence,
+      country: form.country.trim(),
+      county: form.county.trim(),
+      range: form.range.trim(),
+      rating: rating == null ? null : (rating * 10).round() / 10,
       durationMinutes: parsedDuration?.durationMinutes,
       durationLabel: parsedDuration?.durationLabel ?? '',
-      difficulty: source.difficulty,
-      viaFerrata: source.viaFerrata,
-      notes: source.notes,
+      difficulty: form.difficulty.trim(),
+      viaFerrata: form.viaFerrata.trim(),
+      notes: form.notes.trim(),
       latitude: latitude,
       longitude: longitude,
       region: region.isEmpty ? Peak.defaultRegion : region,

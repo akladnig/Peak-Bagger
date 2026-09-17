@@ -183,6 +183,10 @@ class ObjectBoxAdminRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> showPeakField(String fieldName) async {
+    await _scrollPeakFormTo(peakField(fieldName));
+  }
+
   Future<void> enterPeakAltName(String value) async {
     final form = find.byKey(const Key('objectbox-admin-peak-edit-form'));
     for (var i = 0; i < 8 && peakAltNameField.evaluate().isEmpty; i++) {
