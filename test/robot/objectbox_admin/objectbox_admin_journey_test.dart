@@ -201,6 +201,15 @@ void main() {
       osmId: 101,
       name: 'Mt Ossa',
       region: 'Old Area',
+      peakbaggerPid: 901,
+      prominence: 150.5,
+      country: 'Old country',
+      county: 'Old county',
+      range: 'Old range',
+      rating: 2.5,
+      difficulty: 'Old difficulty',
+      viaFerrata: 'Old via ferrata',
+      notes: 'Old notes',
     );
     final peaks = [peak];
     final rowsByEntity = <String, List<ObjectBoxAdminRow>>{
@@ -227,6 +236,28 @@ void main() {
     await robot.enterPeakField('name', 'Mt Ossa Peak');
     await robot.enterPeakField('elevation', '1617');
     await robot.enterPeakAltName('Ossa');
+    await robot.showPeakField('peakbaggerPid');
+    expect(
+      tester
+          .widget<TextFormField>(robot.peakField('peakbaggerPid'))
+          .controller
+          ?.text,
+      '901',
+    );
+    await robot.enterPeakField('peakbaggerPid', '902');
+    await robot.enterPeakField('prominence', '156.4');
+    await robot.enterPeakField('country', 'Australia');
+    await robot.enterPeakField('county', 'Kentish');
+    await robot.enterPeakField('range', 'Central Highlands');
+    await robot.enterPeakField('rating', '4.26');
+    await robot.enterPeakField('difficulty', 'T3');
+    await robot.enterPeakField('viaFerrata', 'None');
+    await robot.showPeakField('notes');
+    expect(
+      tester.widget<TextFormField>(robot.peakField('notes')).controller?.text,
+      'Old notes',
+    );
+    await robot.enterPeakField('notes', 'First line\nSecond line');
     await robot.setPeakVerified(verified: true);
     await robot.submitPeakEdit();
 
@@ -243,16 +274,57 @@ void main() {
     expect(editMapState.peaks.single.name, 'Mt Ossa Peak');
     expect(editMapState.peaks.single.elevation, 1617);
     expect(editMapState.peaks.single.altName, 'Ossa');
+    expect(editMapState.peaks.single.peakbaggerPid, 902);
+    expect(editMapState.peaks.single.prominence, 156.4);
+    expect(editMapState.peaks.single.country, 'Australia');
+    expect(editMapState.peaks.single.county, 'Kentish');
+    expect(editMapState.peaks.single.range, 'Central Highlands');
+    expect(editMapState.peaks.single.rating, 4.3);
+    expect(editMapState.peaks.single.difficulty, 'T3');
+    expect(editMapState.peaks.single.viaFerrata, 'None');
+    expect(editMapState.peaks.single.notes, 'First line\nSecond line');
     expect(editMapState.peaks.single.verified, isTrue);
     expect(editMapState.peaks.single.latitude, peak.latitude);
     expect(editMapState.peaks.single.longitude, peak.longitude);
     expect(peakRepository.findById(1)?.name, 'Mt Ossa Peak');
     expect(peakRepository.findById(1)?.elevation, 1617);
     expect(peakRepository.findById(1)?.altName, 'Ossa');
+    expect(peakRepository.findById(1)?.peakbaggerPid, 902);
+    expect(peakRepository.findById(1)?.prominence, 156.4);
+    expect(peakRepository.findById(1)?.country, 'Australia');
+    expect(peakRepository.findById(1)?.county, 'Kentish');
+    expect(peakRepository.findById(1)?.range, 'Central Highlands');
+    expect(peakRepository.findById(1)?.rating, 4.3);
+    expect(peakRepository.findById(1)?.difficulty, 'T3');
+    expect(peakRepository.findById(1)?.viaFerrata, 'None');
+    expect(peakRepository.findById(1)?.notes, 'First line\nSecond line');
     expect(peakRepository.findById(1)?.verified, isTrue);
     expect(peakRepository.findById(1)?.latitude, peak.latitude);
     expect(peakRepository.findById(1)?.longitude, peak.longitude);
     expect(find.text('Mt Ossa Peak'), findsWidgets);
+
+    await robot.startEditingPeak();
+    await robot.enterPeakField('peakbaggerPid', '');
+    await robot.enterPeakField('prominence', '');
+    await robot.enterPeakField('country', '');
+    await robot.enterPeakField('county', '');
+    await robot.enterPeakField('range', '');
+    await robot.enterPeakField('rating', '');
+    await robot.enterPeakField('difficulty', '');
+    await robot.enterPeakField('viaFerrata', '');
+    await robot.enterPeakField('notes', '');
+    await robot.submitPeakEdit();
+
+    final cleared = peakRepository.findById(1)!;
+    expect(cleared.peakbaggerPid, isNull);
+    expect(cleared.prominence, isNull);
+    expect(cleared.rating, isNull);
+    expect(cleared.country, isEmpty);
+    expect(cleared.county, isEmpty);
+    expect(cleared.range, isEmpty);
+    expect(cleared.difficulty, isEmpty);
+    expect(cleared.viaFerrata, isEmpty);
+    expect(cleared.notes, isEmpty);
   });
 
   testWidgets('admin shell saves direct latitude edits without calculate', (
@@ -581,6 +653,15 @@ void main() {
     );
     await robot.enterPeakField('name', 'New Peak');
     await robot.enterPeakField('osmId', '303');
+    await robot.enterPeakField('peakbaggerPid', '903');
+    await robot.enterPeakField('prominence', '160.5');
+    await robot.enterPeakField('country', 'Australia');
+    await robot.enterPeakField('county', 'Kentish');
+    await robot.enterPeakField('range', 'Central Highlands');
+    await robot.enterPeakField('rating', '4.24');
+    await robot.enterPeakField('difficulty', 'T2');
+    await robot.enterPeakField('viaFerrata', 'No');
+    await robot.enterPeakField('notes', 'New peak notes');
     await robot.enterPeakField('latitude', '-41.5');
     await robot.enterPeakField('longitude', '146.5');
     await tester.pumpAndSettle();
@@ -605,6 +686,15 @@ void main() {
       3,
     );
     expect(peakRepository.findByOsmId(303)?.name, 'New Peak');
+    expect(peakRepository.findByOsmId(303)?.peakbaggerPid, 903);
+    expect(peakRepository.findByOsmId(303)?.prominence, 160.5);
+    expect(peakRepository.findByOsmId(303)?.country, 'Australia');
+    expect(peakRepository.findByOsmId(303)?.county, 'Kentish');
+    expect(peakRepository.findByOsmId(303)?.range, 'Central Highlands');
+    expect(peakRepository.findByOsmId(303)?.rating, 4.2);
+    expect(peakRepository.findByOsmId(303)?.difficulty, 'T2');
+    expect(peakRepository.findByOsmId(303)?.viaFerrata, 'No');
+    expect(peakRepository.findByOsmId(303)?.notes, 'New peak notes');
     expect(find.text('New Peak').last, findsOneWidget);
   });
 
@@ -664,6 +754,15 @@ Peak _buildPeak({
   required String name,
   String altName = '',
   String? region,
+  int? peakbaggerPid,
+  double? prominence,
+  String country = '',
+  String county = '',
+  String range = '',
+  double? rating,
+  String difficulty = '',
+  String viaFerrata = '',
+  String notes = '',
   bool verified = false,
 }) {
   final location = const LatLng(-41.5, 146.5);
@@ -671,8 +770,17 @@ Peak _buildPeak({
   return Peak(
     id: id,
     osmId: osmId,
+    peakbaggerPid: peakbaggerPid,
     name: name,
     altName: altName,
+    prominence: prominence,
+    country: country,
+    county: county,
+    range: range,
+    rating: rating,
+    difficulty: difficulty,
+    viaFerrata: viaFerrata,
+    notes: notes,
     latitude: location.latitude,
     longitude: location.longitude,
     region: region,

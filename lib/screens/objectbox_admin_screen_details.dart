@@ -213,8 +213,17 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   late final TextEditingController _nameController;
   late final TextEditingController _altNameController;
   late final TextEditingController _osmIdController;
+  late final TextEditingController _peakbaggerPidController;
   late final TextEditingController _elevationController;
+  late final TextEditingController _prominenceController;
+  late final TextEditingController _countryController;
+  late final TextEditingController _countyController;
+  late final TextEditingController _rangeController;
+  late final TextEditingController _ratingController;
   late final TextEditingController _durationController;
+  late final TextEditingController _difficultyController;
+  late final TextEditingController _viaFerrataController;
+  late final TextEditingController _notesController;
   late final TextEditingController _latitudeController;
   late final TextEditingController _longitudeController;
   late final TextEditingController _regionController;
@@ -238,8 +247,17 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     _nameController = TextEditingController();
     _altNameController = TextEditingController();
     _osmIdController = TextEditingController();
+    _peakbaggerPidController = TextEditingController();
     _elevationController = TextEditingController();
+    _prominenceController = TextEditingController();
+    _countryController = TextEditingController();
+    _countyController = TextEditingController();
+    _rangeController = TextEditingController();
+    _ratingController = TextEditingController();
     _durationController = TextEditingController();
+    _difficultyController = TextEditingController();
+    _viaFerrataController = TextEditingController();
+    _notesController = TextEditingController();
     _latitudeController = TextEditingController();
     _longitudeController = TextEditingController();
     _regionController = TextEditingController();
@@ -265,8 +283,17 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     _nameController.dispose();
     _altNameController.dispose();
     _osmIdController.dispose();
+    _peakbaggerPidController.dispose();
     _elevationController.dispose();
+    _prominenceController.dispose();
+    _countryController.dispose();
+    _countyController.dispose();
+    _rangeController.dispose();
+    _ratingController.dispose();
     _durationController.dispose();
+    _difficultyController.dispose();
+    _viaFerrataController.dispose();
+    _notesController.dispose();
     _latitudeController.dispose();
     _longitudeController.dispose();
     _regionController.dispose();
@@ -288,8 +315,17 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _nameController.clear();
       _altNameController.clear();
       _osmIdController.text = widget.createOsmId.toString();
+      _peakbaggerPidController.clear();
       _elevationController.clear();
+      _prominenceController.clear();
+      _countryController.clear();
+      _countyController.clear();
+      _rangeController.clear();
+      _ratingController.clear();
       _durationController.clear();
+      _difficultyController.clear();
+      _viaFerrataController.clear();
+      _notesController.clear();
       _latitudeController.clear();
       _longitudeController.clear();
       _regionController.clear();
@@ -308,8 +344,17 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _nameController.text = form.name;
       _altNameController.text = form.altName;
       _osmIdController.text = form.osmId;
+      _peakbaggerPidController.text = form.peakbaggerPid;
       _elevationController.text = form.elevation;
+      _prominenceController.text = form.prominence;
+      _countryController.text = form.country;
+      _countyController.text = form.county;
+      _rangeController.text = form.range;
+      _ratingController.text = form.rating;
       _durationController.text = form.durationLabel;
+      _difficultyController.text = form.difficulty;
+      _viaFerrataController.text = form.viaFerrata;
+      _notesController.text = form.notes;
       _latitudeController.text = form.latitude;
       _longitudeController.text = form.longitude;
       _regionController.text = form.region;
@@ -356,8 +401,17 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       name: _nameController.text,
       altName: _altNameController.text,
       osmId: _osmIdController.text,
+      peakbaggerPid: _peakbaggerPidController.text,
       elevation: _elevationController.text,
+      prominence: _prominenceController.text,
+      country: _countryController.text,
+      county: _countyController.text,
+      range: _rangeController.text,
+      rating: _ratingController.text,
       durationLabel: _durationController.text,
+      difficulty: _difficultyController.text,
+      viaFerrata: _viaFerrataController.text,
+      notes: _notesController.text,
       latitude: _latitudeController.text,
       longitude: _longitudeController.text,
       region: _regionController.text,
@@ -575,8 +629,17 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
                       nameController: _nameController,
                       altNameController: _altNameController,
                       osmIdController: _osmIdController,
+                      peakbaggerPidController: _peakbaggerPidController,
                       elevationController: _elevationController,
+                      prominenceController: _prominenceController,
+                      countryController: _countryController,
+                      countyController: _countyController,
+                      rangeController: _rangeController,
+                      ratingController: _ratingController,
                       durationController: _durationController,
+                      difficultyController: _difficultyController,
+                      viaFerrataController: _viaFerrataController,
+                      notesController: _notesController,
                       latitudeController: _latitudeController,
                       longitudeController: _longitudeController,
                       regionController: _regionController,
@@ -1115,15 +1178,15 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
                         peakList: widget.peakList,
                         isSaving: _isSaving,
                         colourController: _colourController,
-                      submitError: _submitError,
-                      validation: _validation,
-                      onChanged: _updateValidation,
-                      onSubmit: _submit,
-                    )
-                  : _PeakListReadOnlyDetails(
-                      row: widget.row!,
-                      entity: widget.entity,
-                    ),
+                        submitError: _submitError,
+                        validation: _validation,
+                        onChanged: _updateValidation,
+                        onSubmit: _submit,
+                      )
+                    : _PeakListReadOnlyDetails(
+                        row: widget.row!,
+                        entity: widget.entity,
+                      ),
             ),
           ],
         ),
@@ -1649,8 +1712,17 @@ class _PeakEditForm extends StatelessWidget {
     required this.nameController,
     required this.altNameController,
     required this.osmIdController,
+    required this.peakbaggerPidController,
     required this.elevationController,
+    required this.prominenceController,
+    required this.countryController,
+    required this.countyController,
+    required this.rangeController,
+    required this.ratingController,
     required this.durationController,
+    required this.difficultyController,
+    required this.viaFerrataController,
+    required this.notesController,
     required this.latitudeController,
     required this.longitudeController,
     required this.regionController,
@@ -1677,8 +1749,17 @@ class _PeakEditForm extends StatelessWidget {
   final TextEditingController nameController;
   final TextEditingController altNameController;
   final TextEditingController osmIdController;
+  final TextEditingController peakbaggerPidController;
   final TextEditingController elevationController;
+  final TextEditingController prominenceController;
+  final TextEditingController countryController;
+  final TextEditingController countyController;
+  final TextEditingController rangeController;
+  final TextEditingController ratingController;
   final TextEditingController durationController;
+  final TextEditingController difficultyController;
+  final TextEditingController viaFerrataController;
+  final TextEditingController notesController;
   final TextEditingController latitudeController;
   final TextEditingController longitudeController;
   final TextEditingController regionController;
@@ -1708,187 +1789,302 @@ class _PeakEditForm extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: ListView(
+          child: SingleChildScrollView(
             key: const Key('objectbox-admin-peak-edit-form'),
-            children: [
-              _buildReadOnlyField(
-                context,
-                label: 'id',
-                value: peakIdText,
-                keyName: 'objectbox-admin-peak-id',
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('objectbox-admin-peak-name'),
-                controller: nameController,
-                enabled: !isSaving,
-                decoration: InputDecoration(
-                  labelText: 'Name',
-                  border: const OutlineInputBorder(),
-                  errorText: validation.fieldErrors['name'],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildReadOnlyField(
+                  context,
+                  label: 'id',
+                  value: peakIdText,
+                  keyName: 'objectbox-admin-peak-id',
                 ),
-                onChanged: (_) => onChanged(),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('objectbox-admin-peak-alt-name'),
-                controller: altNameController,
-                enabled: !isSaving,
-                decoration: InputDecoration(
-                  labelText: 'Alt Name',
-                  border: const OutlineInputBorder(),
-                  errorText: validation.fieldErrors['altName'],
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-name'),
+                  controller: nameController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'Name',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['name'],
+                  ),
+                  onChanged: (_) => onChanged(),
                 ),
-                onChanged: (_) => onChanged(),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('objectbox-admin-peak-osm-id'),
-                controller: osmIdController,
-                enabled: !isSaving,
-                decoration: InputDecoration(
-                  labelText: 'osmId',
-                  border: const OutlineInputBorder(),
-                  errorText: validation.fieldErrors['osmId'],
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-alt-name'),
+                  controller: altNameController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'Alt Name',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['altName'],
+                  ),
+                  onChanged: (_) => onChanged(),
                 ),
-                keyboardType: TextInputType.number,
-                onChanged: (_) => onChanged(),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('objectbox-admin-peak-elevation'),
-                controller: elevationController,
-                enabled: !isSaving,
-                decoration: InputDecoration(
-                  labelText: 'Elevation',
-                  border: const OutlineInputBorder(),
-                  errorText: validation.fieldErrors['elevation'],
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-osm-id'),
+                  controller: osmIdController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'osmId',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['osmId'],
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => onChanged(),
                 ),
-                keyboardType: TextInputType.number,
-                onChanged: (_) => onChanged(),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('objectbox-admin-peak-duration'),
-                controller: durationController,
-                enabled: !isSaving,
-                decoration: InputDecoration(
-                  labelText: 'Peak duration',
-                  border: const OutlineInputBorder(),
-                  errorText: validation.fieldErrors['durationLabel'],
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-peakbagger-pid'),
+                  controller: peakbaggerPidController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'PeakBagger PID',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['peakbaggerPid'],
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => onChanged(),
                 ),
-                onChanged: (_) => onChanged(),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('objectbox-admin-peak-latitude'),
-                controller: latitudeController,
-                enabled: !isSaving,
-                decoration: InputDecoration(
-                  labelText: 'Latitude',
-                  border: const OutlineInputBorder(),
-                  errorText: validation.fieldErrors['latitude'],
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-elevation'),
+                  controller: elevationController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'Elevation',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['elevation'],
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => onChanged(),
                 ),
-                keyboardType: TextInputType.number,
-                onChanged: (_) => onLatLngChanged(),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('objectbox-admin-peak-longitude'),
-                controller: longitudeController,
-                enabled: !isSaving,
-                decoration: InputDecoration(
-                  labelText: 'Longitude',
-                  border: const OutlineInputBorder(),
-                  errorText: validation.fieldErrors['longitude'],
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-prominence'),
+                  controller: prominenceController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'Prominence',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['prominence'],
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  onChanged: (_) => onChanged(),
                 ),
-                keyboardType: TextInputType.number,
-                onChanged: (_) => onLatLngChanged(),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('objectbox-admin-peak-region'),
-                controller: regionController,
-                enabled: !isSaving,
-                decoration: const InputDecoration(
-                  labelText: 'Region',
-                  border: OutlineInputBorder(),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-country'),
+                  controller: countryController,
+                  enabled: !isSaving,
+                  decoration: const InputDecoration(
+                    labelText: 'Country',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => onChanged(),
                 ),
-                onChanged: (_) => onChanged(),
-              ),
-              const SizedBox(height: 8),
-              _buildReadOnlyField(
-                context,
-                label: 'gridZoneDesignator',
-                value: gridZoneDesignatorController.text,
-                keyName: 'objectbox-admin-peak-grid-zone-designator',
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('objectbox-admin-peak-mgrs100k-id'),
-                controller: mgrs100kIdController,
-                enabled: !isSaving,
-                decoration: InputDecoration(
-                  labelText: 'MGRS 100km identifier',
-                  border: const OutlineInputBorder(),
-                  errorText: validation.fieldErrors['mgrs100kId'],
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-county'),
+                  controller: countyController,
+                  enabled: !isSaving,
+                  decoration: const InputDecoration(
+                    labelText: 'County',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => onChanged(),
                 ),
-                onChanged: (_) => onMgrsChanged(),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('objectbox-admin-peak-easting'),
-                controller: eastingController,
-                enabled: !isSaving,
-                decoration: InputDecoration(
-                  labelText: 'Easting',
-                  border: const OutlineInputBorder(),
-                  errorText: validation.fieldErrors['easting'],
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-range'),
+                  controller: rangeController,
+                  enabled: !isSaving,
+                  decoration: const InputDecoration(
+                    labelText: 'Range',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => onChanged(),
                 ),
-                keyboardType: TextInputType.number,
-                onChanged: (_) => onMgrsChanged(),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                key: const Key('objectbox-admin-peak-northing'),
-                controller: northingController,
-                enabled: !isSaving,
-                decoration: InputDecoration(
-                  labelText: 'Northing',
-                  border: const OutlineInputBorder(),
-                  errorText: validation.fieldErrors['northing'],
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-rating'),
+                  controller: ratingController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'Rating',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['rating'],
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  onChanged: (_) => onChanged(),
                 ),
-                keyboardType: TextInputType.number,
-                onChanged: (_) => onMgrsChanged(),
-              ),
-              const SizedBox(height: 8),
-              CheckboxListTile(
-                key: const Key('objectbox-admin-peak-verified'),
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Verified'),
-                value: verified,
-                onChanged: isSaving ? null : onVerifiedChanged,
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Source of truth: $sourceOfTruth',
-                      key: const Key(
-                        'objectbox-admin-peak-source-of-truth-label',
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-duration'),
+                  controller: durationController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'Peak duration',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['durationLabel'],
+                  ),
+                  onChanged: (_) => onChanged(),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-difficulty'),
+                  controller: difficultyController,
+                  enabled: !isSaving,
+                  decoration: const InputDecoration(
+                    labelText: 'Difficulty',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => onChanged(),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-via-ferrata'),
+                  controller: viaFerrataController,
+                  enabled: !isSaving,
+                  decoration: const InputDecoration(
+                    labelText: 'Via ferrata',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => onChanged(),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-notes'),
+                  controller: notesController,
+                  enabled: !isSaving,
+                  minLines: 3,
+                  maxLines: 5,
+                  keyboardType: TextInputType.multiline,
+                  decoration: const InputDecoration(
+                    labelText: 'Notes',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => onChanged(),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-latitude'),
+                  controller: latitudeController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'Latitude',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['latitude'],
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => onLatLngChanged(),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-longitude'),
+                  controller: longitudeController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'Longitude',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['longitude'],
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => onLatLngChanged(),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-region'),
+                  controller: regionController,
+                  enabled: !isSaving,
+                  decoration: const InputDecoration(
+                    labelText: 'Region',
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (_) => onChanged(),
+                ),
+                const SizedBox(height: 8),
+                _buildReadOnlyField(
+                  context,
+                  label: 'gridZoneDesignator',
+                  value: gridZoneDesignatorController.text,
+                  keyName: 'objectbox-admin-peak-grid-zone-designator',
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-mgrs100k-id'),
+                  controller: mgrs100kIdController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'MGRS 100km identifier',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['mgrs100kId'],
+                  ),
+                  onChanged: (_) => onMgrsChanged(),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-easting'),
+                  controller: eastingController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'Easting',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['easting'],
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => onMgrsChanged(),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  key: const Key('objectbox-admin-peak-northing'),
+                  controller: northingController,
+                  enabled: !isSaving,
+                  decoration: InputDecoration(
+                    labelText: 'Northing',
+                    border: const OutlineInputBorder(),
+                    errorText: validation.fieldErrors['northing'],
+                  ),
+                  keyboardType: TextInputType.number,
+                  onChanged: (_) => onMgrsChanged(),
+                ),
+                const SizedBox(height: 8),
+                CheckboxListTile(
+                  key: const Key('objectbox-admin-peak-verified'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Verified'),
+                  value: verified,
+                  onChanged: isSaving ? null : onVerifiedChanged,
+                  controlAffinity: ListTileControlAffinity.leading,
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Source of truth: $sourceOfTruth',
+                        key: const Key(
+                          'objectbox-admin-peak-source-of-truth-label',
+                        ),
                       ),
                     ),
-                  ),
-                  FilledButton(
-                    key: const Key('objectbox-admin-peak-source-of-truth'),
-                    onPressed: isSaving ? null : onMarkAsHwc,
-                    child: const Text('Mark as HWC'),
-                  ),
-                ],
-              ),
-            ],
+                    FilledButton(
+                      key: const Key('objectbox-admin-peak-source-of-truth'),
+                      onPressed: isSaving ? null : onMarkAsHwc,
+                      child: const Text('Mark as HWC'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
         if (validation.coordinateError != null) ...[

@@ -581,6 +581,76 @@ void main() {
     await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
     await tester.pumpAndSettle();
 
+    final metadataFields = [
+      'objectbox-admin-peak-peakbagger-pid',
+      'objectbox-admin-peak-elevation',
+      'objectbox-admin-peak-prominence',
+      'objectbox-admin-peak-country',
+      'objectbox-admin-peak-county',
+      'objectbox-admin-peak-range',
+      'objectbox-admin-peak-rating',
+      'objectbox-admin-peak-duration',
+      'objectbox-admin-peak-difficulty',
+      'objectbox-admin-peak-via-ferrata',
+      'objectbox-admin-peak-notes',
+      'objectbox-admin-peak-latitude',
+    ];
+    for (var index = 1; index < metadataFields.length; index++) {
+      expect(
+        tester.getTopLeft(find.byKey(Key(metadataFields[index - 1]))).dy,
+        lessThan(tester.getTopLeft(find.byKey(Key(metadataFields[index]))).dy),
+      );
+    }
+    final notes = tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const Key('objectbox-admin-peak-notes')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(notes.minLines, 3);
+    expect(notes.maxLines, 5);
+
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-peakbagger-pid')),
+      '0',
+    );
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-prominence')),
+      'unknown',
+    );
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-rating')),
+      '5.1',
+    );
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('PeakBagger PID must be a positive integer'),
+      findsOneWidget,
+    );
+    expect(find.text('Prominence must be a number'), findsOneWidget);
+    expect(
+      find.text('Rating must be a number between 0.0 and 5.0'),
+      findsOneWidget,
+    );
+    expect(
+      _textFormFieldText(tester, 'objectbox-admin-peak-peakbagger-pid'),
+      '0',
+    );
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-peakbagger-pid')),
+      '',
+    );
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-prominence')),
+      '',
+    );
+    await tester.enterText(
+      find.byKey(const Key('objectbox-admin-peak-rating')),
+      '',
+    );
+
     await tester.enterText(
       find.byKey(const Key('objectbox-admin-peak-name')),
       '',
@@ -625,6 +695,9 @@ void main() {
       const Offset(0, -500),
     );
     await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const Key('objectbox-admin-peak-verified')),
+    );
     await tester.tap(find.byKey(const Key('objectbox-admin-peak-verified')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
@@ -1067,6 +1140,9 @@ void main() {
       isFalse,
     );
 
+    await tester.ensureVisible(
+      find.byKey(const Key('objectbox-admin-peak-latitude')),
+    );
     await tester.tap(find.byKey(const Key('objectbox-admin-peak-latitude')));
     await tester.pumpAndSettle();
     await tester.drag(
