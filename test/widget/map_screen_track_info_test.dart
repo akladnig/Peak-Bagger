@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/date_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/gpx_export_provider.dart';
@@ -520,7 +521,10 @@ void main() {
       find.descendant(of: headerRow, matching: find.byIcon(Icons.hiking)),
       findsOneWidget,
     );
-    expect(find.text('Wed, 7 January 2026'), findsOneWidget);
+    expect(
+      find.text(formatTrackDate(track.trackDate!.toLocal())),
+      findsOneWidget,
+    );
     expect(find.text('from Unknown to Unknown'), findsOneWidget);
     expect(panel.color, MyTheme.dark.colorScheme.surfaceContainer);
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
