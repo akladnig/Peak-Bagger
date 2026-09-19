@@ -72,7 +72,7 @@ void main() {
     expect(lineChart.data.extraLinesData.horizontalLines[4].y, 1500);
     expect(lineChart.data.extraLinesData.verticalLines.first.dashArray, isNull);
     expect(lineChart.data.extraLinesData.verticalLines.first.strokeWidth, 1.5);
-    expect(find.text('1000'), findsNothing);
+    expect(find.text('1000'), findsOneWidget);
     expect(find.text('1125'), findsOneWidget);
     expect(find.text('1250'), findsOneWidget);
     expect(find.text('1375'), findsOneWidget);
@@ -84,7 +84,7 @@ void main() {
     expect(lineChart.data.extraLinesData.verticalLines, hasLength(5));
     expect(lineChart.data.extraLinesData.verticalLines.first.x, 0);
     expect(lineChart.data.extraLinesData.verticalLines.last.x, 17000);
-    expect(find.text('m'), findsOneWidget);
+    expect(find.text('m'), findsNothing);
     expect(find.text('km'), findsOneWidget);
     expect(find.text('17.0'), findsOneWidget);
     expect(find.text('17.0 km'), findsNothing);
@@ -105,6 +105,52 @@ void main() {
     expect(lineChart.data.maxX, greaterThan(17000));
     expect(lineChart.data.lineBarsData.single.spots.first.x, greaterThan(0));
     expect(find.text('11:00'), findsOneWidget);
+    expect(
+      tester
+          .widget<MouseRegion>(
+            find.byKey(const Key('elevation-profile-chart-touch-area')),
+          )
+          .cursor,
+      SystemMouseCursors.click,
+    );
+    expect(
+      lineChart.data.lineTouchData.touchTooltipData.getTooltipColor(
+        LineBarSpot(
+          lineChart.data.lineBarsData.single,
+          0,
+          lineChart.data.lineBarsData.single.spots.first,
+        ),
+      ),
+      MyTheme.light.colorScheme.primaryContainer,
+    );
+  });
+
+  testWidgets('renders timestamp hover details in both axis modes', (
+    tester,
+  ) async {
+    final series = ElevationProfileSeriesBuilder.fromTrackProfileJson('''
+[
+  {"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-15T08:00:00"},
+  {"distanceMeters":10,"elevationMeters":120,"timeLocal":"2024-01-16T09:15:00"}
+]
+''');
+
+    await _pumpChart(tester, series);
+
+    var lineChart = tester.widget<LineChart>(find.byType(LineChart));
+    var tooltip = _tooltipForLastSpot(lineChart);
+    expect(tooltip.text, '10\n120 m\n09:15\n25:15 elapsed');
+    expect(
+      tooltip.textStyle.color,
+      MyTheme.light.colorScheme.onPrimaryContainer,
+    );
+
+    await tester.tap(find.byKey(const Key('elevation-profile-time-toggle')));
+    await tester.pumpAndSettle();
+
+    lineChart = tester.widget<LineChart>(find.byType(LineChart));
+    tooltip = _tooltipForLastSpot(lineChart);
+    expect(tooltip.text, '09:15\n120 m\n09:15\n25:15 elapsed');
   });
 
   testWidgets('uses provided elevation bounds when supplied', (tester) async {
@@ -151,6 +197,30 @@ void main() {
       find.byKey(const Key('elevation-profile-time-toggle')),
     );
     expect(timeChip.onSelected, isNull);
+    expect(
+      tester
+          .widget<MouseRegion>(
+            _mouseRegionFor(
+              find.byKey(const Key('elevation-profile-distance-toggle')),
+            ),
+          )
+          .cursor,
+      SystemMouseCursors.click,
+    );
+    expect(
+      tester
+          .widget<MouseRegion>(
+            _mouseRegionFor(
+              find.byKey(const Key('elevation-profile-time-toggle')),
+            ),
+          )
+          .cursor,
+      SystemMouseCursors.basic,
+    );
+
+    final lineChart = tester.widget<LineChart>(find.byType(LineChart));
+    final tooltip = _tooltipForLastSpot(lineChart);
+    expect(tooltip.text, '1.1\n120 m');
   });
 
   testWidgets('disabled time toggle uses surfaceContainer in light theme', (
@@ -216,6 +286,61 @@ void main() {
 
     expect(hoverEvents.last, isNull);
   });
+
+  testWidgets('uses map hover styling and keeps tap interactions intact', (
+    tester,
+  ) async {
+    final interactions = <ElevationProfileChartInteraction?>[];
+    final series = ElevationProfileSeriesBuilder.fromTrackProfileJson('''
+[
+  {"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-15T08:00:00"},
+  {"distanceMeters":10,"elevationMeters":120,"timeLocal":"2024-01-15T08:10:00"}
+]
+''');
+
+    await _pumpChart(tester, series, onInteractionChanged: interactions.add);
+
+    final lineChart = tester.widget<LineChart>(find.byType(LineChart));
+    final bar = lineChart.data.lineBarsData.single;
+    final indicator = lineChart.data.lineTouchData.getTouchedSpotIndicator(
+      bar,
+      const [0],
+    ).single!;
+    final dotPainter =
+        indicator.touchedSpotDotData.getDotPainter(bar.spots.first, 0, bar, 0)
+            as FlDotCirclePainter;
+    expect(indicator.indicatorBelowLine.color, MapChartHoverDotTheme.color);
+    expect(indicator.indicatorBelowLine.strokeWidth, 2);
+    expect(dotPainter.color, MapChartHoverDotTheme.color);
+    expect(dotPainter.strokeColor, MapChartHoverDotTheme.color);
+
+    lineChart.data.lineTouchData.touchCallback!(
+      FlTapUpEvent(
+        TapUpDetails(localPosition: Offset.zero, kind: PointerDeviceKind.touch),
+      ),
+      LineTouchResponse(
+        touchLocation: Offset.zero,
+        touchChartCoordinate: Offset(bar.spots.first.x, bar.spots.first.y),
+        lineBarSpots: [TouchLineBarSpot(bar, 0, bar.spots.first, 0)],
+      ),
+    );
+    await tester.pump();
+
+    expect(interactions.last!.kind, ElevationProfileChartInteractionKind.tap);
+    expect(interactions.last!.targetsExactPoint, isTrue);
+    expect(interactions.last!.hoverSample.sampleIndex, 0);
+  });
+}
+
+Finder _mouseRegionFor(Finder descendant) {
+  return find.ancestor(of: descendant, matching: find.byType(MouseRegion));
+}
+
+LineTooltipItem _tooltipForLastSpot(LineChart lineChart) {
+  final bar = lineChart.data.lineBarsData.single;
+  return lineChart.data.lineTouchData.touchTooltipData.getTooltipItems([
+    LineBarSpot(bar, 0, bar.spots.last),
+  ]).single!;
 }
 
 Future<void> _pumpChart(
@@ -226,6 +351,7 @@ Future<void> _pumpChart(
   double? minElevation,
   double? maxElevation,
   ValueChanged<ElevationProfileChartHoverSample?>? onHoverChanged,
+  ValueChanged<ElevationProfileChartInteraction?>? onInteractionChanged,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -241,6 +367,7 @@ Future<void> _pumpChart(
               minElevation: minElevation,
               maxElevation: maxElevation,
               onHoverChanged: onHoverChanged,
+              onInteractionChanged: onInteractionChanged,
             ),
           ),
         ),
