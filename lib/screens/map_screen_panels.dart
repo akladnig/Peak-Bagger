@@ -314,22 +314,32 @@ class MapTrackInfoPanel extends StatelessWidget {
                                       ),
                                     ),
                                     if (isRoute)
-                                      IconButton(
-                                        key: const Key(
-                                          'track-info-panel-edit-button',
+                                      MouseRegion(
+                                        cursor: _cursorForEnabled(
+                                          onEdit != null,
                                         ),
-                                        tooltip: 'Edit Route',
-                                        onPressed: onEdit,
-                                        icon: const Icon(Icons.edit),
+                                        child: IconButton(
+                                          key: const Key(
+                                            'track-info-panel-edit-button',
+                                          ),
+                                          tooltip: 'Edit Route',
+                                          onPressed: onEdit,
+                                          icon: const Icon(Icons.edit),
+                                        ),
                                       ),
                                     if (isRoute) const SizedBox(width: 4),
-                                    IconButton(
-                                      key: const Key('track-info-panel-close'),
-                                      tooltip: isRoute
-                                          ? 'Close route info'
-                                          : 'Close track info',
-                                      onPressed: onClose,
-                                      icon: const Icon(Icons.close),
+                                    MouseRegion(
+                                      cursor: SystemMouseCursors.click,
+                                      child: IconButton(
+                                        key: const Key(
+                                          'track-info-panel-close',
+                                        ),
+                                        tooltip: isRoute
+                                            ? 'Close route info'
+                                            : 'Close track info',
+                                        onPressed: onClose,
+                                        icon: const Icon(Icons.close),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -401,11 +411,14 @@ class MapTrackInfoPanel extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   child: SizedBox(
                     width: double.infinity,
-                    child: FilledButton.icon(
-                      key: const Key('track-info-panel-export-button'),
-                      onPressed: onExport,
-                      icon: const Icon(Icons.download),
-                      label: const Text('Export'),
+                    child: MouseRegion(
+                      cursor: _cursorForEnabled(onExport != null),
+                      child: FilledButton.icon(
+                        key: const Key('track-info-panel-export-button'),
+                        onPressed: onExport,
+                        icon: const Icon(Icons.download),
+                        label: const Text('Export'),
+                      ),
                     ),
                   ),
                 ),
@@ -466,7 +479,10 @@ class MapTrackInfoPanel extends StatelessWidget {
             Expanded(
               child: _SummaryMetric(
                 label: 'Distance (2d/3d)',
-                value: formatDistance2d3d(route.distance2d, route.distance3d),
+                value: _formatPanelDistance2d3d(
+                  route.distance2d,
+                  route.distance3d,
+                ),
               ),
             ),
             Expanded(
@@ -633,7 +649,10 @@ class MapTrackInfoPanel extends StatelessWidget {
             Expanded(
               child: _SummaryMetric(
                 label: 'Distance (2d/3d)',
-                value: formatDistance2d3d(track.distance2d, track.distance3d),
+                value: _formatPanelDistance2d3d(
+                  track.distance2d,
+                  track.distance3d,
+                ),
               ),
             ),
             Expanded(
@@ -667,18 +686,8 @@ class MapTrackInfoPanel extends StatelessWidget {
           const SizedBox(height: 6),
         ],
         thinDivider,
-        if (track.peakCorrelationProcessed && normalizedPeaks.isNotEmpty) ...[
-          _LabeledValueRow(
-            label: 'Distance to highest peak',
-            value: formatDistance(track.distanceToPeak, decimalPlaces: 1),
-          ),
-          thinDivider,
-          _LabeledValueRow(
-            label: 'Distance from highest peak',
-            value: formatDistance(track.distanceFromPeak, decimalPlaces: 1),
-          ),
-          const SizedBox(height: 8),
-        ],
+        if (track.peakCorrelationProcessed)
+          ..._highestElevationRows(track.elevationProfile),
         const SizedBox(height: 20),
         const _SectionTitle(title: 'Elevation'),
         thinDivider,
@@ -770,26 +779,34 @@ class MapTrackInfoPanel extends StatelessWidget {
         const SizedBox(height: 20),
         SizedBox(
           width: double.infinity,
-          child: FilledButton(
-            key: const Key('track-info-panel-recalculate-button'),
-            onPressed: isTrackStatisticsRecalculating
-                ? null
-                : onTrackStatisticsRecalculate,
-            child: isTrackStatisticsRecalculating
-                ? const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        key: Key('track-info-panel-recalculate-busy-indicator'),
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      SizedBox(width: 8),
-                      Text('Recalculating...'),
-                    ],
-                  )
-                : const Text('Recalculate Track Statistics'),
+          child: MouseRegion(
+            cursor: _cursorForEnabled(
+              !isTrackStatisticsRecalculating &&
+                  onTrackStatisticsRecalculate != null,
+            ),
+            child: FilledButton(
+              key: const Key('track-info-panel-recalculate-button'),
+              onPressed: isTrackStatisticsRecalculating
+                  ? null
+                  : onTrackStatisticsRecalculate,
+              child: isTrackStatisticsRecalculating
+                  ? const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          key: Key(
+                            'track-info-panel-recalculate-busy-indicator',
+                          ),
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 8),
+                        Text('Recalculating...'),
+                      ],
+                    )
+                  : const Text('Recalculate Track Statistics'),
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -804,6 +821,71 @@ class MapTrackInfoPanel extends StatelessWidget {
       ],
     );
   }
+
+  List<Widget> _highestElevationRows(String profileJson) {
+    final series = ElevationProfileSeriesBuilder.fromTrackProfileJson(
+      profileJson,
+    );
+    final samples = series.samples;
+    final maximumSample = samples
+        .where((sample) => sample.elevationMeters != null)
+        .fold<ElevationProfileSample?>(
+          null,
+          (maximum, sample) =>
+              maximum == null ||
+                  sample.elevationMeters! > maximum.elevationMeters!
+              ? sample
+              : maximum,
+        );
+    if (maximumSample == null || samples.isEmpty) {
+      return const [];
+    }
+
+    final first = samples.first;
+    final last = samples.last;
+    final hasUsableTimestamps = series.supportsTimeAxis;
+    final toValue = _formatHighestElevationValue(
+      distanceMeters: maximumSample.distanceMeters,
+      duration: hasUsableTimestamps
+          ? maximumSample.timeLocal!.difference(first.timeLocal!)
+          : null,
+    );
+    final fromValue = _formatHighestElevationValue(
+      distanceMeters: last.distanceMeters - maximumSample.distanceMeters,
+      duration: hasUsableTimestamps
+          ? last.timeLocal!.difference(maximumSample.timeLocal!)
+          : null,
+    );
+
+    return [
+      _LabeledValueRow(label: 'To highest elevation', value: toValue),
+      thinDivider,
+      _LabeledValueRow(label: 'From highest elevation', value: fromValue),
+      const SizedBox(height: 8),
+    ];
+  }
+}
+
+MouseCursor _cursorForEnabled(bool enabled) =>
+    enabled ? SystemMouseCursors.click : SystemMouseCursors.basic;
+
+String _formatPanelDistance2d3d(double distance2d, double distance3d) =>
+    '${(distance2d / 1000).toStringAsFixed(1)} / ${(distance3d / 1000).toStringAsFixed(1)}';
+
+String _formatHighestElevationValue({
+  required double distanceMeters,
+  required Duration? duration,
+}) {
+  final distance = '${(distanceMeters / 1000).toStringAsFixed(1)} km';
+  if (duration == null) {
+    return distance;
+  }
+
+  final totalMinutes =
+      (duration.inMilliseconds / Duration.millisecondsPerMinute).round();
+  final hours = totalMinutes ~/ 60;
+  final minutes = totalMinutes % 60;
+  return '$distance / ${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
 }
 
 class _MapTrackPeakCorrelationRow extends StatefulWidget {
@@ -897,33 +979,36 @@ class _MapTrackPeakCorrelationRowState
                   label: 'Remove peak correlation',
                   button: true,
                   enabled: !_isRemoving,
-                  child: IconButton(
-                    key: Key(
-                      'map-track-correlation-remove-$trackId-$peakOsmId',
-                    ),
-                    tooltip: 'Remove peak correlation',
-                    onPressed: _isRemoving ? null : _remove,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 32,
-                      minHeight: 32,
-                    ),
-                    icon: _isRemoving
-                        ? SizedBox(
-                            key: Key(
-                              'map-track-correlation-remove-busy-$trackId-$peakOsmId',
+                  child: MouseRegion(
+                    cursor: _cursorForEnabled(!_isRemoving),
+                    child: IconButton(
+                      key: Key(
+                        'map-track-correlation-remove-$trackId-$peakOsmId',
+                      ),
+                      tooltip: 'Remove peak correlation',
+                      onPressed: _isRemoving ? null : _remove,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                      icon: _isRemoving
+                          ? SizedBox(
+                              key: Key(
+                                'map-track-correlation-remove-busy-$trackId-$peakOsmId',
+                              ),
+                              width: 16,
+                              height: 16,
+                              child: const CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(
+                              Icons.delete_forever,
+                              size: 18,
+                              color: Colors.red,
                             ),
-                            width: 16,
-                            height: 16,
-                            child: const CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.delete_forever,
-                            size: 18,
-                            color: Colors.red,
-                          ),
+                    ),
                   ),
                 ),
               ],
@@ -1256,10 +1341,13 @@ class _VisibilityToggleRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        Switch(
-          key: const Key('track-info-panel-visibility-switch'),
-          value: visible,
-          onChanged: onChanged,
+        MouseRegion(
+          cursor: _cursorForEnabled(onChanged != null),
+          child: Switch(
+            key: const Key('track-info-panel-visibility-switch'),
+            value: visible,
+            onChanged: onChanged,
+          ),
         ),
       ],
     );
@@ -1305,7 +1393,7 @@ class _LabeledValueRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            flex: 1,
+            flex: 2,
             child: Text(
               value,
               maxLines: 1,
@@ -1359,12 +1447,15 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
                 ),
                 Builder(
                   builder: (buttonContext) {
-                    return IconButton(
-                      key: infoButtonKey,
-                      onPressed: () => onInfoPressed(buttonContext),
-                      icon: const Icon(Icons.info_outline, size: 16),
-                      tooltip: '$label info',
-                      visualDensity: VisualDensity.compact,
+                    return MouseRegion(
+                      cursor: SystemMouseCursors.click,
+                      child: IconButton(
+                        key: infoButtonKey,
+                        onPressed: () => onInfoPressed(buttonContext),
+                        icon: const Icon(Icons.info_outline, size: 16),
+                        tooltip: '$label info',
+                        visualDensity: VisualDensity.compact,
+                      ),
                     );
                   },
                 ),
@@ -1384,12 +1475,15 @@ class _RouteTimingLabeledValueRow extends StatelessWidget {
                   textAlign: TextAlign.end,
                 ),
                 const SizedBox(width: 4),
-                IconButton(
-                  key: recalculateButtonKey,
-                  onPressed: onRecalculate,
-                  icon: const Icon(Icons.refresh, size: 16),
-                  tooltip: 'Recalculate $label',
-                  visualDensity: VisualDensity.compact,
+                MouseRegion(
+                  cursor: _cursorForEnabled(onRecalculate != null),
+                  child: IconButton(
+                    key: recalculateButtonKey,
+                    onPressed: onRecalculate,
+                    icon: const Icon(Icons.refresh, size: 16),
+                    tooltip: 'Recalculate $label',
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
               ],
             ),
@@ -1582,75 +1676,80 @@ class _RouteWalkingSpeedControlState extends State<_RouteWalkingSpeedControl> {
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerRight,
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => _textFieldFocusNode.requestFocus(),
-                        child: Row(
-                          key: const Key('route-walking-speed-control'),
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              key: const Key('route-walking-speed-decrement'),
-                              onPressed: widget.enabled
-                                  ? () {
-                                      _textFieldFocusNode.requestFocus();
-                                      _changeSpeed(
-                                        -routeTimingWalkingSpeedStepKmh,
-                                      );
-                                    }
-                                  : null,
-                              icon: const Icon(Icons.remove),
-                              tooltip: 'Decrease walking speed',
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            SizedBox(
-                              width: 68,
-                              child: TextField(
-                                key: const Key('route-walking-speed-field'),
-                                controller: _controller,
-                                focusNode: _textFieldFocusNode,
-                                enabled: widget.enabled,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                textAlign: TextAlign.center,
-                                decoration: const InputDecoration(
-                                  isDense: true,
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 8,
-                                  ),
-                                ),
-                                onChanged: (_) {
-                                  if (_errorText != null) {
-                                    setState(() => _errorText = null);
-                                  }
-                                },
-                                onSubmitted: (_) => _commitTextField(),
+                      child: MouseRegion(
+                        cursor: _cursorForEnabled(widget.enabled),
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: widget.enabled
+                              ? () => _textFieldFocusNode.requestFocus()
+                              : null,
+                          child: Row(
+                            key: const Key('route-walking-speed-control'),
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                key: const Key('route-walking-speed-decrement'),
+                                onPressed: widget.enabled
+                                    ? () {
+                                        _textFieldFocusNode.requestFocus();
+                                        _changeSpeed(
+                                          -routeTimingWalkingSpeedStepKmh,
+                                        );
+                                      }
+                                    : null,
+                                icon: const Icon(Icons.remove),
+                                tooltip: 'Decrease walking speed',
+                                visualDensity: VisualDensity.compact,
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'km/h',
-                              key: const Key('route-walking-speed-value'),
-                            ),
-                            IconButton(
-                              key: const Key('route-walking-speed-increment'),
-                              onPressed: widget.enabled
-                                  ? () {
-                                      _textFieldFocusNode.requestFocus();
-                                      _changeSpeed(
-                                        routeTimingWalkingSpeedStepKmh,
-                                      );
+                              SizedBox(
+                                width: 68,
+                                child: TextField(
+                                  key: const Key('route-walking-speed-field'),
+                                  controller: _controller,
+                                  focusNode: _textFieldFocusNode,
+                                  enabled: widget.enabled,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  textAlign: TextAlign.center,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 8,
+                                    ),
+                                  ),
+                                  onChanged: (_) {
+                                    if (_errorText != null) {
+                                      setState(() => _errorText = null);
                                     }
-                                  : null,
-                              icon: const Icon(Icons.add),
-                              tooltip: 'Increase walking speed',
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ],
+                                  },
+                                  onSubmitted: (_) => _commitTextField(),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'km/h',
+                                key: const Key('route-walking-speed-value'),
+                              ),
+                              IconButton(
+                                key: const Key('route-walking-speed-increment'),
+                                onPressed: widget.enabled
+                                    ? () {
+                                        _textFieldFocusNode.requestFocus();
+                                        _changeSpeed(
+                                          routeTimingWalkingSpeedStepKmh,
+                                        );
+                                      }
+                                    : null,
+                                icon: const Icon(Icons.add),
+                                tooltip: 'Increase walking speed',
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -2291,10 +2390,9 @@ class _RouteTextPromptDialogState extends State<_RouteTextPromptDialog> {
 
   void _submit() {
     final trimmed = _controller.text.trim();
-    final errorText =
-        trimmed.isEmpty
-            ? widget.blankErrorText
-            : widget.validator?.call(trimmed);
+    final errorText = trimmed.isEmpty
+        ? widget.blankErrorText
+        : widget.validator?.call(trimmed);
     if (errorText != null) {
       setState(() {
         _errorText = errorText;
