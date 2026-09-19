@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/date_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/gpx_export_provider.dart';
@@ -479,6 +480,13 @@ void main() {
             movingSpeedKmh: 8.3,
             maxSpeedKmh: 12.7,
             peakCorrelationProcessed: true,
+            elevationProfile: '''
+[
+  {"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-15T08:00:00"},
+  {"distanceMeters":840,"elevationMeters":300,"timeLocal":"2024-01-15T08:10:30"},
+  {"distanceMeters":12400,"elevationMeters":250,"timeLocal":"2024-01-16T09:25:30"}
+]
+''',
             gpxFile: '<gpx></gpx>',
           )
           ..peaks.addAll([
@@ -520,7 +528,10 @@ void main() {
       find.descendant(of: headerRow, matching: find.byIcon(Icons.hiking)),
       findsOneWidget,
     );
-    expect(find.text('Wed, 7 January 2026'), findsOneWidget);
+    expect(
+      find.text(formatTrackDate(track.trackDate!.toLocal())),
+      findsOneWidget,
+    );
     expect(find.text('from Unknown to Unknown'), findsOneWidget);
     expect(panel.color, MyTheme.dark.colorScheme.surfaceContainer);
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
@@ -532,36 +543,36 @@ void main() {
               matching: find.byType(Row),
             )
             .first,
-        matching: find.text('12.4 km / 0 m'),
+        matching: find.text('12.4 / 0.0 km'),
       ),
       findsOneWidget,
     );
     expect(find.text('Ascent'), findsOneWidget);
     expect(find.text('Unknown'), findsWidgets);
     expect(find.text('Peaks Climbed'), findsOneWidget);
-    expect(find.text('Distance to highest peak'), findsOneWidget);
+    expect(find.text('To highest elevation'), findsOneWidget);
     final distanceLabel = tester.widget<Text>(
-      find.text('Distance to highest peak'),
+      find.text('To highest elevation'),
     );
     expect(distanceLabel.maxLines, 1);
     expect(distanceLabel.softWrap, isFalse);
     expect(distanceLabel.overflow, TextOverflow.clip);
     final highestPeakLabel = tester.widget<Text>(
-      find.text('Distance from highest peak'),
+      find.text('From highest elevation'),
     );
     expect(highestPeakLabel.maxLines, 1);
     expect(highestPeakLabel.softWrap, isFalse);
     expect(highestPeakLabel.overflow, TextOverflow.clip);
-    expect(find.text('840 m'), findsOneWidget);
+    expect(find.text('0.8 km / 00:11'), findsOneWidget);
     expect(
       find.descendant(
         of: find
             .ancestor(
-              of: find.text('Distance from highest peak'),
+              of: find.text('From highest elevation'),
               matching: find.byType(Row),
             )
             .first,
-        matching: find.text('11.6 km'),
+        matching: find.text('11.6 km / 25:15'),
       ),
       findsOneWidget,
     );
@@ -572,7 +583,7 @@ void main() {
     expect(find.text('Elevation'), findsOneWidget);
     expect(find.text('Start Elevation'), findsOneWidget);
     expect(find.text('100 m'), findsOneWidget);
-    expect(find.text('Time'), findsOneWidget);
+    expect(find.text('Time'), findsWidgets);
     expect(find.text('Speed'), findsOneWidget);
     expect(find.text('Average Speed'), findsOneWidget);
     expect(find.text('5.9 km/h'), findsOneWidget);

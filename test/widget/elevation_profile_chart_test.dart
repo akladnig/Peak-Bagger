@@ -58,6 +58,23 @@ void main() {
       find.byKey(const Key('elevation-profile-time-toggle')),
       findsOneWidget,
     );
+    final searchButtonTheme = MyTheme.light.extension<SearchButtonThemeData>()!;
+    _expectSearchButtonStyle(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const Key('elevation-profile-distance-toggle')),
+          )
+          .style,
+      searchButtonTheme.styleFor(true),
+    );
+    _expectSearchButtonStyle(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const Key('elevation-profile-time-toggle')),
+          )
+          .style,
+      searchButtonTheme.styleFor(false),
+    );
 
     var lineChart = tester.widget<LineChart>(find.byType(LineChart));
     expect(lineChart.data.maxX, 17000);
@@ -72,7 +89,7 @@ void main() {
     expect(lineChart.data.extraLinesData.horizontalLines[4].y, 1500);
     expect(lineChart.data.extraLinesData.verticalLines.first.dashArray, isNull);
     expect(lineChart.data.extraLinesData.verticalLines.first.strokeWidth, 1.5);
-    expect(find.text('1000'), findsNothing);
+    expect(find.text('1000'), findsOneWidget);
     expect(find.text('1125'), findsOneWidget);
     expect(find.text('1250'), findsOneWidget);
     expect(find.text('1375'), findsOneWidget);
@@ -84,7 +101,7 @@ void main() {
     expect(lineChart.data.extraLinesData.verticalLines, hasLength(5));
     expect(lineChart.data.extraLinesData.verticalLines.first.x, 0);
     expect(lineChart.data.extraLinesData.verticalLines.last.x, 17000);
-    expect(find.text('m'), findsOneWidget);
+    expect(find.text('m'), findsNothing);
     expect(find.text('km'), findsOneWidget);
     expect(find.text('17.0'), findsOneWidget);
     expect(find.text('17.0 km'), findsNothing);
@@ -105,6 +122,52 @@ void main() {
     expect(lineChart.data.maxX, greaterThan(17000));
     expect(lineChart.data.lineBarsData.single.spots.first.x, greaterThan(0));
     expect(find.text('11:00'), findsOneWidget);
+    expect(
+      tester
+          .widget<MouseRegion>(
+            find.byKey(const Key('elevation-profile-chart-touch-area')),
+          )
+          .cursor,
+      SystemMouseCursors.click,
+    );
+    expect(
+      lineChart.data.lineTouchData.touchTooltipData.getTooltipColor(
+        LineBarSpot(
+          lineChart.data.lineBarsData.single,
+          0,
+          lineChart.data.lineBarsData.single.spots.first,
+        ),
+      ),
+      MyTheme.light.colorScheme.primaryContainer,
+    );
+  });
+
+  testWidgets('renders timestamp hover details only in time mode', (
+    tester,
+  ) async {
+    final series = ElevationProfileSeriesBuilder.fromTrackProfileJson('''
+[
+  {"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-15T08:00:00"},
+  {"distanceMeters":10,"elevationMeters":120,"timeLocal":"2024-01-16T09:15:00"}
+]
+''');
+
+    await _pumpChart(tester, series);
+
+    var lineChart = tester.widget<LineChart>(find.byType(LineChart));
+    var tooltip = _tooltipForLastSpot(lineChart);
+    expect(tooltip.text, '120 m\n0.0 km');
+    expect(
+      tooltip.textStyle.color,
+      MyTheme.light.colorScheme.onPrimaryContainer,
+    );
+
+    await tester.tap(find.byKey(const Key('elevation-profile-time-toggle')));
+    await tester.pumpAndSettle();
+
+    lineChart = tester.widget<LineChart>(find.byType(LineChart));
+    tooltip = _tooltipForLastSpot(lineChart);
+    expect(tooltip.text, '120 m\n25:15 elapsed\n09:15');
   });
 
   testWidgets('uses provided elevation bounds when supplied', (tester) async {
@@ -147,13 +210,37 @@ void main() {
 
     await _pumpChart(tester, series);
 
-    final timeChip = tester.widget<ChoiceChip>(
+    final timeButton = tester.widget<OutlinedButton>(
       find.byKey(const Key('elevation-profile-time-toggle')),
     );
-    expect(timeChip.onSelected, isNull);
+    expect(timeButton.onPressed, isNull);
+    expect(
+      tester
+          .widget<MouseRegion>(
+            _mouseRegionFor(
+              find.byKey(const Key('elevation-profile-distance-toggle')),
+            ),
+          )
+          .cursor,
+      SystemMouseCursors.click,
+    );
+    expect(
+      tester
+          .widget<MouseRegion>(
+            _mouseRegionFor(
+              find.byKey(const Key('elevation-profile-time-toggle')),
+            ),
+          )
+          .cursor,
+      SystemMouseCursors.basic,
+    );
+
+    final lineChart = tester.widget<LineChart>(find.byType(LineChart));
+    final tooltip = _tooltipForLastSpot(lineChart);
+    expect(tooltip.text, '120 m\n1.1 km');
   });
 
-  testWidgets('disabled time toggle uses surfaceContainer in light theme', (
+  testWidgets('disabled time toggle keeps the unselected search button style', (
     tester,
   ) async {
     final series = ElevationProfileSeriesBuilder.fromRoutePoints(
@@ -163,10 +250,15 @@ void main() {
 
     await _pumpChart(tester, series);
 
-    final timeChip = tester.widget<ChoiceChip>(
+    final timeButton = tester.widget<OutlinedButton>(
       find.byKey(const Key('elevation-profile-time-toggle')),
     );
-    expect(timeChip.disabledColor, MyTheme.light.colorScheme.surfaceContainer);
+    expect(timeButton.onPressed, isNull);
+    _expectSearchButtonStyle(
+      timeButton.style,
+      MyTheme.light.extension<SearchButtonThemeData>()!.styleFor(false),
+      states: const {WidgetState.disabled},
+    );
   });
 
   testWidgets('reports hovered samples and clears on exit', (tester) async {
@@ -216,6 +308,84 @@ void main() {
 
     expect(hoverEvents.last, isNull);
   });
+
+  testWidgets('uses map hover styling and keeps tap interactions intact', (
+    tester,
+  ) async {
+    final interactions = <ElevationProfileChartInteraction?>[];
+    final series = ElevationProfileSeriesBuilder.fromTrackProfileJson('''
+[
+  {"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-15T08:00:00"},
+  {"distanceMeters":10,"elevationMeters":120,"timeLocal":"2024-01-15T08:10:00"}
+]
+''');
+
+    await _pumpChart(tester, series, onInteractionChanged: interactions.add);
+
+    final lineChart = tester.widget<LineChart>(find.byType(LineChart));
+    final bar = lineChart.data.lineBarsData.single;
+    final indicator = lineChart.data.lineTouchData.getTouchedSpotIndicator(
+      bar,
+      const [0],
+    ).single!;
+    final dotPainter =
+        indicator.touchedSpotDotData.getDotPainter(bar.spots.first, 0, bar, 0)
+            as FlDotCirclePainter;
+    expect(indicator.indicatorBelowLine.color, MapChartHoverDotTheme.color);
+    expect(indicator.indicatorBelowLine.strokeWidth, 2);
+    expect(dotPainter.color, MapChartHoverDotTheme.color);
+    expect(dotPainter.strokeColor, MapChartHoverDotTheme.color);
+
+    lineChart.data.lineTouchData.touchCallback!(
+      FlTapUpEvent(
+        TapUpDetails(localPosition: Offset.zero, kind: PointerDeviceKind.touch),
+      ),
+      LineTouchResponse(
+        touchLocation: Offset.zero,
+        touchChartCoordinate: Offset(bar.spots.first.x, bar.spots.first.y),
+        lineBarSpots: [TouchLineBarSpot(bar, 0, bar.spots.first, 0)],
+      ),
+    );
+    await tester.pump();
+
+    expect(interactions.last!.kind, ElevationProfileChartInteractionKind.tap);
+    expect(interactions.last!.targetsExactPoint, isTrue);
+    expect(interactions.last!.hoverSample.sampleIndex, 0);
+  });
+}
+
+Finder _mouseRegionFor(Finder descendant) {
+  return find.ancestor(of: descendant, matching: find.byType(MouseRegion));
+}
+
+void _expectSearchButtonStyle(
+  ButtonStyle? actual,
+  ButtonStyle expected, {
+  Set<WidgetState> states = const {},
+}) {
+  expect(actual?.padding?.resolve(states), expected.padding?.resolve(states));
+  expect(
+    actual?.minimumSize?.resolve(states),
+    expected.minimumSize?.resolve(states),
+  );
+  expect(
+    actual?.backgroundColor?.resolve(states),
+    expected.backgroundColor?.resolve(states),
+  );
+  expect(
+    actual?.foregroundColor?.resolve(states),
+    expected.foregroundColor?.resolve(states),
+  );
+  expect(actual?.side?.resolve(states), expected.side?.resolve(states));
+  expect(actual?.visualDensity, expected.visualDensity);
+  expect(actual?.tapTargetSize, expected.tapTargetSize);
+}
+
+LineTooltipItem _tooltipForLastSpot(LineChart lineChart) {
+  final bar = lineChart.data.lineBarsData.single;
+  return lineChart.data.lineTouchData.touchTooltipData.getTooltipItems([
+    LineBarSpot(bar, 0, bar.spots.last),
+  ]).single!;
 }
 
 Future<void> _pumpChart(
@@ -226,6 +396,7 @@ Future<void> _pumpChart(
   double? minElevation,
   double? maxElevation,
   ValueChanged<ElevationProfileChartHoverSample?>? onHoverChanged,
+  ValueChanged<ElevationProfileChartInteraction?>? onInteractionChanged,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -241,6 +412,7 @@ Future<void> _pumpChart(
               minElevation: minElevation,
               maxElevation: maxElevation,
               onHoverChanged: onHoverChanged,
+              onInteractionChanged: onInteractionChanged,
             ),
           ),
         ),

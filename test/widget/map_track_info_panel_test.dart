@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/core/date_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -66,7 +69,7 @@ void main() {
     );
 
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
-    expect(find.text('12.4 km / 0 m'), findsOneWidget);
+    expect(find.text('12.4 / 0.0 km'), findsOneWidget);
   });
 
   testWidgets('renders elevation profile chart for a track', (tester) async {
@@ -106,6 +109,114 @@ void main() {
     expect(chart.minElevation, track.lowestElevation);
     expect(chart.maxElevation, track.highestElevation);
   });
+
+  testWidgets('derives highest-elevation rows without correlated peaks', (
+    tester,
+  ) async {
+    final track = GpxTrack(
+      contentHash: 'hash',
+      trackName: 'Profile Track',
+      peakCorrelationProcessed: true,
+      distanceToPeak: 99999,
+      distanceFromPeak: 1,
+      elevationProfile: '''
+[
+  {"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-01T00:00:00"},
+  {"distanceMeters":1250,"elevationMeters":500,"timeLocal":"2024-01-01T00:10:30"},
+  {"distanceMeters":2600,"elevationMeters":500,"timeLocal":"2024-01-01T00:20:00"},
+  {"distanceMeters":3000,"elevationMeters":200,"timeLocal":"2024-01-02T01:15:30"}
+]
+''',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: MyTheme.light,
+        home: Scaffold(
+          body: SizedBox(
+            width: UiConstants.preferredLeftWidth,
+            child: MapTrackInfoPanel(track: track, onClose: () {}),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('To highest elevation'), findsOneWidget);
+    expect(find.text('From highest elevation'), findsOneWidget);
+    expect(find.text('1.3 km / 00:11'), findsOneWidget);
+    expect(find.text('1.8 km / 25:05'), findsOneWidget);
+    _expectOneLineNonOverlapping(
+      tester,
+      label: 'To highest elevation',
+      value: '1.3 km / 00:11',
+    );
+    _expectOneLineNonOverlapping(
+      tester,
+      label: 'From highest elevation',
+      value: '1.8 km / 25:05',
+    );
+  });
+
+  testWidgets('omits highest-elevation durations for unusable timestamps', (
+    tester,
+  ) async {
+    final track = GpxTrack(
+      contentHash: 'hash',
+      trackName: 'Untimed Profile',
+      peakCorrelationProcessed: true,
+      elevationProfile: '''
+[
+  {"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-01T00:00:00"},
+  {"distanceMeters":1250,"elevationMeters":500},
+  {"distanceMeters":3000,"elevationMeters":200,"timeLocal":"2024-01-01T01:00:00"}
+]
+''',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: MyTheme.light,
+        home: Scaffold(
+          body: MapTrackInfoPanel(track: track, onClose: () {}),
+        ),
+      ),
+    );
+
+    expect(find.text('1.3 km'), findsOneWidget);
+    expect(find.text('1.8 km'), findsOneWidget);
+    expect(find.textContaining(' / 00:'), findsNothing);
+  });
+
+  testWidgets(
+    'omits highest-elevation durations for non-chronological timestamps',
+    (tester) async {
+      final track = GpxTrack(
+        contentHash: 'hash',
+        trackName: 'Non-chronological Profile',
+        peakCorrelationProcessed: true,
+        elevationProfile: '''
+[
+  {"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-01T00:00:00"},
+  {"distanceMeters":1250,"elevationMeters":500,"timeLocal":"2024-01-01T00:10:00"},
+  {"distanceMeters":3000,"elevationMeters":200,"timeLocal":"2024-01-01T00:05:00"}
+]
+''',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: MyTheme.light,
+          home: Scaffold(
+            body: MapTrackInfoPanel(track: track, onClose: () {}),
+          ),
+        ),
+      );
+
+      expect(find.text('1.3 km'), findsOneWidget);
+      expect(find.text('1.8 km'), findsOneWidget);
+      expect(find.textContaining(' / 00:'), findsNothing);
+    },
+  );
 
   testWidgets('forwards track chart hover callback', (tester) async {
     final hoverEvents = <ElevationProfileChartHoverSample?>[];
@@ -354,6 +465,72 @@ void main() {
     expect(deleteIcon.color, Colors.red);
   });
 
+  testWidgets('uses click cursors only for enabled track panel controls', (
+    tester,
+  ) async {
+    final removalCompleter = Completer<String?>();
+    final track = GpxTrack(
+      gpxTrackId: 10,
+      contentHash: 'hash',
+      trackName: 'Test Track',
+    )..peaks.add(Peak(osmId: 42, name: 'Test Peak', latitude: 0, longitude: 0));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: MyTheme.light,
+        home: Scaffold(
+          body: MapTrackInfoPanel(
+            track: track,
+            onClose: () {},
+            onExport: () {},
+            onTrackStatisticsRecalculate: () {},
+            onVisibilityChanged: (_) {},
+            onPeakCorrelationRemove:
+                ({required trackId, required peak, required trackName}) =>
+                    removalCompleter.future,
+          ),
+        ),
+      ),
+    );
+
+    final close = find.byKey(const Key('track-info-panel-close'));
+    final export = find.byKey(const Key('track-info-panel-export-button'));
+    final recalculate = find.byKey(
+      const Key('track-info-panel-recalculate-button'),
+    );
+    final visibility = find.byKey(
+      const Key('track-info-panel-visibility-switch'),
+    );
+    final removal = find.byKey(const Key('map-track-correlation-remove-10-42'));
+    for (final control in [close, export, recalculate, visibility, removal]) {
+      _expectCursor(tester, control, SystemMouseCursors.click);
+    }
+
+    await tester.tap(removal);
+    await tester.pump();
+    _expectCursor(tester, removal, SystemMouseCursors.basic);
+    removalCompleter.complete(null);
+    await tester.pump();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: MyTheme.light,
+        home: Scaffold(
+          body: MapTrackInfoPanel(
+            track: track,
+            onClose: () {},
+            isTrackStatisticsRecalculating: true,
+          ),
+        ),
+      ),
+    );
+
+    _expectCursor(tester, close, SystemMouseCursors.click);
+    for (final control in [export, recalculate, visibility]) {
+      _expectCursor(tester, control, SystemMouseCursors.basic);
+    }
+  });
+
   testWidgets(
     'uses a scoped onSecondary content theme and keeps export separate',
     (tester) async {
@@ -433,7 +610,7 @@ void main() {
       expect(closeIcon.color, isNull);
       expect(
         DefaultTextStyle.of(
-          tester.element(find.text('12.4 km / 0 m')),
+          tester.element(find.text('12.4 / 0.0 km')),
         ).style.color,
         contentTheme.colorScheme.onSurface,
       );
@@ -451,4 +628,22 @@ void main() {
       expect(exportIcon.color, isNull);
     },
   );
+}
+
+void _expectCursor(WidgetTester tester, Finder control, MouseCursor cursor) {
+  final region = find
+      .ancestor(of: control, matching: find.byType(MouseRegion))
+      .first;
+  expect(tester.widget<MouseRegion>(region).cursor, cursor);
+}
+
+void _expectOneLineNonOverlapping(
+  WidgetTester tester, {
+  required String label,
+  required String value,
+}) {
+  final labelRect = tester.getRect(find.text(label));
+  final valueRect = tester.getRect(find.text(value));
+  expect((labelRect.top - valueRect.top).abs(), lessThan(1));
+  expect(labelRect.right, lessThanOrEqualTo(valueRect.left));
 }

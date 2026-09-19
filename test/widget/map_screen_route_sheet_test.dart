@@ -508,6 +508,23 @@ void main() {
 
     var lineChart = tester.widget<LineChart>(find.byType(LineChart));
     final initialMaxX = lineChart.data.maxX;
+    expect(find.text('100'), findsOneWidget);
+    expect(
+      tester
+          .widget<MouseRegion>(
+            find.byKey(const Key('elevation-profile-chart-touch-area')),
+          )
+          .cursor,
+      SystemMouseCursors.click,
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const Key('elevation-profile-time-toggle')),
+          )
+          .onPressed,
+      isNull,
+    );
 
     notifier.state = notifier.state.copyWith(
       routeDraftCommittedPoints: [point1, point2, point3, point4],

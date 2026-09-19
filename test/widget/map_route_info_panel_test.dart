@@ -70,7 +70,7 @@ void main() {
     );
 
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
-    expect(find.text('17.4 km / 17.9 km'), findsOneWidget);
+    expect(find.text('17.4 / 17.9 km'), findsOneWidget);
   });
 
   testWidgets('renders dual route timing rows and removes inline explanation', (
@@ -554,6 +554,100 @@ void main() {
     expect(editTapped, isTrue);
   });
 
+  testWidgets('uses click cursors only for enabled route panel controls', (
+    tester,
+  ) async {
+    final route = app_route.Route(
+      name: 'Cursor Route',
+      routeTimingSource: RouteTimingSources.naismith,
+      walkingSpeedKmh: 4.0,
+      gpxRoute: const [LatLng(0, 0), LatLng(0, 0.08983)],
+      gpxRouteElevations: const [0, 0],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: MyTheme.light,
+        home: Scaffold(
+          body: MapTrackInfoPanel(
+            route: route,
+            onClose: () {},
+            onEdit: () {},
+            onExport: () {},
+            onVisibilityChanged: (_) {},
+            onRouteWalkingSpeedChanged: (_) {},
+            onRouteTimingRecalculate: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    final close = find.byKey(const Key('track-info-panel-close'));
+    final edit = find.byKey(const Key('track-info-panel-edit-button'));
+    final export = find.byKey(const Key('track-info-panel-export-button'));
+    final visibility = find.byKey(
+      const Key('track-info-panel-visibility-switch'),
+    );
+    final naismithInfo = find.byKey(
+      const Key('route-estimated-time-naismith-info'),
+    );
+    final scarfInfo = find.byKey(const Key('route-estimated-time-scarf-info'));
+    final naismithRecalculate = find.byKey(
+      const Key('route-estimated-time-naismith-recalculate'),
+    );
+    final scarfRecalculate = find.byKey(
+      const Key('route-estimated-time-scarf-recalculate'),
+    );
+    final speedDecrement = find.byKey(
+      const Key('route-walking-speed-decrement'),
+    );
+    final speedField = find.byKey(const Key('route-walking-speed-field'));
+    final speedIncrement = find.byKey(
+      const Key('route-walking-speed-increment'),
+    );
+    for (final control in [
+      close,
+      edit,
+      export,
+      visibility,
+      naismithInfo,
+      scarfInfo,
+      naismithRecalculate,
+      scarfRecalculate,
+      speedDecrement,
+      speedField,
+      speedIncrement,
+    ]) {
+      _expectCursor(tester, control, SystemMouseCursors.click);
+    }
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: MyTheme.light,
+        home: Scaffold(
+          body: MapTrackInfoPanel(route: route, onClose: () {}),
+        ),
+      ),
+    );
+
+    _expectCursor(tester, close, SystemMouseCursors.click);
+    for (final control in [
+      edit,
+      export,
+      visibility,
+      naismithRecalculate,
+      scarfRecalculate,
+      speedDecrement,
+      speedField,
+      speedIncrement,
+    ]) {
+      _expectCursor(tester, control, SystemMouseCursors.basic);
+    }
+    for (final control in [naismithInfo, scarfInfo]) {
+      _expectCursor(tester, control, SystemMouseCursors.click);
+    }
+  });
+
   testWidgets('renders elevation profile chart for a saved route', (
     tester,
   ) async {
@@ -912,4 +1006,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Stored mixed total'), findsOneWidget);
   });
+}
+
+void _expectCursor(WidgetTester tester, Finder control, MouseCursor cursor) {
+  final region = find
+      .ancestor(of: control, matching: find.byType(MouseRegion))
+      .first;
+  expect(tester.widget<MouseRegion>(region).cursor, cursor);
 }

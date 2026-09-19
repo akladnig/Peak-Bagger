@@ -7,7 +7,7 @@ void main() {
     final series = ElevationProfileSeriesBuilder.fromTrackProfileJson('''
 [
   {"segmentIndex":0,"pointIndex":0,"distanceMeters":0,"elevationMeters":100,"timeLocal":"2024-01-15T08:00:00.000"},
-  {"segmentIndex":0,"pointIndex":1,"distanceMeters":12.5,"elevationMeters":null,"timeLocal":null},
+  {"segmentIndex":0,"pointIndex":1,"distanceMeters":12.5,"elevationMeters":null,"timeLocal":"2024-01-15T08:05:00.000"},
   {"segmentIndex":1,"pointIndex":0,"distanceMeters":42.25,"elevationMeters":120,"timeLocal":"2024-01-15T08:20:00.000"}
 ]
 ''');
@@ -36,6 +36,37 @@ void main() {
 
     expect(series.supportsTimeAxis, isFalse);
     expect(series.hasUsableTimeAxis, isFalse);
+  });
+
+  test('requires every persisted profile entry to have ordered timestamps', () {
+    for (final profile in [
+      '[{"distanceMeters":0,"timeLocal":"2024-01-15T08:00:00"},{"distanceMeters":1}]',
+      '[{"distanceMeters":0,"timeLocal":"2024-01-15T08:00:00"},"skipped"]',
+      '[{"distanceMeters":0,"timeLocal":"2024-01-15T08:00:00"},null]',
+      '[{"timeLocal":"2024-01-15T08:00:00"},{"distanceMeters":1,"timeLocal":"2024-01-15T08:01:00"}]',
+      '[{"distanceMeters":"0","timeLocal":"2024-01-15T08:00:00"},{"distanceMeters":1,"timeLocal":"2024-01-15T08:01:00"}]',
+      '[{"distanceMeters":0,"timeLocal":"not-a-time"},{"distanceMeters":1,"timeLocal":"2024-01-15T08:01:00"}]',
+      '[{"distanceMeters":0,"timeLocal":"2024-01-15T08:00:00"},{"distanceMeters":1,"timeLocal":"2024-01-15T08:00:00"}]',
+      '[{"distanceMeters":0,"timeLocal":"2024-01-15T08:01:00"},{"distanceMeters":1,"timeLocal":"2024-01-15T08:00:00"}]',
+    ]) {
+      expect(
+        ElevationProfileSeriesBuilder.fromTrackProfileJson(
+          profile,
+        ).supportsTimeAxis,
+        isFalse,
+      );
+    }
+  });
+
+  test('allows null elevations and omitted point indexes with timestamps', () {
+    final series = ElevationProfileSeriesBuilder.fromTrackProfileJson('''
+[
+  {"distanceMeters":0,"elevationMeters":null,"timeLocal":"2024-01-15T08:00:00"},
+  {"distanceMeters":1,"elevationMeters":10,"timeLocal":"2024-01-15T08:01:00"}
+]
+''');
+
+    expect(series.supportsTimeAxis, isTrue);
   });
 
   test('builds route series from cumulative geodesic distance', () {
