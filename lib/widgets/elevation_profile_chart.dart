@@ -95,52 +95,65 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
         ),
         if (hasUsablePoints) ...[
           const SizedBox(height: 12),
-          Center(child: _buildAxisChips(context)),
+          Center(child: _buildAxisButtons(context)),
         ],
       ],
     );
   }
 
-  Widget _buildAxisChips(BuildContext context) {
+  Widget _buildAxisButtons(BuildContext context) {
     final supportsTimeAxis = _supportsTimeAxis;
-    final theme = Theme.of(context);
 
     return Wrap(
       spacing: 8,
       children: [
-        MouseRegion(
-          cursor: SystemMouseCursors.click,
-          child: ChoiceChip(
-            key: const Key('elevation-profile-distance-toggle'),
-            label: const Text('Distance'),
-            selected: _axisMode == ElevationProfileAxisMode.distance,
-            onSelected: (selected) {
-              if (selected) {
-                setState(() => _axisMode = ElevationProfileAxisMode.distance);
-              }
-            },
-          ),
+        _buildAxisButton(
+          context,
+          key: const Key('elevation-profile-distance-toggle'),
+          label: 'Distance',
+          isSelected: _axisMode == ElevationProfileAxisMode.distance,
+          onPressed: () {
+            setState(() => _axisMode = ElevationProfileAxisMode.distance);
+          },
         ),
-        MouseRegion(
-          cursor: supportsTimeAxis
-              ? SystemMouseCursors.click
-              : SystemMouseCursors.basic,
-          child: ChoiceChip(
-            key: const Key('elevation-profile-time-toggle'),
-            label: const Text('Time'),
-            selected: _axisMode == ElevationProfileAxisMode.time,
-            onSelected: supportsTimeAxis
-                ? (selected) {
-                    if (selected) {
-                      setState(() => _axisMode = ElevationProfileAxisMode.time);
-                    }
-                  }
-                : null,
-            selectedColor: theme.seedColour,
-            disabledColor: theme.colorScheme.surfaceContainer,
-          ),
+        _buildAxisButton(
+          context,
+          key: const Key('elevation-profile-time-toggle'),
+          label: 'Time',
+          isSelected: _axisMode == ElevationProfileAxisMode.time,
+          onPressed: supportsTimeAxis
+              ? () {
+                  setState(() => _axisMode = ElevationProfileAxisMode.time);
+                }
+              : null,
         ),
       ],
+    );
+  }
+
+  Widget _buildAxisButton(
+    BuildContext context, {
+    required Key key,
+    required String label,
+    required bool isSelected,
+    required VoidCallback? onPressed,
+  }) {
+    final searchButtonTheme = Theme.of(
+      context,
+    ).extension<SearchButtonThemeData>();
+    return MouseRegion(
+      cursor: onPressed == null
+          ? SystemMouseCursors.basic
+          : SystemMouseCursors.click,
+      child: OutlinedButton(
+        key: key,
+        style: searchButtonTheme?.styleFor(isSelected),
+        onPressed: onPressed,
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: searchControlFontSize),
+        ),
+      ),
     );
   }
 
@@ -234,7 +247,6 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                   context,
                   axisRange,
                   axisMode: axisMode,
-                  distanceAxisUnit: distanceAxisUnit,
                   xGuideValues: xGuideValues,
                   segments: segments,
                   hoverSamples: hoverSamples,
@@ -317,7 +329,6 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
     BuildContext context,
     _ElevationAxisRange axisRange, {
     required ElevationProfileAxisMode axisMode,
-    required _DistanceAxisUnit distanceAxisUnit,
     required List<double> xGuideValues,
     required List<_ChartSegment> segments,
     required List<_ChartSample> hoverSamples,
@@ -479,11 +490,14 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
                   final profileSample =
                       widget.series.samples[segments[spot.barIndex]
                           .sampleIndices[spot.spotIndex]];
-                  final timeLines = _supportsTimeAxis
-                      ? '\n${DateFormat('HH:mm').format(profileSample.timeLocal!)}\n${_formatElapsed(profileSample.timeLocal!.difference(widget.series.samples.first.timeLocal!))} elapsed'
-                      : '';
+                  final tooltipText = switch (axisMode) {
+                    ElevationProfileAxisMode.distance =>
+                      '${formatElevation(spot.y.round())}\n${(spot.x / 1000).toStringAsFixed(1)} km',
+                    ElevationProfileAxisMode.time =>
+                      '${formatElevation(spot.y.round())}\n${_formatElapsed(profileSample.timeLocal!.difference(widget.series.samples.first.timeLocal!))} elapsed\n${DateFormat('HH:mm').format(profileSample.timeLocal!)}',
+                  };
                   return LineTooltipItem(
-                    '${_formatXAxisLabel(spot.x, axisMode, distanceAxisUnit: distanceAxisUnit)}\n${formatElevation(spot.y.round())}$timeLines',
+                    tooltipText,
                     (theme.textTheme.labelSmall ?? const TextStyle()).copyWith(
                       color: theme.colorScheme.onPrimaryContainer,
                     ),

@@ -870,7 +870,7 @@ MouseCursor _cursorForEnabled(bool enabled) =>
     enabled ? SystemMouseCursors.click : SystemMouseCursors.basic;
 
 String _formatPanelDistance2d3d(double distance2d, double distance3d) =>
-    '${(distance2d / 1000).toStringAsFixed(1)} / ${(distance3d / 1000).toStringAsFixed(1)}';
+    '${(distance2d / 1000).toStringAsFixed(1)} / ${(distance3d / 1000).toStringAsFixed(1)} km';
 
 String _formatHighestElevationValue({
   required double distanceMeters,

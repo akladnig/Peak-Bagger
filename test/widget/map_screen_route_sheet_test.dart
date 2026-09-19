@@ -519,10 +519,10 @@ void main() {
     );
     expect(
       tester
-          .widget<ChoiceChip>(
+          .widget<OutlinedButton>(
             find.byKey(const Key('elevation-profile-time-toggle')),
           )
-          .onSelected,
+          .onPressed,
       isNull,
     );
 

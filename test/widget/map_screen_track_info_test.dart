@@ -543,7 +543,7 @@ void main() {
               matching: find.byType(Row),
             )
             .first,
-        matching: find.text('12.4 / 0.0'),
+        matching: find.text('12.4 / 0.0 km'),
       ),
       findsOneWidget,
     );

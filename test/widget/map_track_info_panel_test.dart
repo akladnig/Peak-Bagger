@@ -69,7 +69,7 @@ void main() {
     );
 
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
-    expect(find.text('12.4 / 0.0'), findsOneWidget);
+    expect(find.text('12.4 / 0.0 km'), findsOneWidget);
   });
 
   testWidgets('renders elevation profile chart for a track', (tester) async {
@@ -610,7 +610,7 @@ void main() {
       expect(closeIcon.color, isNull);
       expect(
         DefaultTextStyle.of(
-          tester.element(find.text('12.4 / 0.0')),
+          tester.element(find.text('12.4 / 0.0 km')),
         ).style.color,
         contentTheme.colorScheme.onSurface,
       );
