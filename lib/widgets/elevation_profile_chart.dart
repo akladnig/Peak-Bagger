@@ -108,29 +108,37 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
     return Wrap(
       spacing: 8,
       children: [
-        ChoiceChip(
-          key: const Key('elevation-profile-distance-toggle'),
-          label: const Text('Distance'),
-          selected: _axisMode == ElevationProfileAxisMode.distance,
-          onSelected: (selected) {
-            if (selected) {
-              setState(() => _axisMode = ElevationProfileAxisMode.distance);
-            }
-          },
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: ChoiceChip(
+            key: const Key('elevation-profile-distance-toggle'),
+            label: const Text('Distance'),
+            selected: _axisMode == ElevationProfileAxisMode.distance,
+            onSelected: (selected) {
+              if (selected) {
+                setState(() => _axisMode = ElevationProfileAxisMode.distance);
+              }
+            },
+          ),
         ),
-        ChoiceChip(
-          key: const Key('elevation-profile-time-toggle'),
-          label: const Text('Time'),
-          selected: _axisMode == ElevationProfileAxisMode.time,
-          onSelected: supportsTimeAxis
-              ? (selected) {
-                  if (selected) {
-                    setState(() => _axisMode = ElevationProfileAxisMode.time);
+        MouseRegion(
+          cursor: supportsTimeAxis
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
+          child: ChoiceChip(
+            key: const Key('elevation-profile-time-toggle'),
+            label: const Text('Time'),
+            selected: _axisMode == ElevationProfileAxisMode.time,
+            onSelected: supportsTimeAxis
+                ? (selected) {
+                    if (selected) {
+                      setState(() => _axisMode = ElevationProfileAxisMode.time);
+                    }
                   }
-                }
-              : null,
-          selectedColor: theme.seedColour,
-          disabledColor: theme.colorScheme.surfaceContainer,
+                : null,
+            selectedColor: theme.seedColour,
+            disabledColor: theme.colorScheme.surfaceContainer,
+          ),
         ),
       ],
     );
@@ -192,7 +200,10 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
         ),
         fractionFromTop: 0.75,
       ),
-      const DashboardChartYAxisLabelEntry(text: 'm', fractionFromTop: 1),
+      DashboardChartYAxisLabelEntry(
+        text: formatElevation(axisRange.minY.round(), showUnits: false),
+        fractionFromTop: 1,
+      ),
     ];
 
     return DecoratedBox(
@@ -215,8 +226,9 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
             final maxX = _maxX(axisMode, series.samples, minX);
             final distanceAxisUnit = _distanceAxisUnit(maxX);
             final xGuideValues = _xGuideValues(minX, maxX);
-            final chart = KeyedSubtree(
+            final chart = MouseRegion(
               key: const Key('elevation-profile-chart-touch-area'),
+              cursor: SystemMouseCursors.click,
               child: LineChart(
                 _buildChartData(
                   context,
@@ -444,16 +456,13 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
           return spotIndexes
               .map(
                 (spotIndex) => TouchedSpotIndicatorData(
-                  FlLine(
-                    color: theme.seedColour,
-                    strokeWidth: ChartUI.hoverLineStrokeWidth,
-                  ),
+                  FlLine(color: MapChartHoverDotTheme.color, strokeWidth: 2),
                   FlDotData(
                     getDotPainter: (spot, percent, bar, index) {
                       return FlDotCirclePainter(
                         radius: ChartUI.radiusTouched,
-                        color: theme.seedColour,
-                        strokeColor: theme.seedColour,
+                        color: MapChartHoverDotTheme.color,
+                        strokeColor: MapChartHoverDotTheme.color,
                         strokeWidth: 0,
                       );
                     },
@@ -463,13 +472,20 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
               .toList(growable: false);
         },
         touchTooltipData: LineTouchTooltipData(
+          getTooltipColor: (_) => theme.colorScheme.primaryContainer,
           getTooltipItems: (spots) {
             return spots
                 .map((spot) {
+                  final profileSample =
+                      widget.series.samples[segments[spot.barIndex]
+                          .sampleIndices[spot.spotIndex]];
+                  final timeLines = _supportsTimeAxis
+                      ? '\n${DateFormat('HH:mm').format(profileSample.timeLocal!)}\n${_formatElapsed(profileSample.timeLocal!.difference(widget.series.samples.first.timeLocal!))} elapsed'
+                      : '';
                   return LineTooltipItem(
-                    '${_formatXAxisLabel(spot.x, axisMode, distanceAxisUnit: distanceAxisUnit)}\n${formatElevation(spot.y.round())}',
+                    '${_formatXAxisLabel(spot.x, axisMode, distanceAxisUnit: distanceAxisUnit)}\n${formatElevation(spot.y.round())}$timeLines',
                     (theme.textTheme.labelSmall ?? const TextStyle()).copyWith(
-                      color: theme.colorScheme.onSurface,
+                      color: theme.colorScheme.onPrimaryContainer,
                     ),
                   );
                 })
@@ -811,6 +827,14 @@ class _ElevationProfileChartState extends State<ElevationProfileChart> {
       _DistanceAxisUnit.meters => 'm',
       _DistanceAxisUnit.kilometers => 'km',
     };
+  }
+
+  String _formatElapsed(Duration duration) {
+    final totalMinutes =
+        (duration.inMilliseconds / Duration.millisecondsPerMinute).round();
+    final hours = totalMinutes ~/ 60;
+    final minutes = totalMinutes % 60;
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
   }
 }
 

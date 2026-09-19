@@ -63,23 +63,28 @@ abstract final class ElevationProfileSeriesBuilder {
     }
 
     final samples = <ElevationProfileSample>[];
-    var validTimeCount = 0;
+    var hasUsableTimestamps = decoded.isNotEmpty;
+    DateTime? previousTime;
 
     for (final entry in decoded) {
       if (entry is! Map) {
+        hasUsableTimestamps = false;
         continue;
       }
 
       final distanceMeters = _asDouble(entry['distanceMeters']);
       if (distanceMeters == null) {
+        hasUsableTimestamps = false;
         continue;
       }
 
       final elevationMeters = _asDouble(entry['elevationMeters']);
       final timeLocal = _parseTimeLocal(entry['timeLocal']);
-      if (timeLocal != null) {
-        validTimeCount += 1;
+      if (timeLocal == null ||
+          (previousTime != null && !timeLocal.isAfter(previousTime))) {
+        hasUsableTimestamps = false;
       }
+      previousTime = timeLocal;
 
       samples.add(
         ElevationProfileSample(
@@ -94,7 +99,7 @@ abstract final class ElevationProfileSeriesBuilder {
 
     return ElevationProfileSeries(
       samples: samples,
-      supportsTimeAxis: validTimeCount >= 2,
+      supportsTimeAxis: hasUsableTimestamps && samples.length >= 2,
     );
   }
 
