@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/theme.dart';
 
 import '../core/constants.dart';
+import '../core/date_formatters.dart';
 import '../core/number_formatters.dart';
 
 import '../models/gpx_track.dart';
@@ -1084,35 +1085,6 @@ class _PeakHistoryHeader extends StatelessWidget {
   }
 }
 
-String _formatHistoryDate(DateTime date) {
-  const weekdays = <int, String>{
-    DateTime.monday: 'Mon',
-    DateTime.tuesday: 'Tue',
-    DateTime.wednesday: 'Wed',
-    DateTime.thursday: 'Thu',
-    DateTime.friday: 'Fri',
-    DateTime.saturday: 'Sat',
-    DateTime.sunday: 'Sun',
-  };
-  const months = <int, String>{
-    1: 'Jan',
-    2: 'Feb',
-    3: 'Mar',
-    4: 'Apr',
-    5: 'May',
-    6: 'Jun',
-    7: 'Jul',
-    8: 'Aug',
-    9: 'Sep',
-    10: 'Oct',
-    11: 'Nov',
-    12: 'Dec',
-  };
-
-  final localDate = date.toLocal();
-  return '${weekdays[localDate.weekday]}, ${months[localDate.month]} ${localDate.day} ${localDate.year}';
-}
-
 class _HistoryRow extends ConsumerWidget {
   const _HistoryRow({required this.row, required this.onTrackSelected});
 
@@ -1128,7 +1100,7 @@ class _HistoryRow extends ConsumerWidget {
     } catch (_) {
       track = null;
     }
-    final dateLabel = row.date == null ? '' : _formatHistoryDate(row.date!);
+    final dateLabel = formatTrackDateShortMonth(row.date);
     final label = track == null
         ? (row.gpxId <= 0 ? '' : 'Track #${row.gpxId}')
         : track.trackName.trim().isEmpty

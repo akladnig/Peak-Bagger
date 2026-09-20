@@ -105,7 +105,7 @@ void main() {
     expect(find.text('Resolved Map'), findsOneWidget);
     expect(find.text('1,234'), findsOneWidget);
     expect(find.byKey(const Key('peak-list-peak-track-10')), findsOneWidget);
-    expect(find.text('Sat, Mar 2 2024'), findsOneWidget);
+    expect(find.text('Sat, 2 Mar 2024'), findsOneWidget);
     expect(find.text('Ridge Walk'), findsOneWidget);
 
     final titleText = tester.widget<Text>(
