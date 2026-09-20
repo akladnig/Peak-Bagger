@@ -81,6 +81,9 @@ class PeakListDetailsMetadataFilterNotifier
   }
 
   void closePopup() {
+    if (!state.isPopupVisible) {
+      return;
+    }
     state = state.copyWith(isPopupVisible: false);
   }
 

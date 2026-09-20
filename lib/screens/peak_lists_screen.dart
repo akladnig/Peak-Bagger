@@ -25,6 +25,7 @@ import '../models/peak_list.dart';
 import '../models/peaks_bagged.dart';
 import '../providers/background_jobs_provider.dart';
 import '../providers/peak_list_provider.dart';
+import '../providers/peak_list_details_metadata_filter_provider.dart';
 import '../providers/peak_list_region_filter_provider.dart';
 import '../providers/peak_list_selection_provider.dart';
 import '../providers/map_provider.dart';
@@ -50,6 +51,7 @@ import '../widgets/dialog_helpers.dart';
 import '../widgets/left_tooltip_fab.dart';
 import '../widgets/peak_list_import_dialog.dart';
 import '../widgets/peak_list_peak_dialog.dart';
+import '../widgets/map_metadata_filter_popup.dart';
 import '../theme.dart';
 import '../router.dart';
 import 'map_screen_layers.dart';
@@ -77,6 +79,7 @@ class PeakListsScreen extends ConsumerStatefulWidget {
 class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   GlobalKey<_MiniPeakMapState> _miniPeakMapKey = GlobalKey<_MiniPeakMapState>();
   final _screenFocusNode = FocusNode(debugLabel: 'peak-lists-screen');
+  final _nameSearchController = TextEditingController();
   int? _selectedPeakListId;
   int? _selectedPeakId;
   _PeakListSortColumn _sortColumn = _PeakListSortColumn.percentage;
@@ -96,6 +99,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   @override
   void dispose() {
     _screenFocusNode.dispose();
+    _nameSearchController.dispose();
     super.dispose();
   }
 
@@ -117,6 +121,8 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     }
     _selectedPeakListId = peakListId;
     _miniPeakMapKey = GlobalKey<_MiniPeakMapState>();
+    _nameSearchController.clear();
+    ref.read(peakListDetailsMetadataFilterProvider.notifier).closePopup();
   }
 
   @override
@@ -160,6 +166,13 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
     );
     _queueSelectionSync(sortedSummaryRows, selectedSummaryRow);
     final selectedMapPeak = _resolveSelectedMapPeak(resolvedSelectedSummaryRow);
+    final metadataFilter = ref.watch(peakListDetailsMetadataFilterProvider);
+    final nameQuery = _nameSearchController.text.trim().toLowerCase();
+    final filteredPeakRows = _filterPeakRows(
+      resolvedSelectedSummaryRow?.peakRows ?? const <_PeakDetailRow>[],
+      nameQuery: nameQuery,
+      metadataFilter: metadataFilter,
+    );
     final route = ModalRoute.of(context);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -167,6 +180,9 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         return;
       }
       if ((route != null && !route.isCurrent) || _isEditableTextFocused()) {
+        if (route != null && !route.isCurrent) {
+          ref.read(peakListDetailsMetadataFilterProvider.notifier).closePopup();
+        }
         _miniPeakMapKey.currentState?.cancelKeyboardScroll();
         return;
       }
@@ -180,6 +196,14 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
       focusNode: _screenFocusNode,
       autofocus: true,
       onKeyEvent: (node, event) {
+        if (metadataFilter.isPopupVisible &&
+            event is KeyDownEvent &&
+            (event.logicalKey == LogicalKeyboardKey.escape ||
+                (event.logicalKey == LogicalKeyboardKey.keyC &&
+                    HardwareKeyboard.instance.isControlPressed))) {
+          ref.read(peakListDetailsMetadataFilterProvider.notifier).closePopup();
+          return KeyEventResult.handled;
+        }
         if ((route != null && !route.isCurrent) || _isEditableTextFocused()) {
           _miniPeakMapKey.currentState?.cancelKeyboardScroll();
           return KeyEventResult.ignored;
@@ -190,103 +214,147 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         }
         return miniMapState.handleScreenKeyEvent(event);
       },
-      child: Scaffold(
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            final panes = _resolvePaneWidths(constraints.maxWidth);
+      child: Stack(
+        children: [
+          Scaffold(
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                final panes = _resolvePaneWidths(constraints.maxWidth);
 
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(
-                  key: const Key('peak-lists-summary-pane'),
-                  width: panes.leftWidth,
-                  child: _SummaryPane(
-                    rows: sortedSummaryRows,
-                    selectedPeakListId: selectedSummaryRow?.peakList.peakListId,
-                    selectedSummaryRow: resolvedSelectedSummaryRow,
-                    sortColumn: _sortColumn,
-                    sortAscending: _sortAscending,
-                    miniPeakMapKey: _miniPeakMapKey,
-                    onSelected: (peakListId) {
-                      setState(() {
-                        _setSelectedPeakListId(peakListId);
-                      });
-                    },
-                    onSortSelected: _handleSortSelected,
-                    onDeleteRequested: (peakListId) {
-                      _deletePeakList(peakListId, sortedSummaryRows);
-                    },
-                    filePicker: filePicker,
-                    importRunner: importRunner,
-                    duplicateNameChecker: duplicateNameChecker,
-                    peakListRepository: peakListRepository,
-                    selectedMapPeak: selectedMapPeak,
-                    peaksBaggedRevision: peaksBaggedRevision,
-                    onPeakSelected: (peakId) {
-                      setState(() {
-                        _selectedPeakId = peakId;
-                      });
-                    },
-                  ),
-                ),
-                const VerticalDivider(width: UiConstants.dividerWidth),
-                SizedBox(
-                  key: const Key('peak-lists-details-pane'),
-                  width: panes.rightWidth,
-                  child: _DetailsPane(
-                    selectedSummaryRow: resolvedSelectedSummaryRow,
-                    selectedPeakId: _selectedPeakId,
-                    onSummaryPeakSelected: (peakId) {
-                      setState(() {
-                        _selectedPeakId = peakId;
-                      });
-                      _miniPeakMapKey.currentState?.showPopupForPeak(peakId);
-                    },
-                    onPeakSelected: (peakId) async {
-                      setState(() {
-                        _selectedPeakId = peakId;
-                      });
-                      final result = await _openPeakDialog(
-                        resolvedSelectedSummaryRow,
-                        peakId,
-                      );
-                      if (!mounted || result == null) {
-                        return;
-                      }
-                      setState(() {
-                        _selectedPeakId = result.selectedPeakId;
-                      });
-                    },
-                    onAddPeakRequested: () async {
-                      final result = await _openAddPeakDialog(
-                        resolvedSelectedSummaryRow,
-                      );
-                      if (!mounted || result == null) {
-                        return;
-                      }
-                      final selectedPeakIds = result.selectedPeakIds;
-                      if (selectedPeakIds.isEmpty) {
-                        return;
-                      }
-                      await _refreshPeakListSelectionDependencies(
-                        preserveSettledSummary: true,
-                      );
-                      if (!mounted) {
-                        return;
-                      }
-                      setState(() {
-                        _selectedPeakId = selectedPeakIds.first;
-                      });
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      key: const Key('peak-lists-summary-pane'),
+                      width: panes.leftWidth,
+                      child: _SummaryPane(
+                        rows: sortedSummaryRows,
+                        selectedPeakListId:
+                            selectedSummaryRow?.peakList.peakListId,
+                        selectedSummaryRow: resolvedSelectedSummaryRow,
+                        sortColumn: _sortColumn,
+                        sortAscending: _sortAscending,
+                        miniPeakMapKey: _miniPeakMapKey,
+                        onSelected: (peakListId) {
+                          setState(() {
+                            _setSelectedPeakListId(peakListId);
+                          });
+                        },
+                        onSortSelected: _handleSortSelected,
+                        onDeleteRequested: (peakListId) {
+                          _deletePeakList(peakListId, sortedSummaryRows);
+                        },
+                        filePicker: filePicker,
+                        importRunner: importRunner,
+                        duplicateNameChecker: duplicateNameChecker,
+                        peakListRepository: peakListRepository,
+                        selectedMapPeak: selectedMapPeak,
+                        peaksBaggedRevision: peaksBaggedRevision,
+                        onPeakSelected: (peakId) {
+                          setState(() {
+                            _selectedPeakId = peakId;
+                          });
+                        },
+                      ),
+                    ),
+                    const VerticalDivider(width: UiConstants.dividerWidth),
+                    SizedBox(
+                      key: const Key('peak-lists-details-pane'),
+                      width: panes.rightWidth,
+                      child: _DetailsPane(
+                        selectedSummaryRow: resolvedSelectedSummaryRow,
+                        filteredPeakRows: filteredPeakRows,
+                        nameSearchController: _nameSearchController,
+                        activeNameQuery: nameQuery.isNotEmpty,
+                        metadataFilter: metadataFilter,
+                        selectedPeakId: _selectedPeakId,
+                        onSummaryPeakSelected: (peakId) {
+                          setState(() {
+                            _selectedPeakId = peakId;
+                          });
+                          _miniPeakMapKey.currentState?.showPopupForPeak(
+                            peakId,
+                          );
+                        },
+                        onPeakSelected: (peakId) async {
+                          setState(() {
+                            _selectedPeakId = peakId;
+                          });
+                          final result = await _openPeakDialog(
+                            resolvedSelectedSummaryRow,
+                            peakId,
+                          );
+                          if (!mounted || result == null) {
+                            return;
+                          }
+                          setState(() {
+                            _selectedPeakId = result.selectedPeakId;
+                          });
+                        },
+                        onAddPeakRequested: () async {
+                          final result = await _openAddPeakDialog(
+                            resolvedSelectedSummaryRow,
+                          );
+                          if (!mounted || result == null) {
+                            return;
+                          }
+                          final selectedPeakIds = result.selectedPeakIds;
+                          if (selectedPeakIds.isEmpty) {
+                            return;
+                          }
+                          await _refreshPeakListSelectionDependencies(
+                            preserveSettledSummary: true,
+                          );
+                          if (!mounted) {
+                            return;
+                          }
+                          setState(() {
+                            _selectedPeakId = selectedPeakIds.first;
+                          });
+                        },
+                        onNameSearchChanged: (_) => setState(() {}),
+                        onFilterPressed: () {
+                          _screenFocusNode.requestFocus();
+                          ref
+                              .read(
+                                peakListDetailsMetadataFilterProvider.notifier,
+                              )
+                              .togglePopup();
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          if (metadataFilter.isPopupVisible)
+            _PeakListsMetadataFilterOverlay(
+              selectedSummaryRow: resolvedSelectedSummaryRow,
+              metadataFilter: metadataFilter,
+            ),
+        ],
       ),
     );
+  }
+
+  List<_PeakDetailRow> _filterPeakRows(
+    List<_PeakDetailRow> rows, {
+    required String nameQuery,
+    required PeakListDetailsMetadataFilterState metadataFilter,
+  }) {
+    return rows
+        .where((row) {
+          if (nameQuery.isNotEmpty &&
+              !row.name.toLowerCase().contains(nameQuery)) {
+            return false;
+          }
+          final peak = row.peak;
+          return peak != null
+              ? metadataFilter.matchesPeak(peak)
+              : !metadataFilter.hasActiveFilters;
+        })
+        .toList(growable: false);
   }
 
   List<_PeakListSummaryRow> _resolveDerivedSummaryRows({
@@ -509,6 +577,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         .read(peaksBaggedRepositoryProvider)
         .ascentsForPeakId(peakId);
 
+    ref.read(peakListDetailsMetadataFilterProvider.notifier).closePopup();
     return showGeneralDialog<PeakListPeakDialogOutcome>(
       context: context,
       barrierDismissible: true,
@@ -546,6 +615,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
       return null;
     }
 
+    ref.read(peakListDetailsMetadataFilterProvider.notifier).closePopup();
     final ascentRows = const <PeaksBagged>[];
 
     return showGeneralDialog<PeakListPeakDialogOutcome>(
@@ -1785,23 +1855,32 @@ BoxDecoration _selectedRowDecoration(BuildContext context) {
 class _DetailsPane extends StatelessWidget {
   const _DetailsPane({
     required this.selectedSummaryRow,
+    required this.filteredPeakRows,
+    required this.nameSearchController,
+    required this.activeNameQuery,
+    required this.metadataFilter,
     required this.selectedPeakId,
     required this.onSummaryPeakSelected,
     required this.onPeakSelected,
     required this.onAddPeakRequested,
+    required this.onNameSearchChanged,
+    required this.onFilterPressed,
   });
 
   final _PeakListSummaryRow? selectedSummaryRow;
+  final List<_PeakDetailRow> filteredPeakRows;
+  final TextEditingController nameSearchController;
+  final bool activeNameQuery;
+  final PeakListDetailsMetadataFilterState metadataFilter;
   final int? selectedPeakId;
   final ValueChanged<int> onSummaryPeakSelected;
   final Future<void> Function(int) onPeakSelected;
   final Future<void> Function() onAddPeakRequested;
+  final ValueChanged<String> onNameSearchChanged;
+  final VoidCallback onFilterPressed;
 
   @override
   Widget build(BuildContext context) {
-    final fabBackground = _fabBackgroundColor(context);
-    final fabForeground = _fabForegroundColor(context);
-
     final summaryRow = selectedSummaryRow;
     final title = summaryRow?.peakList.name ?? 'Peak List Details';
     final summaryText = summaryRow?.buildSummarySentence();
@@ -1811,27 +1890,14 @@ class _DetailsPane extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  key: const Key('peak-lists-selected-title'),
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              if (selectedSummaryRow != null)
-                LeftTooltipFab(
-                  message: 'Add New Peak',
-                  child: FloatingActionButton.small(
-                    key: const Key('peak-lists-add-peak'),
-                    heroTag: 'peak-list-add',
-                    backgroundColor: fabBackground,
-                    onPressed: onAddPeakRequested,
-                    child: Icon(Icons.add_circle_outline, color: fabForeground),
-                  ),
-                ),
-            ],
+          _PeakListDetailsHeader(
+            title: title,
+            hasSelectedList: summaryRow != null,
+            nameSearchController: nameSearchController,
+            activeFilterCount: metadataFilter.activeFilterCount,
+            onNameSearchChanged: onNameSearchChanged,
+            onFilterPressed: onFilterPressed,
+            onAddPeakRequested: onAddPeakRequested,
           ),
           const SizedBox(height: 12),
           if (summaryText != null) ...[
@@ -1845,8 +1911,162 @@ class _DetailsPane extends StatelessWidget {
             key: const Key('peak-lists-right-column-content-scroll'),
             child: _PeakDetailsTableCard(
               selectedSummaryRow: selectedSummaryRow,
+              rows: filteredPeakRows,
+              showsFilteredEmptyMessage:
+                  summaryRow != null &&
+                  summaryRow.peakRows.isNotEmpty &&
+                  filteredPeakRows.isEmpty &&
+                  (activeNameQuery || metadataFilter.hasActiveFilters),
               selectedPeakId: selectedPeakId,
               onPeakSelected: onPeakSelected,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PeakListDetailsHeader extends StatelessWidget {
+  const _PeakListDetailsHeader({
+    required this.title,
+    required this.hasSelectedList,
+    required this.nameSearchController,
+    required this.activeFilterCount,
+    required this.onNameSearchChanged,
+    required this.onFilterPressed,
+    required this.onAddPeakRequested,
+  });
+
+  final String title;
+  final bool hasSelectedList;
+  final TextEditingController nameSearchController;
+  final int activeFilterCount;
+  final ValueChanged<String> onNameSearchChanged;
+  final VoidCallback onFilterPressed;
+  final Future<void> Function() onAddPeakRequested;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final fabBackground = _fabBackgroundColor(context);
+    final fabForeground = _fabForegroundColor(context);
+    final filterLabel = switch (activeFilterCount) {
+      0 => 'Filter',
+      1 => '1 Filter',
+      _ => '$activeFilterCount Filters',
+    };
+
+    return Row(
+      key: const Key('peak-lists-details-header'),
+      children: [
+        Expanded(
+          child: Tooltip(
+            message: title,
+            child: Text(
+              title,
+              key: const Key('peak-lists-selected-title'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 120,
+          child: TextField(
+            key: const Key('peak-lists-name-search'),
+            controller: nameSearchController,
+            enabled: hasSelectedList,
+            onChanged: onNameSearchChanged,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              labelText: 'Search peaks',
+              hintText: 'Search peaks',
+              prefixIcon: const Icon(Icons.search),
+              isDense: true,
+              border: const OutlineInputBorder(),
+              enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: colorScheme.outlineVariant),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 78,
+          child: OutlinedButton(
+            key: const Key('peak-lists-metadata-filter-trigger'),
+            onPressed: hasSelectedList ? onFilterPressed : null,
+            child: Text(filterLabel, maxLines: 1, overflow: TextOverflow.clip),
+          ),
+        ),
+        if (hasSelectedList) ...[
+          const SizedBox(width: 8),
+          LeftTooltipFab(
+            message: 'Add New Peak',
+            child: FloatingActionButton.small(
+              key: const Key('peak-lists-add-peak'),
+              heroTag: 'peak-list-add',
+              backgroundColor: fabBackground,
+              onPressed: onAddPeakRequested,
+              child: Icon(Icons.add_circle_outline, color: fabForeground),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PeakListsMetadataFilterOverlay extends ConsumerWidget {
+  const _PeakListsMetadataFilterOverlay({
+    required this.selectedSummaryRow,
+    required this.metadataFilter,
+  });
+
+  final _PeakListSummaryRow? selectedSummaryRow;
+  final PeakListDetailsMetadataFilterState metadataFilter;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifier = ref.read(peakListDetailsMetadataFilterProvider.notifier);
+    final difficultyOptions = metadataFilter.difficultyOptionsFor(
+      selectedSummaryRow?.peakRows.map((row) => row.peak).whereType<Peak>() ??
+          const <Peak>[],
+    );
+
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                key: const Key('peak-lists-metadata-filter-backdrop'),
+                onTap: notifier.closePopup,
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 16,
+            right: 16,
+            width: 360,
+            child: KeyedSubtree(
+              key: const Key('peak-lists-metadata-filter-popup'),
+              child: MapMetadataFilterPopup(
+                ratingFilter: metadataFilter.ratingFilter,
+                difficultyFilter: metadataFilter.difficultyFilter,
+                durationFilter: metadataFilter.durationFilter,
+                difficultyOptions: difficultyOptions,
+                onSelectRatingFilter: notifier.setRatingFilter,
+                onSelectDifficultyFilter: notifier.setDifficultyFilter,
+                onSelectDurationFilter: notifier.setDurationFilter,
+                onClearFilters: notifier.clearFilters,
+                onClose: notifier.closePopup,
+              ),
             ),
           ),
         ],
@@ -1858,11 +2078,15 @@ class _DetailsPane extends StatelessWidget {
 class _PeakDetailsTableCard extends StatefulWidget {
   const _PeakDetailsTableCard({
     required this.selectedSummaryRow,
+    required this.rows,
+    required this.showsFilteredEmptyMessage,
     required this.selectedPeakId,
     required this.onPeakSelected,
   });
 
   final _PeakListSummaryRow? selectedSummaryRow;
+  final List<_PeakDetailRow> rows;
+  final bool showsFilteredEmptyMessage;
   final int? selectedPeakId;
   final Future<void> Function(int) onPeakSelected;
 
@@ -1895,8 +2119,7 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
 
   @override
   Widget build(BuildContext context) {
-    final rows =
-        widget.selectedSummaryRow?.peakRows ?? const <_PeakDetailRow>[];
+    final rows = widget.rows;
     final sortedRows = _sortRows(rows);
     final widths = _resolvePeakTableWidths(context, widget.selectedSummaryRow);
 
@@ -1931,7 +2154,16 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
                       ),
                     Expanded(
                       child: rows.isEmpty
-                          ? const SizedBox.shrink()
+                          ? widget.showsFilteredEmptyMessage
+                                ? const Center(
+                                    child: Text(
+                                      'No peaks match the current search and filters.',
+                                      key: Key(
+                                        'peak-lists-filtered-empty-message',
+                                      ),
+                                    ),
+                                  )
+                                : const SizedBox.shrink()
                           : SingleChildScrollView(
                               key: const Key('peak-lists-peak-table-scroll'),
                               child: Column(
