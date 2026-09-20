@@ -115,11 +115,11 @@ void main() {
     expect(find.text('Rating'), findsOneWidget);
     expect(find.text('Peak Name'), findsOneWidget);
     expect(find.text('Hgt'), findsOneWidget);
-    expect(find.text('Ascent\nDate'), findsOneWidget);
+    expect(find.text('Date'), findsOneWidget);
     expect(find.text('Asc'), findsOneWidget);
     expect(find.text('Ascents'), findsOneWidget);
     expect(find.text('Diff'), findsOneWidget);
-    expect(find.text('Duration'), findsOneWidget);
+    expect(find.text('Time'), findsOneWidget);
   });
 
   testWidgets('peaks app bar renders manifest-backed region fabs', (
@@ -4005,31 +4005,14 @@ void main() {
       ),
       maxLines: 1,
     )..layout();
-    final legacyElevationTextPainter = TextPainter(
-      text: TextSpan(text: 'Height', style: elevationHeaderStyle),
-      textDirection: TextDirection.ltr,
-      textScaler: MediaQuery.textScalerOf(
-        tester.element(
-          find.byKey(const Key('peak-lists-details-sort-elevation')),
-        ),
-      ),
-      maxLines: 1,
-    )..layout();
     expect(
       elevationHeaderSize.width,
-      greaterThanOrEqualTo(
+      closeTo(
         elevationTextPainter.width +
             UiConstants.headerIconWidth +
-            UiConstants.headerLabelGap,
-      ),
-    );
-    expect(
-      elevationHeaderSize.width,
-      lessThan(
-        legacyElevationTextPainter.width +
-            UiConstants.headerIconWidth +
             UiConstants.headerLabelGap +
-            (UiConstants.columnCellHorizontalPadding * 2),
+            UiConstants.columnCellHorizontalPadding,
+        0.01,
       ),
     );
     expect(
