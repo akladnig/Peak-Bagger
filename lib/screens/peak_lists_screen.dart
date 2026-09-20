@@ -1957,65 +1957,81 @@ class _PeakListDetailsHeader extends StatelessWidget {
       _ => '$activeFilterCount Filters',
     };
 
-    return Row(
-      key: const Key('peak-lists-details-header'),
-      children: [
-        Expanded(
-          child: Tooltip(
-            message: title,
-            child: Text(
-              title,
-              key: const Key('peak-lists-selected-title'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 120,
-          child: TextField(
-            key: const Key('peak-lists-name-search'),
-            controller: nameSearchController,
-            enabled: hasSelectedList,
-            onChanged: onNameSearchChanged,
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              labelText: 'Search peaks',
-              hintText: 'Search peaks',
-              prefixIcon: const Icon(Icons.search),
-              isDense: true,
-              border: const OutlineInputBorder(),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: colorScheme.outlineVariant),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useCompactControls = constraints.maxWidth < 360;
+        final searchWidth = useCompactControls ? 132.0 : 160.0;
+        final filterWidth = useCompactControls ? 96.0 : 120.0;
+
+        return Row(
+          key: const Key('peak-lists-details-header'),
+          children: [
+            Expanded(
+              child: Tooltip(
+                message: title,
+                child: Text(
+                  title,
+                  key: const Key('peak-lists-selected-title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
               ),
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 78,
-          child: OutlinedButton(
-            key: const Key('peak-lists-metadata-filter-trigger'),
-            onPressed: hasSelectedList ? onFilterPressed : null,
-            child: Text(filterLabel, maxLines: 1, overflow: TextOverflow.clip),
-          ),
-        ),
-        if (hasSelectedList) ...[
-          const SizedBox(width: 8),
-          LeftTooltipFab(
-            message: 'Add New Peak',
-            child: FloatingActionButton.small(
-              key: const Key('peak-lists-add-peak'),
-              heroTag: 'peak-list-add',
-              backgroundColor: fabBackground,
-              onPressed: onAddPeakRequested,
-              child: Icon(Icons.add_circle_outline, color: fabForeground),
+            const SizedBox(width: 8),
+            Tooltip(
+              message: 'Search Peaks',
+              child: SizedBox(
+                width: searchWidth,
+                child: TextField(
+                  key: const Key('peak-lists-name-search'),
+                  controller: nameSearchController,
+                  enabled: hasSelectedList,
+                  onChanged: onNameSearchChanged,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    labelText: 'Search ⌘F',
+                    hintText: 'Search Peaks',
+                    prefixIcon: const Icon(Icons.search),
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: colorScheme.outlineVariant),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-        ],
-      ],
+            const SizedBox(width: 8),
+            SizedBox(
+              width: filterWidth,
+              child: OutlinedButton.icon(
+                key: const Key('peak-lists-metadata-filter-trigger'),
+                onPressed: hasSelectedList ? onFilterPressed : null,
+                icon: const Icon(Icons.filter_list),
+                label: Text(
+                  filterLabel,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                ),
+              ),
+            ),
+            if (hasSelectedList) ...[
+              const SizedBox(width: 8),
+              LeftTooltipFab(
+                message: 'Add New Peak',
+                child: FloatingActionButton.small(
+                  key: const Key('peak-lists-add-peak'),
+                  heroTag: 'peak-list-add',
+                  backgroundColor: fabBackground,
+                  onPressed: onAddPeakRequested,
+                  child: Icon(Icons.add_circle_outline, color: fabForeground),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

@@ -291,10 +291,26 @@ void main() {
         lessThan(tester.getRect(filter).left),
       );
       expect(tester.getRect(filter).left, lessThan(tester.getRect(add).left));
-      expect(tester.getRect(search).width, greaterThanOrEqualTo(120));
+      expect(tester.getRect(search).width, greaterThanOrEqualTo(132));
       expect(
         tester.widget<TextField>(search).decoration?.labelText,
-        'Search peaks',
+        'Search ⌘F',
+      );
+      expect(
+        tester.widget<TextField>(search).decoration?.hintText,
+        'Search Peaks',
+      );
+      expect(
+        tester
+            .widget<Tooltip>(
+              find.ancestor(of: search, matching: find.byType(Tooltip)),
+            )
+            .message,
+        'Search Peaks',
+      );
+      expect(
+        find.descendant(of: filter, matching: find.byIcon(Icons.filter_list)),
+        findsOneWidget,
       );
       expect(tester.widget<Text>(title).overflow, TextOverflow.ellipsis);
       expect(
@@ -505,6 +521,147 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'difficulty filter selection updates the detail rows immediately',
+    (tester) async {
+      await _pumpPeakListsScreen(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Peaks', [100, 200]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(
+              100,
+              'Easy Peak',
+              -42.0,
+              146.0,
+              difficulty: 'Easy',
+              region: 'tasmania',
+            ),
+            _buildPeak(
+              200,
+              'Hard Peak',
+              -42.1,
+              146.1,
+              difficulty: 'Hard',
+              region: 'tasmania',
+            ),
+          ]),
+        ),
+        initialPeakListId: 1,
+      );
+
+      await tester.tap(
+        find.byKey(const Key('peak-lists-metadata-filter-trigger')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('map-metadata-filter-difficulty-trigger')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(
+          const Key('map-metadata-filter-difficulty-option-tasmania-easy'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('peak-lists-details-row-100')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
+    },
+  );
+
+  testWidgets('rating filter selection updates detail rows', (tester) async {
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Peaks', [100, 200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(
+            100,
+            'Short High Rated Peak',
+            -42.0,
+            146.0,
+            rating: 4.8,
+            durationMinutes: 180,
+          ),
+          _buildPeak(
+            200,
+            'Short Low Rated Peak',
+            -42.1,
+            146.1,
+            rating: 3.0,
+            durationMinutes: 180,
+          ),
+        ]),
+      ),
+      initialPeakListId: 1,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('peak-lists-metadata-filter-trigger')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('map-metadata-filter-rating-trigger')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('map-metadata-filter-rating-option-4.5')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
+  });
+
+  testWidgets('duration filter selection updates detail rows', (tester) async {
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Peaks', [100, 200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Short Peak', -42.0, 146.0, durationMinutes: 180),
+          _buildPeak(200, 'Long Peak', -42.1, 146.1, durationMinutes: 600),
+        ]),
+      ),
+      initialPeakListId: 1,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('peak-lists-metadata-filter-trigger')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('map-metadata-filter-duration-trigger')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('map-metadata-filter-duration-option-4h')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
+  });
 
   testWidgets('selection clears the name query and closes the metadata popup', (
     tester,
