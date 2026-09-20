@@ -10,7 +10,6 @@ import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
-import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
@@ -133,10 +132,6 @@ void main() {
           basemap: Basemap.tracestrack,
           peaks: [originalPeak],
           peakListSelectionMode: PeakListSelectionMode.allPeaks,
-          peakDifficultyFilter: const PeakDifficultyFilterOption(
-            region: 'fvg',
-            difficulty: 'T',
-          ),
         ),
         peakRepository: peakRepository,
       );
@@ -169,10 +164,6 @@ void main() {
             .toList(),
         [101],
       );
-      expect(container.read(mapDifficultyFilterOptionsProvider), [
-        const PeakDifficultyFilterOption(region: 'fvg', difficulty: 'T'),
-      ]);
-
       final runner = container.read(peakListImportBackgroundRunnerProvider);
       await runner(listName: 'Imported Peaks', csvPath: '/tmp/import.csv');
       await Future<void>.delayed(Duration.zero);
@@ -181,13 +172,13 @@ void main() {
       expect(container.read(peakRevisionProvider), 1);
       expect(container.read(peakListRevisionProvider), 1);
       expect(container.read(mapProvider).peaks.single.difficulty, 'Easy');
-      expect(container.read(filteredPeaksProvider), isEmpty);
-      expect(container.read(mapDifficultyFilterOptionsProvider), [
-        const PeakDifficultyFilterOption(
-          region: 'tasmania',
-          difficulty: 'Easy',
-        ),
-      ]);
+      expect(
+        container
+            .read(filteredPeaksProvider)
+            .map((peak) => peak.osmId)
+            .toList(),
+        [101],
+      );
     },
   );
 

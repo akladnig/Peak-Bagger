@@ -9,7 +9,6 @@ import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
-import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
@@ -150,130 +149,7 @@ void main() {
   );
 
   test(
-    'filteredPeaksProvider applies map metadata filters with blank-last semantics',
-    () {
-      final container = ProviderContainer(
-        overrides: [
-          mapProvider.overrideWith(
-            () => TestMapNotifier(
-              MapState(
-                center: const LatLng(-41.5, 146.5),
-                zoom: 15,
-                basemap: Basemap.tracestrack,
-                peaks: [
-                  Peak(
-                    osmId: 1,
-                    name: 'Tas Easy',
-                    latitude: -42.0,
-                    longitude: 146.0,
-                    rating: 4.4,
-                    difficulty: 'Easy',
-                    durationMinutes: 255,
-                    region: 'tasmania',
-                  ),
-                  Peak(
-                    osmId: 2,
-                    name: 'FVG T',
-                    latitude: 46.2,
-                    longitude: 13.2,
-                    rating: 4.8,
-                    difficulty: 'T',
-                    durationMinutes: 180,
-                    region: 'fvg',
-                  ),
-                  Peak(
-                    osmId: 3,
-                    name: 'Blank Peak',
-                    latitude: -41.9,
-                    longitude: 146.1,
-                    region: 'tasmania',
-                  ),
-                ],
-                peakRatingFilter: PeakRatingFilterOption.atLeast4_5,
-                peakDifficultyFilter: const PeakDifficultyFilterOption(
-                  region: 'fvg',
-                  difficulty: 'T',
-                ),
-                peakDurationFilter: PeakDurationFilterOption.upTo4Hours,
-              ),
-            ),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      final filteredPeaks = container.read(filteredPeaksProvider);
-
-      expect(filteredPeaks.map((peak) => peak.osmId).toList(), [2]);
-    },
-  );
-
-  test(
-    'mapDifficultyFilterOptionsProvider builds grouped exact region+difficulty pairs from scope peaks',
-    () {
-      final container = ProviderContainer(
-        overrides: [
-          mapProvider.overrideWith(
-            () => TestMapNotifier(
-              MapState(
-                center: const LatLng(-41.5, 146.5),
-                zoom: 15,
-                basemap: Basemap.tracestrack,
-                peaks: [
-                  Peak(
-                    osmId: 1,
-                    name: 'Tas Hard',
-                    latitude: -42.0,
-                    longitude: 146.0,
-                    difficulty: 'Hard',
-                    region: 'tasmania',
-                  ),
-                  Peak(
-                    osmId: 2,
-                    name: 'FVG T',
-                    latitude: 46.2,
-                    longitude: 13.2,
-                    difficulty: 'T',
-                    region: 'fvg',
-                  ),
-                  Peak(
-                    osmId: 3,
-                    name: 'FVG EE',
-                    latitude: 46.3,
-                    longitude: 13.3,
-                    difficulty: 'EE',
-                    region: 'fvg',
-                  ),
-                  Peak(
-                    osmId: 4,
-                    name: 'Blank Peak',
-                    latitude: -41.9,
-                    longitude: 146.1,
-                    region: 'tasmania',
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      final options = container.read(mapDifficultyFilterOptionsProvider);
-
-      expect(options, [
-        const PeakDifficultyFilterOption(region: 'fvg', difficulty: 'T'),
-        const PeakDifficultyFilterOption(region: 'fvg', difficulty: 'EE'),
-        const PeakDifficultyFilterOption(
-          region: 'tasmania',
-          difficulty: 'Hard',
-        ),
-      ]);
-    },
-  );
-
-  test(
-    'specific-list metadata filters refresh from current local peaks after reloadPeakMarkers',
+    'specific-list selection refreshes from current local peaks after reloadPeakMarkers',
     () async {
       final originalPeak = Peak(
         osmId: 6406,
@@ -303,10 +179,6 @@ void main() {
                 peaks: [originalPeak],
                 peakListSelectionMode: PeakListSelectionMode.specificList,
                 selectedPeakListIds: {7},
-                peakDifficultyFilter: const PeakDifficultyFilterOption(
-                  region: 'fvg',
-                  difficulty: 'T',
-                ),
               ),
               peakRepository: peakRepository,
             ),
@@ -328,22 +200,12 @@ void main() {
             .toList(),
         [6406],
       );
-      expect(container.read(mapDifficultyFilterOptionsProvider), [
-        const PeakDifficultyFilterOption(region: 'fvg', difficulty: 'T'),
-      ]);
-
       await peakRepository.save(
         originalPeak.copyWith(difficulty: 'Easy', region: 'tasmania'),
       );
       await container.read(mapProvider.notifier).reloadPeakMarkers();
 
-      expect(container.read(filteredPeaksProvider), isEmpty);
-      expect(container.read(mapDifficultyFilterOptionsProvider), [
-        const PeakDifficultyFilterOption(
-          region: 'tasmania',
-          difficulty: 'Easy',
-        ),
-      ]);
+      expect(container.read(filteredPeaksProvider).single.difficulty, 'Easy');
     },
   );
 
