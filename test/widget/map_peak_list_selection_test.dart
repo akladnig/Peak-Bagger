@@ -257,7 +257,7 @@ void main() {
   });
 
   testWidgets(
-    'summary stays to the right of left-side search and filter controls without clipping',
+    'summary stays to the right of the left-side search control without clipping',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -287,9 +287,6 @@ void main() {
       final searchRect = tester.getRect(
         find.byKey(const Key('app-bar-search-trigger')),
       );
-      final filterRect = tester.getRect(
-        find.byKey(const Key('app-bar-map-filter-trigger')),
-      );
       final summaryRect = tester.getRect(
         find.byKey(const Key('peak-list-selection-summary')),
       );
@@ -298,8 +295,7 @@ void main() {
       );
 
       expect(searchRect.center.dx, lessThan(appBarRect.center.dx));
-      expect(filterRect.left, greaterThan(searchRect.right));
-      expect(summaryRect.left, greaterThan(filterRect.right));
+      expect(summaryRect.left, greaterThan(searchRect.right));
       expect(rightChipRect.right, lessThanOrEqualTo(appBarRect.right));
     },
   );
@@ -636,8 +632,14 @@ void main() {
         PeakListSelectionMode.specificList,
       );
       expect(container.read(mapProvider).selectedPeakListIds, {1});
-      expect(find.byKey(const Key('peak-list-selection-chip-all-peaks')), findsNothing);
-      expect(find.byKey(const Key('peak-list-selection-chip-1')), findsOneWidget);
+      expect(
+        find.byKey(const Key('peak-list-selection-chip-all-peaks')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('peak-list-selection-chip-1')),
+        findsOneWidget,
+      );
 
       await tester.tap(find.byKey(const Key('peak-list-item-All Peaks')));
       await tester.pumpAndSettle();

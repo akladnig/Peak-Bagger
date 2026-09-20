@@ -16,6 +16,7 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/peak_list_details_metadata_filter_provider.dart';
 import 'package:peak_bagger/providers/peak_list_region_filter_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -247,6 +248,459 @@ void main() {
           )
           .decoration,
       isNotNull,
+    );
+  });
+
+  testWidgets(
+    'details header keeps the title, search, filter, and add controls on one line',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(721, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await _pumpPeakListsScreen(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(
+              1,
+              'A deliberately long peak list title that must ellipsize',
+              [100],
+            ),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([_buildPeak(100, 'Alpha Peak', -42.0, 146.0)]),
+        ),
+        initialPeakListId: 1,
+      );
+
+      final title = find.byKey(const Key('peak-lists-selected-title'));
+      final search = find.byKey(const Key('peak-lists-name-search'));
+      final filter = find.byKey(
+        const Key('peak-lists-metadata-filter-trigger'),
+      );
+      final add = find.byKey(const Key('peak-lists-add-peak'));
+      expect(title, findsOneWidget);
+      expect(search, findsOneWidget);
+      expect(filter, findsOneWidget);
+      expect(add, findsOneWidget);
+      expect(tester.getRect(title).left, lessThan(tester.getRect(search).left));
+      expect(
+        tester.getRect(search).left,
+        lessThan(tester.getRect(filter).left),
+      );
+      expect(tester.getRect(filter).left, lessThan(tester.getRect(add).left));
+      expect(tester.getRect(search).width, greaterThanOrEqualTo(132));
+      expect(
+        tester.widget<TextField>(search).decoration?.labelText,
+        'Search ⌘F',
+      );
+      expect(
+        tester.widget<TextField>(search).decoration?.hintText,
+        'Search Peaks',
+      );
+      expect(
+        tester
+            .widget<Tooltip>(
+              find.ancestor(of: search, matching: find.byType(Tooltip)),
+            )
+            .message,
+        'Search Peaks',
+      );
+      expect(
+        find.descendant(of: filter, matching: find.byIcon(Icons.filter_list)),
+        findsOneWidget,
+      );
+      expect(tester.widget<Text>(title).overflow, TextOverflow.ellipsis);
+      expect(
+        tester
+            .widget<Tooltip>(
+              find.ancestor(of: title, matching: find.byType(Tooltip)),
+            )
+            .message,
+        'A deliberately long peak list title that must ellipsize',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'details search filters names immediately and ignores whitespace',
+    (tester) async {
+      await _pumpPeakListsScreen(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Peaks', [100, 200]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0),
+            _buildPeak(200, 'Beta Peak', -42.1, 146.1),
+          ]),
+        ),
+        initialPeakListId: 1,
+      );
+
+      final search = find.byKey(const Key('peak-lists-name-search'));
+      await tester.enterText(search, '  ALPHA  ');
+      await tester.pump();
+      expect(
+        find.byKey(const Key('peak-lists-details-row-100')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
+
+      await tester.enterText(search, '   ');
+      await tester.pump();
+      expect(
+        find.byKey(const Key('peak-lists-details-row-100')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('peak-lists-details-row-200')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('no selection disables search and filter controls', (
+    tester,
+  ) async {
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(InMemoryPeakListStorage()),
+    );
+
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('peak-lists-name-search')))
+          .enabled,
+      isFalse,
+    );
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const Key('peak-lists-metadata-filter-trigger')),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(find.byKey(const Key('peak-lists-add-peak')), findsNothing);
+    expect(
+      find.text('No peak lists exist. Import a CSV to get started.'),
+      findsNWidgets(2),
+    );
+    expect(
+      find.byKey(const Key('peak-lists-filtered-empty-message')),
+      findsNothing,
+    );
+  });
+
+  testWidgets(
+    'metadata popup exposes the canonical criteria and clear control',
+    (tester) async {
+      await _pumpPeakListsScreen(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Peaks', [100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(
+              100,
+              'Alpha Peak',
+              -42.0,
+              146.0,
+              difficulty: 'Hard',
+              region: 'tasmania',
+            ),
+          ]),
+        ),
+        initialPeakListId: 1,
+      );
+
+      await tester.tap(
+        find.byKey(const Key('peak-lists-metadata-filter-trigger')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('peak-lists-metadata-filter-popup')),
+        findsOneWidget,
+      );
+      for (final key in const [
+        'map-metadata-filter-row-rating',
+        'map-metadata-filter-row-difficulty',
+        'map-metadata-filter-row-duration',
+        'map-metadata-filter-clear',
+      ]) {
+        expect(find.byKey(Key(key)), findsOneWidget);
+      }
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('peak-lists-details-pane'))),
+      );
+      container
+          .read(peakListDetailsMetadataFilterProvider.notifier)
+          .setRatingFilter(PeakRatingFilterOption.atLeast4_5);
+      await tester.pumpAndSettle();
+      expect(
+        container.read(peakListDetailsMetadataFilterProvider).activeFilterCount,
+        1,
+      );
+      expect(find.text('1 Filter'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('map-metadata-filter-clear')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('peak-lists-metadata-filter-popup')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('peak-lists-metadata-filter-trigger')),
+          matching: find.text('Filter'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'metadata criteria combine with search and show the filtered empty message',
+    (tester) async {
+      await _pumpPeakListsScreen(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Peaks', [100, 200]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0, rating: 4.8),
+            _buildPeak(200, 'Beta Peak', -42.1, 146.1, rating: 3.0),
+          ]),
+        ),
+        initialPeakListId: 1,
+      );
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('peak-lists-details-pane'))),
+      );
+      container
+          .read(peakListDetailsMetadataFilterProvider.notifier)
+          .setRatingFilter(PeakRatingFilterOption.atLeast4_5);
+      await tester.pump();
+      expect(
+        find.byKey(const Key('peak-lists-details-row-100')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
+
+      await tester.enterText(
+        find.byKey(const Key('peak-lists-name-search')),
+        'Beta',
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const Key('peak-lists-filtered-empty-message')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('No peaks match the current search and filters.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'difficulty filter selection updates the detail rows immediately',
+    (tester) async {
+      await _pumpPeakListsScreen(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'Peaks', [100, 200]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(
+              100,
+              'Easy Peak',
+              -42.0,
+              146.0,
+              difficulty: 'Easy',
+              region: 'tasmania',
+            ),
+            _buildPeak(
+              200,
+              'Hard Peak',
+              -42.1,
+              146.1,
+              difficulty: 'Hard',
+              region: 'tasmania',
+            ),
+          ]),
+        ),
+        initialPeakListId: 1,
+      );
+
+      await tester.tap(
+        find.byKey(const Key('peak-lists-metadata-filter-trigger')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('map-metadata-filter-difficulty-trigger')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(
+          const Key('map-metadata-filter-difficulty-option-tasmania-easy'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const Key('peak-lists-details-row-100')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
+    },
+  );
+
+  testWidgets('rating filter selection updates detail rows', (tester) async {
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Peaks', [100, 200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(
+            100,
+            'Short High Rated Peak',
+            -42.0,
+            146.0,
+            rating: 4.8,
+            durationMinutes: 180,
+          ),
+          _buildPeak(
+            200,
+            'Short Low Rated Peak',
+            -42.1,
+            146.1,
+            rating: 3.0,
+            durationMinutes: 180,
+          ),
+        ]),
+      ),
+      initialPeakListId: 1,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('peak-lists-metadata-filter-trigger')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('map-metadata-filter-rating-trigger')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('map-metadata-filter-rating-option-4.5')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
+  });
+
+  testWidgets('duration filter selection updates detail rows', (tester) async {
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Peaks', [100, 200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Short Peak', -42.0, 146.0, durationMinutes: 180),
+          _buildPeak(200, 'Long Peak', -42.1, 146.1, durationMinutes: 600),
+        ]),
+      ),
+      initialPeakListId: 1,
+    );
+
+    await tester.tap(
+      find.byKey(const Key('peak-lists-metadata-filter-trigger')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('map-metadata-filter-duration-trigger')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('map-metadata-filter-duration-option-4h')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('peak-lists-details-row-100')), findsOneWidget);
+    expect(find.byKey(const Key('peak-lists-details-row-200')), findsNothing);
+  });
+
+  testWidgets('selection clears the name query and closes the metadata popup', (
+    tester,
+  ) async {
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Alpha List', [100]),
+          _buildPeakList(2, 'Beta List', [200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0),
+          _buildPeak(200, 'Beta Peak', -42.1, 146.1),
+        ]),
+      ),
+      initialPeakListId: 1,
+    );
+
+    final search = find.byKey(const Key('peak-lists-name-search'));
+    await tester.enterText(search, 'Alpha');
+    await tester.tap(
+      find.byKey(const Key('peak-lists-metadata-filter-trigger')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('peak-lists-metadata-filter-popup')),
+      findsOneWidget,
+    );
+
+    tester.widget<InkWell>(find.byKey(const Key('peak-lists-row-2'))).onTap!();
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(search).controller?.text, isEmpty);
+    expect(
+      find.byKey(const Key('peak-lists-metadata-filter-popup')),
+      findsNothing,
     );
   });
 

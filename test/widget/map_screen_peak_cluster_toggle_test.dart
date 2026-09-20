@@ -6,6 +6,7 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/peak_list_details_metadata_filter_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -42,41 +43,46 @@ void main() {
     expect(painter.clusters.single.tickedFraction, 0.25);
   });
 
-  testWidgets(
-    'All Peaks metadata filters update clustered members and fractions',
-    (tester) async {
-      final repository = await TestTasmapRepository.create();
-      final notifier = TestMapNotifier(
-        _clusteredMapState(
-          peaks: [
-            _clusterPeak(1, rating: 4.0),
-            _clusterPeak(2, rating: 4.5),
-            _clusterPeak(3, rating: 4.5),
-          ],
-        ),
-        correlatedPeakIds: const {3},
-      );
+  testWidgets('All Peaks clusters ignore Peak List details metadata filters', (
+    tester,
+  ) async {
+    final repository = await TestTasmapRepository.create();
+    final notifier = TestMapNotifier(
+      _clusteredMapState(
+        peaks: [
+          _clusterPeak(1, rating: 4.0),
+          _clusterPeak(2, rating: 4.5),
+          _clusterPeak(3, rating: 4.5),
+        ],
+      ),
+      correlatedPeakIds: const {3},
+    );
 
-      await _pumpMap(tester, repository: repository, notifier: notifier);
+    await _pumpMap(tester, repository: repository, notifier: notifier);
 
-      notifier.setPeakRatingFilter(PeakRatingFilterOption.atLeast4_5);
-      await tester.pump();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MapScreen)),
+    );
+    container
+        .read(peakListDetailsMetadataFilterProvider.notifier)
+        .setRatingFilter(PeakRatingFilterOption.atLeast4_5);
+    await tester.pump();
 
-      final painter = _peakPainter(tester);
+    final painter = _peakPainter(tester);
 
-      expect(
-        painter.clusterRingStyle,
-        PeakClusterRingStyle.proportionalTickedUnticked,
-      );
-      expect(painter.clusters, hasLength(1));
-      expect(
-        painter.clusters.single.members.map((member) => member.peak.osmId),
-        [2, 3],
-      );
-      expect(painter.clusters.single.untickedFraction, 0.5);
-      expect(painter.clusters.single.tickedFraction, 0.5);
-    },
-  );
+    expect(
+      painter.clusterRingStyle,
+      PeakClusterRingStyle.proportionalTickedUnticked,
+    );
+    expect(painter.clusters, hasLength(1));
+    expect(painter.clusters.single.members.map((member) => member.peak.osmId), [
+      1,
+      2,
+      3,
+    ]);
+    expect(painter.clusters.single.untickedFraction, closeTo(2 / 3, 0.001));
+    expect(painter.clusters.single.tickedFraction, closeTo(1 / 3, 0.001));
+  });
 
   testWidgets('specific peak-list clusters retain ownership hybrid rings', (
     tester,

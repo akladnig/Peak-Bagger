@@ -39,8 +39,9 @@ class MapMetadataFilterPopup extends StatelessWidget {
         difficultyFilter != null &&
         !difficultyOptions.contains(difficultyFilter);
     final difficultyMenuEntries = <PopupMenuEntry<PeakDifficultyFilterOption?>>[
-      const PopupMenuItem<PeakDifficultyFilterOption?>(
+      PopupMenuItem<PeakDifficultyFilterOption?>(
         value: null,
+        onTap: () => onSelectDifficultyFilter(null),
         child: Text('Any'),
       ),
     ];
@@ -66,6 +67,7 @@ class MapMetadataFilterPopup extends StatelessWidget {
             'map-metadata-filter-difficulty-option-${_difficultyOptionKeySuffix(option)}',
           ),
           value: option,
+          onTap: () => onSelectDifficultyFilter(option),
           child: Text(
             _difficultyOptionLabel(
               option,
@@ -92,7 +94,7 @@ class MapMetadataFilterPopup extends StatelessWidget {
               key: const Key('map-metadata-filter-rating-trigger'),
               tooltip: 'Select rating filter',
               initialValue: ratingFilter,
-              onSelected: onSelectRatingFilter,
+              onSelected: (_) {},
               itemBuilder: (context) => [
                 for (final option in PeakRatingFilterOption.values)
                   PopupMenuItem<PeakRatingFilterOption>(
@@ -100,6 +102,7 @@ class MapMetadataFilterPopup extends StatelessWidget {
                       'map-metadata-filter-rating-option-${option.label}',
                     ),
                     value: option,
+                    onTap: () => onSelectRatingFilter(option),
                     child: option == PeakRatingFilterOption.any
                         ? const Text('Any')
                         : _RatingOptionLabel(label: option.label),
@@ -121,7 +124,7 @@ class MapMetadataFilterPopup extends StatelessWidget {
               initialValue: difficultyOptions.contains(difficultyFilter)
                   ? difficultyFilter
                   : null,
-              onSelected: onSelectDifficultyFilter,
+              onSelected: (_) {},
               itemBuilder: (context) => difficultyMenuEntries,
               child: _DropdownTrigger(
                 label: Text(
@@ -143,7 +146,7 @@ class MapMetadataFilterPopup extends StatelessWidget {
               key: const Key('map-metadata-filter-duration-trigger'),
               tooltip: 'Select duration filter',
               initialValue: durationFilter,
-              onSelected: onSelectDurationFilter,
+              onSelected: (_) {},
               itemBuilder: (context) => [
                 for (final option in PeakDurationFilterOption.values)
                   PopupMenuItem<PeakDurationFilterOption>(
@@ -151,6 +154,7 @@ class MapMetadataFilterPopup extends StatelessWidget {
                       'map-metadata-filter-duration-option-${option.label}',
                     ),
                     value: option,
+                    onTap: () => onSelectDurationFilter(option),
                     child: Text(option.label),
                   ),
               ],

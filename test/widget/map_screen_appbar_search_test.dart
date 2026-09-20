@@ -23,7 +23,7 @@ import '../harness/test_tasmap_repository.dart';
 
 void main() {
   testWidgets(
-    'shared app bar shows left search and filter controls on map route',
+    'shared app bar shows only the left search control on map route',
     (tester) async {
       await _pumpApp(tester, TestMapNotifier(_baseState()));
 
@@ -33,28 +33,14 @@ void main() {
       final searchRect = tester.getRect(
         find.byKey(const Key('app-bar-search-trigger')),
       );
-      final filterRect = tester.getRect(
-        find.byKey(const Key('app-bar-map-filter-trigger')),
-      );
-      final dividerRect = tester.getRect(
-        find.byKey(const Key('app-bar-map-filter-divider')),
-      );
 
       expect(find.byKey(const Key('shared-app-bar')), findsOneWidget);
       expect(find.byKey(const Key('app-bar-title')), findsOneWidget);
       expect(find.byKey(const Key('app-bar-search-trigger')), findsOneWidget);
-      expect(
-        find.byKey(const Key('app-bar-map-filter-trigger')),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const Key('app-bar-map-filter-divider')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('app-bar-map-filter-trigger')), findsNothing);
+      expect(find.byKey(const Key('app-bar-map-filter-divider')), findsNothing);
       expect(find.byKey(const Key('app-bar-home')), findsNothing);
       expect(searchRect.center.dx, lessThan(appBarRect.center.dx));
-      expect(filterRect.left, greaterThan(searchRect.right));
-      expect(dividerRect.left, greaterThan(filterRect.right));
     },
   );
 

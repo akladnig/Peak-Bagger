@@ -24,6 +24,10 @@ _Avoid_: track-date removal, date deletion
 The stored metres-above-sea-level value on a `Peak`, used when comparing a peak to recorded GPX elevation.
 _Avoid_: height when precision matters
 
+**PeakBagger PID**:
+The optional positive `peakbaggerPid` identifier that links a `Peak` record to its corresponding peakbagger.com record.
+_Avoid_: OSM ID, PeakBagger ID
+
 **Peak correlation**:
 The association of a `Peak` with a completed `Track` based on their recorded location and elevation data.
 _Avoid_: peak match when referring to the persisted track association
@@ -35,6 +39,10 @@ _Avoid_: using direct track-to-peak relations when the persisted bagged-peak ass
 **Route-graph way**:
 An imported OpenStreetMap `way` with a `highway` tag that is accepted into the route graph, including paths, tracks, and footways.
 _Avoid_: road when the full route-graph highway set is meant
+
+**Roads search**:
+The `Search popup` filter labelled `Roads`, which returns named route-graph ways, including paths, tracks, and footways.
+_Avoid_: interpreting the filter as limited to motor-vehicle roads
 
 **Routing coverage**:
 The set of one or more canonical manifest regions whose highway data is imported together as one route graph.
@@ -157,7 +165,7 @@ The map screen's `MapSearchPopup` multi-entity search surface, which replaces th
 _Avoid_: peak search when referring to the popup flow
 
 **Map metadata filter**:
-The `MapScreen` filter control for peak metadata such as rating, difficulty, and duration.
+The shared peak metadata filter for rating, difficulty, and duration, shown in the Peak List details header.
 _Avoid_: peak list filter when referring to metadata dropdowns
 
 **Local Topo tile source**:

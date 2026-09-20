@@ -9,7 +9,6 @@ import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
-import 'package:peak_bagger/services/peak_metadata_rules.dart';
 import 'package:peak_bagger/services/fab_colour_resolver.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
@@ -114,37 +113,14 @@ final mapPeakListDrawerEntriesProvider = Provider<List<MapPeakListDrawerEntry>>(
 );
 
 final filteredPeaksProvider = Provider<List<Peak>>((ref) {
-  final peaks = ref.watch(mapMetadataFilterScopePeaksProvider);
-  final (:ratingFilter, :difficultyFilter, :durationFilter) = ref.watch(
-    mapProvider.select(
-      (state) => (
-        ratingFilter: state.peakRatingFilter,
-        difficultyFilter: state.peakDifficultyFilter,
-        durationFilter: state.peakDurationFilter,
-      ),
-    ),
-  );
-
-  return peaks
-      .where((peak) {
-        return peakMatchesRatingFilter(peak, ratingFilter) &&
-            peakMatchesDifficultyFilter(peak, difficultyFilter) &&
-            peakMatchesDurationFilter(peak, durationFilter);
-      })
-      .toList(growable: false);
+  return ref.watch(mapPeakListSelectionScopePeaksProvider);
 });
 
-final mapMetadataFilterScopePeaksProvider = Provider<List<Peak>>((ref) {
+final mapPeakListSelectionScopePeaksProvider = Provider<List<Peak>>((ref) {
   return ref
       .watch(_peakListSelectionDerivedStateProvider)
-      .metadataFilterScopePeaks;
+      .mapPeakListSelectionScopePeaks;
 });
-
-final mapDifficultyFilterOptionsProvider =
-    Provider<List<PeakDifficultyFilterOption>>((ref) {
-      final peaks = ref.watch(mapMetadataFilterScopePeaksProvider);
-      return buildPeakDifficultyFilterOptions(peaks);
-    });
 
 final peakActiveOwnershipSegmentsProvider =
     Provider<Map<int, List<PeakOwnershipRingSegment>>>((ref) {
@@ -205,9 +181,6 @@ PeakViewportSelectionData buildPeakViewportSelectionData({
   required LatLngBounds? visibleBounds,
   required List<Peak> peaks,
   required List<PeakList> peakLists,
-  required PeakRatingFilterOption ratingFilter,
-  required PeakDifficultyFilterOption? difficultyFilter,
-  required PeakDurationFilterOption durationFilter,
   required bool showPeakOwnershipRings,
   required PeakListRepository repo,
 }) {
@@ -224,13 +197,7 @@ PeakViewportSelectionData buildPeakViewportSelectionData({
     repo: repo,
   );
 
-  final filteredPeaks = derivedState.metadataFilterScopePeaks
-      .where((peak) {
-        return peakMatchesRatingFilter(peak, ratingFilter) &&
-            peakMatchesDifficultyFilter(peak, difficultyFilter) &&
-            peakMatchesDurationFilter(peak, durationFilter);
-      })
-      .toList(growable: false);
+  final filteredPeaks = derivedState.mapPeakListSelectionScopePeaks;
 
   return PeakViewportSelectionData(
     filteredPeaks: filteredPeaks,
@@ -259,14 +226,14 @@ class _PeakListSelectionDerivedState {
   const _PeakListSelectionDerivedState({
     required this.summary,
     required this.drawerEntries,
-    required this.metadataFilterScopePeaks,
+    required this.mapPeakListSelectionScopePeaks,
     required this.activeOwnershipSegments,
     required this.peakMarkerColours,
   });
 
   final PeakListSelectionSummary summary;
   final List<MapPeakListDrawerEntry> drawerEntries;
-  final List<Peak> metadataFilterScopePeaks;
+  final List<Peak> mapPeakListSelectionScopePeaks;
   final Map<int, List<PeakOwnershipRingSegment>> activeOwnershipSegments;
   final Map<int, int> peakMarkerColours;
 }
@@ -337,7 +304,7 @@ _PeakListSelectionDerivedState _buildDerivedState({
     inputs: inputs,
     visibilityStateByPeakListId: visibilityStateByPeakListId,
   );
-  final metadataFilterScopePeaks = switch (inputs.peakListSelectionMode) {
+  final mapPeakListSelectionScopePeaks = switch (inputs.peakListSelectionMode) {
     PeakListSelectionMode.none => const <Peak>[],
     PeakListSelectionMode.allPeaks => inputs.peaks,
     PeakListSelectionMode.specificList => _filterSpecificListPeaks(
@@ -361,7 +328,7 @@ _PeakListSelectionDerivedState _buildDerivedState({
   return _PeakListSelectionDerivedState(
     summary: summary,
     drawerEntries: drawerEntries,
-    metadataFilterScopePeaks: metadataFilterScopePeaks,
+    mapPeakListSelectionScopePeaks: mapPeakListSelectionScopePeaks,
     activeOwnershipSegments: activeOwnershipSegments,
     peakMarkerColours: peakMarkerColours,
   );
