@@ -114,11 +114,12 @@ void main() {
     );
     expect(find.text('Rating'), findsOneWidget);
     expect(find.text('Peak Name'), findsOneWidget);
-    expect(find.text('Height'), findsOneWidget);
-    expect(find.text('Ascent\nDate'), findsOneWidget);
-    expect(find.text('Ascents'), findsWidgets);
-    expect(find.text('Difficulty'), findsOneWidget);
-    expect(find.text('Duration'), findsOneWidget);
+    expect(find.text('Hgt'), findsOneWidget);
+    expect(find.text('Date'), findsOneWidget);
+    expect(find.text('Asc'), findsOneWidget);
+    expect(find.text('Ascents'), findsOneWidget);
+    expect(find.text('Diff'), findsOneWidget);
+    expect(find.text('Time'), findsOneWidget);
   });
 
   testWidgets('peaks app bar renders manifest-backed region fabs', (
@@ -3965,7 +3966,7 @@ void main() {
             baggedId: 1,
             peakId: 10,
             gpxId: 10,
-            date: DateTime.utc(2024, 1, 11),
+            date: DateTime(2024, 1, 11).toUtc(),
           ),
           PeaksBagged(
             baggedId: 2,
@@ -3995,13 +3996,40 @@ void main() {
       ),
     ).textTheme.labelLarge;
     final elevationTextPainter = TextPainter(
-      text: TextSpan(text: 'Height', style: elevationHeaderStyle),
+      text: TextSpan(text: 'Hgt', style: elevationHeaderStyle),
       textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(
+        tester.element(
+          find.byKey(const Key('peak-lists-details-sort-elevation')),
+        ),
+      ),
       maxLines: 1,
     )..layout();
     expect(
       elevationHeaderSize.width,
-      greaterThanOrEqualTo(elevationTextPainter.width + 30),
+      closeTo(
+        elevationTextPainter.width +
+            UiConstants.headerIconWidth +
+            UiConstants.headerLabelGap +
+            UiConstants.columnCellHorizontalPadding,
+        0.01,
+      ),
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const Key('peak-lists-details-ascent-date-10')),
+          )
+          .data,
+      '11/01/24',
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const Key('peak-lists-details-ascent-date-30')),
+          )
+          .data,
+      '',
     );
 
     await tester.ensureVisible(

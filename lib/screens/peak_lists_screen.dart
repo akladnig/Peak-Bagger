@@ -18,6 +18,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
 
 import '../core/constants.dart';
+import '../core/date_formatters.dart';
 import '../core/number_formatters.dart';
 import '../models/geo_areas.dart';
 import '../models/peak.dart';
@@ -945,7 +946,8 @@ _PeakTableWidths _resolvePeakTableWidths(
   final theme = Theme.of(context);
   final headerStyle = theme.textTheme.labelLarge;
   final cellStyle = theme.textTheme.bodyMedium;
-  const horizontalPadding = UiConstants.columnCellHorizontalPadding * 2;
+  // const horizontalPadding = UiConstants.columnCellHorizontalPadding * 2;
+  const horizontalPadding = UiConstants.columnCellHorizontalPadding;
   const columnGap = UiConstants.columnGap;
   const headerIconWidth = UiConstants.headerIconWidth;
   const headerLabelGap = UiConstants.headerLabelGap;
@@ -953,15 +955,15 @@ _PeakTableWidths _resolvePeakTableWidths(
   final rows = selectedSummaryRow?.peakRows ?? const <_PeakDetailRow>[];
   const ratingStarCount = 5;
   const ratingStarSize = 14.0;
-  const ratingStarGap = 2.0;
+  const ratingStarGap = 1.0;
 
-  double rating =
-      math.max(
-        _measureTextWidth(context, 'Rating', headerStyle) + headerControlWidth,
-        (ratingStarCount * ratingStarSize) +
-            ((ratingStarCount - 1) * ratingStarGap),
-      ) +
-      horizontalPadding;
+  double rating = math.max(
+    _measureTextWidth(context, 'Rating', headerStyle) +
+        headerControlWidth +
+        horizontalPadding,
+    (ratingStarCount * ratingStarSize) +
+        ((ratingStarCount - 1) * ratingStarGap),
+  );
   double peakName =
       math.max(
         _measureTextWidth(context, 'Peak Name', headerStyle) +
@@ -971,33 +973,31 @@ _PeakTableWidths _resolvePeakTableWidths(
       horizontalPadding;
   double elevation =
       math.max(
-        _measureTextWidth(context, 'Height', headerStyle) + headerControlWidth,
+        _measureTextWidth(context, 'Hgt', headerStyle) + headerControlWidth,
         0,
       ) +
       horizontalPadding;
   double ascentDate =
       math.max(
-        _measureTextWidth(context, 'Ascent\nDate', headerStyle) +
-            headerControlWidth,
+        _measureTextWidth(context, 'Date', headerStyle) + headerControlWidth,
         0,
       ) +
       horizontalPadding;
   double ascents =
       math.max(
-        _measureTextWidth(context, 'Ascents', headerStyle) + headerControlWidth,
+        _measureTextWidth(context, 'Asc', headerStyle) + headerControlWidth,
         0,
       ) +
       horizontalPadding;
   double difficulty =
       math.max(
-        _measureTextWidth(context, 'Difficulty', headerStyle) +
-            headerControlWidth,
+        _measureTextWidth(context, 'Diff', headerStyle) + headerControlWidth,
         0,
       ) +
       horizontalPadding;
   double duration =
       math.max(
-        _measureTextWidth(context, 'Duration', headerStyle) +
+        _measureTextWidth(context, 'Time', headerStyle) +
             headerControlWidth,
         0,
       ) +
@@ -1008,13 +1008,13 @@ _PeakTableWidths _resolvePeakTableWidths(
       rating,
       row.hasRating
           ? (ratingStarCount * ratingStarSize) +
-                ((ratingStarCount - 1) * ratingStarGap) +
-                horizontalPadding
+                ((ratingStarCount - 1) * ratingStarGap)
           : horizontalPadding,
     );
     peakName = math.max(
       peakName,
-      _measureTextWidth(context, row.name, cellStyle) + horizontalPadding,
+      // _measureTextWidth(context, row.name, cellStyle),
+      _measureTextWidth(context, 'Boggy Marsh sugarloaf', cellStyle),
     );
     elevation = math.max(
       elevation,
@@ -1033,7 +1033,8 @@ _PeakTableWidths _resolvePeakTableWidths(
     );
     difficulty = math.max(
       difficulty,
-      _measureTextWidth(context, row.difficultyLabel, cellStyle) +
+      // _measureTextWidth(context, row.difficultyLabel, cellStyle) +
+      _measureTextWidth(context, 'Medium', cellStyle) +
           horizontalPadding,
     );
     duration = math.max(
@@ -2534,6 +2535,7 @@ class _PeakDetailsTableRow extends StatelessWidget {
                 width: widths.ascentDate,
                 child: Text(
                   row.ascentDateLabel,
+                  key: Key('peak-lists-details-ascent-date-${row.peakId}'),
                   maxLines: 1,
                   softWrap: false,
                   overflow: TextOverflow.clip,
@@ -2634,7 +2636,7 @@ class _PeakDetailsHeaderRow extends StatelessWidget {
         SizedBox(
           width: widths.elevation,
           child: _DetailSortHeaderCell(
-            label: 'Height',
+            label: 'Hgt',
             column: _PeakDetailSortColumn.elevation,
             sortColumn: sortColumn,
             sortAscending: sortAscending,
@@ -2647,7 +2649,7 @@ class _PeakDetailsHeaderRow extends StatelessWidget {
         SizedBox(
           width: widths.ascentDate,
           child: _DetailSortHeaderCell(
-            label: 'Ascent\nDate',
+            label: 'Date',
             column: _PeakDetailSortColumn.ascentDate,
             sortColumn: sortColumn,
             sortAscending: sortAscending,
@@ -2660,7 +2662,7 @@ class _PeakDetailsHeaderRow extends StatelessWidget {
         SizedBox(
           width: widths.ascents,
           child: _DetailSortHeaderCell(
-            label: 'Ascents',
+            label: 'Asc',
             column: _PeakDetailSortColumn.ascents,
             sortColumn: sortColumn,
             sortAscending: sortAscending,
@@ -2673,7 +2675,7 @@ class _PeakDetailsHeaderRow extends StatelessWidget {
         SizedBox(
           width: widths.difficulty,
           child: _DetailSortHeaderCell(
-            label: 'Difficulty',
+            label: 'Diff',
             column: _PeakDetailSortColumn.difficulty,
             sortColumn: sortColumn,
             sortAscending: sortAscending,
@@ -2685,7 +2687,7 @@ class _PeakDetailsHeaderRow extends StatelessWidget {
         SizedBox(
           width: widths.duration,
           child: _DetailSortHeaderCell(
-            label: 'Duration',
+            label: 'Time',
             column: _PeakDetailSortColumn.duration,
             sortColumn: sortColumn,
             sortAscending: sortAscending,
@@ -4617,7 +4619,7 @@ class _PeakDetailRow {
     if (ascentDate == null) {
       return '';
     }
-    return _formatDate(ascentDate!);
+    return formatCompactDate(ascentDate!);
   }
 
   String get ascentCountLabel => ascentCount == 0 ? '' : ascentCount.toString();

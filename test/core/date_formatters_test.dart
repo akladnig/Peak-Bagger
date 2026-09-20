@@ -30,4 +30,16 @@ void main() {
       expect(formatTrackDateShortMonth(null), 'Unknown');
     });
   });
+
+  group('formatCompactDate', () {
+    test('renders leading-zero day, month, and two-digit year', () {
+      expect(formatCompactDate(DateTime(2024, 1, 9)), '09/01/24');
+    });
+
+    test('uses the local calendar date for UTC input', () {
+      final utc = DateTime.utc(2024, 1, 11, 12);
+
+      expect(formatCompactDate(utc), formatCompactDate(utc.toLocal()));
+    });
+  });
 }

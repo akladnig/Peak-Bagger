@@ -43,6 +43,11 @@ String formatSummaryDateRange(DateTime start, DateTime end) {
 
 String formatSummaryDayMonth(DateTime date) => _dayMonth.format(date);
 
+String formatCompactDate(DateTime date) {
+  final local = date.toLocal();
+  return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')}/${(local.year % 100).toString().padLeft(2, '0')}';
+}
+
 String formatTrackDate(DateTime? trackDate) {
   if (trackDate == null) {
     return 'Unknown';
