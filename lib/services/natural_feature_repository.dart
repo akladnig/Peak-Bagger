@@ -1,3 +1,4 @@
+import 'package:objectbox/objectbox.dart';
 import 'package:peak_bagger/models/natural_feature.dart';
 
 import '../objectbox.g.dart';
@@ -10,13 +11,20 @@ abstract class NaturalFeatureStorage {
   int put(NaturalFeature naturalFeature);
 
   bool remove(int id);
+
+  void putAllAtomically(List<NaturalFeature> naturalFeatures);
 }
 
-class ObjectBoxNaturalFeatureStorage implements NaturalFeatureStorage {
-  ObjectBoxNaturalFeatureStorage(Store store)
-    : _box = store.box<NaturalFeature>();
+enum NaturalFeatureWriteFailure { afterFirstWrite }
 
+class ObjectBoxNaturalFeatureStorage implements NaturalFeatureStorage {
+  ObjectBoxNaturalFeatureStorage(Store store, {this.failureForTest})
+    : _store = store,
+      _box = store.box<NaturalFeature>();
+
+  final Store _store;
   final Box<NaturalFeature> _box;
+  final NaturalFeatureWriteFailure? failureForTest;
 
   @override
   List<NaturalFeature> getAll() => _box.getAll();
@@ -29,16 +37,39 @@ class ObjectBoxNaturalFeatureStorage implements NaturalFeatureStorage {
 
   @override
   bool remove(int id) => _box.remove(id);
+
+  @override
+  void putAllAtomically(List<NaturalFeature> naturalFeatures) {
+    _store.runInTransaction(TxMode.write, () {
+      for (var index = 0; index < naturalFeatures.length; index++) {
+        _box.put(naturalFeatures[index]);
+        if (failureForTest == NaturalFeatureWriteFailure.afterFirstWrite &&
+            index == 0) {
+          throw StateError(
+            'Injected failure after the first Natural Feature write',
+          );
+        }
+      }
+    });
+  }
 }
 
 class InMemoryNaturalFeatureStorage implements NaturalFeatureStorage {
   InMemoryNaturalFeatureStorage([
     List<NaturalFeature> naturalFeatures = const [],
-  ]) : _naturalFeatures = List<NaturalFeature>.from(naturalFeatures),
+  ]) : failureForTest = null,
+       _naturalFeatures = List<NaturalFeature>.from(naturalFeatures),
+       _nextId = _nextGeneratedId(naturalFeatures);
+
+  InMemoryNaturalFeatureStorage.withFailureForTest({
+    required List<NaturalFeature> naturalFeatures,
+    required this.failureForTest,
+  }) : _naturalFeatures = List<NaturalFeature>.from(naturalFeatures),
        _nextId = _nextGeneratedId(naturalFeatures);
 
   List<NaturalFeature> _naturalFeatures;
   int _nextId;
+  final NaturalFeatureWriteFailure? failureForTest;
 
   static int _nextGeneratedId(List<NaturalFeature> naturalFeatures) {
     return naturalFeatures.fold<int>(1, (nextId, naturalFeature) {
@@ -83,6 +114,27 @@ class InMemoryNaturalFeatureStorage implements NaturalFeatureStorage {
         .toList(growable: false);
     return _naturalFeatures.length != initialCount;
   }
+
+  @override
+  void putAllAtomically(List<NaturalFeature> naturalFeatures) {
+    final previousFeatures = List<NaturalFeature>.from(_naturalFeatures);
+    final previousNextId = _nextId;
+    try {
+      for (var index = 0; index < naturalFeatures.length; index++) {
+        put(naturalFeatures[index]);
+        if (failureForTest == NaturalFeatureWriteFailure.afterFirstWrite &&
+            index == 0) {
+          throw StateError(
+            'Injected failure after the first Natural Feature write',
+          );
+        }
+      }
+    } catch (_) {
+      _naturalFeatures = previousFeatures;
+      _nextId = previousNextId;
+      rethrow;
+    }
+  }
 }
 
 class NaturalFeatureRepository {
@@ -113,6 +165,10 @@ class NaturalFeatureRepository {
   NaturalFeature save(NaturalFeature naturalFeature) {
     naturalFeature.id = _storage.put(naturalFeature);
     return naturalFeature;
+  }
+
+  void upsertAllAtomically(List<NaturalFeature> naturalFeatures) {
+    _storage.putAllAtomically(naturalFeatures);
   }
 
   bool delete(int id) => _storage.remove(id);

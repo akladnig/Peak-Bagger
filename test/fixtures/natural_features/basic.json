@@ -1,0 +1,29 @@
+{
+  "elements": [
+    {
+      "type": "node",
+      "id": 101,
+      "lat": -42.68,
+      "lon": 146.56,
+      "tags": {
+        "name": "  Lake Dobson  ",
+        "natural": "water",
+        "water": " lake ",
+        "alt_name": "  The Lake  "
+      }
+    },
+    {
+      "type": "node",
+      "id": 102,
+      "lat": -42.70,
+      "lon": 146.58
+    },
+    {
+      "type": "node",
+      "id": 103,
+      "lat": -42.71,
+      "lon": 146.59,
+      "tags": {"name": "Missing natural"}
+    }
+  ]
+}
