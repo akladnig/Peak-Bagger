@@ -17,6 +17,7 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
     required this.onSortPressed,
     required this.onRowTap,
     required this.onDeletePressed,
+    this.deleteEnabled = true,
     super.key,
   });
 
@@ -32,6 +33,7 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
   final VoidCallback onSortPressed;
   final ValueChanged<ObjectBoxAdminRow> onRowTap;
   final ValueChanged<ObjectBoxAdminRow>? onDeletePressed;
+  final bool deleteEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +58,7 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
     );
     final showActionsColumn =
         (entity.name == 'Peak' ||
+            entity.name == 'NaturalFeature' ||
             entity.name == 'GpxTrack' ||
             entity.name == 'Route' ||
             entity.name == 'Waypoints') &&
@@ -106,7 +109,9 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
                   showActionsColumn: showActionsColumn,
                   onDeletePressed: onDeletePressed == null
                       ? null
-                      : () => onDeletePressed!(row),
+                      : deleteEnabled
+                      ? () => onDeletePressed!(row)
+                      : null,
                 );
               },
             ),
@@ -286,7 +291,9 @@ class ObjectBoxAdminDataRowTile extends StatelessWidget {
                 child: Center(
                   child: IconButton(
                     key: Key(
-                      entityName == 'GpxTrack'
+                      entityName == 'NaturalFeature'
+                          ? 'objectbox-admin-natural-feature-delete-${row.primaryKeyValue}'
+                          : entityName == 'GpxTrack'
                           ? 'objectbox-admin-gpx-track-delete-${row.primaryKeyValue}'
                           : entityName == 'Route'
                           ? 'objectbox-admin-route-delete-${row.primaryKeyValue}'

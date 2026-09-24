@@ -59,6 +59,41 @@ void main() {
     expect(repository.findByOsmIdentity(osmType: 'way', osmId: 123), same(way));
   });
 
+  test('deletion removes a feature without retaining a suppression record', () {
+    final repository = NaturalFeatureRepository.test(
+      InMemoryNaturalFeatureStorage(),
+    );
+    final feature = repository.save(
+      NaturalFeature(
+        name: 'Deleted Lake',
+        tag: 'water',
+        latitude: -42.68,
+        longitude: 146.56,
+        osmId: 456,
+        osmType: 'way',
+      ),
+    );
+
+    expect(repository.delete(feature.id), isTrue);
+    expect(repository.findById(feature.id), isNull);
+    expect(
+      repository.findByOsmIdentity(osmType: 'way', osmId: 456),
+      isNull,
+    );
+
+    final recreated = repository.save(
+      NaturalFeature(
+        name: 'Recreated Lake',
+        tag: 'water',
+        latitude: -42.68,
+        longitude: 146.56,
+        osmId: 456,
+        osmType: 'way',
+      ),
+    );
+    expect(recreated.sourceOfTruth, 'OSM');
+  });
+
   test('ObjectBox generates an id for a natural feature', () async {
     final directory = await Directory.systemTemp.createTemp(
       'natural-feature-repository',

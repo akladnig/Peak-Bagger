@@ -66,6 +66,17 @@ class ObjectBoxAdminRobot {
       find.byKey(const Key('objectbox-admin-route-update-success-close'));
   Finder get routeSaveErrorClose =>
       find.byKey(const Key('objectbox-admin-route-save-error-close'));
+  Finder get naturalFeatureEditButton =>
+      find.byKey(const Key('objectbox-admin-natural-feature-edit'));
+  Finder get naturalFeatureSaveButton =>
+      find.byKey(const Key('objectbox-admin-natural-feature-save'));
+  Finder get naturalFeatureCalculateButton =>
+      find.byKey(const Key('objectbox-admin-natural-feature-calculate'));
+  Finder naturalFeatureDeleteButton(int id) =>
+      find.byKey(Key('objectbox-admin-natural-feature-delete-$id'));
+  Finder naturalFeatureField(String fieldName) => find.byKey(
+    Key('objectbox-admin-natural-feature-${_fieldKey(fieldName)}'),
+  );
   Finder peakDeleteButton(int peakId) =>
       find.byKey(Key('objectbox-admin-peak-delete-$peakId'));
   Finder routeDeleteButton(int routeId) =>
@@ -161,6 +172,11 @@ class ObjectBoxAdminRobot {
 
   Future<void> startEditingRoute() async {
     await tester.tap(routeEditButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> startEditingNaturalFeature() async {
+    await tester.tap(naturalFeatureEditButton);
     await tester.pumpAndSettle();
   }
 

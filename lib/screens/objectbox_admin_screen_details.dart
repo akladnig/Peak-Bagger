@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
+import 'package:peak_bagger/services/natural_feature_admin_editor.dart';
 import 'package:peak_bagger/services/peak_list_admin_editor.dart';
 import 'package:peak_bagger/services/route_admin_editor.dart';
 
@@ -13,7 +15,9 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
     required this.entity,
     required this.peakList,
     required this.route,
+    required this.naturalFeature,
     required this.isCreatingPeak,
+    required this.isNaturalFeatureMutationLocked,
     required this.onClose,
     required this.createOsmId,
     required this.onViewPeakOnMap,
@@ -22,6 +26,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
     required this.onPeakSubmit,
     required this.onPeakListSubmit,
     required this.onRouteSubmit,
+    required this.onNaturalFeatureSubmit,
     super.key,
   });
 
@@ -29,7 +34,9 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
   final ObjectBoxAdminEntityDescriptor entity;
   final PeakList? peakList;
   final app_route.Route? route;
+  final NaturalFeature? naturalFeature;
   final bool isCreatingPeak;
+  final bool isNaturalFeatureMutationLocked;
   final VoidCallback onClose;
   final int createOsmId;
   final void Function(Peak peak) onViewPeakOnMap;
@@ -38,6 +45,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
   final Future<String?> Function(Peak peak) onPeakSubmit;
   final Future<String?> Function(PeakListAdminFormState form) onPeakListSubmit;
   final Future<String?> Function(RouteAdminFormState form) onRouteSubmit;
+  final Future<String?> Function(NaturalFeature feature) onNaturalFeatureSubmit;
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +66,17 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
         onClose: onClose,
         onViewPeakOnMap: onViewPeakOnMap,
         onPeakSubmit: onPeakSubmit,
+      );
+    }
+
+    if (entity.name == 'NaturalFeature' && naturalFeature != null) {
+      return _NaturalFeatureAdminDetailsPane(
+        row: row!,
+        entity: entity,
+        naturalFeature: naturalFeature!,
+        mutationLocked: isNaturalFeatureMutationLocked,
+        onClose: onClose,
+        onNaturalFeatureSubmit: onNaturalFeatureSubmit,
       );
     }
 
@@ -1172,21 +1191,21 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
             ),
             const Divider(),
             Expanded(
-                child: _isEditing
-                    ? _PeakListEditForm(
-                        row: widget.row,
-                        peakList: widget.peakList,
-                        isSaving: _isSaving,
-                        colourController: _colourController,
-                        submitError: _submitError,
-                        validation: _validation,
-                        onChanged: _updateValidation,
-                        onSubmit: _submit,
-                      )
-                    : _PeakListReadOnlyDetails(
-                        row: widget.row!,
-                        entity: widget.entity,
-                      ),
+              child: _isEditing
+                  ? _PeakListEditForm(
+                      row: widget.row,
+                      peakList: widget.peakList,
+                      isSaving: _isSaving,
+                      colourController: _colourController,
+                      submitError: _submitError,
+                      validation: _validation,
+                      onChanged: _updateValidation,
+                      onSubmit: _submit,
+                    )
+                  : _PeakListReadOnlyDetails(
+                      row: widget.row!,
+                      entity: widget.entity,
+                    ),
             ),
           ],
         ),
@@ -1688,6 +1707,7 @@ String _objectBoxAdminDetailsTitle(
     'Route',
     'Tasmap50k',
     'Waypoints',
+    'NaturalFeature',
   };
 
   if (row == null || !namedEntities.contains(entity.name)) {
@@ -1697,6 +1717,15 @@ String _objectBoxAdminDetailsTitle(
     return '${entity.displayName} #${objectBoxAdminFormatValue(row.primaryKeyValue)}';
   }
 
+  if (entity.name == 'NaturalFeature') {
+    final name = objectBoxAdminFormatValue(row.values['name']).trim();
+    if (name.isNotEmpty && name != '—') {
+      return name;
+    }
+    return '${objectBoxAdminFormatValue(row.values['osmType'])} '
+        '${objectBoxAdminFormatValue(row.values['osmId'])}';
+  }
+
   final value = row.values[entity.primaryNameField];
   final title = objectBoxAdminFormatValue(value).trim();
   if (title.isNotEmpty && title != '—') {
@@ -1704,6 +1733,449 @@ String _objectBoxAdminDetailsTitle(
   }
 
   return '${entity.displayName} #${objectBoxAdminFormatValue(row.primaryKeyValue)}';
+}
+
+class _NaturalFeatureAdminDetailsPane extends StatefulWidget {
+  const _NaturalFeatureAdminDetailsPane({
+    required this.row,
+    required this.entity,
+    required this.naturalFeature,
+    required this.mutationLocked,
+    required this.onClose,
+    required this.onNaturalFeatureSubmit,
+  });
+
+  final ObjectBoxAdminRow row;
+  final ObjectBoxAdminEntityDescriptor entity;
+  final NaturalFeature naturalFeature;
+  final bool mutationLocked;
+  final VoidCallback onClose;
+  final Future<String?> Function(NaturalFeature feature) onNaturalFeatureSubmit;
+
+  @override
+  State<_NaturalFeatureAdminDetailsPane> createState() =>
+      _NaturalFeatureAdminDetailsPaneState();
+}
+
+class _NaturalFeatureAdminDetailsPaneState
+    extends State<_NaturalFeatureAdminDetailsPane> {
+  late final Map<String, TextEditingController> _controllers;
+  late String _sourceOfTruth;
+  var _isEditing = false;
+  var _isSaving = false;
+  NaturalFeatureAdminCoordinateSource? _coordinateSource;
+  String? _submitError;
+  NaturalFeatureAdminValidationResult _validation =
+      const NaturalFeatureAdminValidationResult(fieldErrors: {});
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = {
+      for (final field in _editableFields) field: TextEditingController(),
+    };
+    _syncFromFeature();
+  }
+
+  @override
+  void didUpdateWidget(covariant _NaturalFeatureAdminDetailsPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.naturalFeature.id != widget.naturalFeature.id ||
+        (oldWidget.row != widget.row && !_isEditing)) {
+      _syncFromFeature();
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  static const _editableFields = [
+    'name',
+    'altName',
+    'tag',
+    'country',
+    'county',
+    'region',
+    'latitude',
+    'longitude',
+    'mgrs100kId',
+    'easting',
+    'northing',
+  ];
+
+  TextEditingController _controller(String field) => _controllers[field]!;
+
+  void _syncFromFeature() {
+    final form = NaturalFeatureAdminEditor.normalize(widget.naturalFeature);
+    _controller('name').text = form.name;
+    _controller('altName').text = form.altName;
+    _controller('tag').text = form.tag;
+    _controller('country').text = form.country;
+    _controller('county').text = form.county;
+    _controller('region').text = form.region;
+    _controller('latitude').text = form.latitude;
+    _controller('longitude').text = form.longitude;
+    _controller('mgrs100kId').text = form.mgrs100kId;
+    _controller('easting').text = form.easting;
+    _controller('northing').text = form.northing;
+    _sourceOfTruth = form.sourceOfTruth;
+    _isEditing = false;
+    _isSaving = false;
+    _coordinateSource = null;
+    _submitError = null;
+    _validation = const NaturalFeatureAdminValidationResult(fieldErrors: {});
+  }
+
+  NaturalFeatureAdminFormState _currentForm() {
+    return NaturalFeatureAdminFormState(
+      name: _controller('name').text,
+      altName: _controller('altName').text,
+      tag: _controller('tag').text,
+      country: _controller('country').text,
+      county: _controller('county').text,
+      region: _controller('region').text,
+      latitude: _controller('latitude').text,
+      longitude: _controller('longitude').text,
+      gridZoneDesignator: widget.naturalFeature.gridZoneDesignator,
+      mgrs100kId: _controller('mgrs100kId').text,
+      easting: _controller('easting').text,
+      northing: _controller('northing').text,
+      sourceOfTruth: _sourceOfTruth,
+    );
+  }
+
+  bool get _isLocked => _isSaving || widget.mutationLocked;
+
+  void _validate() {
+    setState(() {
+      _validation = NaturalFeatureAdminEditor.validateAndBuild(
+        source: widget.naturalFeature,
+        form: _currentForm(),
+        coordinateSource: _coordinateSource,
+      );
+      _submitError = null;
+    });
+  }
+
+  void _handleLatLngChanged() {
+    if (_coordinateSource != NaturalFeatureAdminCoordinateSource.latLng) {
+      _controller('mgrs100kId').clear();
+      _controller('easting').clear();
+      _controller('northing').clear();
+    }
+    _coordinateSource = NaturalFeatureAdminCoordinateSource.latLng;
+    _validate();
+  }
+
+  void _handleMgrsChanged() {
+    if (_coordinateSource != NaturalFeatureAdminCoordinateSource.mgrs) {
+      _controller('latitude').clear();
+      _controller('longitude').clear();
+    }
+    _coordinateSource = NaturalFeatureAdminCoordinateSource.mgrs;
+    _validate();
+  }
+
+  void _calculateCoordinates() {
+    final source = _coordinateSource;
+    if (source == null || _isLocked) {
+      return;
+    }
+    final result = NaturalFeatureAdminEditor.calculateMissingCoordinates(
+      source: widget.naturalFeature,
+      coordinateSource: source,
+      form: _currentForm(),
+    );
+    if (!result.isValid) {
+      setState(() {
+        _validation = NaturalFeatureAdminValidationResult(
+          fieldErrors: result.fieldErrors,
+          coordinateError: result.coordinateError,
+        );
+      });
+      return;
+    }
+    final form = result.form!;
+    _controller('latitude').text = form.latitude;
+    _controller('longitude').text = form.longitude;
+    _controller('mgrs100kId').text = form.mgrs100kId;
+    _controller('easting').text = form.easting;
+    _controller('northing').text = form.northing;
+    _validate();
+  }
+
+  Future<void> _submit() async {
+    if (_isLocked) {
+      return;
+    }
+    final validation = NaturalFeatureAdminEditor.validateAndBuild(
+      source: widget.naturalFeature,
+      form: _currentForm(),
+      coordinateSource:
+          _coordinateSource ?? NaturalFeatureAdminCoordinateSource.latLng,
+    );
+    setState(() {
+      _validation = validation;
+      _submitError = null;
+    });
+    if (!validation.isValid) {
+      return;
+    }
+    setState(() => _isSaving = true);
+    final error = await widget.onNaturalFeatureSubmit(
+      validation.naturalFeature!,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isSaving = false;
+      _submitError = error;
+      if (error == null) {
+        _isEditing = false;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = _objectBoxAdminDetailsTitle(widget.entity, widget.row);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                if (!_isEditing)
+                  IconButton(
+                    key: const Key('objectbox-admin-natural-feature-edit'),
+                    onPressed: _isLocked
+                        ? null
+                        : () => setState(() => _isEditing = true),
+                    icon: const Icon(Icons.edit),
+                  ),
+                IconButton(
+                  key: const Key('objectbox-admin-details-close'),
+                  onPressed: _isSaving ? null : widget.onClose,
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: _isEditing
+                  ? _NaturalFeatureEditForm(
+                      feature: widget.naturalFeature,
+                      controllers: _controllers,
+                      sourceOfTruth: _sourceOfTruth,
+                      validation: _validation,
+                      submitError: _submitError,
+                      locked: _isLocked,
+                      canCalculate: _coordinateSource != null,
+                      onChanged: _validate,
+                      onLatLngChanged: _handleLatLngChanged,
+                      onMgrsChanged: _handleMgrsChanged,
+                      onSourceOfTruthChanged: (value) {
+                        setState(
+                          () => _sourceOfTruth = value ?? _sourceOfTruth,
+                        );
+                        _validate();
+                      },
+                      onCalculate: _calculateCoordinates,
+                      onSubmit: _submit,
+                    )
+                  : _NaturalFeatureReadOnlyDetails(
+                      row: widget.row,
+                      entity: widget.entity,
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NaturalFeatureReadOnlyDetails extends StatelessWidget {
+  const _NaturalFeatureReadOnlyDetails({
+    required this.row,
+    required this.entity,
+  });
+
+  final ObjectBoxAdminRow row;
+  final ObjectBoxAdminEntityDescriptor entity;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      key: const Key('objectbox-admin-details-list'),
+      itemCount: entity.fields.length - 1,
+      separatorBuilder: (context, index) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final field = entity.fields
+            .where((field) => !field.isPrimaryName)
+            .elementAt(index);
+        return ListTile(
+          dense: true,
+          title: Text(field.name),
+          subtitle: objectBoxAdminDetailsValue(
+            entityName: entity.name,
+            fieldName: field.name,
+            label: field.name,
+            value: row.values[field.name],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _NaturalFeatureEditForm extends StatelessWidget {
+  const _NaturalFeatureEditForm({
+    required this.feature,
+    required this.controllers,
+    required this.sourceOfTruth,
+    required this.validation,
+    required this.submitError,
+    required this.locked,
+    required this.canCalculate,
+    required this.onChanged,
+    required this.onLatLngChanged,
+    required this.onMgrsChanged,
+    required this.onSourceOfTruthChanged,
+    required this.onCalculate,
+    required this.onSubmit,
+  });
+
+  final NaturalFeature feature;
+  final Map<String, TextEditingController> controllers;
+  final String sourceOfTruth;
+  final NaturalFeatureAdminValidationResult validation;
+  final String? submitError;
+  final bool locked;
+  final bool canCalculate;
+  final VoidCallback onChanged;
+  final VoidCallback onLatLngChanged;
+  final VoidCallback onMgrsChanged;
+  final ValueChanged<String?> onSourceOfTruthChanged;
+  final VoidCallback onCalculate;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final errorColor = Theme.of(context).colorScheme.error;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: ListView(
+            key: const Key('objectbox-admin-natural-feature-edit-form'),
+            children: [
+              _readOnly('id', feature.id.toString()),
+              _readOnly('osmType', feature.osmType),
+              _readOnly('osmId', feature.osmId.toString()),
+              _readOnly('gridZoneDesignator', feature.gridZoneDesignator),
+              _field('name', 'Name', onChanged),
+              _field('altName', 'Alt Name', onChanged),
+              _field('tag', 'Tag', onChanged),
+              _field('country', 'Country', onChanged),
+              _field('county', 'County', onChanged),
+              _field('region', 'Region', onChanged),
+              _field('latitude', 'Latitude', onLatLngChanged),
+              _field('longitude', 'Longitude', onLatLngChanged),
+              _field('mgrs100kId', 'MGRS 100km identifier', onMgrsChanged),
+              _field('easting', 'Easting', onMgrsChanged),
+              _field('northing', 'Northing', onMgrsChanged),
+              DropdownButtonFormField<String>(
+                key: const Key(
+                  'objectbox-admin-natural-feature-source-of-truth',
+                ),
+                initialValue: sourceOfTruth,
+                decoration: InputDecoration(
+                  labelText: 'Source of truth',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['sourceOfTruth'],
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'OSM', child: Text('OSM')),
+                  DropdownMenuItem(value: 'Manual', child: Text('Manual')),
+                ],
+                onChanged: locked ? null : onSourceOfTruthChanged,
+              ),
+            ].expand((widget) => [widget, const SizedBox(height: 8)]).toList(),
+          ),
+        ),
+        if (validation.coordinateError != null)
+          Text(
+            validation.coordinateError!,
+            style: TextStyle(color: errorColor),
+          ),
+        if (submitError != null)
+          Text(submitError!, style: TextStyle(color: errorColor)),
+        const SizedBox(height: 8),
+        FilledButton(
+          key: const Key('objectbox-admin-natural-feature-calculate'),
+          onPressed: locked || !canCalculate ? null : onCalculate,
+          child: const Text('Calculate'),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          key: const Key('objectbox-admin-natural-feature-save'),
+          onPressed: locked ? null : onSubmit,
+          child: Text(locked ? 'Saving...' : 'Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _readOnly(String field, String value) => TextFormField(
+    key: Key('objectbox-admin-natural-feature-$field'),
+    initialValue: value,
+    enabled: false,
+    decoration: InputDecoration(
+      labelText: field,
+      border: const OutlineInputBorder(),
+    ),
+  );
+
+  Widget _field(String field, String label, VoidCallback changed) =>
+      TextFormField(
+        key: Key('objectbox-admin-natural-feature-${_fieldKey(field)}'),
+        controller: controllers[field],
+        enabled: !locked,
+        keyboardType: switch (field) {
+          'latitude' || 'longitude' => const TextInputType.numberWithOptions(
+            decimal: true,
+            signed: true,
+          ),
+          'easting' || 'northing' => TextInputType.number,
+          _ => TextInputType.text,
+        },
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          errorText: validation.fieldErrors[field],
+        ),
+        onChanged: (_) => changed(),
+      );
+
+  String _fieldKey(String field) => field.replaceAllMapped(
+    RegExp(r'(?<!^)([A-Z])'),
+    (match) => '-${match[1]!.toLowerCase()}',
+  );
 }
 
 class _PeakEditForm extends StatelessWidget {

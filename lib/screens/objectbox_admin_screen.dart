@@ -12,6 +12,8 @@ import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/providers/background_jobs_provider.dart';
+import 'package:peak_bagger/providers/natural_feature_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_controls.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_details.dart';
@@ -22,6 +24,7 @@ import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_list_admin_editor.dart';
 import 'package:peak_bagger/services/route_admin_editor.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
@@ -262,6 +265,83 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       );
       return 'Failed to save Peak: $error';
     }
+  }
+
+  bool get _naturalFeatureMutationsLocked {
+    return ref.read(backgroundJobsProvider).runningJob?.kind ==
+        BackgroundJobKind.refreshNaturalFeatures;
+  }
+
+  Future<String?> _saveNaturalFeature(NaturalFeature feature) async {
+    if (_naturalFeatureMutationsLocked) {
+      return 'Natural features cannot be changed while refresh is running.';
+    }
+    try {
+      final saved = ref.read(naturalFeatureRepositoryProvider).save(feature);
+      await ref
+          .read(objectboxAdminProvider.notifier)
+          .refresh(keepSelectedRowPrimaryKey: saved.id);
+      if (!mounted) {
+        return null;
+      }
+      await showSingleActionDialog(
+        context: context,
+        title: 'Update Successful',
+        content: Text('${saved.name} updated.'),
+        closeKey: 'objectbox-admin-natural-feature-update-success-close',
+      );
+      return null;
+    } catch (error, stackTrace) {
+      logObjectBoxAdminError(
+        error,
+        stackTrace,
+        'Natural Feature save failed for ${feature.name}',
+      );
+      if (!mounted) {
+        return 'Failed to save Natural Feature: $error';
+      }
+      await showSingleActionDialog(
+        context: context,
+        title: 'Save Failed',
+        content: Text('Failed to save Natural Feature: $error'),
+        closeKey: 'objectbox-admin-natural-feature-save-error-close',
+      );
+      return 'Failed to save Natural Feature: $error';
+    }
+  }
+
+  Future<void> _deleteNaturalFeature(ObjectBoxAdminRow row) async {
+    if (_naturalFeatureMutationsLocked) {
+      return;
+    }
+    final repository = ref.read(naturalFeatureRepositoryProvider);
+    final feature = repository.findById(row.primaryKeyValue as int);
+    if (feature == null) {
+      return;
+    }
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Delete Natural Feature?',
+      message:
+          'This will permanently delete the ${feature.name}. Do you want to proceed?',
+      cancelKey: 'cancel-delete',
+      cancelLabel: 'Cancel',
+      confirmKey: 'confirm-delete',
+      confirmLabel: 'Delete',
+    );
+    if (confirmed != true || _naturalFeatureMutationsLocked) {
+      return;
+    }
+    final selectedRow = ref.read(objectboxAdminProvider).selectedRow;
+    repository.delete(feature.id);
+    await ref
+        .read(objectboxAdminProvider.notifier)
+        .refresh(
+          keepSelectedRowPrimaryKey:
+              selectedRow?.primaryKeyValue == row.primaryKeyValue
+              ? null
+              : selectedRow?.primaryKeyValue,
+        );
   }
 
   void _viewGpxTrackOnMainMap(ObjectBoxAdminRow row) {
@@ -632,6 +712,9 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     _maybeRefreshOnVisibleEntry();
 
     final state = ref.watch(objectboxAdminProvider);
+    final naturalFeatureMutationsLocked =
+        ref.watch(backgroundJobsProvider).runningJob?.kind ==
+        BackgroundJobKind.refreshNaturalFeatures;
     final notifier = ref.read(objectboxAdminProvider.notifier);
 
     if (_searchController.text != state.searchQuery) {
@@ -683,7 +766,12 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 160),
-                child: _buildBody(context, state, notifier),
+                child: _buildBody(
+                  context,
+                  state,
+                  notifier,
+                  naturalFeatureMutationsLocked,
+                ),
               ),
             ),
           ],
@@ -696,6 +784,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     BuildContext context,
     ObjectBoxAdminState state,
     ObjectBoxAdminNotifier notifier,
+    bool naturalFeatureMutationsLocked,
   ) {
     if (state.entities.isEmpty) {
       return const ObjectBoxAdminEmptyState(
@@ -783,6 +872,9 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
               onPeakSubmit: _savePeak,
               onPeakListSubmit: _savePeakList,
               onRouteSubmit: _saveRoute,
+              naturalFeature: null,
+              isNaturalFeatureMutationLocked: naturalFeatureMutationsLocked,
+              onNaturalFeatureSubmit: _saveNaturalFeature,
             ),
           ),
         ],
@@ -823,11 +915,15 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
             onRowTap: notifier.selectRow,
             onDeletePressed: switch (entity.name) {
               'Peak' => _deletePeak,
+              'NaturalFeature' => _deleteNaturalFeature,
               'GpxTrack' => _deleteGpxTrack,
               'Route' => _deleteRoute,
               'Waypoints' => _deleteWaypoint,
               _ => null,
             },
+            deleteEnabled:
+                !naturalFeatureMutationsLocked ||
+                entity.name != 'NaturalFeature',
           ),
         ),
         const SizedBox(width: 16),
@@ -846,7 +942,14 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                       .read(routeRepositoryProvider)
                       .findById(state.selectedRow!.primaryKeyValue as int)
                 : null,
+            naturalFeature:
+                entity.name == 'NaturalFeature' && state.selectedRow != null
+                ? ref
+                      .read(naturalFeatureRepositoryProvider)
+                      .findById(state.selectedRow!.primaryKeyValue as int)
+                : null,
             isCreatingPeak: false,
+            isNaturalFeatureMutationLocked: naturalFeatureMutationsLocked,
             createOsmId: 0,
             onClose: notifier.clearSelection,
             onViewPeakOnMap: _viewPeakOnMainMap,
@@ -855,6 +958,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
             onPeakSubmit: _savePeak,
             onPeakListSubmit: _savePeakList,
             onRouteSubmit: _saveRoute,
+            onNaturalFeatureSubmit: _saveNaturalFeature,
           ),
         ),
       ],
