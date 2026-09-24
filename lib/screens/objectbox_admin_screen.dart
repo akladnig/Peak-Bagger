@@ -428,6 +428,16 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     router.go('/map');
   }
 
+  void _viewNaturalFeatureOnMainMap(NaturalFeature naturalFeature) {
+    final location = LatLng(naturalFeature.latitude, naturalFeature.longitude);
+    final mapNotifier = ref.read(mapProvider.notifier);
+    mapNotifier.requestCameraMove(
+      center: location,
+      zoom: MapConstants.defaultZoom,
+    );
+    router.go('/map');
+  }
+
   Future<void> _deletePeak(ObjectBoxAdminRow row) async {
     final repository = ref.read(peakRepositoryProvider);
     final guard = ref.read(peakDeleteGuardProvider);
@@ -936,6 +946,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                 notifier.clearSelection();
               },
               onViewPeakOnMap: _viewPeakOnMainMap,
+              onViewNaturalFeatureOnMap: _viewNaturalFeatureOnMainMap,
               onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
               onViewRouteOnMap: _viewRouteOnMainMap,
               onPeakSubmit: _savePeak,
@@ -995,6 +1006,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                 notifier.clearSelection();
               },
               onViewPeakOnMap: _viewPeakOnMainMap,
+              onViewNaturalFeatureOnMap: _viewNaturalFeatureOnMainMap,
               onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
               onViewRouteOnMap: _viewRouteOnMainMap,
               onPeakSubmit: _savePeak,
@@ -1087,6 +1099,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
             createOsmId: 0,
             onClose: notifier.clearSelection,
             onViewPeakOnMap: _viewPeakOnMainMap,
+            onViewNaturalFeatureOnMap: _viewNaturalFeatureOnMainMap,
             onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
             onViewRouteOnMap: _viewRouteOnMainMap,
             onPeakSubmit: _savePeak,

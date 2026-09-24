@@ -25,6 +25,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
     required this.onClose,
     required this.createOsmId,
     required this.onViewPeakOnMap,
+    required this.onViewNaturalFeatureOnMap,
     required this.onViewGpxTrackOnMap,
     required this.onViewRouteOnMap,
     required this.onPeakSubmit,
@@ -47,6 +48,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
   final VoidCallback onClose;
   final int createOsmId;
   final void Function(Peak peak) onViewPeakOnMap;
+  final void Function(NaturalFeature naturalFeature) onViewNaturalFeatureOnMap;
   final void Function(ObjectBoxAdminRow row)? onViewGpxTrackOnMap;
   final void Function(app_route.Route route)? onViewRouteOnMap;
   final Future<String?> Function(Peak peak) onPeakSubmit;
@@ -84,6 +86,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
         naturalFeature: naturalFeature!,
         mutationLocked: isNaturalFeatureMutationLocked,
         onClose: onClose,
+        onViewNaturalFeatureOnMap: onViewNaturalFeatureOnMap,
         onNaturalFeatureSubmit: onNaturalFeatureSubmit,
       );
     }
@@ -2069,6 +2072,7 @@ class _NaturalFeatureAdminDetailsPane extends StatefulWidget {
     required this.naturalFeature,
     required this.mutationLocked,
     required this.onClose,
+    required this.onViewNaturalFeatureOnMap,
     required this.onNaturalFeatureSubmit,
   });
 
@@ -2077,6 +2081,7 @@ class _NaturalFeatureAdminDetailsPane extends StatefulWidget {
   final NaturalFeature naturalFeature;
   final bool mutationLocked;
   final VoidCallback onClose;
+  final void Function(NaturalFeature naturalFeature) onViewNaturalFeatureOnMap;
   final Future<String?> Function(NaturalFeature feature) onNaturalFeatureSubmit;
 
   @override
@@ -2285,6 +2290,16 @@ class _NaturalFeatureAdminDetailsPaneState
                     title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
+                ),
+                IconButton(
+                  key: const Key('objectbox-admin-natural-feature-view-on-map'),
+                  tooltip: 'View Natural Feature on Main Map',
+                  onPressed: _isSaving
+                      ? null
+                      : () => widget.onViewNaturalFeatureOnMap(
+                          widget.naturalFeature,
+                        ),
+                  icon: const Icon(Icons.visibility_outlined),
                 ),
                 if (!_isEditing)
                   IconButton(

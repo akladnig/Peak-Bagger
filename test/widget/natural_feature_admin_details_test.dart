@@ -140,7 +140,10 @@ void main() {
     ],
   );
 
-  Widget buildPane({required bool locked}) => MaterialApp(
+  Widget buildPane({
+    required bool locked,
+    void Function(NaturalFeature feature)? onViewNaturalFeatureOnMap,
+  }) => MaterialApp(
     home: Scaffold(
       body: SizedBox(
         width: 400,
@@ -156,6 +159,7 @@ void main() {
           createOsmId: 0,
           onClose: () {},
           onViewPeakOnMap: (_) {},
+          onViewNaturalFeatureOnMap: onViewNaturalFeatureOnMap ?? (_) {},
           onViewGpxTrackOnMap: null,
           onViewRouteOnMap: null,
           onPeakSubmit: (_) async => null,
@@ -204,6 +208,23 @@ void main() {
       );
     },
   );
+
+  testWidgets('views a natural feature on the main map', (tester) async {
+    NaturalFeature? viewedFeature;
+
+    await tester.pumpWidget(
+      buildPane(
+        locked: false,
+        onViewNaturalFeatureOnMap: (feature) => viewedFeature = feature,
+      ),
+    );
+
+    await tester.tap(
+      find.byKey(const Key('objectbox-admin-natural-feature-view-on-map')),
+    );
+
+    expect(viewedFeature, same(feature));
+  });
 
   test(
     'NaturalFeatureAdminEditor retains a stored grid zone for MGRS input',
