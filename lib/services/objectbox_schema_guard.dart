@@ -32,6 +32,8 @@ class ObjectBoxSchemaGuard {
     final gpxTrack = model.findEntityByName('GpxTrack');
     final peaksBagged = model.findEntityByName('PeaksBagged');
     final route = model.findEntityByName('Route');
+    final naturalFeature = model.findEntityByName('NaturalFeature');
+    final contact = model.findEntityByName('Contact');
 
     return [
       'modelVersion:${model.modelVersion}',
@@ -75,6 +77,28 @@ class ObjectBoxSchemaGuard {
       'Route.routeTimingSegmentKindsJson:${_hasProperty(route, 'routeTimingSegmentKindsJson')}',
       'Route.displayRoutePointsByZoom:${_hasProperty(route, 'displayRoutePointsByZoom')}',
       'Route.colour:${_hasProperty(route, 'colour')}',
+      'NaturalFeature.id:${_hasProperty(naturalFeature, 'id')}',
+      'NaturalFeature.name:${_hasProperty(naturalFeature, 'name')}',
+      'NaturalFeature.altName:${_hasProperty(naturalFeature, 'altName')}',
+      'NaturalFeature.tag:${_hasProperty(naturalFeature, 'tag')}',
+      'NaturalFeature.country:${_hasProperty(naturalFeature, 'country')}',
+      'NaturalFeature.county:${_hasProperty(naturalFeature, 'county')}',
+      'NaturalFeature.region:${_hasProperty(naturalFeature, 'region')}',
+      'NaturalFeature.latitude:${_hasProperty(naturalFeature, 'latitude')}',
+      'NaturalFeature.longitude:${_hasProperty(naturalFeature, 'longitude')}',
+      'NaturalFeature.gridZoneDesignator:${_hasProperty(naturalFeature, 'gridZoneDesignator')}',
+      'NaturalFeature.mgrs100kId:${_hasProperty(naturalFeature, 'mgrs100kId')}',
+      'NaturalFeature.easting:${_hasProperty(naturalFeature, 'easting')}',
+      'NaturalFeature.northing:${_hasProperty(naturalFeature, 'northing')}',
+      'NaturalFeature.osmId:${_hasProperty(naturalFeature, 'osmId')}',
+      'NaturalFeature.osmType:${_hasProperty(naturalFeature, 'osmType')}',
+      'NaturalFeature.sourceOfTruth:${_hasProperty(naturalFeature, 'sourceOfTruth')}',
+      'NaturalFeature.relations:${_hasRelations(naturalFeature)}',
+      'Contact.id:${_hasProperty(contact, 'id')}',
+      'Contact.firstName:${_hasProperty(contact, 'firstName')}',
+      'Contact.surname:${_hasProperty(contact, 'surname')}',
+      'Contact.nickname:${_hasProperty(contact, 'nickname')}',
+      'Contact.relations:${_hasRelations(contact)}',
     ].join('|');
   }
 
@@ -92,5 +116,13 @@ class ObjectBoxSchemaGuard {
     }
 
     return entity.relations.any((relation) => relation.name == name);
+  }
+
+  static bool _hasRelations(dynamic entity) {
+    if (entity == null) {
+      return false;
+    }
+
+    return entity.relations.isNotEmpty;
   }
 }

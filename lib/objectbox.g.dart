@@ -14,7 +14,9 @@ import 'package:objectbox/internal.dart'
 import 'package:objectbox/objectbox.dart' as obx;
 import 'package:objectbox_flutter_libs/objectbox_flutter_libs.dart';
 
+import 'models/contact.dart';
 import 'models/gpx_track.dart';
+import 'models/natural_feature.dart';
 import 'models/peak.dart';
 import 'models/peak_list.dart';
 import 'models/peaks_bagged.dart';
@@ -1261,6 +1263,146 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(15, 6272194520466347185),
+    name: 'Contact',
+    lastPropertyId: const obx_int.IdUid(4, 5089761479087831384),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 479197974152165792),
+        name: 'id',
+        type: 6,
+        flags: 1,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 6260048105970876854),
+        name: 'firstName',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 3058618866219444354),
+        name: 'surname',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 5089761479087831384),
+        name: 'nickname',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(16, 4873570092347596398),
+    name: 'NaturalFeature',
+    lastPropertyId: const obx_int.IdUid(16, 7596891895938370304),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 6802305936826864038),
+        name: 'id',
+        type: 6,
+        flags: 1,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 2738527564328033175),
+        name: 'name',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 5114881169000594337),
+        name: 'altName',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 696876151028245729),
+        name: 'tag',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 1925419382137742351),
+        name: 'country',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 3537925486784037571),
+        name: 'county',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 2374370870896688571),
+        name: 'region',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 6539682705490688962),
+        name: 'latitude',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 1930515555638344974),
+        name: 'longitude',
+        type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(10, 3721537297412143739),
+        name: 'gridZoneDesignator',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(11, 4885215710342128811),
+        name: 'mgrs100kId',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(12, 8828675594879832676),
+        name: 'easting',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(13, 5744869755959337874),
+        name: 'northing',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(14, 7657997998336741834),
+        name: 'osmId',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(15, 1076527481016244749),
+        name: 'osmType',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(16, 7596891895938370304),
+        name: 'sourceOfTruth',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -1306,7 +1448,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(14, 3265721523902364308),
+    lastEntityId: const obx_int.IdUid(16, 4873570092347596398),
     lastIndexId: const obx_int.IdUid(24, 1139331039385892952),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
@@ -2934,6 +3076,182 @@ obx_int.ModelDefinition getObjectBoxModel() {
             return object;
           },
         ),
+    Contact: obx_int.EntityDefinition<Contact>(
+      model: _entities[14],
+      toOneRelations: (Contact object) => [],
+      toManyRelations: (Contact object) => {},
+      getId: (Contact object) => object.id,
+      setId: (Contact object, int id) {
+        object.id = id;
+      },
+      objectToFB: (Contact object, fb.Builder fbb) {
+        final firstNameOffset = fbb.writeString(object.firstName);
+        final surnameOffset = fbb.writeString(object.surname);
+        final nicknameOffset = fbb.writeString(object.nickname);
+        fbb.startTable(5);
+        fbb.addInt64(0, object.id);
+        fbb.addOffset(1, firstNameOffset);
+        fbb.addOffset(2, surnameOffset);
+        fbb.addOffset(3, nicknameOffset);
+        fbb.finish(fbb.endTable());
+        return object.id;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final idParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final firstNameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final surnameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 8, '');
+        final nicknameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 10, '');
+        final object = Contact(
+          id: idParam,
+          firstName: firstNameParam,
+          surname: surnameParam,
+          nickname: nicknameParam,
+        );
+
+        return object;
+      },
+    ),
+    NaturalFeature: obx_int.EntityDefinition<NaturalFeature>(
+      model: _entities[15],
+      toOneRelations: (NaturalFeature object) => [],
+      toManyRelations: (NaturalFeature object) => {},
+      getId: (NaturalFeature object) => object.id,
+      setId: (NaturalFeature object, int id) {
+        object.id = id;
+      },
+      objectToFB: (NaturalFeature object, fb.Builder fbb) {
+        final nameOffset = fbb.writeString(object.name);
+        final altNameOffset = fbb.writeString(object.altName);
+        final tagOffset = fbb.writeString(object.tag);
+        final countryOffset = fbb.writeString(object.country);
+        final countyOffset = fbb.writeString(object.county);
+        final regionOffset = fbb.writeString(object.region);
+        final gridZoneDesignatorOffset = fbb.writeString(
+          object.gridZoneDesignator,
+        );
+        final mgrs100kIdOffset = fbb.writeString(object.mgrs100kId);
+        final eastingOffset = fbb.writeString(object.easting);
+        final northingOffset = fbb.writeString(object.northing);
+        final osmTypeOffset = fbb.writeString(object.osmType);
+        final sourceOfTruthOffset = fbb.writeString(object.sourceOfTruth);
+        fbb.startTable(17);
+        fbb.addInt64(0, object.id);
+        fbb.addOffset(1, nameOffset);
+        fbb.addOffset(2, altNameOffset);
+        fbb.addOffset(3, tagOffset);
+        fbb.addOffset(4, countryOffset);
+        fbb.addOffset(5, countyOffset);
+        fbb.addOffset(6, regionOffset);
+        fbb.addFloat64(7, object.latitude);
+        fbb.addFloat64(8, object.longitude);
+        fbb.addOffset(9, gridZoneDesignatorOffset);
+        fbb.addOffset(10, mgrs100kIdOffset);
+        fbb.addOffset(11, eastingOffset);
+        fbb.addOffset(12, northingOffset);
+        fbb.addInt64(13, object.osmId);
+        fbb.addOffset(14, osmTypeOffset);
+        fbb.addOffset(15, sourceOfTruthOffset);
+        fbb.finish(fbb.endTable());
+        return object.id;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final idParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final nameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final altNameParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 8, '');
+        final tagParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 10, '');
+        final countryParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 12, '');
+        final countyParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 14, '');
+        final regionParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 16, '');
+        final latitudeParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          18,
+          0,
+        );
+        final longitudeParam = const fb.Float64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          20,
+          0,
+        );
+        final gridZoneDesignatorParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 22, '');
+        final mgrs100kIdParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 24, '');
+        final eastingParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 26, '');
+        final northingParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 28, '');
+        final osmIdParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          30,
+          0,
+        );
+        final osmTypeParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 32, '');
+        final sourceOfTruthParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 34, '');
+        final object = NaturalFeature(
+          id: idParam,
+          name: nameParam,
+          altName: altNameParam,
+          tag: tagParam,
+          country: countryParam,
+          county: countyParam,
+          region: regionParam,
+          latitude: latitudeParam,
+          longitude: longitudeParam,
+          gridZoneDesignator: gridZoneDesignatorParam,
+          mgrs100kId: mgrs100kIdParam,
+          easting: eastingParam,
+          northing: northingParam,
+          osmId: osmIdParam,
+          osmType: osmTypeParam,
+          sourceOfTruth: sourceOfTruthParam,
+        );
+
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -3863,5 +4181,111 @@ class TrackReplacementRecoveryIssue_ {
   /// See [TrackReplacementRecoveryIssue.reason].
   static final reason = obx.QueryStringProperty<TrackReplacementRecoveryIssue>(
     _entities[13].properties[4],
+  );
+}
+
+/// [Contact] entity fields to define ObjectBox queries.
+class Contact_ {
+  /// See [Contact.id].
+  static final id = obx.QueryIntegerProperty<Contact>(
+    _entities[14].properties[0],
+  );
+
+  /// See [Contact.firstName].
+  static final firstName = obx.QueryStringProperty<Contact>(
+    _entities[14].properties[1],
+  );
+
+  /// See [Contact.surname].
+  static final surname = obx.QueryStringProperty<Contact>(
+    _entities[14].properties[2],
+  );
+
+  /// See [Contact.nickname].
+  static final nickname = obx.QueryStringProperty<Contact>(
+    _entities[14].properties[3],
+  );
+}
+
+/// [NaturalFeature] entity fields to define ObjectBox queries.
+class NaturalFeature_ {
+  /// See [NaturalFeature.id].
+  static final id = obx.QueryIntegerProperty<NaturalFeature>(
+    _entities[15].properties[0],
+  );
+
+  /// See [NaturalFeature.name].
+  static final name = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[1],
+  );
+
+  /// See [NaturalFeature.altName].
+  static final altName = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[2],
+  );
+
+  /// See [NaturalFeature.tag].
+  static final tag = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[3],
+  );
+
+  /// See [NaturalFeature.country].
+  static final country = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[4],
+  );
+
+  /// See [NaturalFeature.county].
+  static final county = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[5],
+  );
+
+  /// See [NaturalFeature.region].
+  static final region = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[6],
+  );
+
+  /// See [NaturalFeature.latitude].
+  static final latitude = obx.QueryDoubleProperty<NaturalFeature>(
+    _entities[15].properties[7],
+  );
+
+  /// See [NaturalFeature.longitude].
+  static final longitude = obx.QueryDoubleProperty<NaturalFeature>(
+    _entities[15].properties[8],
+  );
+
+  /// See [NaturalFeature.gridZoneDesignator].
+  static final gridZoneDesignator = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[9],
+  );
+
+  /// See [NaturalFeature.mgrs100kId].
+  static final mgrs100kId = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[10],
+  );
+
+  /// See [NaturalFeature.easting].
+  static final easting = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[11],
+  );
+
+  /// See [NaturalFeature.northing].
+  static final northing = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[12],
+  );
+
+  /// See [NaturalFeature.osmId].
+  static final osmId = obx.QueryIntegerProperty<NaturalFeature>(
+    _entities[15].properties[13],
+  );
+
+  /// See [NaturalFeature.osmType].
+  static final osmType = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[14],
+  );
+
+  /// See [NaturalFeature.sourceOfTruth].
+  static final sourceOfTruth = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[15],
   );
 }
