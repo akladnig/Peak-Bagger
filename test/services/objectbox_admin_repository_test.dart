@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/contact.dart';
 import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -306,6 +307,58 @@ void main() {
           searchQuery: '-42.8',
           ascending: true,
         ),
+        isEmpty,
+      );
+      expect(
+        (await repository.loadRows(
+          entity,
+          searchQuery: '',
+          ascending: false,
+        )).map((row) => row.primaryKeyValue),
+        orderedEquals([2, 1]),
+      );
+    },
+  );
+
+  test(
+    'contacts use their dedicated label, fields, search, and ID sort',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'objectbox-admin',
+      );
+      addTearDown(() async {
+        if (directory.existsSync()) {
+          await directory.delete(recursive: true);
+        }
+      });
+      final store = await openStore(directory: directory.path);
+      addTearDown(store.close);
+      store.box<Contact>().putMany([
+        Contact(firstName: 'Ada', surname: 'Lovelace', nickname: 'Countess'),
+        Contact(firstName: 'Grace', surname: 'Hopper', nickname: 'Amazing'),
+      ]);
+      final repository = ObjectBoxAdminRepositoryImpl(store: store);
+      final entity = repository.getEntities().singleWhere(
+        (entity) => entity.name == 'Contact',
+      );
+
+      expect(entity.displayName, 'Contacts');
+      expect(entity.fields.map((field) => field.name), [
+        'id',
+        'firstName',
+        'surname',
+        'nickname',
+      ]);
+      expect(
+        (await repository.loadRows(
+          entity,
+          searchQuery: 'COUNTESS',
+          ascending: true,
+        )).single.values['firstName'],
+        'Ada',
+      );
+      expect(
+        await repository.loadRows(entity, searchQuery: '2', ascending: true),
         isEmpty,
       );
       expect(

@@ -59,6 +59,7 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
     final showActionsColumn =
         (entity.name == 'Peak' ||
             entity.name == 'NaturalFeature' ||
+            entity.name == 'Contact' ||
             entity.name == 'GpxTrack' ||
             entity.name == 'Route' ||
             entity.name == 'Waypoints') &&
@@ -293,6 +294,8 @@ class ObjectBoxAdminDataRowTile extends StatelessWidget {
                     key: Key(
                       entityName == 'NaturalFeature'
                           ? 'objectbox-admin-natural-feature-delete-${row.primaryKeyValue}'
+                          : entityName == 'Contact'
+                          ? 'objectbox-admin-contact-delete-${row.primaryKeyValue}'
                           : entityName == 'GpxTrack'
                           ? 'objectbox-admin-gpx-track-delete-${row.primaryKeyValue}'
                           : entityName == 'Route'

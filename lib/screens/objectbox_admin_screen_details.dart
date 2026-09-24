@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/contact.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
@@ -8,6 +9,7 @@ import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/services/natural_feature_admin_editor.dart';
 import 'package:peak_bagger/services/peak_list_admin_editor.dart';
 import 'package:peak_bagger/services/route_admin_editor.dart';
+import 'package:peak_bagger/services/contact_admin_editor.dart';
 
 class ObjectBoxAdminDetailsPane extends StatelessWidget {
   const ObjectBoxAdminDetailsPane({
@@ -16,7 +18,9 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
     required this.peakList,
     required this.route,
     required this.naturalFeature,
+    this.contact,
     required this.isCreatingPeak,
+    this.isCreatingContact = false,
     required this.isNaturalFeatureMutationLocked,
     required this.onClose,
     required this.createOsmId,
@@ -27,6 +31,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
     required this.onPeakListSubmit,
     required this.onRouteSubmit,
     required this.onNaturalFeatureSubmit,
+    this.onContactSubmit,
     super.key,
   });
 
@@ -35,7 +40,9 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
   final PeakList? peakList;
   final app_route.Route? route;
   final NaturalFeature? naturalFeature;
+  final Contact? contact;
   final bool isCreatingPeak;
+  final bool isCreatingContact;
   final bool isNaturalFeatureMutationLocked;
   final VoidCallback onClose;
   final int createOsmId;
@@ -46,10 +53,11 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
   final Future<String?> Function(PeakListAdminFormState form) onPeakListSubmit;
   final Future<String?> Function(RouteAdminFormState form) onRouteSubmit;
   final Future<String?> Function(NaturalFeature feature) onNaturalFeatureSubmit;
+  final Future<String?> Function(Contact contact)? onContactSubmit;
 
   @override
   Widget build(BuildContext context) {
-    if (row == null && !isCreatingPeak) {
+    if (row == null && !isCreatingPeak && !isCreatingContact) {
       return _ObjectBoxAdminReadOnlyDetailsPane(
         row: null,
         entity: entity,
@@ -77,6 +85,15 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
         mutationLocked: isNaturalFeatureMutationLocked,
         onClose: onClose,
         onNaturalFeatureSubmit: onNaturalFeatureSubmit,
+      );
+    }
+
+    if (entity.name == 'Contact' && (contact != null || isCreatingContact)) {
+      return _ContactAdminDetailsPane(
+        contact: contact ?? Contact(),
+        createMode: isCreatingContact,
+        onClose: onClose,
+        onContactSubmit: onContactSubmit!,
       );
     }
 
@@ -1708,6 +1725,7 @@ String _objectBoxAdminDetailsTitle(
     'Tasmap50k',
     'Waypoints',
     'NaturalFeature',
+    'Contact',
   };
 
   if (row == null || !namedEntities.contains(entity.name)) {
@@ -1726,6 +1744,20 @@ String _objectBoxAdminDetailsTitle(
         '${objectBoxAdminFormatValue(row.values['osmId'])}';
   }
 
+  if (entity.name == 'Contact') {
+    final title = [
+      objectBoxAdminFormatValue(row.values['firstName']).trim(),
+      objectBoxAdminFormatValue(row.values['surname']).trim(),
+    ].where((part) => part.isNotEmpty && part != '—').join(' ');
+    if (title.isNotEmpty) {
+      return title;
+    }
+    final nickname = objectBoxAdminFormatValue(row.values['nickname']).trim();
+    if (nickname.isNotEmpty && nickname != '—') {
+      return nickname;
+    }
+  }
+
   final value = row.values[entity.primaryNameField];
   final title = objectBoxAdminFormatValue(value).trim();
   if (title.isNotEmpty && title != '—') {
@@ -1733,6 +1765,301 @@ String _objectBoxAdminDetailsTitle(
   }
 
   return '${entity.displayName} #${objectBoxAdminFormatValue(row.primaryKeyValue)}';
+}
+
+class _ContactAdminDetailsPane extends StatefulWidget {
+  const _ContactAdminDetailsPane({
+    required this.contact,
+    required this.createMode,
+    required this.onClose,
+    required this.onContactSubmit,
+  });
+
+  final Contact contact;
+  final bool createMode;
+  final VoidCallback onClose;
+  final Future<String?> Function(Contact contact) onContactSubmit;
+
+  @override
+  State<_ContactAdminDetailsPane> createState() =>
+      _ContactAdminDetailsPaneState();
+}
+
+class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
+  late final TextEditingController _firstNameController;
+  late final TextEditingController _surnameController;
+  late final TextEditingController _nicknameController;
+  var _isEditing = false;
+  var _isSaving = false;
+  ContactAdminValidationResult _validation = const ContactAdminValidationResult(
+    fieldErrors: {},
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _firstNameController = TextEditingController();
+    _surnameController = TextEditingController();
+    _nicknameController = TextEditingController();
+    _syncFromContact();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ContactAdminDetailsPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.contact.id != widget.contact.id ||
+        oldWidget.createMode != widget.createMode) {
+      _syncFromContact();
+    }
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _surnameController.dispose();
+    _nicknameController.dispose();
+    super.dispose();
+  }
+
+  ContactAdminFormState _currentForm() => ContactAdminFormState(
+    firstName: _firstNameController.text,
+    surname: _surnameController.text,
+    nickname: _nicknameController.text,
+  );
+
+  void _syncFromContact() {
+    _firstNameController.text = widget.contact.firstName;
+    _surnameController.text = widget.contact.surname;
+    _nicknameController.text = widget.contact.nickname;
+    _isEditing = widget.createMode;
+    _isSaving = false;
+    _validation = const ContactAdminValidationResult(fieldErrors: {});
+  }
+
+  void _validate() {
+    setState(() {
+      _validation = ContactAdminEditor.validateAndBuild(
+        source: widget.contact,
+        form: _currentForm(),
+      );
+    });
+  }
+
+  void _cancelEditing() {
+    if (widget.createMode) {
+      widget.onClose();
+      return;
+    }
+    setState(_syncFromContact);
+  }
+
+  Future<void> _submit() async {
+    if (_isSaving) {
+      return;
+    }
+    final validation = ContactAdminEditor.validateAndBuild(
+      source: widget.contact,
+      form: _currentForm(),
+    );
+    setState(() => _validation = validation);
+    if (!validation.isValid) {
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    final error = await widget.onContactSubmit(validation.contact!);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isSaving = false;
+      if (error == null) {
+        _isEditing = false;
+      }
+    });
+  }
+
+  String get _title {
+    final validation = ContactAdminEditor.validateAndBuild(
+      source: widget.contact,
+      form: _currentForm(),
+    );
+    if (widget.createMode && !validation.isValid) {
+      return 'New Contact';
+    }
+    final displayName = contactDisplayName(
+      validation.contact ?? widget.contact,
+    );
+    return displayName.isEmpty ? 'New Contact' : displayName;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                if (!_isEditing)
+                  IconButton(
+                    key: const Key('objectbox-admin-contact-edit'),
+                    onPressed: _isSaving
+                        ? null
+                        : () => setState(() => _isEditing = true),
+                    icon: const Icon(Icons.edit),
+                  ),
+                IconButton(
+                  key: const Key('objectbox-admin-details-close'),
+                  onPressed: _isSaving ? null : widget.onClose,
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: _isEditing
+                  ? _ContactEditForm(
+                      firstNameController: _firstNameController,
+                      surnameController: _surnameController,
+                      nicknameController: _nicknameController,
+                      validation: _validation,
+                      isSaving: _isSaving,
+                      onChanged: _validate,
+                      onCancel: _cancelEditing,
+                      onSubmit: _submit,
+                    )
+                  : _ContactReadOnlyDetails(contact: widget.contact),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactReadOnlyDetails extends StatelessWidget {
+  const _ContactReadOnlyDetails({required this.contact});
+
+  final Contact contact;
+
+  @override
+  Widget build(BuildContext context) {
+    final values = {
+      'id': contact.id,
+      'firstName': contact.firstName,
+      'surname': contact.surname,
+      'nickname': contact.nickname,
+    };
+    return ListView(
+      key: const Key('objectbox-admin-details-list'),
+      children: [
+        for (final entry in values.entries)
+          ListTile(
+            dense: true,
+            title: Text(entry.key),
+            subtitle: SelectableText(objectBoxAdminFormatValue(entry.value)),
+          ),
+      ],
+    );
+  }
+}
+
+class _ContactEditForm extends StatelessWidget {
+  const _ContactEditForm({
+    required this.firstNameController,
+    required this.surnameController,
+    required this.nicknameController,
+    required this.validation,
+    required this.isSaving,
+    required this.onChanged,
+    required this.onCancel,
+    required this.onSubmit,
+  });
+
+  final TextEditingController firstNameController;
+  final TextEditingController surnameController;
+  final TextEditingController nicknameController;
+  final ContactAdminValidationResult validation;
+  final bool isSaving;
+  final VoidCallback onChanged;
+  final VoidCallback onCancel;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: ListView(
+            key: const Key('objectbox-admin-contact-edit-form'),
+            children: [
+              _field(
+                keyName: 'first-name',
+                label: 'First name',
+                controller: firstNameController,
+                errorText: validation.fieldErrors['firstName'],
+              ),
+              const SizedBox(height: 8),
+              _field(
+                keyName: 'surname',
+                label: 'Surname',
+                controller: surnameController,
+                errorText: validation.fieldErrors['surname'],
+              ),
+              const SizedBox(height: 8),
+              _field(
+                keyName: 'nickname',
+                label: 'Nickname',
+                controller: nicknameController,
+                errorText: validation.fieldErrors['nickname'],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton(
+          key: const Key('objectbox-admin-contact-cancel'),
+          onPressed: isSaving ? null : onCancel,
+          child: const Text('Cancel'),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          key: const Key('objectbox-admin-contact-save'),
+          onPressed: isSaving ? null : onSubmit,
+          child: Text(isSaving ? 'Saving...' : 'Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _field({
+    required String keyName,
+    required String label,
+    required TextEditingController controller,
+    required String? errorText,
+  }) {
+    return TextFormField(
+      key: Key('objectbox-admin-contact-$keyName'),
+      controller: controller,
+      enabled: !isSaving,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        errorText: errorText,
+      ),
+      onChanged: (_) => onChanged(),
+    );
+  }
 }
 
 class _NaturalFeatureAdminDetailsPane extends StatefulWidget {

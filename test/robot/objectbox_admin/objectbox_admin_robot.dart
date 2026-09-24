@@ -11,12 +11,14 @@ import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
+import 'package:peak_bagger/providers/contact_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/contact_repository.dart';
 
 import '../../harness/test_map_notifier.dart';
 import '../../harness/test_objectbox_admin_repository.dart';
@@ -40,6 +42,14 @@ class ObjectBoxAdminRobot {
       find.byKey(const Key('objectbox-admin-export-error'));
   Finder get table => find.byKey(const Key('objectbox-admin-table'));
   Finder get addPeakButton => find.byKey(const Key('objectbox-admin-peak-add'));
+  Finder get addContactButton =>
+      find.byKey(const Key('objectbox-admin-contact-add'));
+  Finder get contactEditButton =>
+      find.byKey(const Key('objectbox-admin-contact-edit'));
+  Finder get contactSaveButton =>
+      find.byKey(const Key('objectbox-admin-contact-save'));
+  Finder get contactCancelButton =>
+      find.byKey(const Key('objectbox-admin-contact-cancel'));
   Finder get peakEditButton =>
       find.byKey(const Key('objectbox-admin-peak-edit'));
   Finder get peakViewOnMapButton =>
@@ -81,10 +91,14 @@ class ObjectBoxAdminRobot {
       find.byKey(Key('objectbox-admin-peak-delete-$peakId'));
   Finder routeDeleteButton(int routeId) =>
       find.byKey(Key('objectbox-admin-route-delete-$routeId'));
+  Finder contactDeleteButton(int contactId) =>
+      find.byKey(Key('objectbox-admin-contact-delete-$contactId'));
   Finder peakField(String fieldName) =>
       find.byKey(Key('objectbox-admin-peak-${_fieldKey(fieldName)}'));
   Finder routeField(String fieldName) =>
       find.byKey(Key('objectbox-admin-route-${_fieldKey(fieldName)}'));
+  Finder contactField(String fieldName) =>
+      find.byKey(Key('objectbox-admin-contact-${_fieldKey(fieldName)}'));
 
   String _fieldKey(String fieldName) {
     return fieldName.replaceAllMapped(
@@ -99,6 +113,7 @@ class ObjectBoxAdminRobot {
     PeakRepository? peakRepository,
     PeakDeleteGuard? peakDeleteGuard,
     RouteRepository? routeRepository,
+    ContactRepository? contactRepository,
     MapState? mapState,
     Size size = const Size(1280, 900),
   }) async {
@@ -128,6 +143,10 @@ class ObjectBoxAdminRobot {
           ),
           routeRepositoryProvider.overrideWithValue(
             routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
+          ),
+          contactRepositoryProvider.overrideWithValue(
+            contactRepository ??
+                ContactRepository.test(InMemoryContactStorage()),
           ),
           if (peakRepository != null)
             peakRepositoryProvider.overrideWithValue(peakRepository),
@@ -187,6 +206,29 @@ class ObjectBoxAdminRobot {
 
   Future<void> startCreatingPeak() async {
     await tester.tap(addPeakButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> startCreatingContact() async {
+    await tester.tap(addContactButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> startEditingContact() async {
+    await tester.tap(contactEditButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> enterContactField(String fieldName, String value) async {
+    final finder = contactField(fieldName);
+    await tester.tap(finder);
+    await tester.pump();
+    tester.testTextInput.enterText(value);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> saveContact() async {
+    await tester.tap(contactSaveButton);
     await tester.pumpAndSettle();
   }
 

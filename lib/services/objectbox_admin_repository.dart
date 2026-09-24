@@ -4,6 +4,7 @@ import 'dart:developer' as developer;
 import 'package:path_provider/path_provider.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/contact.dart';
 import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -77,6 +78,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
         trimmedQuery,
         ascending,
       ),
+      'Contact' => _loadContactRows(store, trimmedQuery, ascending),
       'PeakList' => _loadPeakListRows(store, trimmedQuery, ascending),
       'Tasmap50k' => _loadTasmapRows(store, trimmedQuery, ascending),
       'GpxTrack' => _loadTrackRows(store, trimmedQuery, ascending),
@@ -135,9 +137,11 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
   ObjectBoxAdminEntityDescriptor _toEntityDescriptor(
     obx_int.ModelEntity entity,
   ) {
-    final displayName = entity.name == 'NaturalFeature'
-        ? 'Natural Features'
-        : (entity.externalName ?? entity.name);
+    final displayName = switch (entity.name) {
+      'NaturalFeature' => 'Natural Features',
+      'Contact' => 'Contacts',
+      _ => entity.externalName ?? entity.name,
+    };
     final primaryKeyField = entity.idProperty.name;
     final primaryNameField = _primaryNameField(entity.name);
 
@@ -199,6 +203,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
     return switch (entityName) {
       'Peak' => 'name',
       'NaturalFeature' => 'name',
+      'Contact' => 'firstName',
       'PeakList' => 'name',
       'PeakListItemEntity' => 'id',
       'Tasmap50k' => 'name',
@@ -298,6 +303,23 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       (a, b) => ascending ? a.id.compareTo(b.id) : b.id.compareTo(a.id),
     );
     return filtered.map(naturalFeatureToAdminRow).toList(growable: false);
+  }
+
+  List<ObjectBoxAdminRow> _loadContactRows(
+    Store store,
+    String query,
+    bool ascending,
+  ) {
+    final items = store.box<Contact>().getAll();
+    final filtered = query.isEmpty
+        ? items
+        : items
+              .where((contact) => _contactMatchesSearch(contact, query))
+              .toList();
+    filtered.sort(
+      (a, b) => ascending ? a.id.compareTo(b.id) : b.id.compareTo(a.id),
+    );
+    return filtered.map(contactToAdminRow).toList(growable: false);
   }
 
   List<ObjectBoxAdminRow> _loadTasmapRows(
@@ -681,6 +703,26 @@ ObjectBoxAdminRow naturalFeatureToAdminRow(NaturalFeature feature) {
       'osmId': feature.osmId,
       'osmType': feature.osmType,
       'sourceOfTruth': feature.sourceOfTruth,
+    },
+  );
+}
+
+String contactDisplayName(Contact contact) {
+  final name = [
+    contact.firstName.trim(),
+    contact.surname.trim(),
+  ].where((part) => part.isNotEmpty).join(' ');
+  return name.isNotEmpty ? name : contact.nickname.trim();
+}
+
+ObjectBoxAdminRow contactToAdminRow(Contact contact) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: contact.id,
+    values: {
+      'id': contact.id,
+      'firstName': contact.firstName,
+      'surname': contact.surname,
+      'nickname': contact.nickname,
     },
   );
 }
@@ -1126,6 +1168,9 @@ List<ObjectBoxAdminRow> objectBoxAdminFilterAndSortRows(
               if (entity.name == 'NaturalFeature') {
                 return _naturalFeatureRowMatchesSearch(row, trimmedQuery);
               }
+              if (entity.name == 'Contact') {
+                return _contactRowMatchesSearch(row, trimmedQuery);
+              }
               final value = row.values[entity.primaryNameField];
               return objectBoxAdminFormatValue(
                 value,
@@ -1160,6 +1205,20 @@ bool _naturalFeatureMatchesSearch(NaturalFeature feature, String query) {
   return _naturalFeatureRowMatchesSearch(
     naturalFeatureToAdminRow(feature),
     query,
+  );
+}
+
+bool _contactMatchesSearch(Contact contact, String query) {
+  return _contactRowMatchesSearch(contactToAdminRow(contact), query);
+}
+
+bool _contactRowMatchesSearch(ObjectBoxAdminRow row, String query) {
+  return [
+    row.values['firstName'],
+    row.values['surname'],
+    row.values['nickname'],
+  ].any(
+    (value) => objectBoxAdminFormatValue(value).toLowerCase().contains(query),
   );
 }
 
