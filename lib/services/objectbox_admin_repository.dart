@@ -4,6 +4,8 @@ import 'dart:developer' as developer;
 import 'package:path_provider/path_provider.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/contact.dart';
+import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
@@ -71,11 +73,21 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
 
     final rows = switch (entity.name) {
       'Peak' => _loadPeakRows(store, trimmedQuery, ascending),
+      'NaturalFeature' => _loadNaturalFeatureRows(
+        store,
+        trimmedQuery,
+        ascending,
+      ),
+      'Contact' => _loadContactRows(store, trimmedQuery, ascending),
       'PeakList' => _loadPeakListRows(store, trimmedQuery, ascending),
       'Tasmap50k' => _loadTasmapRows(store, trimmedQuery, ascending),
       'GpxTrack' => _loadTrackRows(store, trimmedQuery, ascending),
       'PeaksBagged' => _loadPeaksBaggedRows(store, trimmedQuery, ascending),
-      'PeakListItemEntity' => _loadPeakListItemRows(store, trimmedQuery, ascending),
+      'PeakListItemEntity' => _loadPeakListItemRows(
+        store,
+        trimmedQuery,
+        ascending,
+      ),
       'Waypoints' => _loadWaypointsRows(store, trimmedQuery, ascending),
       'Route' => _loadRouteRows(store, trimmedQuery, ascending),
       'RouteGraphChunk' => _loadRouteGraphChunkRows(
@@ -125,7 +137,11 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
   ObjectBoxAdminEntityDescriptor _toEntityDescriptor(
     obx_int.ModelEntity entity,
   ) {
-    final displayName = entity.externalName ?? entity.name;
+    final displayName = switch (entity.name) {
+      'NaturalFeature' => 'Natural Features',
+      'Contact' => 'Contacts',
+      _ => entity.externalName ?? entity.name,
+    };
     final primaryKeyField = entity.idProperty.name;
     final primaryNameField = _primaryNameField(entity.name);
 
@@ -186,6 +202,8 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
   String _primaryNameField(String entityName) {
     return switch (entityName) {
       'Peak' => 'name',
+      'NaturalFeature' => 'name',
+      'Contact' => 'firstName',
       'PeakList' => 'name',
       'PeakListItemEntity' => 'id',
       'Tasmap50k' => 'name',
@@ -270,6 +288,40 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
     return filtered.map(peakToAdminRow).toList(growable: false);
   }
 
+  List<ObjectBoxAdminRow> _loadNaturalFeatureRows(
+    Store store,
+    String query,
+    bool ascending,
+  ) {
+    final items = store.box<NaturalFeature>().getAll();
+    final filtered = query.isEmpty
+        ? items
+        : items
+              .where((feature) => _naturalFeatureMatchesSearch(feature, query))
+              .toList();
+    filtered.sort(
+      (a, b) => ascending ? a.id.compareTo(b.id) : b.id.compareTo(a.id),
+    );
+    return filtered.map(naturalFeatureToAdminRow).toList(growable: false);
+  }
+
+  List<ObjectBoxAdminRow> _loadContactRows(
+    Store store,
+    String query,
+    bool ascending,
+  ) {
+    final items = store.box<Contact>().getAll();
+    final filtered = query.isEmpty
+        ? items
+        : items
+              .where((contact) => _contactMatchesSearch(contact, query))
+              .toList();
+    filtered.sort(
+      (a, b) => ascending ? a.id.compareTo(b.id) : b.id.compareTo(a.id),
+    );
+    return filtered.map(contactToAdminRow).toList(growable: false);
+  }
+
   List<ObjectBoxAdminRow> _loadTasmapRows(
     Store store,
     String query,
@@ -337,9 +389,9 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       if (peakListId == 0 || peak == null || peak.osmId == 0) {
         continue;
       }
-      membershipItemsByPeakListId.putIfAbsent(peakListId, () => []).add(
-        PeakListItem(peakOsmId: peak.osmId, points: item.points),
-      );
+      membershipItemsByPeakListId
+          .putIfAbsent(peakListId, () => [])
+          .add(PeakListItem(peakOsmId: peak.osmId, points: item.points));
     }
     final filtered = query.isEmpty
         ? items
@@ -627,6 +679,50 @@ ObjectBoxAdminRow peakToAdminRow(Peak peak) {
       'northing': peak.northing,
       'verified': peak.verified,
       'sourceOfTruth': peak.sourceOfTruth,
+    },
+  );
+}
+
+ObjectBoxAdminRow naturalFeatureToAdminRow(NaturalFeature feature) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: feature.id,
+    values: {
+      'id': feature.id,
+      'name': feature.name,
+      'altName': feature.altName,
+      'tag': feature.tag,
+      'country': feature.country,
+      'county': feature.county,
+      'region': feature.region,
+      'latitude': feature.latitude,
+      'longitude': feature.longitude,
+      'gridZoneDesignator': feature.gridZoneDesignator,
+      'mgrs100kId': feature.mgrs100kId,
+      'easting': feature.easting,
+      'northing': feature.northing,
+      'osmId': feature.osmId,
+      'osmType': feature.osmType,
+      'sourceOfTruth': feature.sourceOfTruth,
+    },
+  );
+}
+
+String contactDisplayName(Contact contact) {
+  final name = [
+    contact.firstName.trim(),
+    contact.surname.trim(),
+  ].where((part) => part.isNotEmpty).join(' ');
+  return name.isNotEmpty ? name : contact.nickname.trim();
+}
+
+ObjectBoxAdminRow contactToAdminRow(Contact contact) {
+  return ObjectBoxAdminRow(
+    primaryKeyValue: contact.id,
+    values: {
+      'id': contact.id,
+      'firstName': contact.firstName,
+      'surname': contact.surname,
+      'nickname': contact.nickname,
     },
   );
 }
@@ -1069,6 +1165,12 @@ List<ObjectBoxAdminRow> objectBoxAdminFilterAndSortRows(
                   query: trimmedQuery,
                 );
               }
+              if (entity.name == 'NaturalFeature') {
+                return _naturalFeatureRowMatchesSearch(row, trimmedQuery);
+              }
+              if (entity.name == 'Contact') {
+                return _contactRowMatchesSearch(row, trimmedQuery);
+              }
               final value = row.values[entity.primaryNameField];
               return objectBoxAdminFormatValue(
                 value,
@@ -1097,6 +1199,39 @@ bool _peakMatchesSearch({
 }) {
   return objectBoxAdminFormatValue(name).toLowerCase().contains(query) ||
       objectBoxAdminFormatValue(altName).trim().toLowerCase().contains(query);
+}
+
+bool _naturalFeatureMatchesSearch(NaturalFeature feature, String query) {
+  return _naturalFeatureRowMatchesSearch(
+    naturalFeatureToAdminRow(feature),
+    query,
+  );
+}
+
+bool _contactMatchesSearch(Contact contact, String query) {
+  return _contactRowMatchesSearch(contactToAdminRow(contact), query);
+}
+
+bool _contactRowMatchesSearch(ObjectBoxAdminRow row, String query) {
+  return [
+    row.values['firstName'],
+    row.values['surname'],
+    row.values['nickname'],
+  ].any(
+    (value) => objectBoxAdminFormatValue(value).toLowerCase().contains(query),
+  );
+}
+
+bool _naturalFeatureRowMatchesSearch(ObjectBoxAdminRow row, String query) {
+  return [
+    row.values['name'],
+    row.values['altName'],
+    row.values['tag'],
+    row.values['osmType'],
+    row.values['osmId'],
+  ].any(
+    (value) => objectBoxAdminFormatValue(value).toLowerCase().contains(query),
+  );
 }
 
 void logObjectBoxAdminError(

@@ -12,6 +12,9 @@ import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/providers/background_jobs_provider.dart';
+import 'package:peak_bagger/providers/natural_feature_provider.dart';
+import 'package:peak_bagger/providers/contact_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_controls.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_details.dart';
@@ -22,6 +25,8 @@ import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_list_admin_editor.dart';
 import 'package:peak_bagger/services/route_admin_editor.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/natural_feature.dart';
+import 'package:peak_bagger/models/contact.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
 
@@ -41,6 +46,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   double _horizontalOffset = 0;
   bool _syncingHorizontal = false;
   bool _isCreatingPeak = false;
+  bool _isCreatingContact = false;
   late final VoidCallback _routerListener;
   String? _lastRoutePath;
 
@@ -264,6 +270,132 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
   }
 
+  bool get _naturalFeatureMutationsLocked {
+    return ref.read(backgroundJobsProvider).runningJob?.kind ==
+        BackgroundJobKind.refreshNaturalFeatures;
+  }
+
+  Future<String?> _saveNaturalFeature(NaturalFeature feature) async {
+    if (_naturalFeatureMutationsLocked) {
+      return 'Natural features cannot be changed while refresh is running.';
+    }
+    try {
+      final saved = ref.read(naturalFeatureRepositoryProvider).save(feature);
+      await ref
+          .read(objectboxAdminProvider.notifier)
+          .refresh(keepSelectedRowPrimaryKey: saved.id);
+      if (!mounted) {
+        return null;
+      }
+      await showSingleActionDialog(
+        context: context,
+        title: 'Update Successful',
+        content: Text('${saved.name} updated.'),
+        closeKey: 'objectbox-admin-natural-feature-update-success-close',
+      );
+      return null;
+    } catch (error, stackTrace) {
+      logObjectBoxAdminError(
+        error,
+        stackTrace,
+        'Natural Feature save failed for ${feature.name}',
+      );
+      if (!mounted) {
+        return 'Failed to save Natural Feature: $error';
+      }
+      await showSingleActionDialog(
+        context: context,
+        title: 'Save Failed',
+        content: Text('Failed to save Natural Feature: $error'),
+        closeKey: 'objectbox-admin-natural-feature-save-error-close',
+      );
+      return 'Failed to save Natural Feature: $error';
+    }
+  }
+
+  Future<String?> _saveContact(Contact contact) async {
+    try {
+      final saved = ref.read(contactRepositoryProvider).save(contact);
+      await ref
+          .read(objectboxAdminProvider.notifier)
+          .refresh(keepSelectedRowPrimaryKey: saved.id);
+      if (!mounted) {
+        return null;
+      }
+      setState(() => _isCreatingContact = false);
+      return null;
+    } catch (error, stackTrace) {
+      logObjectBoxAdminError(error, stackTrace, 'Contact save failed');
+      return 'Failed to save Contact: $error';
+    }
+  }
+
+  Future<void> _deleteContact(ObjectBoxAdminRow row) async {
+    final repository = ref.read(contactRepositoryProvider);
+    final contact = repository.findById(row.primaryKeyValue as int);
+    if (contact == null) {
+      return;
+    }
+    final displayName = contactDisplayName(contact);
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Delete Contact?',
+      message:
+          'This will permanently delete the ${displayName.isEmpty ? 'Contact' : displayName}. Do you want to proceed?',
+      cancelKey: 'cancel-delete',
+      cancelLabel: 'Cancel',
+      confirmKey: 'confirm-delete',
+      confirmLabel: 'Delete',
+    );
+    if (confirmed != true) {
+      return;
+    }
+    final selectedRow = ref.read(objectboxAdminProvider).selectedRow;
+    repository.delete(contact.id);
+    await ref
+        .read(objectboxAdminProvider.notifier)
+        .refresh(
+          keepSelectedRowPrimaryKey:
+              selectedRow?.primaryKeyValue == row.primaryKeyValue
+              ? null
+              : selectedRow?.primaryKeyValue,
+        );
+  }
+
+  Future<void> _deleteNaturalFeature(ObjectBoxAdminRow row) async {
+    if (_naturalFeatureMutationsLocked) {
+      return;
+    }
+    final repository = ref.read(naturalFeatureRepositoryProvider);
+    final feature = repository.findById(row.primaryKeyValue as int);
+    if (feature == null) {
+      return;
+    }
+    final confirmed = await showDangerConfirmDialog(
+      context: context,
+      title: 'Delete Natural Feature?',
+      message:
+          'This will permanently delete the ${feature.name}. Do you want to proceed?',
+      cancelKey: 'cancel-delete',
+      cancelLabel: 'Cancel',
+      confirmKey: 'confirm-delete',
+      confirmLabel: 'Delete',
+    );
+    if (confirmed != true || _naturalFeatureMutationsLocked) {
+      return;
+    }
+    final selectedRow = ref.read(objectboxAdminProvider).selectedRow;
+    repository.delete(feature.id);
+    await ref
+        .read(objectboxAdminProvider.notifier)
+        .refresh(
+          keepSelectedRowPrimaryKey:
+              selectedRow?.primaryKeyValue == row.primaryKeyValue
+              ? null
+              : selectedRow?.primaryKeyValue,
+        );
+  }
+
   void _viewGpxTrackOnMainMap(ObjectBoxAdminRow row) {
     final trackId = row.primaryKeyValue as int;
     final repository = ref.read(gpxTrackRepositoryProvider);
@@ -288,6 +420,16 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
 
   void _viewPeakOnMainMap(Peak peak) {
     final location = LatLng(peak.latitude, peak.longitude);
+    final mapNotifier = ref.read(mapProvider.notifier);
+    mapNotifier.requestCameraMove(
+      center: location,
+      zoom: MapConstants.defaultZoom,
+    );
+    router.go('/map');
+  }
+
+  void _viewNaturalFeatureOnMainMap(NaturalFeature naturalFeature) {
+    final location = LatLng(naturalFeature.latitude, naturalFeature.longitude);
     final mapNotifier = ref.read(mapProvider.notifier);
     mapNotifier.requestCameraMove(
       center: location,
@@ -605,6 +747,11 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     notifier.clearSelection();
   }
 
+  void _startCreatingContact() {
+    setState(() => _isCreatingContact = true);
+    ref.read(objectboxAdminProvider.notifier).clearSelection();
+  }
+
   String _describeDeleteBlockers(List<PeakDeleteBlocker> blockers) {
     final fragments = blockers
         .map((blocker) {
@@ -632,6 +779,9 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     _maybeRefreshOnVisibleEntry();
 
     final state = ref.watch(objectboxAdminProvider);
+    final naturalFeatureMutationsLocked =
+        ref.watch(backgroundJobsProvider).runningJob?.kind ==
+        BackgroundJobKind.refreshNaturalFeatures;
     final notifier = ref.read(objectboxAdminProvider.notifier);
 
     if (_searchController.text != state.searchQuery) {
@@ -660,6 +810,9 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                     _isCreatingPeak = false;
                   });
                 }
+                if (_isCreatingContact) {
+                  setState(() => _isCreatingContact = false);
+                }
                 notifier.selectEntity(entity);
               },
               onModeChanged: (mode) {
@@ -668,12 +821,16 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                     _isCreatingPeak = false;
                   });
                 }
+                if (_isCreatingContact) {
+                  setState(() => _isCreatingContact = false);
+                }
                 notifier.setMode(mode);
               },
               onSearchChanged: notifier.updateSearchQuery,
               onSearchSubmitted: notifier.runSearch,
               onSearchPressed: notifier.runSearch,
               onAddPeakPressed: _startCreatingPeak,
+              onAddContactPressed: _startCreatingContact,
               onSortPressed: notifier.toggleSort,
               onExportPressed: state.selectedRow == null
                   ? null
@@ -683,7 +840,12 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
             Expanded(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 160),
-                child: _buildBody(context, state, notifier),
+                child: _buildBody(
+                  context,
+                  state,
+                  notifier,
+                  naturalFeatureMutationsLocked,
+                ),
               ),
             ),
           ],
@@ -696,6 +858,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     BuildContext context,
     ObjectBoxAdminState state,
     ObjectBoxAdminNotifier notifier,
+    bool naturalFeatureMutationsLocked,
   ) {
     if (state.entities.isEmpty) {
       return const ObjectBoxAdminEmptyState(
@@ -733,6 +896,11 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         entity.name == 'Peak' &&
         state.mode == ObjectBoxAdminViewMode.data &&
         _isCreatingPeak;
+
+    final isContactCreateMode =
+        entity.name == 'Contact' &&
+        state.mode == ObjectBoxAdminViewMode.data &&
+        _isCreatingContact;
 
     if (isPeakCreateMode) {
       final createOsmId = ref.read(peakRepositoryProvider).nextSyntheticOsmId();
@@ -778,11 +946,74 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                 notifier.clearSelection();
               },
               onViewPeakOnMap: _viewPeakOnMainMap,
+              onViewNaturalFeatureOnMap: _viewNaturalFeatureOnMainMap,
               onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
               onViewRouteOnMap: _viewRouteOnMainMap,
               onPeakSubmit: _savePeak,
               onPeakListSubmit: _savePeakList,
               onRouteSubmit: _saveRoute,
+              naturalFeature: null,
+              isNaturalFeatureMutationLocked: naturalFeatureMutationsLocked,
+              onNaturalFeatureSubmit: _saveNaturalFeature,
+              contact: null,
+              isCreatingContact: false,
+              onContactSubmit: _saveContact,
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (isContactCreateMode) {
+      return Row(
+        children: [
+          Expanded(
+            child: ObjectBoxAdminDataGrid(
+              key: const Key('objectbox-admin-table'),
+              entity: entity,
+              rows: state.visibleRows,
+              sortAscending: state.sortAscending,
+              selectedRow: state.selectedRow,
+              headerHorizontalController: _headerHorizontalController,
+              rowHorizontalControllerFor: (row) =>
+                  _rowHorizontalControllerFor(entity, row),
+              verticalController: _verticalController,
+              canLoadMore: state.visibleRowCount < state.rows.length,
+              onSortPressed: notifier.toggleSort,
+              onRowTap: (row) {
+                setState(() => _isCreatingContact = false);
+                notifier.selectRow(row);
+              },
+              onDeletePressed: _deleteContact,
+            ),
+          ),
+          const SizedBox(width: 16),
+          SizedBox(
+            width: 320,
+            child: ObjectBoxAdminDetailsPane(
+              row: null,
+              entity: entity,
+              peakList: null,
+              route: null,
+              naturalFeature: null,
+              contact: null,
+              isCreatingPeak: false,
+              isCreatingContact: true,
+              isNaturalFeatureMutationLocked: false,
+              createOsmId: 0,
+              onClose: () {
+                setState(() => _isCreatingContact = false);
+                notifier.clearSelection();
+              },
+              onViewPeakOnMap: _viewPeakOnMainMap,
+              onViewNaturalFeatureOnMap: _viewNaturalFeatureOnMainMap,
+              onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
+              onViewRouteOnMap: _viewRouteOnMainMap,
+              onPeakSubmit: _savePeak,
+              onPeakListSubmit: _savePeakList,
+              onRouteSubmit: _saveRoute,
+              onNaturalFeatureSubmit: _saveNaturalFeature,
+              onContactSubmit: _saveContact,
             ),
           ),
         ],
@@ -823,11 +1054,16 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
             onRowTap: notifier.selectRow,
             onDeletePressed: switch (entity.name) {
               'Peak' => _deletePeak,
+              'NaturalFeature' => _deleteNaturalFeature,
+              'Contact' => _deleteContact,
               'GpxTrack' => _deleteGpxTrack,
               'Route' => _deleteRoute,
               'Waypoints' => _deleteWaypoint,
               _ => null,
             },
+            deleteEnabled:
+                !naturalFeatureMutationsLocked ||
+                entity.name != 'NaturalFeature',
           ),
         ),
         const SizedBox(width: 16),
@@ -846,15 +1082,31 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                       .read(routeRepositoryProvider)
                       .findById(state.selectedRow!.primaryKeyValue as int)
                 : null,
+            naturalFeature:
+                entity.name == 'NaturalFeature' && state.selectedRow != null
+                ? ref
+                      .read(naturalFeatureRepositoryProvider)
+                      .findById(state.selectedRow!.primaryKeyValue as int)
+                : null,
+            contact: entity.name == 'Contact' && state.selectedRow != null
+                ? ref
+                      .read(contactRepositoryProvider)
+                      .findById(state.selectedRow!.primaryKeyValue as int)
+                : null,
             isCreatingPeak: false,
+            isCreatingContact: false,
+            isNaturalFeatureMutationLocked: naturalFeatureMutationsLocked,
             createOsmId: 0,
             onClose: notifier.clearSelection,
             onViewPeakOnMap: _viewPeakOnMainMap,
+            onViewNaturalFeatureOnMap: _viewNaturalFeatureOnMainMap,
             onViewGpxTrackOnMap: _viewGpxTrackOnMainMap,
             onViewRouteOnMap: _viewRouteOnMainMap,
             onPeakSubmit: _savePeak,
             onPeakListSubmit: _savePeakList,
             onRouteSubmit: _saveRoute,
+            onNaturalFeatureSubmit: _saveNaturalFeature,
+            onContactSubmit: _saveContact,
           ),
         ),
       ],

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/contact.dart';
+import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
@@ -38,6 +40,8 @@ void main() {
       'PeakListItemEntity',
       'RouteGraphImportMetadata',
       'TrackReplacementRecoveryIssue',
+      'Contact',
+      'NaturalFeature',
     ]);
     expect(
       entities.map((entity) => entity.name).toSet().length,
@@ -230,6 +234,143 @@ void main() {
       containsAll(['id', 'peakListId', 'peakId', 'points']),
     );
   });
+
+  test(
+    'natural features use the dedicated display, row mapping, and search',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'objectbox-admin',
+      );
+      addTearDown(() async {
+        if (directory.existsSync()) {
+          await directory.delete(recursive: true);
+        }
+      });
+      final store = await openStore(directory: directory.path);
+      addTearDown(store.close);
+      final box = store.box<NaturalFeature>();
+      box.putMany([
+        NaturalFeature(
+          name: 'Blue Lake',
+          altName: 'Azure',
+          tag: 'water',
+          country: 'Australia',
+          county: 'Derwent',
+          region: 'South',
+          latitude: -42.8,
+          longitude: 146.2,
+          osmId: 1234,
+          osmType: 'way',
+        ),
+        NaturalFeature(
+          name: 'Red Hill',
+          tag: 'peak',
+          latitude: -42.7,
+          longitude: 146.3,
+          osmId: 5678,
+          osmType: 'node',
+        ),
+      ]);
+      final repository = ObjectBoxAdminRepositoryImpl(store: store);
+      final entity = repository.getEntities().singleWhere(
+        (entity) => entity.name == 'NaturalFeature',
+      );
+
+      expect(entity.displayName, 'Natural Features');
+      expect(
+        (await repository.loadRows(
+          entity,
+          searchQuery: 'AZURE',
+          ascending: true,
+        )).single.values['name'],
+        'Blue Lake',
+      );
+      expect(
+        (await repository.loadRows(
+          entity,
+          searchQuery: '1234',
+          ascending: true,
+        )).single.values['name'],
+        'Blue Lake',
+      );
+      expect(
+        await repository.loadRows(
+          entity,
+          searchQuery: 'derwent',
+          ascending: true,
+        ),
+        isEmpty,
+      );
+      expect(
+        await repository.loadRows(
+          entity,
+          searchQuery: '-42.8',
+          ascending: true,
+        ),
+        isEmpty,
+      );
+      expect(
+        (await repository.loadRows(
+          entity,
+          searchQuery: '',
+          ascending: false,
+        )).map((row) => row.primaryKeyValue),
+        orderedEquals([2, 1]),
+      );
+    },
+  );
+
+  test(
+    'contacts use their dedicated label, fields, search, and ID sort',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'objectbox-admin',
+      );
+      addTearDown(() async {
+        if (directory.existsSync()) {
+          await directory.delete(recursive: true);
+        }
+      });
+      final store = await openStore(directory: directory.path);
+      addTearDown(store.close);
+      store.box<Contact>().putMany([
+        Contact(firstName: 'Ada', surname: 'Lovelace', nickname: 'Countess'),
+        Contact(firstName: 'Grace', surname: 'Hopper', nickname: 'Amazing'),
+      ]);
+      final repository = ObjectBoxAdminRepositoryImpl(store: store);
+      final entity = repository.getEntities().singleWhere(
+        (entity) => entity.name == 'Contact',
+      );
+
+      expect(entity.displayName, 'Contacts');
+      expect(entity.fields.map((field) => field.name), [
+        'id',
+        'firstName',
+        'surname',
+        'nickname',
+      ]);
+      expect(
+        (await repository.loadRows(
+          entity,
+          searchQuery: 'COUNTESS',
+          ascending: true,
+        )).single.values['firstName'],
+        'Ada',
+      );
+      expect(
+        await repository.loadRows(entity, searchQuery: '2', ascending: true),
+        isEmpty,
+      );
+      expect(
+        (await repository.loadRows(
+          entity,
+          searchQuery: '',
+          ascending: false,
+        )).map((row) => row.primaryKeyValue),
+        orderedEquals([2, 1]),
+      );
+    },
+  );
 
   test('routeGraphChunkToAdminRow exposes chunk metadata', () {
     final row = routeGraphChunkToAdminRow(

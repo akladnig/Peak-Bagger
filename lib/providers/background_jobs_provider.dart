@@ -23,6 +23,7 @@ final backgroundJobsProvider =
 enum BackgroundJobKind {
   importGpxFiles,
   importPeakList,
+  refreshNaturalFeatures,
   exportPeakData,
   exportPeakLists,
 }
@@ -265,6 +266,8 @@ class BackgroundJobsNotifier extends Notifier<BackgroundJobsState> {
           ),
         ],
       );
+      // Notify the shell so it can consume the newly queued refusal message.
+      state = state.copyWith();
       return BackgroundJobStartResult.blocked(blockedMessage);
     }
 
@@ -537,6 +540,8 @@ class BackgroundJobsNotifier extends Notifier<BackgroundJobsState> {
     return switch (kind) {
       BackgroundJobKind.importGpxFiles || BackgroundJobKind.importPeakList =>
         'Import cancelled when app was closed',
+      BackgroundJobKind.refreshNaturalFeatures =>
+        'Natural feature refresh cancelled when app was closed',
       BackgroundJobKind.exportPeakData || BackgroundJobKind.exportPeakLists =>
         'Export cancelled when app was closed',
     };

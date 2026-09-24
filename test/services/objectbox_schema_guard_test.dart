@@ -27,7 +27,7 @@ void main() {
     expect(prefs.getString('objectbox_schema_signature'), 'schema-v2');
   });
 
-  test('schema signature includes peak and peak list surface markers', () {
+  test('schema signature includes persisted entity surface markers', () {
     final signature = ObjectBoxSchemaGuard.debugCurrentSchemaSignature();
 
     expect(signature, contains('Peak.altName:'));
@@ -67,5 +67,30 @@ void main() {
     expect(signature, contains('Route.routeTimingSegmentKindsJson:'));
     expect(signature, contains('Route.displayRoutePointsByZoom:'));
     expect(signature, contains('Route.colour:'));
+    for (final field in [
+      'id',
+      'name',
+      'altName',
+      'tag',
+      'country',
+      'county',
+      'region',
+      'latitude',
+      'longitude',
+      'gridZoneDesignator',
+      'mgrs100kId',
+      'easting',
+      'northing',
+      'osmId',
+      'osmType',
+      'sourceOfTruth',
+    ]) {
+      expect(signature, contains('NaturalFeature.$field:true'));
+    }
+    for (final field in ['id', 'firstName', 'surname', 'nickname']) {
+      expect(signature, contains('Contact.$field:true'));
+    }
+    expect(signature, contains('NaturalFeature.relations:false'));
+    expect(signature, contains('Contact.relations:false'));
   });
 }

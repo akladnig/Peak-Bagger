@@ -137,6 +137,37 @@ void main() {
       isNull,
     );
   });
+
+  test(
+    'recovers an interrupted natural feature refresh with its message',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'background_jobs_interrupted_job_v1':
+            '{"kind":"refreshNaturalFeatures","label":"Refresh Natural Features","startedAt":"2026-07-12T08:30:00.000"}',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [
+          bootstrappedBackgroundJobsPreferencesProvider.overrideWithValue(
+            prefs,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      expect(
+        container.read(backgroundJobsProvider).finishedJobs.single.kind,
+        BackgroundJobKind.refreshNaturalFeatures,
+      );
+      expect(
+        container
+            .read(backgroundJobsProvider.notifier)
+            .consumeSnackBarEvent()
+            ?.message,
+        'Natural feature refresh cancelled when app was closed',
+      );
+    },
+  );
 }
 
 Future<void> _drainAsync() async {

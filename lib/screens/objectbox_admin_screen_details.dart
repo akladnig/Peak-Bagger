@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/contact.dart';
 import 'package:peak_bagger/models/peak_list.dart';
+import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
+import 'package:peak_bagger/services/natural_feature_admin_editor.dart';
 import 'package:peak_bagger/services/peak_list_admin_editor.dart';
 import 'package:peak_bagger/services/route_admin_editor.dart';
+import 'package:peak_bagger/services/contact_admin_editor.dart';
 
 class ObjectBoxAdminDetailsPane extends StatelessWidget {
   const ObjectBoxAdminDetailsPane({
@@ -13,15 +17,22 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
     required this.entity,
     required this.peakList,
     required this.route,
+    required this.naturalFeature,
+    this.contact,
     required this.isCreatingPeak,
+    this.isCreatingContact = false,
+    required this.isNaturalFeatureMutationLocked,
     required this.onClose,
     required this.createOsmId,
     required this.onViewPeakOnMap,
+    required this.onViewNaturalFeatureOnMap,
     required this.onViewGpxTrackOnMap,
     required this.onViewRouteOnMap,
     required this.onPeakSubmit,
     required this.onPeakListSubmit,
     required this.onRouteSubmit,
+    required this.onNaturalFeatureSubmit,
+    this.onContactSubmit,
     super.key,
   });
 
@@ -29,19 +40,26 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
   final ObjectBoxAdminEntityDescriptor entity;
   final PeakList? peakList;
   final app_route.Route? route;
+  final NaturalFeature? naturalFeature;
+  final Contact? contact;
   final bool isCreatingPeak;
+  final bool isCreatingContact;
+  final bool isNaturalFeatureMutationLocked;
   final VoidCallback onClose;
   final int createOsmId;
   final void Function(Peak peak) onViewPeakOnMap;
+  final void Function(NaturalFeature naturalFeature) onViewNaturalFeatureOnMap;
   final void Function(ObjectBoxAdminRow row)? onViewGpxTrackOnMap;
   final void Function(app_route.Route route)? onViewRouteOnMap;
   final Future<String?> Function(Peak peak) onPeakSubmit;
   final Future<String?> Function(PeakListAdminFormState form) onPeakListSubmit;
   final Future<String?> Function(RouteAdminFormState form) onRouteSubmit;
+  final Future<String?> Function(NaturalFeature feature) onNaturalFeatureSubmit;
+  final Future<String?> Function(Contact contact)? onContactSubmit;
 
   @override
   Widget build(BuildContext context) {
-    if (row == null && !isCreatingPeak) {
+    if (row == null && !isCreatingPeak && !isCreatingContact) {
       return _ObjectBoxAdminReadOnlyDetailsPane(
         row: null,
         entity: entity,
@@ -58,6 +76,27 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
         onClose: onClose,
         onViewPeakOnMap: onViewPeakOnMap,
         onPeakSubmit: onPeakSubmit,
+      );
+    }
+
+    if (entity.name == 'NaturalFeature' && naturalFeature != null) {
+      return _NaturalFeatureAdminDetailsPane(
+        row: row!,
+        entity: entity,
+        naturalFeature: naturalFeature!,
+        mutationLocked: isNaturalFeatureMutationLocked,
+        onClose: onClose,
+        onViewNaturalFeatureOnMap: onViewNaturalFeatureOnMap,
+        onNaturalFeatureSubmit: onNaturalFeatureSubmit,
+      );
+    }
+
+    if (entity.name == 'Contact' && (contact != null || isCreatingContact)) {
+      return _ContactAdminDetailsPane(
+        contact: contact ?? Contact(),
+        createMode: isCreatingContact,
+        onClose: onClose,
+        onContactSubmit: onContactSubmit!,
       );
     }
 
@@ -1172,21 +1211,21 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
             ),
             const Divider(),
             Expanded(
-                child: _isEditing
-                    ? _PeakListEditForm(
-                        row: widget.row,
-                        peakList: widget.peakList,
-                        isSaving: _isSaving,
-                        colourController: _colourController,
-                        submitError: _submitError,
-                        validation: _validation,
-                        onChanged: _updateValidation,
-                        onSubmit: _submit,
-                      )
-                    : _PeakListReadOnlyDetails(
-                        row: widget.row!,
-                        entity: widget.entity,
-                      ),
+              child: _isEditing
+                  ? _PeakListEditForm(
+                      row: widget.row,
+                      peakList: widget.peakList,
+                      isSaving: _isSaving,
+                      colourController: _colourController,
+                      submitError: _submitError,
+                      validation: _validation,
+                      onChanged: _updateValidation,
+                      onSubmit: _submit,
+                    )
+                  : _PeakListReadOnlyDetails(
+                      row: widget.row!,
+                      entity: widget.entity,
+                    ),
             ),
           ],
         ),
@@ -1688,6 +1727,8 @@ String _objectBoxAdminDetailsTitle(
     'Route',
     'Tasmap50k',
     'Waypoints',
+    'NaturalFeature',
+    'Contact',
   };
 
   if (row == null || !namedEntities.contains(entity.name)) {
@@ -1697,6 +1738,29 @@ String _objectBoxAdminDetailsTitle(
     return '${entity.displayName} #${objectBoxAdminFormatValue(row.primaryKeyValue)}';
   }
 
+  if (entity.name == 'NaturalFeature') {
+    final name = objectBoxAdminFormatValue(row.values['name']).trim();
+    if (name.isNotEmpty && name != '—') {
+      return name;
+    }
+    return '${objectBoxAdminFormatValue(row.values['osmType'])} '
+        '${objectBoxAdminFormatValue(row.values['osmId'])}';
+  }
+
+  if (entity.name == 'Contact') {
+    final title = [
+      objectBoxAdminFormatValue(row.values['firstName']).trim(),
+      objectBoxAdminFormatValue(row.values['surname']).trim(),
+    ].where((part) => part.isNotEmpty && part != '—').join(' ');
+    if (title.isNotEmpty) {
+      return title;
+    }
+    final nickname = objectBoxAdminFormatValue(row.values['nickname']).trim();
+    if (nickname.isNotEmpty && nickname != '—') {
+      return nickname;
+    }
+  }
+
   final value = row.values[entity.primaryNameField];
   final title = objectBoxAdminFormatValue(value).trim();
   if (title.isNotEmpty && title != '—') {
@@ -1704,6 +1768,756 @@ String _objectBoxAdminDetailsTitle(
   }
 
   return '${entity.displayName} #${objectBoxAdminFormatValue(row.primaryKeyValue)}';
+}
+
+class _ContactAdminDetailsPane extends StatefulWidget {
+  const _ContactAdminDetailsPane({
+    required this.contact,
+    required this.createMode,
+    required this.onClose,
+    required this.onContactSubmit,
+  });
+
+  final Contact contact;
+  final bool createMode;
+  final VoidCallback onClose;
+  final Future<String?> Function(Contact contact) onContactSubmit;
+
+  @override
+  State<_ContactAdminDetailsPane> createState() =>
+      _ContactAdminDetailsPaneState();
+}
+
+class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
+  late final TextEditingController _firstNameController;
+  late final TextEditingController _surnameController;
+  late final TextEditingController _nicknameController;
+  var _isEditing = false;
+  var _isSaving = false;
+  ContactAdminValidationResult _validation = const ContactAdminValidationResult(
+    fieldErrors: {},
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _firstNameController = TextEditingController();
+    _surnameController = TextEditingController();
+    _nicknameController = TextEditingController();
+    _syncFromContact();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ContactAdminDetailsPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.contact.id != widget.contact.id ||
+        oldWidget.createMode != widget.createMode) {
+      _syncFromContact();
+    }
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _surnameController.dispose();
+    _nicknameController.dispose();
+    super.dispose();
+  }
+
+  ContactAdminFormState _currentForm() => ContactAdminFormState(
+    firstName: _firstNameController.text,
+    surname: _surnameController.text,
+    nickname: _nicknameController.text,
+  );
+
+  void _syncFromContact() {
+    _firstNameController.text = widget.contact.firstName;
+    _surnameController.text = widget.contact.surname;
+    _nicknameController.text = widget.contact.nickname;
+    _isEditing = widget.createMode;
+    _isSaving = false;
+    _validation = const ContactAdminValidationResult(fieldErrors: {});
+  }
+
+  void _validate() {
+    setState(() {
+      _validation = ContactAdminEditor.validateAndBuild(
+        source: widget.contact,
+        form: _currentForm(),
+      );
+    });
+  }
+
+  void _cancelEditing() {
+    if (widget.createMode) {
+      widget.onClose();
+      return;
+    }
+    setState(_syncFromContact);
+  }
+
+  Future<void> _submit() async {
+    if (_isSaving) {
+      return;
+    }
+    final validation = ContactAdminEditor.validateAndBuild(
+      source: widget.contact,
+      form: _currentForm(),
+    );
+    setState(() => _validation = validation);
+    if (!validation.isValid) {
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    final error = await widget.onContactSubmit(validation.contact!);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isSaving = false;
+      if (error == null) {
+        _isEditing = false;
+      }
+    });
+  }
+
+  String get _title {
+    final validation = ContactAdminEditor.validateAndBuild(
+      source: widget.contact,
+      form: _currentForm(),
+    );
+    if (widget.createMode && !validation.isValid) {
+      return 'New Contact';
+    }
+    final displayName = contactDisplayName(
+      validation.contact ?? widget.contact,
+    );
+    return displayName.isEmpty ? 'New Contact' : displayName;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                if (!_isEditing)
+                  IconButton(
+                    key: const Key('objectbox-admin-contact-edit'),
+                    onPressed: _isSaving
+                        ? null
+                        : () => setState(() => _isEditing = true),
+                    icon: const Icon(Icons.edit),
+                  ),
+                IconButton(
+                  key: const Key('objectbox-admin-details-close'),
+                  onPressed: _isSaving ? null : widget.onClose,
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: _isEditing
+                  ? _ContactEditForm(
+                      firstNameController: _firstNameController,
+                      surnameController: _surnameController,
+                      nicknameController: _nicknameController,
+                      validation: _validation,
+                      isSaving: _isSaving,
+                      onChanged: _validate,
+                      onCancel: _cancelEditing,
+                      onSubmit: _submit,
+                    )
+                  : _ContactReadOnlyDetails(contact: widget.contact),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactReadOnlyDetails extends StatelessWidget {
+  const _ContactReadOnlyDetails({required this.contact});
+
+  final Contact contact;
+
+  @override
+  Widget build(BuildContext context) {
+    final values = {
+      'id': contact.id,
+      'firstName': contact.firstName,
+      'surname': contact.surname,
+      'nickname': contact.nickname,
+    };
+    return ListView(
+      key: const Key('objectbox-admin-details-list'),
+      children: [
+        for (final entry in values.entries)
+          ListTile(
+            dense: true,
+            title: Text(entry.key),
+            subtitle: SelectableText(objectBoxAdminFormatValue(entry.value)),
+          ),
+      ],
+    );
+  }
+}
+
+class _ContactEditForm extends StatelessWidget {
+  const _ContactEditForm({
+    required this.firstNameController,
+    required this.surnameController,
+    required this.nicknameController,
+    required this.validation,
+    required this.isSaving,
+    required this.onChanged,
+    required this.onCancel,
+    required this.onSubmit,
+  });
+
+  final TextEditingController firstNameController;
+  final TextEditingController surnameController;
+  final TextEditingController nicknameController;
+  final ContactAdminValidationResult validation;
+  final bool isSaving;
+  final VoidCallback onChanged;
+  final VoidCallback onCancel;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: ListView(
+            key: const Key('objectbox-admin-contact-edit-form'),
+            children: [
+              _field(
+                keyName: 'first-name',
+                label: 'First name',
+                controller: firstNameController,
+                errorText: validation.fieldErrors['firstName'],
+              ),
+              const SizedBox(height: 8),
+              _field(
+                keyName: 'surname',
+                label: 'Surname',
+                controller: surnameController,
+                errorText: validation.fieldErrors['surname'],
+              ),
+              const SizedBox(height: 8),
+              _field(
+                keyName: 'nickname',
+                label: 'Nickname',
+                controller: nicknameController,
+                errorText: validation.fieldErrors['nickname'],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton(
+          key: const Key('objectbox-admin-contact-cancel'),
+          onPressed: isSaving ? null : onCancel,
+          child: const Text('Cancel'),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          key: const Key('objectbox-admin-contact-save'),
+          onPressed: isSaving ? null : onSubmit,
+          child: Text(isSaving ? 'Saving...' : 'Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _field({
+    required String keyName,
+    required String label,
+    required TextEditingController controller,
+    required String? errorText,
+  }) {
+    return TextFormField(
+      key: Key('objectbox-admin-contact-$keyName'),
+      controller: controller,
+      enabled: !isSaving,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+        errorText: errorText,
+      ),
+      onChanged: (_) => onChanged(),
+    );
+  }
+}
+
+class _NaturalFeatureAdminDetailsPane extends StatefulWidget {
+  const _NaturalFeatureAdminDetailsPane({
+    required this.row,
+    required this.entity,
+    required this.naturalFeature,
+    required this.mutationLocked,
+    required this.onClose,
+    required this.onViewNaturalFeatureOnMap,
+    required this.onNaturalFeatureSubmit,
+  });
+
+  final ObjectBoxAdminRow row;
+  final ObjectBoxAdminEntityDescriptor entity;
+  final NaturalFeature naturalFeature;
+  final bool mutationLocked;
+  final VoidCallback onClose;
+  final void Function(NaturalFeature naturalFeature) onViewNaturalFeatureOnMap;
+  final Future<String?> Function(NaturalFeature feature) onNaturalFeatureSubmit;
+
+  @override
+  State<_NaturalFeatureAdminDetailsPane> createState() =>
+      _NaturalFeatureAdminDetailsPaneState();
+}
+
+class _NaturalFeatureAdminDetailsPaneState
+    extends State<_NaturalFeatureAdminDetailsPane> {
+  late final Map<String, TextEditingController> _controllers;
+  late String _sourceOfTruth;
+  var _isEditing = false;
+  var _isSaving = false;
+  NaturalFeatureAdminCoordinateSource? _coordinateSource;
+  String? _submitError;
+  NaturalFeatureAdminValidationResult _validation =
+      const NaturalFeatureAdminValidationResult(fieldErrors: {});
+
+  @override
+  void initState() {
+    super.initState();
+    _controllers = {
+      for (final field in _editableFields) field: TextEditingController(),
+    };
+    _syncFromFeature();
+  }
+
+  @override
+  void didUpdateWidget(covariant _NaturalFeatureAdminDetailsPane oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.naturalFeature.id != widget.naturalFeature.id ||
+        (oldWidget.row != widget.row && !_isEditing)) {
+      _syncFromFeature();
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  static const _editableFields = [
+    'name',
+    'altName',
+    'tag',
+    'country',
+    'county',
+    'region',
+    'latitude',
+    'longitude',
+    'mgrs100kId',
+    'easting',
+    'northing',
+  ];
+
+  TextEditingController _controller(String field) => _controllers[field]!;
+
+  void _syncFromFeature() {
+    final form = NaturalFeatureAdminEditor.normalize(widget.naturalFeature);
+    _controller('name').text = form.name;
+    _controller('altName').text = form.altName;
+    _controller('tag').text = form.tag;
+    _controller('country').text = form.country;
+    _controller('county').text = form.county;
+    _controller('region').text = form.region;
+    _controller('latitude').text = form.latitude;
+    _controller('longitude').text = form.longitude;
+    _controller('mgrs100kId').text = form.mgrs100kId;
+    _controller('easting').text = form.easting;
+    _controller('northing').text = form.northing;
+    _sourceOfTruth = form.sourceOfTruth;
+    _isEditing = false;
+    _isSaving = false;
+    _coordinateSource = null;
+    _submitError = null;
+    _validation = const NaturalFeatureAdminValidationResult(fieldErrors: {});
+  }
+
+  NaturalFeatureAdminFormState _currentForm() {
+    return NaturalFeatureAdminFormState(
+      name: _controller('name').text,
+      altName: _controller('altName').text,
+      tag: _controller('tag').text,
+      country: _controller('country').text,
+      county: _controller('county').text,
+      region: _controller('region').text,
+      latitude: _controller('latitude').text,
+      longitude: _controller('longitude').text,
+      gridZoneDesignator: widget.naturalFeature.gridZoneDesignator,
+      mgrs100kId: _controller('mgrs100kId').text,
+      easting: _controller('easting').text,
+      northing: _controller('northing').text,
+      sourceOfTruth: _sourceOfTruth,
+    );
+  }
+
+  bool get _isLocked => _isSaving || widget.mutationLocked;
+
+  void _validate() {
+    setState(() {
+      _validation = NaturalFeatureAdminEditor.validateAndBuild(
+        source: widget.naturalFeature,
+        form: _currentForm(),
+        coordinateSource: _coordinateSource,
+      );
+      _submitError = null;
+    });
+  }
+
+  void _handleLatLngChanged() {
+    if (_coordinateSource != NaturalFeatureAdminCoordinateSource.latLng) {
+      _controller('mgrs100kId').clear();
+      _controller('easting').clear();
+      _controller('northing').clear();
+    }
+    _coordinateSource = NaturalFeatureAdminCoordinateSource.latLng;
+    _validate();
+  }
+
+  void _handleMgrsChanged() {
+    if (_coordinateSource != NaturalFeatureAdminCoordinateSource.mgrs) {
+      _controller('latitude').clear();
+      _controller('longitude').clear();
+    }
+    _coordinateSource = NaturalFeatureAdminCoordinateSource.mgrs;
+    _validate();
+  }
+
+  void _calculateCoordinates() {
+    final source = _coordinateSource;
+    if (source == null || _isLocked) {
+      return;
+    }
+    final result = NaturalFeatureAdminEditor.calculateMissingCoordinates(
+      source: widget.naturalFeature,
+      coordinateSource: source,
+      form: _currentForm(),
+    );
+    if (!result.isValid) {
+      setState(() {
+        _validation = NaturalFeatureAdminValidationResult(
+          fieldErrors: result.fieldErrors,
+          coordinateError: result.coordinateError,
+        );
+      });
+      return;
+    }
+    final form = result.form!;
+    _controller('latitude').text = form.latitude;
+    _controller('longitude').text = form.longitude;
+    _controller('mgrs100kId').text = form.mgrs100kId;
+    _controller('easting').text = form.easting;
+    _controller('northing').text = form.northing;
+    _validate();
+  }
+
+  Future<void> _submit() async {
+    if (_isLocked) {
+      return;
+    }
+    final validation = NaturalFeatureAdminEditor.validateAndBuild(
+      source: widget.naturalFeature,
+      form: _currentForm(),
+      coordinateSource:
+          _coordinateSource ?? NaturalFeatureAdminCoordinateSource.latLng,
+    );
+    setState(() {
+      _validation = validation;
+      _submitError = null;
+    });
+    if (!validation.isValid) {
+      return;
+    }
+    setState(() => _isSaving = true);
+    final error = await widget.onNaturalFeatureSubmit(
+      validation.naturalFeature!,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isSaving = false;
+      _submitError = error;
+      if (error == null) {
+        _isEditing = false;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = _objectBoxAdminDetailsTitle(widget.entity, widget.row);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                IconButton(
+                  key: const Key('objectbox-admin-natural-feature-view-on-map'),
+                  tooltip: 'View Natural Feature on Main Map',
+                  onPressed: _isSaving
+                      ? null
+                      : () => widget.onViewNaturalFeatureOnMap(
+                          widget.naturalFeature,
+                        ),
+                  icon: const Icon(Icons.visibility_outlined),
+                ),
+                if (!_isEditing)
+                  IconButton(
+                    key: const Key('objectbox-admin-natural-feature-edit'),
+                    onPressed: _isLocked
+                        ? null
+                        : () => setState(() => _isEditing = true),
+                    icon: const Icon(Icons.edit),
+                  ),
+                IconButton(
+                  key: const Key('objectbox-admin-details-close'),
+                  onPressed: _isSaving ? null : widget.onClose,
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: _isEditing
+                  ? _NaturalFeatureEditForm(
+                      feature: widget.naturalFeature,
+                      controllers: _controllers,
+                      sourceOfTruth: _sourceOfTruth,
+                      validation: _validation,
+                      submitError: _submitError,
+                      locked: _isLocked,
+                      canCalculate: _coordinateSource != null,
+                      onChanged: _validate,
+                      onLatLngChanged: _handleLatLngChanged,
+                      onMgrsChanged: _handleMgrsChanged,
+                      onSourceOfTruthChanged: (value) {
+                        setState(
+                          () => _sourceOfTruth = value ?? _sourceOfTruth,
+                        );
+                        _validate();
+                      },
+                      onCalculate: _calculateCoordinates,
+                      onSubmit: _submit,
+                    )
+                  : _NaturalFeatureReadOnlyDetails(
+                      row: widget.row,
+                      entity: widget.entity,
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NaturalFeatureReadOnlyDetails extends StatelessWidget {
+  const _NaturalFeatureReadOnlyDetails({
+    required this.row,
+    required this.entity,
+  });
+
+  final ObjectBoxAdminRow row;
+  final ObjectBoxAdminEntityDescriptor entity;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      key: const Key('objectbox-admin-details-list'),
+      itemCount: entity.fields.length - 1,
+      separatorBuilder: (context, index) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final field = entity.fields
+            .where((field) => !field.isPrimaryName)
+            .elementAt(index);
+        return ListTile(
+          dense: true,
+          title: Text(field.name),
+          subtitle: objectBoxAdminDetailsValue(
+            entityName: entity.name,
+            fieldName: field.name,
+            label: field.name,
+            value: row.values[field.name],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _NaturalFeatureEditForm extends StatelessWidget {
+  const _NaturalFeatureEditForm({
+    required this.feature,
+    required this.controllers,
+    required this.sourceOfTruth,
+    required this.validation,
+    required this.submitError,
+    required this.locked,
+    required this.canCalculate,
+    required this.onChanged,
+    required this.onLatLngChanged,
+    required this.onMgrsChanged,
+    required this.onSourceOfTruthChanged,
+    required this.onCalculate,
+    required this.onSubmit,
+  });
+
+  final NaturalFeature feature;
+  final Map<String, TextEditingController> controllers;
+  final String sourceOfTruth;
+  final NaturalFeatureAdminValidationResult validation;
+  final String? submitError;
+  final bool locked;
+  final bool canCalculate;
+  final VoidCallback onChanged;
+  final VoidCallback onLatLngChanged;
+  final VoidCallback onMgrsChanged;
+  final ValueChanged<String?> onSourceOfTruthChanged;
+  final VoidCallback onCalculate;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final errorColor = Theme.of(context).colorScheme.error;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: ListView(
+            key: const Key('objectbox-admin-natural-feature-edit-form'),
+            children: [
+              _readOnly('id', feature.id.toString()),
+              _readOnly('osmType', feature.osmType),
+              _readOnly('osmId', feature.osmId.toString()),
+              _readOnly('gridZoneDesignator', feature.gridZoneDesignator),
+              _field('name', 'Name', onChanged),
+              _field('altName', 'Alt Name', onChanged),
+              _field('tag', 'Tag', onChanged),
+              _field('country', 'Country', onChanged),
+              _field('county', 'County', onChanged),
+              _field('region', 'Region', onChanged),
+              _field('latitude', 'Latitude', onLatLngChanged),
+              _field('longitude', 'Longitude', onLatLngChanged),
+              _field('mgrs100kId', 'MGRS 100km identifier', onMgrsChanged),
+              _field('easting', 'Easting', onMgrsChanged),
+              _field('northing', 'Northing', onMgrsChanged),
+              DropdownButtonFormField<String>(
+                key: const Key(
+                  'objectbox-admin-natural-feature-source-of-truth',
+                ),
+                initialValue: sourceOfTruth,
+                decoration: InputDecoration(
+                  labelText: 'Source of truth',
+                  border: const OutlineInputBorder(),
+                  errorText: validation.fieldErrors['sourceOfTruth'],
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'OSM', child: Text('OSM')),
+                  DropdownMenuItem(value: 'Manual', child: Text('Manual')),
+                ],
+                onChanged: locked ? null : onSourceOfTruthChanged,
+              ),
+            ].expand((widget) => [widget, const SizedBox(height: 8)]).toList(),
+          ),
+        ),
+        if (validation.coordinateError != null)
+          Text(
+            validation.coordinateError!,
+            style: TextStyle(color: errorColor),
+          ),
+        if (submitError != null)
+          Text(submitError!, style: TextStyle(color: errorColor)),
+        const SizedBox(height: 8),
+        FilledButton(
+          key: const Key('objectbox-admin-natural-feature-calculate'),
+          onPressed: locked || !canCalculate ? null : onCalculate,
+          child: const Text('Calculate'),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          key: const Key('objectbox-admin-natural-feature-save'),
+          onPressed: locked ? null : onSubmit,
+          child: Text(locked ? 'Saving...' : 'Save'),
+        ),
+      ],
+    );
+  }
+
+  Widget _readOnly(String field, String value) => TextFormField(
+    key: Key('objectbox-admin-natural-feature-$field'),
+    initialValue: value,
+    enabled: false,
+    decoration: InputDecoration(
+      labelText: field,
+      border: const OutlineInputBorder(),
+    ),
+  );
+
+  Widget _field(String field, String label, VoidCallback changed) =>
+      TextFormField(
+        key: Key('objectbox-admin-natural-feature-${_fieldKey(field)}'),
+        controller: controllers[field],
+        enabled: !locked,
+        keyboardType: switch (field) {
+          'latitude' || 'longitude' => const TextInputType.numberWithOptions(
+            decimal: true,
+            signed: true,
+          ),
+          'easting' || 'northing' => TextInputType.number,
+          _ => TextInputType.text,
+        },
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          errorText: validation.fieldErrors[field],
+        ),
+        onChanged: (_) => changed(),
+      );
+
+  String _fieldKey(String field) => field.replaceAllMapped(
+    RegExp(r'(?<!^)([A-Z])'),
+    (match) => '-${match[1]!.toLowerCase()}',
+  );
 }
 
 class _PeakEditForm extends StatelessWidget {

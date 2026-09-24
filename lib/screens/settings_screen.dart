@@ -17,6 +17,7 @@ import 'package:peak_bagger/providers/peak_ownership_ring_settings_provider.dart
 import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
+import 'package:peak_bagger/providers/natural_feature_provider.dart';
 import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
@@ -35,6 +36,7 @@ import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
+import 'package:peak_bagger/services/natural_feature_refresh_service.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/services/tile_cache_download_scope.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
@@ -51,6 +53,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final bool _isDownloading = false;
   bool _isRefreshingPeaks = false;
+  bool _isRefreshingNaturalFeatures = false;
   bool _isRefreshingRouteGraph = false;
   bool _isRefreshingTassyFull = false;
   bool _isResettingMaps = false;
@@ -153,6 +156,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     )
                   : null,
               onTap: _isStatusActionBusy ? null : _confirmRefreshPeakData,
+            ),
+            ListTile(
+              key: const Key('refresh-natural-features-tile'),
+              leading: const Icon(Icons.terrain),
+              title: const Text('Refresh Natural Features'),
+              subtitle: const Text(
+                'Import Tasmanian natural features from the local source file',
+              ),
+              trailing: _isRefreshingNaturalFeatures
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : null,
+              onTap: _isStatusActionBusy ? null : _refreshNaturalFeatures,
             ),
             ListTile(
               key: const Key('refresh-route-graph-tile'),
@@ -904,9 +923,81 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   bool get _isStatusActionBusy {
     return _isRefreshingPeaks ||
+        _isRefreshingNaturalFeatures ||
         _isRefreshingRouteGraph ||
         _isRefreshingTassyFull ||
         _isResettingMaps;
+  }
+
+  void _refreshNaturalFeatures() {
+    final jobsNotifier = ref.read(backgroundJobsProvider.notifier);
+    final startResult = jobsNotifier.startJob(
+      kind: BackgroundJobKind.refreshNaturalFeatures,
+      label: 'Refresh Natural Features',
+      progress: const BackgroundJobProgress(
+        label: 'Natural features',
+        statusText: 'Reading local source file...',
+      ),
+    );
+    if (!startResult.isStarted) {
+      return;
+    }
+
+    final openJobsAction = BackgroundJobsSnackBarAction(
+      key: const Key('background-jobs-snackbar-open-jobs'),
+      label: 'Open Jobs',
+      onPressed: jobsNotifier.openPanel,
+    );
+    jobsNotifier.queueSnackBar(
+      message: 'Natural feature refresh started',
+      actions: [openJobsAction],
+    );
+    setState(() {
+      _isRefreshingNaturalFeatures = true;
+    });
+
+    unawaited(
+      _runNaturalFeatureRefreshJob(
+        jobId: startResult.job!.id,
+        openJobsAction: openJobsAction,
+      ),
+    );
+  }
+
+  Future<void> _runNaturalFeatureRefreshJob({
+    required String jobId,
+    required BackgroundJobsSnackBarAction openJobsAction,
+  }) async {
+    final jobsNotifier = ref.read(backgroundJobsProvider.notifier);
+    try {
+      final result = await ref.read(naturalFeatureRefreshRunnerProvider)();
+      final summary = _naturalFeatureRefreshSummary(result);
+      jobsNotifier.completeRunningJob(jobId: jobId, summary: summary);
+      jobsNotifier.queueSnackBar(message: summary, actions: [openJobsAction]);
+      if (mounted) {
+        _setStatus(summary, key: const Key('natural-feature-refresh-status'));
+      }
+    } catch (error) {
+      final status = 'Error refreshing natural features: $error';
+      jobsNotifier.failRunningJob(jobId: jobId, summary: status);
+      jobsNotifier.queueSnackBar(message: status, actions: [openJobsAction]);
+      if (mounted) {
+        _setStatus(status, key: const Key('natural-feature-refresh-status'));
+        await _showNaturalFeatureRefreshFailure(error.toString());
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshingNaturalFeatures = false;
+        });
+      }
+    }
+  }
+
+  String _naturalFeatureRefreshSummary(NaturalFeatureRefreshResult result) {
+    return 'Natural features refreshed: ${result.createdCount} created, '
+        '${result.updatedCount} updated, ${result.protectedCount} protected, '
+        '${result.skippedCount} skipped.';
   }
 
   Future<void> _confirmRefreshPeakData() async {
@@ -1595,6 +1686,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       context: context,
       title: 'Peak Data Refresh Failed',
       closeKey: 'peak-refresh-error-close',
+      content: Text(error),
+    );
+  }
+
+  Future<void> _showNaturalFeatureRefreshFailure(String error) async {
+    if (!mounted) {
+      return;
+    }
+
+    await showSingleActionDialog(
+      context: context,
+      title: 'Natural Feature Refresh Failed',
+      closeKey: 'natural-feature-refresh-error-close',
       content: Text(error),
     );
   }

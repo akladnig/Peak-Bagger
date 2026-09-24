@@ -6,8 +6,12 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
+import 'package:peak_bagger/providers/contact_provider.dart';
+import 'package:peak_bagger/providers/natural_feature_provider.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/contact_repository.dart';
+import 'package:peak_bagger/services/natural_feature_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/objectbox_schema_guard.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
@@ -107,6 +111,8 @@ void main() async {
     objectboxStore,
     peakRepository: peakRepository,
   );
+  final contactRepository = ContactRepository(objectboxStore);
+  final naturalFeatureRepository = NaturalFeatureRepository(objectboxStore);
   final overpassService = OverpassService();
   final routeGraphRepository = RouteGraphRepository.objectBox(objectboxStore);
   final routeGraphImportService = RouteGraphImportService(routeGraphRepository);
@@ -140,6 +146,10 @@ void main() async {
     ProviderScope(
       overrides: [
         peakRepositoryProvider.overrideWithValue(peakRepository),
+        contactRepositoryProvider.overrideWithValue(contactRepository),
+        naturalFeatureRepositoryProvider.overrideWithValue(
+          naturalFeatureRepository,
+        ),
         peakListRewritePortProvider.overrideWithValue(peakListRewritePort),
         peakDeleteGuardProvider.overrideWithValue(peakDeleteGuard),
         peakListRepositoryProvider.overrideWithValue(peakListRepo),
