@@ -1,12 +1,16 @@
 import 'package:latlong2/latlong.dart';
 
 import 'gpx_track.dart';
+import 'natural_feature.dart';
 import 'peak.dart';
 import 'route.dart' as app_route;
 import 'tasmap50k.dart';
 
-enum MapSearchResultType { peak, track, route, road, map }
+enum MapSearchResultType { peak, track, route, natural, road, map }
 
+enum MapSearchCategory { peaks, tracksRoutes, natural, roads, maps }
+
+@Deprecated('Use MapSearchCategory sets.')
 enum MapSearchEntityFilter { all, peaks, tracksRoutes, natural, roads, maps }
 
 enum MapSearchSort { nameAscending, nameDescending }
@@ -35,6 +39,7 @@ class MapSearchResult {
     this.peak,
     this.track,
     this.route,
+    this.naturalFeature,
     this.road,
     this.map,
   });
@@ -143,6 +148,25 @@ class MapSearchResult {
          road: road,
        );
 
+  const MapSearchResult.natural({
+    required String id,
+    required String title,
+    required String subtitle,
+    required LatLng anchor,
+    String? regionKey,
+    String? regionName,
+    required NaturalFeature naturalFeature,
+  }) : this._(
+         type: MapSearchResultType.natural,
+         id: id,
+         title: title,
+         subtitle: subtitle,
+         anchor: anchor,
+         regionKey: regionKey,
+         regionName: regionName,
+         naturalFeature: naturalFeature,
+       );
+
   final MapSearchResultType type;
   final String id;
   final String title;
@@ -156,6 +180,7 @@ class MapSearchResult {
   final Peak? peak;
   final GpxTrack? track;
   final app_route.Route? route;
+  final NaturalFeature? naturalFeature;
   final MapSearchRoad? road;
   final Tasmap50k? map;
 

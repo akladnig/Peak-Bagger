@@ -2,11 +2,14 @@ import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/map_search_service.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/track_date_query_parser.dart';
@@ -16,6 +19,49 @@ import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
+  test(
+    'selectNaturalFromSearch clears selection and marker before default-zoom navigation',
+    () {
+      const location = LatLng(-42.75, 147.25);
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          showPeakSearch: true,
+          selectedLocation: const LatLng(-43.0, 147.0),
+          selectedPeaks: [_peak(6406, 'Bonnet Hill')],
+          selectedTrackId: 1,
+          selectedRouteId: 2,
+        ),
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => notifier)],
+      );
+      addTearDown(container.dispose);
+
+      container.read(mapProvider.notifier).selectNaturalFromSearch(location);
+
+      final state = container.read(mapProvider);
+      final request = state.pendingCameraRequest;
+      expect(state.showPeakSearch, isFalse);
+      expect(state.selectedLocation, isNull);
+      expect(state.selectedPeaks, isEmpty);
+      expect(state.selectedTrackId, isNull);
+      expect(state.selectedRouteId, isNull);
+      expect(request?.center, location);
+      expect(request?.zoom, MapConstants.defaultZoom);
+      expect(
+        request?.selectedLocationBehavior,
+        PendingCameraSelectionBehavior.clear,
+      );
+      expect(
+        request?.selectedPeaksBehavior,
+        PendingCameraSelectionBehavior.clear,
+      );
+    },
+  );
+
   test(
     'selectMapFromSearch updates selected map location and focus serial',
     () async {
@@ -243,11 +289,12 @@ void main() {
       await mapNotifier.loadMoreSearchPopupResults();
       expect(container.read(mapProvider).searchPopupLoadedCount, 40);
 
-      mapNotifier.setSearchPopupEntityFilter(
-        MapSearchEntityFilter.tracksRoutes,
-      );
+      mapNotifier.toggleSearchPopupCategory(MapSearchCategory.peaks);
       state = container.read(mapProvider);
-      expect(state.searchPopupEntityFilter, MapSearchEntityFilter.tracksRoutes);
+      expect(
+        state.searchPopupCategories,
+        isNot(contains(MapSearchCategory.peaks)),
+      );
       expect(state.searchPopupLoadedCount, 20);
       expect(state.searchPopupIsLoadingMore, isFalse);
 
@@ -286,7 +333,7 @@ void main() {
       expect(state.searchPopupLoadedCount, 0);
       expect(state.searchPopupIsLoadingMore, isFalse);
       expect(state.searchPopupIsExhausted, isTrue);
-      expect(state.searchPopupEntityFilter, MapSearchEntityFilter.all);
+      expect(state.searchPopupCategories, MapSearchService.defaultCategories);
       expect(state.searchPopupRegionKey, isNull);
       expect(state.searchPopupSort, MapSearchSort.nameAscending);
       expect(state.searchPopupGroup, MapSearchGroup.none);
@@ -299,7 +346,7 @@ void main() {
       expect(state.searchPopupLoadedCount, 0);
       expect(state.searchPopupIsLoadingMore, isFalse);
       expect(state.searchPopupIsExhausted, isTrue);
-      expect(state.searchPopupEntityFilter, MapSearchEntityFilter.all);
+      expect(state.searchPopupCategories, MapSearchService.defaultCategories);
       expect(state.searchPopupSort, MapSearchSort.nameAscending);
       expect(state.searchPopupGroup, MapSearchGroup.none);
     },
@@ -381,5 +428,16 @@ Route _route(int id) {
     id: id,
     name: 'Route $id',
     gpxRoute: const [LatLng(-43.0, 147.0), LatLng(-43.001, 147.001)],
+  );
+}
+
+Peak _peak(int osmId, String name) {
+  return Peak(
+    osmId: osmId,
+    name: name,
+    latitude: -43,
+    longitude: 147,
+    elevation: 410,
+    region: 'tasmania',
   );
 }

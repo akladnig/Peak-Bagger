@@ -128,6 +128,8 @@ void main() {
 
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map-search-entity-maps')));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Alpha');
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
@@ -177,8 +179,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        container.read(mapProvider).searchPopupEntityFilter,
-        MapSearchEntityFilter.roads,
+        container.read(mapProvider).searchPopupCategories,
+        contains(MapSearchCategory.roads),
       );
       expect(
         find.byKey(const Key('map-search-result-road-123')),
@@ -241,8 +243,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      container.read(mapProvider).searchPopupEntityFilter,
-      MapSearchEntityFilter.roads,
+      container.read(mapProvider).searchPopupCategories,
+      contains(MapSearchCategory.roads),
     );
     expect(find.text('No results found'), findsOneWidget);
   });

@@ -70,6 +70,7 @@ import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
+import 'package:peak_bagger/providers/natural_feature_provider.dart';
 
 import '../core/constants.dart';
 import '../core/number_formatters.dart';
@@ -84,7 +85,7 @@ final _genericRouteWaypointLabelPattern = RegExp(r'^Waypoint \d+$');
 typedef _SearchPopupCriteria = ({
   String query,
   TrackDateRange? trackDateRange,
-  MapSearchEntityFilter entityFilter,
+  Set<MapSearchCategory> categories,
   String? regionKey,
   MapSearchSort sort,
   MapSearchGroup group,
@@ -708,7 +709,7 @@ class MapState {
   final int searchPopupLoadedCount;
   final bool searchPopupIsLoadingMore;
   final bool searchPopupIsExhausted;
-  final MapSearchEntityFilter searchPopupEntityFilter;
+  final Set<MapSearchCategory> searchPopupCategories;
   final String? searchPopupRegionKey;
   final MapSearchSort searchPopupSort;
   final MapSearchGroup searchPopupGroup;
@@ -816,7 +817,7 @@ class MapState {
     this.searchPopupLoadedCount = 0,
     this.searchPopupIsLoadingMore = false,
     this.searchPopupIsExhausted = true,
-    this.searchPopupEntityFilter = MapSearchEntityFilter.all,
+    this.searchPopupCategories = MapSearchService.defaultCategories,
     this.searchPopupRegionKey,
     this.searchPopupSort = MapSearchSort.nameAscending,
     this.searchPopupGroup = MapSearchGroup.none,
@@ -1064,7 +1065,7 @@ class MapState {
     int? searchPopupLoadedCount,
     bool? searchPopupIsLoadingMore,
     bool? searchPopupIsExhausted,
-    MapSearchEntityFilter? searchPopupEntityFilter,
+    Set<MapSearchCategory>? searchPopupCategories,
     String? searchPopupRegionKey,
     bool clearSearchPopupRegionKey = false,
     MapSearchSort? searchPopupSort,
@@ -1234,8 +1235,9 @@ class MapState {
           searchPopupIsLoadingMore ?? this.searchPopupIsLoadingMore,
       searchPopupIsExhausted:
           searchPopupIsExhausted ?? this.searchPopupIsExhausted,
-      searchPopupEntityFilter:
-          searchPopupEntityFilter ?? this.searchPopupEntityFilter,
+      searchPopupCategories: searchPopupCategories == null
+          ? this.searchPopupCategories
+          : Set<MapSearchCategory>.unmodifiable(searchPopupCategories),
       searchPopupRegionKey: clearSearchPopupRegionKey
           ? null
           : (searchPopupRegionKey ?? this.searchPopupRegionKey),
@@ -1689,6 +1691,7 @@ class MapNotifier extends Notifier<MapState> {
       routeRepository: _routeRepository,
       tasmapRepository: _tasmapRepository,
       peaksBaggedRepository: _peaksBaggedRepository,
+      naturalFeatureRepository: ref.read(naturalFeatureRepositoryProvider),
       namedWaySearch:
           _injectedNamedWaySearch ?? ref.read(routeGraphQueryServiceProvider),
     );
@@ -8030,6 +8033,19 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
+  void selectNaturalFromSearch(LatLng location) {
+    clearSearchResultSelection();
+    state = state.copyWith(clearSelectedLocation: true);
+    requestCameraMove(
+      center: location,
+      zoom: MapConstants.defaultZoom,
+      updateSelectedLocation: true,
+      updateSelectedPeaks: true,
+      clearGotoMgrs: true,
+    );
+    closeSearchPopup();
+  }
+
   Future<void> prefetchRouteGraphVisibleBounds(LatLngBounds bounds) async {
     final queryService = ref.read(routeGraphQueryServiceProvider);
     if (queryService == null) {
@@ -8202,7 +8218,7 @@ class MapNotifier extends Notifier<MapState> {
       searchPopupLoadedCount: 0,
       searchPopupIsLoadingMore: false,
       searchPopupIsExhausted: true,
-      searchPopupEntityFilter: MapSearchEntityFilter.all,
+      searchPopupCategories: MapSearchService.defaultCategories,
       searchPopupRegionKey: initialRegionKey,
       clearSearchPopupRegionKey: initialRegionKey == null,
       searchPopupSort: MapSearchSort.nameAscending,
@@ -8234,7 +8250,7 @@ class MapNotifier extends Notifier<MapState> {
       searchPopupLoadedCount: 0,
       searchPopupIsLoadingMore: false,
       searchPopupIsExhausted: true,
-      searchPopupEntityFilter: MapSearchEntityFilter.all,
+      searchPopupCategories: MapSearchService.defaultCategories,
       clearSearchPopupRegionKey: true,
       searchPopupSort: MapSearchSort.nameAscending,
       searchPopupGroup: MapSearchGroup.none,
@@ -8245,8 +8261,12 @@ class MapNotifier extends Notifier<MapState> {
     _refreshSearchPopupResults(query: query);
   }
 
-  void setSearchPopupEntityFilter(MapSearchEntityFilter entityFilter) {
-    _refreshSearchPopupResults(entityFilter: entityFilter);
+  void toggleSearchPopupCategory(MapSearchCategory category) {
+    final categories = Set<MapSearchCategory>.from(state.searchPopupCategories);
+    if (!categories.add(category)) {
+      categories.remove(category);
+    }
+    _refreshSearchPopupResults(categories: categories);
   }
 
   void setSearchPopupTrackDateRange(TrackDateRange? trackDateRange) {
@@ -8281,7 +8301,7 @@ class MapNotifier extends Notifier<MapState> {
     String? query,
     TrackDateRange? trackDateRange,
     bool trackDateRangeChanged = false,
-    MapSearchEntityFilter? entityFilter,
+    Set<MapSearchCategory>? categories,
     String? regionKey,
     bool regionKeyChanged = false,
     MapSearchSort? sort,
@@ -8291,7 +8311,7 @@ class MapNotifier extends Notifier<MapState> {
     final nextTrackDateRange = trackDateRangeChanged
         ? trackDateRange
         : (trackDateRange ?? state.searchPopupTrackDateRange);
-    final nextEntityFilter = entityFilter ?? state.searchPopupEntityFilter;
+    final nextCategories = categories ?? state.searchPopupCategories;
     final nextRegionKey = regionKeyChanged
         ? regionKey
         : (regionKey ?? state.searchPopupRegionKey);
@@ -8300,7 +8320,7 @@ class MapNotifier extends Notifier<MapState> {
     final criteria = (
       query: nextQuery,
       trackDateRange: nextTrackDateRange,
-      entityFilter: nextEntityFilter,
+      categories: nextCategories,
       regionKey: nextRegionKey,
       sort: nextSort,
       group: nextGroup,
@@ -8309,7 +8329,7 @@ class MapNotifier extends Notifier<MapState> {
     final page = _mapSearchService.searchPage(
       query: criteria.query,
       trackDateRange: criteria.trackDateRange,
-      entityFilter: criteria.entityFilter,
+      categories: criteria.categories,
       regionKey: criteria.regionKey,
       sort: criteria.sort,
       group: criteria.group,
@@ -8324,7 +8344,7 @@ class MapNotifier extends Notifier<MapState> {
       searchPopupLoadedCount: page.results.length,
       searchPopupIsLoadingMore: false,
       searchPopupIsExhausted: page.isExhausted,
-      searchPopupEntityFilter: criteria.entityFilter,
+      searchPopupCategories: criteria.categories,
       searchPopupRegionKey: criteria.regionKey,
       clearSearchPopupRegionKey: regionKeyChanged && criteria.regionKey == null,
       searchPopupSort: criteria.sort,
@@ -8352,7 +8372,7 @@ class MapNotifier extends Notifier<MapState> {
     final page = _mapSearchService.searchPage(
       query: criteria.query,
       trackDateRange: criteria.trackDateRange,
-      entityFilter: criteria.entityFilter,
+      categories: criteria.categories,
       regionKey: criteria.regionKey,
       sort: criteria.sort,
       group: criteria.group,
@@ -8374,7 +8394,7 @@ class MapNotifier extends Notifier<MapState> {
   _SearchPopupCriteria _searchPopupCriteria({
     String? query,
     TrackDateRange? trackDateRange,
-    MapSearchEntityFilter? entityFilter,
+    Set<MapSearchCategory>? categories,
     String? regionKey,
     MapSearchSort? sort,
     MapSearchGroup? group,
@@ -8382,7 +8402,7 @@ class MapNotifier extends Notifier<MapState> {
     return (
       query: query ?? state.searchPopupQuery,
       trackDateRange: trackDateRange ?? state.searchPopupTrackDateRange,
-      entityFilter: entityFilter ?? state.searchPopupEntityFilter,
+      categories: categories ?? state.searchPopupCategories,
       regionKey: regionKey ?? state.searchPopupRegionKey,
       sort: sort ?? state.searchPopupSort,
       group: group ?? state.searchPopupGroup,

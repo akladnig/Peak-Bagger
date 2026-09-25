@@ -15,6 +15,7 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peak_refresh_result.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/map_search_service.dart';
+import 'package:peak_bagger/services/natural_feature_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
@@ -33,7 +34,7 @@ import 'package:peak_bagger/core/number_formatters.dart';
 typedef _SearchPopupCriteria = ({
   String query,
   TrackDateRange? trackDateRange,
-  MapSearchEntityFilter entityFilter,
+  Set<MapSearchCategory> categories,
   String? regionKey,
   MapSearchSort sort,
   MapSearchGroup group,
@@ -62,6 +63,7 @@ class TestMapNotifier extends MapNotifier {
     this.waypointsRepository,
     this.gpxTrackRepository,
     this.routeRepository,
+    this.naturalFeatureRepository,
     this.namedWaySearch,
     this.routePlanningOutcomes = const [],
     this.routeSaveErrorMessage,
@@ -89,6 +91,7 @@ class TestMapNotifier extends MapNotifier {
   final WaypointsRepository? waypointsRepository;
   final GpxTrackRepository? gpxTrackRepository;
   final RouteRepository? routeRepository;
+  final NaturalFeatureRepository? naturalFeatureRepository;
   final NamedRouteGraphWaySearch? namedWaySearch;
   final List<Object> routePlanningOutcomes;
   final String? routeSaveErrorMessage;
@@ -908,8 +911,12 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
-  void setSearchPopupEntityFilter(MapSearchEntityFilter entityFilter) {
-    _refreshSearchPopupResults(entityFilter: entityFilter);
+  void toggleSearchPopupCategory(MapSearchCategory category) {
+    final categories = Set<MapSearchCategory>.from(state.searchPopupCategories);
+    if (!categories.add(category)) {
+      categories.remove(category);
+    }
+    _refreshSearchPopupResults(categories: categories);
   }
 
   @override
@@ -939,7 +946,7 @@ class TestMapNotifier extends MapNotifier {
     String? query,
     TrackDateRange? trackDateRange,
     bool trackDateRangeChanged = false,
-    MapSearchEntityFilter? entityFilter,
+    Set<MapSearchCategory>? categories,
     String? regionKey,
     bool regionKeyChanged = false,
     MapSearchSort? sort,
@@ -950,7 +957,7 @@ class TestMapNotifier extends MapNotifier {
       trackDateRange: trackDateRangeChanged
           ? trackDateRange
           : (trackDateRange ?? state.searchPopupTrackDateRange),
-      entityFilter: entityFilter ?? state.searchPopupEntityFilter,
+      categories: categories ?? state.searchPopupCategories,
       regionKey: regionKeyChanged
           ? regionKey
           : (regionKey ?? state.searchPopupRegionKey),
@@ -961,7 +968,7 @@ class TestMapNotifier extends MapNotifier {
     final page = _buildSearchPopupService().searchPage(
       query: criteria.query,
       trackDateRange: criteria.trackDateRange,
-      entityFilter: criteria.entityFilter,
+      categories: criteria.categories,
       regionKey: criteria.regionKey,
       sort: criteria.sort,
       group: criteria.group,
@@ -976,7 +983,7 @@ class TestMapNotifier extends MapNotifier {
       searchPopupLoadedCount: page.results.length,
       searchPopupIsLoadingMore: false,
       searchPopupIsExhausted: page.isExhausted,
-      searchPopupEntityFilter: criteria.entityFilter,
+      searchPopupCategories: criteria.categories,
       searchPopupRegionKey: criteria.regionKey,
       clearSearchPopupRegionKey: regionKeyChanged && criteria.regionKey == null,
       searchPopupSort: criteria.sort,
@@ -1005,7 +1012,7 @@ class TestMapNotifier extends MapNotifier {
     final page = _buildSearchPopupService().searchPage(
       query: criteria.query,
       trackDateRange: criteria.trackDateRange,
-      entityFilter: criteria.entityFilter,
+      categories: criteria.categories,
       regionKey: criteria.regionKey,
       sort: criteria.sort,
       group: criteria.group,
@@ -1038,6 +1045,9 @@ class TestMapNotifier extends MapNotifier {
       peaksBaggedRepository:
           peaksBaggedRepository ??
           PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+      naturalFeatureRepository:
+          naturalFeatureRepository ??
+          NaturalFeatureRepository.test(InMemoryNaturalFeatureStorage()),
       namedWaySearch: namedWaySearch,
     );
   }
@@ -1045,7 +1055,7 @@ class TestMapNotifier extends MapNotifier {
   _SearchPopupCriteria _searchPopupCriteria({
     String? query,
     TrackDateRange? trackDateRange,
-    MapSearchEntityFilter? entityFilter,
+    Set<MapSearchCategory>? categories,
     String? regionKey,
     MapSearchSort? sort,
     MapSearchGroup? group,
@@ -1053,7 +1063,7 @@ class TestMapNotifier extends MapNotifier {
     return (
       query: query ?? state.searchPopupQuery,
       trackDateRange: trackDateRange ?? state.searchPopupTrackDateRange,
-      entityFilter: entityFilter ?? state.searchPopupEntityFilter,
+      categories: categories ?? state.searchPopupCategories,
       regionKey: regionKey ?? state.searchPopupRegionKey,
       sort: sort ?? state.searchPopupSort,
       group: group ?? state.searchPopupGroup,
