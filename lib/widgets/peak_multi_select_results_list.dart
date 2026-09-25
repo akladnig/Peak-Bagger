@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/number_formatters.dart';
 import '../models/peak.dart';
+import '../theme.dart';
 
 class PeakMultiSelectResultsList extends StatelessWidget {
   const PeakMultiSelectResultsList({
@@ -34,6 +35,10 @@ class PeakMultiSelectResultsList extends StatelessWidget {
         return left.osmId.compareTo(right.osmId);
       });
     final selectionLimitReached = selectedPeakIds.length >= 50;
+    final theme = Theme.of(context);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
 
     if (sortedResults.isEmpty) {
       if (searchQuery.isNotEmpty) {
@@ -60,7 +65,12 @@ class PeakMultiSelectResultsList extends StatelessWidget {
           child: ListView.separated(
             key: const Key('peak-multi-select-scrollable'),
             itemCount: sortedResults.length,
-            separatorBuilder: (context, index) => const Divider(height: 1),
+            separatorBuilder: (context, index) => Divider(
+              key: Key('peak-multi-select-divider-$index'),
+              height: dataGridTheme.dividerThickness,
+              thickness: dataGridTheme.dividerThickness,
+              color: dataGridTheme.dividerColor,
+            ),
             itemBuilder: (context, index) {
               final peak = sortedResults[index];
               final readOnlySelected = readOnlySelectedPeakIds.contains(
@@ -88,7 +98,7 @@ class PeakMultiSelectResultsList extends StatelessWidget {
   }
 }
 
-class _PeakSearchResultRow extends StatelessWidget {
+class _PeakSearchResultRow extends StatefulWidget {
   const _PeakSearchResultRow({
     super.key,
     required this.peak,
@@ -109,62 +119,137 @@ class _PeakSearchResultRow extends StatelessWidget {
   final ValueChanged<Set<int>> onSelectionChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final checkboxKey = Key('peak-multi-select-checkbox-${peak.osmId}');
+  State<_PeakSearchResultRow> createState() => _PeakSearchResultRowState();
+}
 
-    return Container(
-      color: selected ? Colors.green.withValues(alpha: 0.12) : null,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Checkbox(
-            key: checkboxKey,
-            value: selected,
-            activeColor: Colors.green,
-            checkColor: Colors.white,
-            onChanged: canToggleSelection ? _toggleSelection : null,
+class _PeakSearchResultRowState extends State<_PeakSearchResultRow> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
+    final checkboxKey = Key('peak-multi-select-checkbox-${widget.peak.osmId}');
+    final rowTextStyle = widget.readOnlySelected
+        ? dataGridTheme.rowTextStyle.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          )
+        : dataGridTheme.rowTextStyle;
+    final rowDecoration = _rowDecoration(dataGridTheme);
+
+    return MouseRegion(
+      cursor: widget.canToggleSelection
+          ? SystemMouseCursors.click
+          : MouseCursor.defer,
+      onEnter: (_) => _setHovered(true),
+      onExit: (_) => _setHovered(false),
+      child: Listener(
+        onPointerDown: widget.canToggleSelection
+            ? (_) => _setPressed(true)
+            : null,
+        onPointerUp: widget.canToggleSelection
+            ? (_) => _setPressed(false)
+            : null,
+        onPointerCancel: widget.canToggleSelection
+            ? (_) => _setPressed(false)
+            : null,
+        child: Container(
+          decoration: rowDecoration,
+          padding: dataGridTheme.rowPadding,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Checkbox(
+                key: checkboxKey,
+                value: widget.selected,
+                activeColor: Colors.green,
+                checkColor: Colors.white,
+                onChanged: widget.canToggleSelection ? _toggleSelection : null,
+              ),
+              SizedBox(width: dataGridTheme.columnGap),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  widget.peak.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: rowTextStyle,
+                ),
+              ),
+              SizedBox(width: dataGridTheme.columnGap),
+              Expanded(
+                flex: 1,
+                child: Text(
+                  _heightLabel(widget.peak.elevation),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: rowTextStyle,
+                ),
+              ),
+              SizedBox(width: dataGridTheme.columnGap),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  widget.mapName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: rowTextStyle,
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              peak.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: readOnlySelected
-                  ? Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    )
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 1,
-            child: Text(
-              _heightLabel(peak.elevation),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 2,
-            child: Text(mapName, maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  void _toggleSelection(bool? value) {
-    final next = <int>{...selectedPeakIds};
-    if (value ?? false) {
-      next.add(peak.osmId);
-    } else {
-      next.remove(peak.osmId);
+  BoxDecoration? _rowDecoration(DataGridTheme dataGridTheme) {
+    if (widget.selected) {
+      return BoxDecoration(
+        color: dataGridTheme.selectedRowColor,
+        border: Border.symmetric(
+          horizontal: BorderSide(color: dataGridTheme.selectedRowBorderColor),
+        ),
+      );
     }
-    onSelectionChanged(next);
+    if (_isPressed) {
+      return BoxDecoration(color: dataGridTheme.pressedRowColor);
+    }
+    if (_isHovered) {
+      return BoxDecoration(color: dataGridTheme.hoverColor);
+    }
+    return null;
+  }
+
+  void _setHovered(bool value) {
+    if (_isHovered == value) {
+      return;
+    }
+    setState(() {
+      _isHovered = value;
+    });
+  }
+
+  void _setPressed(bool value) {
+    if (_isPressed == value) {
+      return;
+    }
+    setState(() {
+      _isPressed = value;
+    });
+  }
+
+  void _toggleSelection(bool? value) {
+    final next = <int>{...widget.selectedPeakIds};
+    if (value ?? false) {
+      next.add(widget.peak.osmId);
+    } else {
+      next.remove(widget.peak.osmId);
+    }
+    widget.onSelectionChanged(next);
   }
 
   String _heightLabel(double? elevation) {
