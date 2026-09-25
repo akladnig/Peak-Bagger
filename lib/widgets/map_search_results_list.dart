@@ -76,12 +76,11 @@ class _MapSearchResultsListState extends State<MapSearchResultsList> {
       final rows = _rowsForResults();
       return NotificationListener<ScrollNotification>(
         onNotification: _handleScrollNotification,
-        child: ListView.separated(
+        child: ListView.builder(
           key: const Key('map-search-results-list'),
           controller: _scrollController,
           shrinkWrap: true,
           itemCount: rows.length + (widget.isLoadingMore ? 1 : 0),
-          separatorBuilder: (context, index) => thinDivider,
           itemBuilder: (context, index) {
             if (index >= rows.length) {
               return const Padding(
@@ -112,28 +111,21 @@ class _MapSearchResultsListState extends State<MapSearchResultsList> {
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
-              _MapSearchResultRow(:final result) => ListTile(
-                key: Key('map-search-result-${result.type.name}-${result.id}'),
-                dense: true,
-                leading: Icon(_iconFor(result.type)),
-                title: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        result.displayDate == null
-                            ? result.title
-                            : '${result.title} · ${_resultDateFormat.format(result.displayDate!)}',
-                        overflow: TextOverflow.ellipsis,
-                      ),
+              _MapSearchResultRow(:final result) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _MapSearchResultTile(
+                    key: Key(
+                      'map-search-result-${result.type.name}-${result.id}',
                     ),
-                    if (result.trailingText case final trailingText?) ...[
-                      const SizedBox(width: 8),
-                      Text(trailingText),
-                    ],
-                  ],
-                ),
-                subtitle: Text(result.subtitle),
-                onTap: () => widget.onSelectResult(result),
+                    result: result,
+                    icon: _iconFor(result.type),
+                    dateFormat: _resultDateFormat,
+                    onTap: () => widget.onSelectResult(result),
+                  ),
+                  if (_hasResultDividerAfter(rows, index))
+                    _MapSearchResultDivider(result: result),
+                ],
               ),
             };
           },
@@ -174,6 +166,12 @@ class _MapSearchResultsListState extends State<MapSearchResultsList> {
       MapSearchResultType.road => Icons.directions_car,
       MapSearchResultType.map => Icons.map,
     };
+  }
+
+  bool _hasResultDividerAfter(List<_MapSearchRow> rows, int index) {
+    return index + 1 < rows.length &&
+        rows[index] is _MapSearchResultRow &&
+        rows[index + 1] is _MapSearchResultRow;
   }
 
   List<_MapSearchRow> _rowsForResults() {
@@ -255,4 +253,151 @@ class _MapSearchResultRow extends _MapSearchRow {
   const _MapSearchResultRow(this.result);
 
   final MapSearchResult result;
+}
+
+class _MapSearchResultDivider extends StatelessWidget {
+  const _MapSearchResultDivider({required this.result});
+
+  final MapSearchResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
+    return Divider(
+      key: Key('map-search-result-divider-${result.type.name}-${result.id}'),
+      height: dataGridTheme.dividerThickness,
+      thickness: dataGridTheme.dividerThickness,
+      color: dataGridTheme.dividerColor,
+    );
+  }
+}
+
+class _MapSearchResultTile extends StatefulWidget {
+  const _MapSearchResultTile({
+    required this.result,
+    required this.icon,
+    required this.dateFormat,
+    required this.onTap,
+    super.key,
+  });
+
+  final MapSearchResult result;
+  final IconData icon;
+  final DateFormat dateFormat;
+  final VoidCallback onTap;
+
+  @override
+  State<_MapSearchResultTile> createState() => _MapSearchResultTileState();
+}
+
+class _MapSearchResultTileState extends State<_MapSearchResultTile> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
+    final title = widget.result.displayDate == null
+        ? widget.result.title
+        : '${widget.result.title} · ${widget.dateFormat.format(widget.result.displayDate!)}';
+
+    return Container(
+      decoration: _rowDecoration(dataGridTheme),
+      child: Listener(
+        onPointerDown: (_) => _setPressed(true),
+        onPointerUp: (_) => _setPressed(false),
+        onPointerCancel: (_) => _setPressed(false),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            mouseCursor: SystemMouseCursors.click,
+            onHover: _setHovered,
+            hoverColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            focusColor: Colors.transparent,
+            onTap: widget.onTap,
+            child: Padding(
+              padding: dataGridTheme.rowPadding,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(widget.icon),
+                  SizedBox(width: dataGridTheme.columnGap),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: dataGridTheme.rowTextStyle,
+                        ),
+                        Text(
+                          widget.result.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: dataGridTheme.rowTextStyle.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (widget.result.trailingText case final trailingText?) ...[
+                    SizedBox(width: dataGridTheme.columnGap),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: Text(
+                        trailingText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: dataGridTheme.rowTextStyle,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration? _rowDecoration(DataGridTheme dataGridTheme) {
+    if (_isPressed) {
+      return BoxDecoration(color: dataGridTheme.pressedRowColor);
+    }
+    if (_isHovered) {
+      return BoxDecoration(color: dataGridTheme.hoverColor);
+    }
+    return null;
+  }
+
+  void _setHovered(bool value) {
+    if (_isHovered == value) {
+      return;
+    }
+    setState(() {
+      _isHovered = value;
+    });
+  }
+
+  void _setPressed(bool value) {
+    if (_isPressed == value) {
+      return;
+    }
+    setState(() {
+      _isPressed = value;
+    });
+  }
 }
