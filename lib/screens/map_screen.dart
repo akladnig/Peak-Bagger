@@ -2599,7 +2599,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
           searchPopupTrackDateRange: state.searchPopupTrackDateRange,
           searchIsLoadingMore: state.searchPopupIsLoadingMore,
           searchIsExhausted: state.searchPopupIsExhausted,
-          searchEntityFilter: state.searchPopupEntityFilter,
+          searchCategories: state.searchPopupCategories,
           searchRegionKey: state.searchPopupRegionKey,
           searchSort: state.searchPopupSort,
           searchGroup: state.searchPopupGroup,
@@ -4142,7 +4142,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         isExhausted: routeChrome.searchIsExhausted,
                         searchQuery: routeChrome.searchQuery,
                         trackDateRange: routeChrome.searchPopupTrackDateRange,
-                        entityFilter: routeChrome.searchEntityFilter,
+                        categories: routeChrome.searchCategories,
                         selectedRegionKey: routeChrome.searchRegionKey,
                         sort: routeChrome.searchSort,
                         group: routeChrome.searchGroup,
@@ -4152,10 +4152,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                               .read(mapProvider.notifier)
                               .updateSearchPopupQuery(value);
                         },
-                        onSelectEntityFilter: (value) {
+                        onToggleCategory: (value) {
                           ref
                               .read(mapProvider.notifier)
-                              .setSearchPopupEntityFilter(value);
+                              .toggleSearchPopupCategory(value);
                         },
                         onSelectTrackDateRange: (value) {
                           ref
@@ -4188,7 +4188,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         },
                         onSelectResult: (result) {
                           final mapNotifier = ref.read(mapProvider.notifier);
-                          mapNotifier.clearSearchResultSelection();
+                          if (result.type != MapSearchResultType.natural) {
+                            mapNotifier.clearSearchResultSelection();
+                          }
                           switch (result.type) {
                             case MapSearchResultType.peak:
                               _focusPeakDirect(result.peak!);
@@ -4202,6 +4204,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                 result.route!.id,
                                 selectedLocation: result.anchor,
                               );
+                            case MapSearchResultType.natural:
+                              mapNotifier.selectNaturalFromSearch(
+                                result.anchor,
+                              );
                             case MapSearchResultType.road:
                               mapNotifier.selectRoadFromSearch(
                                 result.anchor,
@@ -4213,7 +4219,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                 selectedLocation: result.anchor,
                               );
                           }
-                          mapNotifier.closeSearchPopup();
+                          if (result.type != MapSearchResultType.natural) {
+                            mapNotifier.closeSearchPopup();
+                          }
                         },
                       ),
                     ),

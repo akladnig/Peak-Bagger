@@ -5,12 +5,14 @@ import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
+import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/map_search_service.dart';
+import 'package:peak_bagger/services/natural_feature_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
@@ -955,6 +957,141 @@ void main() {
       );
     },
   );
+
+  test(
+    'natural search matches alternate names and formats the result',
+    () async {
+      final service = await _service(
+        naturalFeatures: [
+          NaturalFeature(
+            name: 'Lake Echo',
+            altName: 'The Lake',
+            tag: 'natural_water; lake',
+            latitude: -43,
+            longitude: 147,
+            osmId: 12345,
+            osmType: 'way',
+          ),
+        ],
+      );
+
+      final results = service.search(
+        query: 'lake',
+        categories: {MapSearchCategory.natural},
+        sort: MapSearchSort.nameAscending,
+      );
+
+      expect(results.single.type, MapSearchResultType.natural);
+      expect(results.single.id, 'way-12345');
+      expect(results.single.title, 'Lake Echo / The Lake');
+      expect(results.single.subtitle, 'Natural Water / Lake · Tasmania');
+    },
+  );
+
+  test(
+    'natural search ignores non-name fields and respects enabled categories',
+    () async {
+      final service = await _service(
+        naturalFeatures: [
+          NaturalFeature(
+            name: 'Lake Echo',
+            altName: 'Echo Tarn',
+            tag: 'water',
+            country: 'Echo Country',
+            region: 'Echo Region',
+            latitude: -43,
+            longitude: 147,
+            osmId: 1,
+            osmType: 'node',
+          ),
+        ],
+      );
+
+      final nameMatch = service.search(
+        query: 'ECHO',
+        categories: {MapSearchCategory.natural},
+        sort: MapSearchSort.nameAscending,
+      );
+      final excludedFieldMatch = service.search(
+        query: 'water',
+        categories: {MapSearchCategory.natural},
+        sort: MapSearchSort.nameAscending,
+      );
+      final disabled = service.search(
+        query: 'echo',
+        categories: {MapSearchCategory.peaks},
+        sort: MapSearchSort.nameAscending,
+      );
+      final allDisabled = service.search(
+        query: 'echo',
+        categories: const {},
+        sort: MapSearchSort.nameAscending,
+      );
+
+      expect(nameMatch.single.title, 'Lake Echo / Echo Tarn');
+      expect(excludedFieldMatch, isEmpty);
+      expect(disabled, isEmpty);
+      expect(allDisabled, isEmpty);
+    },
+  );
+
+  test(
+    'natural results are region-filtered, sorted, paged, and type-grouped',
+    () async {
+      final service = await _service(
+        naturalFeatures: [
+          NaturalFeature(
+            name: 'Zulu Lake',
+            tag: 'lake',
+            latitude: -43,
+            longitude: 147,
+            osmId: 1,
+            osmType: 'way',
+          ),
+          NaturalFeature(
+            name: 'Alpha Lake',
+            tag: 'wetland',
+            latitude: -43.1,
+            longitude: 147.1,
+            osmId: 2,
+            osmType: 'relation',
+          ),
+          NaturalFeature(
+            name: 'NSW Lake',
+            tag: 'lake',
+            latitude: -33.7,
+            longitude: 149,
+            osmId: 3,
+            osmType: 'node',
+          ),
+        ],
+      );
+
+      final firstPage = service.searchPage(
+        query: 'lake',
+        categories: {MapSearchCategory.natural},
+        regionKey: 'tasmania',
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.type,
+        offset: 0,
+        limit: 1,
+      );
+      final secondPage = service.searchPage(
+        query: 'lake',
+        categories: {MapSearchCategory.natural},
+        regionKey: 'tasmania',
+        sort: MapSearchSort.nameAscending,
+        group: MapSearchGroup.type,
+        offset: 1,
+        limit: 1,
+      );
+
+      expect(firstPage.results.single.title, 'Alpha Lake');
+      expect(firstPage.isExhausted, isFalse);
+      expect(secondPage.results.single.title, 'Zulu Lake');
+      expect(secondPage.isExhausted, isTrue);
+    },
+  );
 }
 
 Future<MapSearchService> _service({
@@ -963,6 +1100,7 @@ Future<MapSearchService> _service({
   List<app_route.Route> routes = const [],
   List<Tasmap50k> maps = const [],
   List<PeaksBagged> baggedRows = const [],
+  List<NaturalFeature> naturalFeatures = const [],
   NamedRouteGraphWaySearch? namedWaySearch,
 }) async {
   final tasmapRepository = await TestTasmapRepository.create(maps: maps);
@@ -975,6 +1113,9 @@ Future<MapSearchService> _service({
     tasmapRepository: tasmapRepository,
     peaksBaggedRepository: PeaksBaggedRepository.test(
       InMemoryPeaksBaggedStorage(baggedRows),
+    ),
+    naturalFeatureRepository: NaturalFeatureRepository.test(
+      InMemoryNaturalFeatureStorage(naturalFeatures),
     ),
     namedWaySearch: namedWaySearch,
   );

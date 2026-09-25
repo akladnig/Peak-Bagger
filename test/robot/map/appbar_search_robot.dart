@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
@@ -17,6 +18,7 @@ import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/natural_feature_repository.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -75,6 +77,9 @@ class AppBarSearchRobot {
       routeRepository: RouteRepository.test(
         InMemoryRouteStorage([_route(1, 'Bonnet Route')]),
       ),
+      naturalFeatureRepository: NaturalFeatureRepository.test(
+        InMemoryNaturalFeatureStorage([_naturalFeature()]),
+      ),
     );
     final tasmapRepository = await TestTasmapRepository.create(
       maps: [_resolvedMap()],
@@ -125,6 +130,11 @@ class AppBarSearchRobot {
     await tester.pumpAndSettle();
   }
 
+  Future<void> enableMapsCategory() async {
+    await tester.tap(find.byKey(const Key('map-search-entity-maps')));
+    await tester.pumpAndSettle();
+  }
+
   Future<void> selectTrackDate(String date) async {
     await tester.tap(dateTrigger);
     await tester.pumpAndSettle();
@@ -153,6 +163,16 @@ class AppBarSearchRobot {
   Future<void> tapMapResult() async {
     await tester.tap(
       find.byKey(const Key('map-search-result-map-0:TS01:Alpha Map')),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapNaturalResult({
+    String osmType = 'way',
+    int osmId = 12345,
+  }) async {
+    await tester.tap(
+      find.byKey(Key('map-search-result-natural-$osmType-$osmId')),
     );
     await tester.pumpAndSettle();
   }
@@ -200,6 +220,18 @@ app_route.Route _route(int id, String name) {
     ascent: 80,
     descent: 70,
     highestElevation: 450,
+  );
+}
+
+NaturalFeature _naturalFeature() {
+  return NaturalFeature(
+    name: 'Lake Echo',
+    altName: 'The Lake',
+    tag: 'lake',
+    latitude: -42.75,
+    longitude: 147.25,
+    osmId: 12345,
+    osmType: 'way',
   );
 }
 

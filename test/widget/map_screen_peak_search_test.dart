@@ -8,6 +8,7 @@ import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
+import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
@@ -17,6 +18,8 @@ import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/map_search_region_filter.dart';
+import 'package:peak_bagger/services/map_search_service.dart';
+import 'package:peak_bagger/services/natural_feature_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -59,7 +62,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final state = container.read(mapProvider);
-      expect(state.searchPopupEntityFilter, MapSearchEntityFilter.all);
+      expect(state.searchPopupCategories, MapSearchService.defaultCategories);
       expect(state.searchPopupRegionKey, 'tasmania');
       expect(state.searchPopupSort, MapSearchSort.nameAscending);
       expect(state.searchPopupGroup, MapSearchGroup.none);
@@ -155,7 +158,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('map-search-date-trigger')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('map-search-entity-all')));
+      await tester.tap(find.byKey(const Key('map-search-entity-natural')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('map-search-date-picker')), findsNothing);
       expect(find.text('28 Jul 2024 - 30 Jul 2024'), findsOneWidget);
@@ -274,13 +277,13 @@ void main() {
             isExhausted: true,
             searchQuery: '',
             trackDateRange: null,
-            entityFilter: MapSearchEntityFilter.all,
+            categories: MapSearchService.defaultCategories,
             selectedRegionKey: null,
             sort: MapSearchSort.nameAscending,
             group: MapSearchGroup.none,
             availableRegions: const <MapSearchRegionOption>[],
             onChanged: (_) {},
-            onSelectEntityFilter: (_) {},
+            onToggleCategory: (_) {},
             onSelectTrackDateRange: (_) {},
             onSelectRegionKey: (_) {},
             onSelectSort: (_) {},
@@ -706,21 +709,75 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        container.read(mapProvider).searchPopupEntityFilter,
-        MapSearchEntityFilter.peaks,
+        container.read(mapProvider).searchPopupCategories,
+        isNot(contains(MapSearchCategory.peaks)),
       );
       expect(
         find.byKey(const Key('map-search-result-peak-6406')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-track-1')),
         findsOneWidget,
       );
-      expect(find.byKey(const Key('map-search-result-track-1')), findsNothing);
 
       final naturalButton = tester.widget<OutlinedButton>(
         find.byKey(const Key('map-search-entity-natural')),
       );
-      expect(naturalButton.onPressed, isNull);
+      expect(naturalButton.onPressed, isNotNull);
     },
   );
+
+  testWidgets('Natural is selected by default and renders local results', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(
+      _mapStateWithPeaks(),
+      naturalFeatureRepository: NaturalFeatureRepository.test(
+        InMemoryNaturalFeatureStorage([
+          NaturalFeature(
+            name: 'Lake Echo',
+            altName: 'The Lake',
+            tag: 'natural_water; lake',
+            latitude: -43,
+            longitude: 147,
+            osmId: 12345,
+            osmType: 'way',
+          ),
+        ]),
+      ),
+    );
+    await _pumpMapAppWithNotifier(tester, notifier);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('map-interaction-region'))),
+    );
+
+    await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
+    await tester.pumpAndSettle();
+    expect(find.bySemanticsLabel('Natural'), findsWidgets);
+
+    await tester.enterText(find.byKey(const Key('map-search-input')), 'lake');
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const Key('map-search-result-natural-way-12345')),
+      findsOneWidget,
+    );
+    expect(find.text('Lake Echo / The Lake'), findsOneWidget);
+    expect(find.text('Natural Water / Lake · Tasmania'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('map-search-entity-natural')));
+    await tester.pumpAndSettle();
+    expect(
+      container.read(mapProvider).searchPopupCategories,
+      isNot(contains(MapSearchCategory.natural)),
+    );
+    expect(
+      find.byKey(const Key('map-search-result-natural-way-12345')),
+      findsNothing,
+    );
+  });
 
   testWidgets(
     'under-threshold control changes stay visible and the first threshold query applies them immediately',
@@ -749,8 +806,6 @@ void main() {
       );
       expect(helperText, findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('map-search-entity-peaks')));
-      await tester.pumpAndSettle();
       expect(helperText, findsOneWidget);
 
       await tester.ensureVisible(
@@ -827,10 +882,6 @@ void main() {
 
       await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const Key('map-search-entity-tracks-routes')),
-      );
-      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('map-search-input')),
         'track',
@@ -889,10 +940,6 @@ void main() {
 
       await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
       await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const Key('map-search-entity-tracks-routes')),
-      );
-      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('map-search-input')),
         'track',
@@ -940,7 +987,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     container
         .read(mapProvider.notifier)
-        .setSearchPopupEntityFilter(MapSearchEntityFilter.maps);
+        .toggleSearchPopupCategory(MapSearchCategory.maps);
     container.read(mapProvider.notifier).setSearchPopupRegionKey(null);
     container
         .read(mapProvider.notifier)
@@ -1101,6 +1148,8 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('app-bar-search-trigger')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map-search-entity-maps')));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Alp');
     await tester.pump(const Duration(milliseconds: 250));
     await tester.pumpAndSettle();
@@ -1142,8 +1191,6 @@ void main() {
     container.read(mapProvider.notifier).setSearchPopupRegionKey(null);
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const Key('map-search-entity-peaks')));
-    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Peak');
     await tester.pump(const Duration(milliseconds: 250));
     await tester.pumpAndSettle();
@@ -1480,7 +1527,7 @@ void _expectDefaultSearchPopupState(ProviderContainer container) {
   expect(state.showPeakSearch, isTrue);
   expect(state.searchPopupQuery, isEmpty);
   expect(state.searchPopupResults, isEmpty);
-  expect(state.searchPopupEntityFilter, MapSearchEntityFilter.all);
+  expect(state.searchPopupCategories, MapSearchService.defaultCategories);
   expect(state.searchPopupRegionKey, 'tasmania');
   expect(state.searchPopupSort, MapSearchSort.nameAscending);
   expect(state.searchPopupGroup, MapSearchGroup.none);

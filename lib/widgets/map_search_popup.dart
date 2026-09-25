@@ -23,13 +23,13 @@ class MapSearchPopup extends StatefulWidget {
     required this.isExhausted,
     required this.searchQuery,
     required this.trackDateRange,
-    required this.entityFilter,
+    required this.categories,
     required this.selectedRegionKey,
     required this.sort,
     required this.group,
     required this.availableRegions,
     required this.onChanged,
-    required this.onSelectEntityFilter,
+    required this.onToggleCategory,
     required this.onSelectTrackDateRange,
     required this.onSelectRegionKey,
     required this.onSelectSort,
@@ -47,13 +47,13 @@ class MapSearchPopup extends StatefulWidget {
   final bool isExhausted;
   final String searchQuery;
   final TrackDateRange? trackDateRange;
-  final MapSearchEntityFilter entityFilter;
+  final Set<MapSearchCategory> categories;
   final String? selectedRegionKey;
   final MapSearchSort sort;
   final MapSearchGroup group;
   final List<MapSearchRegionOption> availableRegions;
   final ValueChanged<String> onChanged;
-  final ValueChanged<MapSearchEntityFilter> onSelectEntityFilter;
+  final ValueChanged<MapSearchCategory> onToggleCategory;
   final ValueChanged<TrackDateRange?> onSelectTrackDateRange;
   final ValueChanged<String?> onSelectRegionKey;
   final ValueChanged<MapSearchSort> onSelectSort;
@@ -472,29 +472,15 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                   children: [
                     _entityButton(
                       context,
-                      key: const Key('map-search-entity-all'),
-                      icon: Icons.language,
-                      label: 'All',
-                      isSelected:
-                          widget.entityFilter == MapSearchEntityFilter.all,
-                      onPressed: () {
-                        _flushPendingQuery();
-                        widget.onSelectEntityFilter(MapSearchEntityFilter.all);
-                      },
-                    ),
-                    const SizedBox(width: 8),
-                    _entityButton(
-                      context,
                       key: const Key('map-search-entity-peaks'),
                       icon: Icons.landscape,
                       label: 'Peaks',
-                      isSelected:
-                          widget.entityFilter == MapSearchEntityFilter.peaks,
+                      isSelected: widget.categories.contains(
+                        MapSearchCategory.peaks,
+                      ),
                       onPressed: () {
                         _flushPendingQuery();
-                        widget.onSelectEntityFilter(
-                          MapSearchEntityFilter.peaks,
-                        );
+                        widget.onToggleCategory(MapSearchCategory.peaks);
                       },
                     ),
                     const SizedBox(width: 8),
@@ -503,14 +489,12 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                       key: const Key('map-search-entity-tracks-routes'),
                       icon: Icons.hiking,
                       label: 'Tracks/Routes',
-                      isSelected:
-                          widget.entityFilter ==
-                          MapSearchEntityFilter.tracksRoutes,
+                      isSelected: widget.categories.contains(
+                        MapSearchCategory.tracksRoutes,
+                      ),
                       onPressed: () {
                         _flushPendingQuery();
-                        widget.onSelectEntityFilter(
-                          MapSearchEntityFilter.tracksRoutes,
-                        );
+                        widget.onToggleCategory(MapSearchCategory.tracksRoutes);
                       },
                     ),
                     const SizedBox(width: 8),
@@ -519,8 +503,13 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                       key: const Key('map-search-entity-natural'),
                       icon: Icons.forest,
                       label: 'Natural',
-                      isSelected: false,
-                      onPressed: null,
+                      isSelected: widget.categories.contains(
+                        MapSearchCategory.natural,
+                      ),
+                      onPressed: () {
+                        _flushPendingQuery();
+                        widget.onToggleCategory(MapSearchCategory.natural);
+                      },
                     ),
                     const SizedBox(width: 8),
                     _entityButton(
@@ -528,13 +517,12 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                       key: const Key('map-search-entity-roads'),
                       icon: Icons.directions_car,
                       label: 'Roads',
-                      isSelected:
-                          widget.entityFilter == MapSearchEntityFilter.roads,
+                      isSelected: widget.categories.contains(
+                        MapSearchCategory.roads,
+                      ),
                       onPressed: () {
                         _flushPendingQuery();
-                        widget.onSelectEntityFilter(
-                          MapSearchEntityFilter.roads,
-                        );
+                        widget.onToggleCategory(MapSearchCategory.roads);
                       },
                     ),
                     const SizedBox(width: 8),
@@ -543,11 +531,12 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                       key: const Key('map-search-entity-maps'),
                       icon: Icons.map,
                       label: 'Maps',
-                      isSelected:
-                          widget.entityFilter == MapSearchEntityFilter.maps,
+                      isSelected: widget.categories.contains(
+                        MapSearchCategory.maps,
+                      ),
                       onPressed: () {
                         _flushPendingQuery();
-                        widget.onSelectEntityFilter(MapSearchEntityFilter.maps);
+                        widget.onToggleCategory(MapSearchCategory.maps);
                       },
                     ),
                     const SizedBox(width: 8),
@@ -662,7 +651,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                   key: ValueKey((
                     widget.searchQuery,
                     widget.trackDateRange,
-                    widget.entityFilter,
+                    widget.categories,
                     widget.selectedRegionKey,
                     widget.sort,
                     widget.group,
@@ -696,14 +685,19 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
     final searchButtonTheme = Theme.of(
       context,
     ).extension<SearchButtonThemeData>();
-    return OutlinedButton.icon(
-      key: key,
-      style: searchButtonTheme?.styleFor(isSelected),
-      onPressed: onPressed,
-      icon: Icon(icon, size: searchControlIconSize),
-      label: Text(
-        label,
-        style: const TextStyle(fontSize: searchControlFontSize),
+    return Semantics(
+      button: true,
+      selected: isSelected,
+      label: label,
+      child: OutlinedButton.icon(
+        key: key,
+        style: searchButtonTheme?.styleFor(isSelected),
+        onPressed: onPressed,
+        icon: Icon(icon, size: searchControlIconSize),
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: searchControlFontSize),
+        ),
       ),
     );
   }

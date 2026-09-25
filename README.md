@@ -83,7 +83,7 @@ The Mapy.cz tourist basemap uses Mapy's official tile API and is only enabled wh
 
 For local development in this repo, you can keep API keys out of git by using `dart_defines.local.json` and launching with `--dart-define-from-file=dart_defines.local.json`. The repo now expects both `TRACESTRACK_API_KEY` and `MAPY_CZ_API_KEY` there for the keyed basemaps. Tracestrack requests also send a `Referer` header; override it with `--dart-define=TRACESTRACK_REFERER=<your-origin>` if your Tracestrack app key is restricted to a specific origin.
 
-For the combined local Mapy + Slovenia debug setup, run `./run_local_maps.sh`. It starts the local Slovenia proxy on `127.0.0.1:8080` if needed, then launches `flutter run --dart-define-from-file=dart_defines.local.json`. Extra `flutter run` args are forwarded, for example `./run_local_maps.sh --verbose` or `./run_local_maps.sh -d iphone`.
+For the combined local Mapy + Slovenia debug setup, run `./run_local_maps.sh`. It starts the local Slovenia proxy on `127.0.0.1:8080` if needed, then launches `flutter run --dart-define-from-file=dart_defines.local.json`. Extra `flutter run` args are forwarded, for example `./run_local_maps.sh --verbose`.
 
 You can manage the local Slovenia proxy on its own with `./start_slovenia_proxy.sh`, `./stop_slovenia_proxy.sh`, and `./restart_slovenia_proxy.sh`. The helper-managed proxy PID is stored in `.dart_tool/slovenia_topo_proxy.pid`, and proxy output goes to `.dart_tool/slovenia_topo_proxy.log`.
 

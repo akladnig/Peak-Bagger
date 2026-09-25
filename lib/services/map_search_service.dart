@@ -3,12 +3,14 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
+import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/map_search_region_filter.dart';
+import 'package:peak_bagger/services/natural_feature_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
@@ -19,6 +21,11 @@ import 'package:peak_bagger/services/track_date_query_parser.dart';
 
 class MapSearchService {
   static const popupPageSize = 20;
+  static const defaultCategories = <MapSearchCategory>{
+    MapSearchCategory.peaks,
+    MapSearchCategory.tracksRoutes,
+    MapSearchCategory.natural,
+  };
 
   MapSearchService({
     required this._peakRepository,
@@ -26,6 +33,7 @@ class MapSearchService {
     required this._routeRepository,
     required this._tasmapRepository,
     required this._peaksBaggedRepository,
+    this.naturalFeatureRepository,
     this.namedWaySearch,
   });
 
@@ -34,6 +42,7 @@ class MapSearchService {
   final RouteRepository _routeRepository;
   final TasmapRepository _tasmapRepository;
   final PeaksBaggedRepository _peaksBaggedRepository;
+  final NaturalFeatureRepository? naturalFeatureRepository;
   final NamedRouteGraphWaySearch? namedWaySearch;
 
   List<Peak> searchPeaks(String query) {
@@ -49,14 +58,15 @@ class MapSearchService {
 
   List<MapSearchResult> search({
     required String query,
-    required MapSearchEntityFilter entityFilter,
+    Set<MapSearchCategory>? categories,
+    @Deprecated('Use categories.') MapSearchEntityFilter? entityFilter,
     required MapSearchSort sort,
     String? regionKey,
     TrackDateRange? trackDateRange,
   }) {
     return searchPage(
       query: query,
-      entityFilter: entityFilter,
+      categories: _resolvedCategories(categories, entityFilter),
       sort: sort,
       regionKey: regionKey,
       group: MapSearchGroup.none,
@@ -68,7 +78,8 @@ class MapSearchService {
 
   MapSearchPage searchPage({
     required String query,
-    required MapSearchEntityFilter entityFilter,
+    Set<MapSearchCategory>? categories,
+    @Deprecated('Use categories.') MapSearchEntityFilter? entityFilter,
     required MapSearchSort sort,
     required MapSearchGroup group,
     String? regionKey,
@@ -76,6 +87,7 @@ class MapSearchService {
     int limit = popupPageSize,
     TrackDateRange? trackDateRange,
   }) {
+    final resolvedCategories = _resolvedCategories(categories, entityFilter);
     final trimmedQuery = query.trim();
     if (trackDateRange == null &&
         (trimmedQuery.isEmpty ||
@@ -89,7 +101,8 @@ class MapSearchService {
     }
 
     if (trackDateRange == null &&
-        entityFilter == MapSearchEntityFilter.peaks &&
+        resolvedCategories.length == 1 &&
+        resolvedCategories.contains(MapSearchCategory.peaks) &&
         group == MapSearchGroup.none) {
       return _peakPage(
         trimmedQuery,
@@ -103,7 +116,7 @@ class MapSearchService {
     final entries = trackDateRange == null
         ? _orderedEntries(
             query: trimmedQuery,
-            entityFilter: entityFilter,
+            categories: resolvedCategories,
             regionKey: regionKey,
             sort: sort,
             group: group,
@@ -111,7 +124,7 @@ class MapSearchService {
         : _orderedRangeEntries(
             query: trimmedQuery,
             range: trackDateRange,
-            entityFilter: entityFilter,
+            categories: resolvedCategories,
             regionKey: regionKey,
             sort: sort,
             group: group,
@@ -129,6 +142,23 @@ class MapSearchService {
           .toList(growable: false),
       isExhausted: end >= entries.length,
     );
+  }
+
+  Set<MapSearchCategory> _resolvedCategories(
+    Set<MapSearchCategory>? categories,
+    MapSearchEntityFilter? entityFilter,
+  ) {
+    if (categories != null) {
+      return categories;
+    }
+    return switch (entityFilter ?? MapSearchEntityFilter.all) {
+      MapSearchEntityFilter.all => MapSearchCategory.values.toSet(),
+      MapSearchEntityFilter.peaks => {MapSearchCategory.peaks},
+      MapSearchEntityFilter.tracksRoutes => {MapSearchCategory.tracksRoutes},
+      MapSearchEntityFilter.natural => {MapSearchCategory.natural},
+      MapSearchEntityFilter.roads => {MapSearchCategory.roads},
+      MapSearchEntityFilter.maps => {MapSearchCategory.maps},
+    };
   }
 
   MapSearchPage _peakPage(
@@ -180,6 +210,26 @@ class MapSearchService {
         .getAllRoutes()
         .where((route) => route.name.toLowerCase().contains(loweredQuery))
         .map((route) => _routeResult(route, regionKey: regionKey))
+        .whereType<MapSearchResult>()
+        .toList(growable: false);
+  }
+
+  List<MapSearchResult> _naturalResults(String query, {String? regionKey}) {
+    final normalizedQuery = query.trim().toLowerCase();
+    return (naturalFeatureRepository?.getAllNaturalFeatures() ?? const [])
+        .where((naturalFeature) {
+          return naturalFeature.name.trim().toLowerCase().contains(
+                normalizedQuery,
+              ) ||
+              (naturalFeature.altName.trim().isNotEmpty &&
+                  naturalFeature.altName.trim().toLowerCase().contains(
+                    normalizedQuery,
+                  ));
+        })
+        .map(
+          (naturalFeature) =>
+              _naturalResult(naturalFeature, query, regionKey: regionKey),
+        )
         .whereType<MapSearchResult>()
         .toList(growable: false);
   }
@@ -313,6 +363,39 @@ class MapSearchService {
       regionName: regionData?.name,
       mapName: mapName,
       route: route,
+    );
+  }
+
+  MapSearchResult? _naturalResult(
+    NaturalFeature naturalFeature,
+    String query, {
+    String? regionKey,
+  }) {
+    final anchor = LatLng(naturalFeature.latitude, naturalFeature.longitude);
+    final regionData = _regionForPoint(anchor);
+    if (!nonPeakMatchesSearchRegion(
+      resolvedRegionKey: regionData?.key,
+      filterRegionKey: regionKey,
+    )) {
+      return null;
+    }
+    final normalizedQuery = query.trim().toLowerCase();
+    final altName = naturalFeature.altName.trim();
+    final title =
+        altName.isNotEmpty && altName.toLowerCase().contains(normalizedQuery)
+        ? '${naturalFeature.name} / $altName'
+        : naturalFeature.name;
+    return MapSearchResult.natural(
+      id: '${naturalFeature.osmType}-${naturalFeature.osmId}',
+      title: title,
+      subtitle: _joinSummaryParts([
+        _formatNaturalTag(naturalFeature.tag),
+        regionData?.name,
+      ]),
+      anchor: anchor,
+      regionKey: regionData?.key,
+      regionName: regionData?.name,
+      naturalFeature: naturalFeature,
     );
   }
 
@@ -479,16 +562,19 @@ class MapSearchService {
     return formattedValues.join(' / ');
   }
 
+  String? _formatNaturalTag(String value) => _formatRoadTag(value);
+
   List<_SearchPageEntry> _orderedEntries({
     required String query,
-    required MapSearchEntityFilter entityFilter,
+    required Set<MapSearchCategory> categories,
     required String? regionKey,
     required MapSearchSort sort,
     required MapSearchGroup group,
   }) {
-    final entries = switch (entityFilter) {
-      MapSearchEntityFilter.all => <_SearchPageEntry>[
+    final entries = <_SearchPageEntry>[
+      if (categories.contains(MapSearchCategory.peaks))
         ..._allPeakEntries(query, sort: sort, regionKey: regionKey),
+      if (categories.contains(MapSearchCategory.tracksRoutes)) ...[
         ..._trackResults(
           query,
           regionKey: regionKey,
@@ -497,40 +583,23 @@ class MapSearchService {
           query,
           regionKey: regionKey,
         ).map(_SearchPageResultEntry.new),
+      ],
+      if (categories.contains(MapSearchCategory.natural))
+        ..._naturalResults(
+          query,
+          regionKey: regionKey,
+        ).map(_SearchPageResultEntry.new),
+      if (categories.contains(MapSearchCategory.maps))
         ..._mapResults(
           query,
           regionKey: regionKey,
         ).map(_SearchPageResultEntry.new),
+      if (categories.contains(MapSearchCategory.roads))
         ..._roadResults(
           query,
           regionKey: regionKey,
         ).map(_SearchPageResultEntry.new),
-      ],
-      MapSearchEntityFilter.peaks => _allPeakEntries(
-        query,
-        sort: sort,
-        regionKey: regionKey,
-      ),
-      MapSearchEntityFilter.tracksRoutes => <_SearchPageEntry>[
-        ..._trackResults(
-          query,
-          regionKey: regionKey,
-        ).map(_SearchPageResultEntry.new),
-        ..._routeResults(
-          query,
-          regionKey: regionKey,
-        ).map(_SearchPageResultEntry.new),
-      ],
-      MapSearchEntityFilter.maps => _mapResults(
-        query,
-        regionKey: regionKey,
-      ).map(_SearchPageResultEntry.new).toList(growable: false),
-      MapSearchEntityFilter.roads => _roadResults(
-        query,
-        regionKey: regionKey,
-      ).map(_SearchPageResultEntry.new).toList(growable: false),
-      MapSearchEntityFilter.natural => const <_SearchPageEntry>[],
-    };
+    ];
 
     final ordered = List<_SearchPageEntry>.from(entries)
       ..sort(
@@ -542,17 +611,11 @@ class MapSearchService {
   List<_SearchPageEntry> _orderedRangeEntries({
     required String query,
     required TrackDateRange range,
-    required MapSearchEntityFilter entityFilter,
+    required Set<MapSearchCategory> categories,
     required String? regionKey,
     required MapSearchSort sort,
     required MapSearchGroup group,
   }) {
-    if (entityFilter == MapSearchEntityFilter.maps ||
-        entityFilter == MapSearchEntityFilter.natural ||
-        entityFilter == MapSearchEntityFilter.roads) {
-      return const [];
-    }
-
     final loweredQuery = query.toLowerCase();
     final dateMatchedTracks = _gpxTrackRepository
         .getAllTracks()
@@ -594,8 +657,7 @@ class MapSearchService {
         .toList(growable: false);
 
     final entries = <_SearchPageEntry>[
-      if (entityFilter == MapSearchEntityFilter.all ||
-          entityFilter == MapSearchEntityFilter.peaks)
+      if (categories.contains(MapSearchCategory.peaks))
         ...peaks
             .map(
               (peak) => _peakResult(
@@ -606,8 +668,7 @@ class MapSearchService {
             )
             .whereType<MapSearchResult>()
             .map(_SearchPageResultEntry.new),
-      if (entityFilter == MapSearchEntityFilter.all ||
-          entityFilter == MapSearchEntityFilter.tracksRoutes)
+      if (categories.contains(MapSearchCategory.tracksRoutes))
         ...tracks
             .map((track) => _trackResult(track, regionKey: regionKey))
             .whereType<MapSearchResult>()
@@ -769,6 +830,7 @@ class _SearchPageResultEntry extends _SearchPageEntry {
         MapSearchResultType.peak => 'Peaks',
         MapSearchResultType.track ||
         MapSearchResultType.route => 'Tracks/Routes',
+        MapSearchResultType.natural => 'Natural',
         MapSearchResultType.road => 'Roads',
         MapSearchResultType.map => 'Maps',
       },

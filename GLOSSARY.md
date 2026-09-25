@@ -291,3 +291,19 @@ _Avoid_: country FAB when the source of truth is a manifest region
 **My Ascents**:
 The peak info popup term for the user's recorded climbed tracks associated with a peak.
 _Avoid_: Available Tracks
+
+**Natural Feature**:
+An imported OpenStreetMap natural geographic feature stored separately from a `Peak` record.
+_Avoid_: NaturalFeatures when referring to one record, peak when the source feature is not a summit
+
+**OSM feature identity**:
+The combination of an OpenStreetMap element's `osmType` and numeric `osmId`, which uniquely identifies one imported `Natural Feature`.
+_Avoid_: using osmId alone when identifying a natural feature
+
+**Natural Feature source of truth**:
+The `sourceOfTruth` value that determines whether a `Natural Feature` accepts OSM refresh updates (`OSM`) or retains administrator-maintained values (`Manual`).
+_Avoid_: assuming every imported natural feature is refreshed unconditionally
+
+**Contact**:
+An independent address-book record with a first name, surname, and optional nickname, not linked to another app entity in the current domain model.
+_Avoid_: contact person when referring to the persisted entity
