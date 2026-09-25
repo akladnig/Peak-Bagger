@@ -1,3 +1,5 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,6 +25,8 @@ import 'package:peak_bagger/services/natural_feature_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
+import 'package:peak_bagger/theme.dart';
+import 'package:peak_bagger/widgets/map_search_results_list.dart';
 import 'package:peak_bagger/widgets/map_search_popup.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -85,6 +89,187 @@ void main() {
 
     expect(find.text('No results found'), findsOneWidget);
   });
+
+  testWidgets(
+    'Search result rows use the data grid style and divide only adjacent results',
+    (tester) async {
+      tester.view.physicalSize = const Size(1280, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      MapSearchResult? selected;
+      final results = [
+        _searchResult(
+          id: 'alpha',
+          title:
+              'A deliberately long Search result title that must ellipsize without overflowing the data grid row',
+          subtitle: 'Alpha subtitle',
+          trailingText: '101 m',
+          regionName: 'North',
+        ),
+        _searchResult(
+          id: 'beta',
+          title: 'Beta result',
+          subtitle: 'Beta subtitle',
+          trailingText: '202 m',
+          regionName: 'North',
+        ),
+        _searchResult(
+          id: 'gamma',
+          title: 'Gamma result',
+          subtitle: 'Gamma subtitle',
+          trailingText: '303 m',
+          regionName: 'South',
+        ),
+      ];
+
+      await tester.pumpWidget(
+        _MapSearchResultsHarness(
+          results: results,
+          textScaler: TextScaler.linear(2.0),
+          onSelected: (result) => selected = result,
+        ),
+      );
+
+      final alphaRow = find.byKey(const Key('map-search-result-peak-alpha'));
+      final betaRow = find.byKey(const Key('map-search-result-peak-beta'));
+      final theme = Theme.of(tester.element(alphaRow));
+      final dataGridTheme = theme.extension<DataGridTheme>()!;
+      final alphaContainer = _searchResultContainer(alphaRow);
+      final alphaPadding = _searchResultPadding(alphaRow);
+
+      expect(alphaRow, findsOneWidget);
+      expect(
+        find.byKey(const Key('map-search-result-divider-peak-alpha')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-divider-peak-beta')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-divider-peak-gamma')),
+        findsNothing,
+      );
+      expect(
+        tester.widget<Padding>(alphaPadding).padding,
+        dataGridTheme.rowPadding,
+      );
+      expect(
+        tester.widget<Text>(find.text(results.first.title)).style,
+        dataGridTheme.rowTextStyle,
+      );
+      expect(
+        tester.widget<Text>(find.text('101 m')).style,
+        dataGridTheme.rowTextStyle,
+      );
+      expect(
+        tester.widget<Text>(find.text(results.first.title)).overflow,
+        TextOverflow.ellipsis,
+      );
+      expect(
+        tester.getRect(find.byIcon(Icons.landscape).first).right +
+            dataGridTheme.columnGap,
+        lessThanOrEqualTo(tester.getRect(find.text(results.first.title)).left),
+      );
+      expect(
+        tester.getRect(find.text(results.first.title)).right,
+        lessThanOrEqualTo(tester.getRect(find.text('101 m')).left),
+      );
+      expect(tester.takeException(), isNull);
+
+      final semanticsHandle = tester.ensureSemantics();
+      expect(
+        tester.getSemantics(alphaRow),
+        matchesSemantics(
+          hasFocusAction: true,
+          hasTapAction: true,
+          isFocusable: true,
+        ),
+      );
+      semanticsHandle.dispose();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(selected, results.first);
+      selected = null;
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(alphaRow));
+      await tester.pump();
+      expect(
+        (tester.widget<Container>(alphaContainer).decoration! as BoxDecoration)
+            .color,
+        dataGridTheme.hoverColor,
+      );
+
+      final press = await tester.startGesture(tester.getCenter(alphaRow));
+      await tester.pump();
+      expect(
+        (tester.widget<Container>(alphaContainer).decoration! as BoxDecoration)
+            .color,
+        dataGridTheme.pressedRowColor,
+      );
+      await press.up();
+      await tester.pump();
+      expect(selected, results.first);
+
+      await mouse.moveTo(const Offset(1279, 799));
+      await tester.pump();
+      expect(tester.widget<Container>(alphaContainer).decoration, isNull);
+
+      await tester.pumpWidget(
+        _MapSearchResultsHarness(
+          results: results,
+          group: MapSearchGroup.region,
+          textScaler: TextScaler.linear(2.0),
+          onSelected: (_) {},
+        ),
+      );
+
+      expect(
+        find.byKey(const Key('map-search-group-header-north')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-divider-peak-alpha')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-divider-peak-beta')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-divider-peak-gamma')),
+        findsNothing,
+      );
+
+      await tester.pumpWidget(
+        _MapSearchResultsHarness(
+          results: results.take(2).toList(growable: false),
+          isLoadingMore: true,
+          textScaler: TextScaler.linear(2.0),
+          onSelected: (_) {},
+        ),
+      );
+
+      expect(
+        find.byKey(const Key('map-search-result-divider-peak-alpha')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('map-search-result-divider-peak-beta')),
+        findsNothing,
+      );
+      expect(find.byKey(const Key('map-search-loading-more')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expect(betaRow, findsOneWidget);
+    },
+  );
 
   testWidgets(
     'Track date picker applies a single date and an inclusive range',
@@ -572,7 +757,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
     await tester.pump(const Duration(milliseconds: 250));
 
-    await tester.tap(find.widgetWithText(ListTile, 'Bonnet Hill'));
+    await tester.tap(find.byKey(const Key('map-search-result-peak-6406')));
     await tester.pump();
 
     final state = container.read(mapProvider);
@@ -633,7 +818,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
     await tester.pump(const Duration(milliseconds: 250));
 
-    final tile = find.widgetWithText(ListTile, 'Bonnet Hill');
+    final tile = find.byKey(const Key('map-search-result-peak-6406'));
     expect(tile, findsOneWidget);
     expect(
       find.descendant(of: tile, matching: find.text('410 m')),
@@ -660,7 +845,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('map-search-input')), 'Bonnet');
     await tester.pump(const Duration(milliseconds: 250));
 
-    final tile = find.widgetWithText(ListTile, 'Bonnet Hill');
+    final tile = find.byKey(const Key('map-search-result-peak-6406'));
     expect(tile, findsOneWidget);
     expect(find.descendant(of: tile, matching: find.text('—')), findsOneWidget);
     expect(
@@ -900,7 +1085,13 @@ void main() {
       await tester.pump();
 
       expect(find.byKey(const Key('map-search-loading-more')), findsOneWidget);
-      expect(find.byType(ListTile), findsWidgets);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('map-search-results-list')),
+          matching: find.byType(InkWell),
+        ),
+        findsWidgets,
+      );
       expect(container.read(mapProvider).searchPopupLoadedCount, 20);
       expect(container.read(mapProvider).searchPopupIsLoadingMore, isTrue);
 
@@ -1520,6 +1711,71 @@ String _pointString(LatLng point) {
     point.longitude,
     point.latitude,
   ], 5).replaceAll(RegExp(r'[\n\s]'), '').substring(3);
+}
+
+Finder _searchResultContainer(Finder row) {
+  return find.descendant(of: row, matching: find.byType(Container)).first;
+}
+
+Finder _searchResultPadding(Finder row) {
+  return find.descendant(of: row, matching: find.byType(Padding)).first;
+}
+
+class _MapSearchResultsHarness extends StatelessWidget {
+  const _MapSearchResultsHarness({
+    required this.results,
+    required this.onSelected,
+    this.group = MapSearchGroup.none,
+    this.isLoadingMore = false,
+    this.textScaler = TextScaler.noScaling,
+  });
+
+  final List<MapSearchResult> results;
+  final ValueChanged<MapSearchResult> onSelected;
+  final MapSearchGroup group;
+  final bool isLoadingMore;
+  final TextScaler textScaler;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      theme: MyTheme.light,
+      home: MediaQuery(
+        data: MediaQueryData(textScaler: textScaler),
+        child: Scaffold(
+          body: MapSearchResultsList(
+            searchResults: results,
+            isLoadingMore: isLoadingMore,
+            isExhausted: !isLoadingMore,
+            searchQuery: 'peak',
+            isTrackDateRangeActive: false,
+            sort: MapSearchSort.nameAscending,
+            group: group,
+            onLoadMore: () {},
+            onSelectResult: onSelected,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+MapSearchResult _searchResult({
+  required String id,
+  required String title,
+  required String subtitle,
+  required String trailingText,
+  required String regionName,
+}) {
+  return MapSearchResult.peak(
+    id: id,
+    title: title,
+    subtitle: subtitle,
+    trailingText: trailingText,
+    regionName: regionName,
+    anchor: const LatLng(-43, 147),
+    peak: Peak(osmId: id.hashCode, name: title, latitude: -43, longitude: 147),
+  );
 }
 
 void _expectDefaultSearchPopupState(ProviderContainer container) {
