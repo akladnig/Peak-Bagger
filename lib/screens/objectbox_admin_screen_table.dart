@@ -78,7 +78,7 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
           onSortPressed: onSortPressed,
           showActionsColumn: showActionsColumn,
         ),
-        const Divider(height: 1),
+        const _ObjectBoxAdminDataGridDivider(),
         Expanded(
           child: Scrollbar(
             controller: verticalController,
@@ -97,22 +97,29 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
                 final row = rows[index];
                 final isSelected =
                     selectedRow?.primaryKeyValue == row.primaryKeyValue;
-                return ObjectBoxAdminDataRowTile(
-                  entityName: entity.name,
-                  row: row,
-                  primaryField: primaryField,
-                  otherFields: otherFields,
-                  primaryColumnWidth: primaryColumnWidth,
-                  actionsColumnWidth: actionsColumnWidth,
-                  selected: isSelected,
-                  horizontalController: rowHorizontalControllerFor(row),
-                  onTap: () => onRowTap(row),
-                  showActionsColumn: showActionsColumn,
-                  onDeletePressed: onDeletePressed == null
-                      ? null
-                      : deleteEnabled
-                      ? () => onDeletePressed!(row)
-                      : null,
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ObjectBoxAdminDataRowTile(
+                      entityName: entity.name,
+                      row: row,
+                      primaryField: primaryField,
+                      otherFields: otherFields,
+                      primaryColumnWidth: primaryColumnWidth,
+                      actionsColumnWidth: actionsColumnWidth,
+                      selected: isSelected,
+                      horizontalController: rowHorizontalControllerFor(row),
+                      onTap: () => onRowTap(row),
+                      showActionsColumn: showActionsColumn,
+                      onDeletePressed: onDeletePressed == null
+                          ? null
+                          : deleteEnabled
+                          ? () => onDeletePressed!(row)
+                          : null,
+                    ),
+                    if (index < rows.length - 1)
+                      const _ObjectBoxAdminDataGridDivider(),
+                  ],
                 );
               },
             ),
@@ -147,63 +154,91 @@ class ObjectBoxAdminDataHeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        ObjectBoxAdminCell(
-          width: primaryColumnWidth,
-          child: GestureDetector(
-            onTap: onSortPressed,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    primaryField.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Icon(
-                  sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                  size: 14,
-                ),
-              ],
-            ),
-          ),
-        ),
-        Expanded(
-          child: SingleChildScrollView(
-            controller: horizontalController,
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: otherFields
-                  .map(
-                    (field) => ObjectBoxAdminCell(
-                      width: 160,
-                      child: Text(
-                        field.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+    final theme = Theme.of(context);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
+    return Padding(
+      padding: dataGridTheme.headerPadding,
+      child: DefaultTextStyle.merge(
+        style: dataGridTheme.headerTextStyle,
+        child: Row(
+          children: [
+            ObjectBoxAdminCell(
+              width: primaryColumnWidth,
+              child: InkWell(
+                onTap: onSortPressed,
+                child: Row(
+                  children: [
+                    Expanded(child: Text(primaryField.name)),
+                    Icon(
+                      sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                      size: 14,
                     ),
-                  )
-                  .toList(growable: false),
-            ),
-          ),
-        ),
-        if (showActionsColumn)
-          ObjectBoxAdminCell(
-            width: actionsColumnWidth,
-            child: Center(
-              child: Text(
-                'Delete',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                  ],
+                ),
               ),
             ),
-          ),
-      ],
+            SizedBox(width: dataGridTheme.columnGap),
+            Expanded(
+              child: SingleChildScrollView(
+                controller: horizontalController,
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _withColumnGaps(
+                    otherFields.map(
+                      (field) => ObjectBoxAdminCell(
+                        width: 160,
+                        child: Text(field.name),
+                      ),
+                    ),
+                    dataGridTheme.columnGap,
+                  ),
+                ),
+              ),
+            ),
+            if (showActionsColumn) ...[
+              SizedBox(width: dataGridTheme.columnGap),
+              ObjectBoxAdminCell(
+                width: actionsColumnWidth,
+                child: const Center(child: Text('Delete')),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
 
-class ObjectBoxAdminDataRowTile extends StatelessWidget {
+List<Widget> _withColumnGaps(Iterable<Widget> children, double gap) {
+  final columns = children.toList(growable: false);
+  return [
+    for (var index = 0; index < columns.length; index++) ...[
+      if (index > 0) SizedBox(width: gap),
+      columns[index],
+    ],
+  ];
+}
+
+class _ObjectBoxAdminDataGridDivider extends StatelessWidget {
+  const _ObjectBoxAdminDataGridDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
+    return Divider(
+      height: dataGridTheme.dividerThickness,
+      thickness: dataGridTheme.dividerThickness,
+      color: dataGridTheme.dividerColor,
+    );
+  }
+}
+
+class ObjectBoxAdminDataRowTile extends StatefulWidget {
   const ObjectBoxAdminDataRowTile({
     required this.entityName,
     required this.row,
@@ -232,89 +267,155 @@ class ObjectBoxAdminDataRowTile extends StatelessWidget {
   final VoidCallback? onDeletePressed;
 
   @override
-  Widget build(BuildContext context) {
-    final highlight = selected
-        ? Theme.of(context).seedColour
-        : Colors.transparent;
+  State<ObjectBoxAdminDataRowTile> createState() =>
+      _ObjectBoxAdminDataRowTileState();
+}
 
-    return Material(
-      color: highlight,
-      child: InkWell(
-        onTap: onTap,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ObjectBoxAdminCell(
-              width: primaryColumnWidth,
-              child: ColoredBox(
-                color: selected
-                    ? Theme.of(context).seedColour
-                    : Theme.of(context).colorScheme.surface,
-                child: Text(
-                  objectBoxAdminPreviewFieldValue(
-                    entityName: entityName,
-                    fieldName: primaryField.name,
-                    value: row.values[primaryField.name],
-                  ),
-                  maxLines: null,
-                  softWrap: true,
-                ),
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                controller: horizontalController,
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: otherFields
-                      .map(
-                        (field) => ObjectBoxAdminCell(
-                          width: 160,
-                          child: Text(
-                            objectBoxAdminPreviewFieldValue(
-                              entityName: entityName,
-                              fieldName: field.name,
-                              value: row.values[field.name],
+class _ObjectBoxAdminDataRowTileState extends State<ObjectBoxAdminDataRowTile> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
+    return Container(
+      decoration: _rowDecoration(dataGridTheme),
+      child: Listener(
+        onPointerDown: (_) => _setPressed(true),
+        onPointerUp: (_) => _setPressed(false),
+        onPointerCancel: (_) => _setPressed(false),
+        child: Semantics(
+          container: true,
+          selected: widget.selected,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: widget.onTap,
+              onHover: _setHovered,
+              hoverColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              splashColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              child: Padding(
+                padding: dataGridTheme.rowPadding,
+                child: DefaultTextStyle.merge(
+                  style: dataGridTheme.rowTextStyle,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ObjectBoxAdminCell(
+                        width: widget.primaryColumnWidth,
+                        child: Text(
+                          objectBoxAdminPreviewFieldValue(
+                            entityName: widget.entityName,
+                            fieldName: widget.primaryField.name,
+                            value: widget.row.values[widget.primaryField.name],
+                          ),
+                          maxLines: null,
+                          softWrap: true,
+                        ),
+                      ),
+                      SizedBox(width: dataGridTheme.columnGap),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          controller: widget.horizontalController,
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: _withColumnGaps(
+                              widget.otherFields.map(
+                                (field) => ObjectBoxAdminCell(
+                                  width: 160,
+                                  child: Text(
+                                    objectBoxAdminPreviewFieldValue(
+                                      entityName: widget.entityName,
+                                      fieldName: field.name,
+                                      value: widget.row.values[field.name],
+                                    ),
+                                    maxLines: null,
+                                    softWrap: true,
+                                  ),
+                                ),
+                              ),
+                              dataGridTheme.columnGap,
                             ),
-                            maxLines: null,
-                            softWrap: true,
                           ),
                         ),
-                      )
-                      .toList(growable: false),
-                ),
-              ),
-            ),
-            if (showActionsColumn)
-              ObjectBoxAdminCell(
-                width: actionsColumnWidth,
-                child: Center(
-                  child: IconButton(
-                    key: Key(
-                      entityName == 'NaturalFeature'
-                          ? 'objectbox-admin-natural-feature-delete-${row.primaryKeyValue}'
-                          : entityName == 'Contact'
-                          ? 'objectbox-admin-contact-delete-${row.primaryKeyValue}'
-                          : entityName == 'GpxTrack'
-                          ? 'objectbox-admin-gpx-track-delete-${row.primaryKeyValue}'
-                          : entityName == 'Route'
-                          ? 'objectbox-admin-route-delete-${row.primaryKeyValue}'
-                          : entityName == 'Waypoints'
-                          ? 'objectbox-admin-waypoints-delete-${row.primaryKeyValue}'
-                          : 'objectbox-admin-peak-delete-${row.primaryKeyValue}',
-                    ),
-                    tooltip: 'Delete',
-                    onPressed: onDeletePressed,
-                    icon: const Icon(Icons.delete_forever, color: Colors.red),
+                      ),
+                      if (widget.showActionsColumn) ...[
+                        SizedBox(width: dataGridTheme.columnGap),
+                        ObjectBoxAdminCell(
+                          width: widget.actionsColumnWidth,
+                          child: Center(
+                            child: IconButton(
+                              key: Key(
+                                _deleteKey(widget.entityName, widget.row),
+                              ),
+                              tooltip: 'Delete',
+                              onPressed: widget.onDeletePressed,
+                              icon: const Icon(
+                                Icons.delete_forever,
+                                color: Colors.red,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ),
-          ],
+            ),
+          ),
         ),
       ),
     );
   }
+
+  BoxDecoration? _rowDecoration(DataGridTheme dataGridTheme) {
+    if (widget.selected) {
+      return BoxDecoration(
+        color: dataGridTheme.selectedRowColor,
+        border: Border.symmetric(
+          horizontal: BorderSide(color: dataGridTheme.selectedRowBorderColor),
+        ),
+      );
+    }
+    if (_isPressed) {
+      return BoxDecoration(color: dataGridTheme.pressedRowColor);
+    }
+    if (_isHovered) {
+      return BoxDecoration(color: dataGridTheme.hoverColor);
+    }
+    return null;
+  }
+
+  void _setHovered(bool value) {
+    if (_isHovered != value) {
+      setState(() => _isHovered = value);
+    }
+  }
+
+  void _setPressed(bool value) {
+    if (_isPressed != value) {
+      setState(() => _isPressed = value);
+    }
+  }
+}
+
+String _deleteKey(String entityName, ObjectBoxAdminRow row) {
+  return switch (entityName) {
+    'NaturalFeature' =>
+      'objectbox-admin-natural-feature-delete-${row.primaryKeyValue}',
+    'Contact' => 'objectbox-admin-contact-delete-${row.primaryKeyValue}',
+    'GpxTrack' => 'objectbox-admin-gpx-track-delete-${row.primaryKeyValue}',
+    'Route' => 'objectbox-admin-route-delete-${row.primaryKeyValue}',
+    'Waypoints' => 'objectbox-admin-waypoints-delete-${row.primaryKeyValue}',
+    _ => 'objectbox-admin-peak-delete-${row.primaryKeyValue}',
+  };
 }
 
 class ObjectBoxAdminCell extends StatelessWidget {
@@ -329,15 +430,6 @@ class ObjectBoxAdminCell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: DefaultTextStyle.merge(
-          style: Theme.of(context).textTheme.bodySmall!,
-          child: child,
-        ),
-      ),
-    );
+    return SizedBox(width: width, child: child);
   }
 }
