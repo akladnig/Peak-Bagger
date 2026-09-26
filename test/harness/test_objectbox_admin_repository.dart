@@ -8,7 +8,7 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
   }) : _entities = entities ?? _defaultEntities,
        _rowsByEntity = rowsByEntity ?? _defaultRowsByEntity;
 
-  final List<ObjectBoxAdminEntityDescriptor> _entities;
+  List<ObjectBoxAdminEntityDescriptor> _entities;
   final Map<String, List<ObjectBoxAdminRow>> _rowsByEntity;
   final String exportPath;
 
@@ -16,6 +16,10 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
   int exportCallCount = 0;
   int getEntitiesCallCount = 0;
   int loadRowsCallCount = 0;
+
+  void replaceEntities(List<ObjectBoxAdminEntityDescriptor> entities) {
+    _entities = entities;
+  }
 
   static final _defaultEntities = [
     const ObjectBoxAdminEntityDescriptor(
