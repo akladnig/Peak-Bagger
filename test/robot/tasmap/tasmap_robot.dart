@@ -58,6 +58,11 @@ class TasmapRobot {
   }
 
   Future<void> resetTasmapData() async {
+    await tester.scrollUntilVisible(
+      resetMapDataTile,
+      300,
+      scrollable: _settingsScrollable,
+    );
     await tester.tap(resetMapDataTile);
     await tester.pumpAndSettle();
     await tester.tap(resetMapDataConfirm);
@@ -137,4 +142,11 @@ class TasmapRobot {
   Future<void> dispose() async {
     await repository.dispose();
   }
+
+  Finder get _settingsScrollable => find
+      .descendant(
+        of: find.byKey(const Key('settings-scrollable')),
+        matching: find.byType(Scrollable),
+      )
+      .first;
 }

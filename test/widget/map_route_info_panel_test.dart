@@ -70,7 +70,7 @@ void main() {
     );
 
     expect(find.text('Distance (2d/3d)'), findsOneWidget);
-    expect(find.text('17.4 / 17.9'), findsOneWidget);
+    expect(find.text('17.4 km / 17.9 km'), findsOneWidget);
   });
 
   testWidgets('renders dual route timing rows and removes inline explanation', (

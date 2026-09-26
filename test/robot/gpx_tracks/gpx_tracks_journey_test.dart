@@ -555,7 +555,7 @@ void main() {
 
     await robot.openSettingsFromStartupWarning();
 
-    robot.expectMirroredStartupFailureDetail(
+    await robot.expectMirroredStartupFailureDetail(
       'Failed to rebuild bagged peak history from stored tracks.',
     );
   });
