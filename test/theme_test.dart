@@ -66,6 +66,72 @@ void main() {
       );
     });
 
+    test('data grid theme derives every token from each resolved scheme', () {
+      const customConfig = ThemeConfig(
+        seedColor: Color(0xFF00FF00),
+        dynamicSchemeVariant: DynamicSchemeVariant.expressive,
+        contrastLevel: 0.5,
+      );
+
+      for (final theme in [
+        MyTheme.light,
+        MyTheme.dark,
+        MyTheme.lightWith(customConfig),
+        MyTheme.darkWith(customConfig),
+      ]) {
+        final dataGridTheme = theme.extension<DataGridTheme>();
+
+        expect(dataGridTheme, isNotNull);
+        expect(
+          dataGridTheme!.headerPadding,
+          const EdgeInsets.symmetric(vertical: 4),
+        );
+        expect(
+          dataGridTheme.rowPadding,
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        );
+        expect(dataGridTheme.columnGap, 12);
+        expect(dataGridTheme.headerTextStyle, theme.textTheme.labelLarge);
+        expect(dataGridTheme.rowTextStyle, theme.textTheme.bodyMedium);
+        expect(dataGridTheme.dividerColor, theme.colorScheme.outlineVariant);
+        expect(dataGridTheme.dividerThickness, 1);
+        expect(
+          dataGridTheme.hoverColor,
+          theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+        );
+        expect(dataGridTheme.hoveredTextColor, theme.colorScheme.onSurface);
+        expect(
+          dataGridTheme.pressedRowColor,
+          theme.colorScheme.primary.withValues(alpha: 0.12),
+        );
+        expect(
+          dataGridTheme.selectedRowColor,
+          darken(theme.colorScheme.primaryContainer, 0.30),
+        );
+        expect(
+          dataGridTheme.selectedRowBorderColor,
+          darken(theme.colorScheme.primaryContainer, 0.08),
+        );
+      }
+    });
+
+    test('data grid theme copies and interpolates its tokens', () {
+      final light = MyTheme.light.extension<DataGridTheme>()!;
+      final dark = MyTheme.dark.extension<DataGridTheme>()!;
+
+      final copied = light.copyWith(columnGap: 16);
+      final interpolated = light.lerp(dark, 0.5);
+
+      expect(copied.columnGap, 16);
+      expect(copied.rowPadding, light.rowPadding);
+      expect(
+        interpolated.selectedRowColor,
+        Color.lerp(light.selectedRowColor, dark.selectedRowColor, 0.5),
+      );
+      expect(interpolated.headerPadding, isA<EdgeInsetsGeometry>());
+      expect(interpolated.headerTextStyle, isA<TextStyle>());
+    });
+
     test('both themes expose only live theme extensions', () {
       final darkTheme = MyTheme.dark;
       final lightTheme = MyTheme.light;

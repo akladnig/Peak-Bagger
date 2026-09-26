@@ -1,3 +1,5 @@
+import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/core/constants.dart';
 
@@ -80,6 +82,129 @@ Color darken(Color color, [double amount = 0.1]) {
       .withSaturation((hsl.saturation - amount).clamp(0.0, 1.0))
       .withLightness((hsl.lightness - amount).clamp(0.0, 1.0))
       .toColor();
+}
+
+@immutable
+class DataGridTheme extends ThemeExtension<DataGridTheme> {
+  const DataGridTheme({
+    required this.headerPadding,
+    required this.rowPadding,
+    required this.columnGap,
+    required this.headerTextStyle,
+    required this.rowTextStyle,
+    required this.dividerColor,
+    required this.dividerThickness,
+    required this.hoverColor,
+    required this.hoveredTextColor,
+    required this.pressedRowColor,
+    required this.selectedRowColor,
+    required this.selectedRowBorderColor,
+  });
+
+  final EdgeInsetsGeometry headerPadding;
+  final EdgeInsetsGeometry rowPadding;
+  final double columnGap;
+  final TextStyle headerTextStyle;
+  final TextStyle rowTextStyle;
+  final Color dividerColor;
+  final double dividerThickness;
+  final Color hoverColor;
+  final Color hoveredTextColor;
+  final Color pressedRowColor;
+  final Color selectedRowColor;
+  final Color selectedRowBorderColor;
+
+  static DataGridTheme fromColorScheme(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
+    return DataGridTheme(
+      headerPadding: const EdgeInsets.symmetric(vertical: 4),
+      rowPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      columnGap: 12,
+      headerTextStyle: textTheme.labelLarge ?? const TextStyle(),
+      rowTextStyle: textTheme.bodyMedium ?? const TextStyle(),
+      dividerColor: colorScheme.outlineVariant,
+      dividerThickness: 1,
+      hoverColor: colorScheme.primaryContainer.withValues(alpha: 0.5),
+      hoveredTextColor: colorScheme.onSurface,
+      pressedRowColor: colorScheme.primary.withValues(alpha: 0.12),
+      selectedRowColor: darken(colorScheme.primaryContainer, 0.30),
+      selectedRowBorderColor: darken(colorScheme.primaryContainer, 0.08),
+    );
+  }
+
+  @override
+  DataGridTheme copyWith({
+    EdgeInsetsGeometry? headerPadding,
+    EdgeInsetsGeometry? rowPadding,
+    double? columnGap,
+    TextStyle? headerTextStyle,
+    TextStyle? rowTextStyle,
+    Color? dividerColor,
+    double? dividerThickness,
+    Color? hoverColor,
+    Color? hoveredTextColor,
+    Color? pressedRowColor,
+    Color? selectedRowColor,
+    Color? selectedRowBorderColor,
+  }) {
+    return DataGridTheme(
+      headerPadding: headerPadding ?? this.headerPadding,
+      rowPadding: rowPadding ?? this.rowPadding,
+      columnGap: columnGap ?? this.columnGap,
+      headerTextStyle: headerTextStyle ?? this.headerTextStyle,
+      rowTextStyle: rowTextStyle ?? this.rowTextStyle,
+      dividerColor: dividerColor ?? this.dividerColor,
+      dividerThickness: dividerThickness ?? this.dividerThickness,
+      hoverColor: hoverColor ?? this.hoverColor,
+      hoveredTextColor: hoveredTextColor ?? this.hoveredTextColor,
+      pressedRowColor: pressedRowColor ?? this.pressedRowColor,
+      selectedRowColor: selectedRowColor ?? this.selectedRowColor,
+      selectedRowBorderColor:
+          selectedRowBorderColor ?? this.selectedRowBorderColor,
+    );
+  }
+
+  @override
+  DataGridTheme lerp(ThemeExtension<DataGridTheme>? other, double t) {
+    if (other is! DataGridTheme) {
+      return this;
+    }
+
+    return DataGridTheme(
+      headerPadding:
+          EdgeInsetsGeometry.lerp(headerPadding, other.headerPadding, t) ??
+          headerPadding,
+      rowPadding:
+          EdgeInsetsGeometry.lerp(rowPadding, other.rowPadding, t) ??
+          rowPadding,
+      columnGap: lerpDouble(columnGap, other.columnGap, t) ?? columnGap,
+      headerTextStyle:
+          TextStyle.lerp(headerTextStyle, other.headerTextStyle, t) ??
+          headerTextStyle,
+      rowTextStyle:
+          TextStyle.lerp(rowTextStyle, other.rowTextStyle, t) ?? rowTextStyle,
+      dividerColor:
+          Color.lerp(dividerColor, other.dividerColor, t) ?? dividerColor,
+      dividerThickness:
+          lerpDouble(dividerThickness, other.dividerThickness, t) ??
+          dividerThickness,
+      hoverColor: Color.lerp(hoverColor, other.hoverColor, t) ?? hoverColor,
+      hoveredTextColor:
+          Color.lerp(hoveredTextColor, other.hoveredTextColor, t) ??
+          hoveredTextColor,
+      pressedRowColor:
+          Color.lerp(pressedRowColor, other.pressedRowColor, t) ??
+          pressedRowColor,
+      selectedRowColor:
+          Color.lerp(selectedRowColor, other.selectedRowColor, t) ??
+          selectedRowColor,
+      selectedRowBorderColor:
+          Color.lerp(selectedRowBorderColor, other.selectedRowBorderColor, t) ??
+          selectedRowBorderColor,
+    );
+  }
 }
 
 const _secondarySeriesColor = Color(0xFF2E7D32);
@@ -603,6 +728,12 @@ class MyTheme {
 
   static ThemeData _createDarkTheme(ThemeConfig config) {
     final colorScheme = _darkColorScheme(config);
+    final textTheme = _textTheme(colorScheme);
+    final resolvedTextTheme = _resolvedTextTheme(
+      brightness: Brightness.dark,
+      colorScheme: colorScheme,
+      textTheme: textTheme,
+    );
     return ThemeData(
       brightness: Brightness.dark,
       colorScheme: colorScheme,
@@ -618,23 +749,11 @@ class MyTheme {
         shadowColor: Color(0x66000000),
       ),
       iconTheme: IconThemeData(color: colorScheme.onPrimaryContainer, size: 24),
-      textTheme: TextTheme(
-        bodyLarge: TextStyle(color: colorScheme.onSurface),
-        bodyMedium: TextStyle(color: colorScheme.onSurface),
-        bodySmall: TextStyle(color: colorScheme.onSurface),
-        titleLarge: TextStyle(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w600,
-        ),
-        titleMedium: TextStyle(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w500,
-        ),
-        titleSmall: TextStyle(color: colorScheme.onSurface),
-      ),
+      textTheme: textTheme,
       extensions: [
         SeedColourTheme(config.seedColor),
         RowHoverTheme.dark,
+        DataGridTheme.fromColorScheme(colorScheme, resolvedTextTheme),
         ChartSeriesTheme.fromColorScheme(colorScheme),
         _searchButtonTheme(colorScheme, config.seedColor),
       ],
@@ -654,6 +773,12 @@ class MyTheme {
 
   static ThemeData _createLightTheme(ThemeConfig config) {
     final colorScheme = _lightColorScheme(config);
+    final textTheme = _textTheme(colorScheme);
+    final resolvedTextTheme = _resolvedTextTheme(
+      brightness: Brightness.light,
+      colorScheme: colorScheme,
+      textTheme: textTheme,
+    );
     return ThemeData(
       brightness: Brightness.light,
       colorScheme: colorScheme,
@@ -669,26 +794,44 @@ class MyTheme {
         shadowColor: Color(0x33000000),
       ),
       iconTheme: IconThemeData(color: colorScheme.onSurface, size: 24),
-      textTheme: TextTheme(
-        bodyLarge: TextStyle(color: colorScheme.onSurface),
-        bodyMedium: TextStyle(color: colorScheme.onSurface),
-        bodySmall: TextStyle(color: colorScheme.onSurface),
-        titleLarge: TextStyle(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w600,
-        ),
-        titleMedium: TextStyle(
-          color: colorScheme.onSurface,
-          fontWeight: FontWeight.w500,
-        ),
-        titleSmall: TextStyle(color: colorScheme.onSurface),
-      ),
+      textTheme: textTheme,
       extensions: [
         SeedColourTheme(config.seedColor),
         RowHoverTheme.light,
+        DataGridTheme.fromColorScheme(colorScheme, resolvedTextTheme),
         ChartSeriesTheme.fromColorScheme(colorScheme),
         _searchButtonTheme(colorScheme, config.seedColor),
       ],
     );
+  }
+
+  static TextTheme _textTheme(ColorScheme colorScheme) {
+    return TextTheme(
+      bodyLarge: TextStyle(color: colorScheme.onSurface),
+      bodyMedium: TextStyle(color: colorScheme.onSurface),
+      bodySmall: TextStyle(color: colorScheme.onSurface),
+      labelLarge: TextStyle(color: colorScheme.onSurface),
+      titleLarge: TextStyle(
+        color: colorScheme.onSurface,
+        fontWeight: FontWeight.w600,
+      ),
+      titleMedium: TextStyle(
+        color: colorScheme.onSurface,
+        fontWeight: FontWeight.w500,
+      ),
+      titleSmall: TextStyle(color: colorScheme.onSurface),
+    );
+  }
+
+  static TextTheme _resolvedTextTheme({
+    required Brightness brightness,
+    required ColorScheme colorScheme,
+    required TextTheme textTheme,
+  }) {
+    return ThemeData(
+      brightness: brightness,
+      colorScheme: colorScheme,
+      textTheme: textTheme,
+    ).textTheme;
   }
 }
