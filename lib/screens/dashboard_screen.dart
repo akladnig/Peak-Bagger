@@ -506,13 +506,13 @@ class _DashboardCardHeaderMetrics extends StatelessWidget {
           _DashboardCardHeaderMetricPill(
             label: 'Total:',
             value: valueFormatter(summary.totalValue),
-            valueKey: const Key('dashboard-card-summary-total-value'),
+            metricKey: const Key('dashboard-card-summary-total-value'),
           ),
           const SizedBox(width: 20),
           _DashboardCardHeaderMetricPill(
             label: averageLabelText(summary.period),
             value: valueFormatter(summary.averageValue),
-            valueKey: const Key('dashboard-card-summary-average-value'),
+            metricKey: const Key('dashboard-card-summary-average-value'),
           ),
         ],
       ),
@@ -524,33 +524,22 @@ class _DashboardCardHeaderMetricPill extends StatelessWidget {
   const _DashboardCardHeaderMetricPill({
     required this.label,
     required this.value,
-    this.valueKey,
+    this.metricKey,
   });
 
   final String label;
   final String value;
-  final Key? valueKey;
+  final Key? metricKey;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(label),
-        SizedBox(
-          width: 70,
-          child: Text(
-            value,
-            key: valueKey,
-            maxLines: 1,
-            overflow: TextOverflow.fade,
-            softWrap: false,
-            textAlign: TextAlign.right,
-            style: const TextStyle(
-              fontFeatures: [FontFeature.tabularFigures()],
-            ),
-          ),
-        ),
-      ],
+    return Text(
+      '$label $value',
+      key: metricKey,
+      maxLines: 1,
+      overflow: TextOverflow.fade,
+      softWrap: false,
+      style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()]),
     );
   }
 }

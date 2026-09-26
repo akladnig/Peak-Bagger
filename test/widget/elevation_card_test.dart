@@ -53,6 +53,64 @@ void main() {
       expect(find.byKey(const Key('elevation-bucket-0')), findsOneWidget);
     });
 
+    testWidgets('uses cursors for enabled and disabled summary controls', (
+      tester,
+    ) async {
+      await _pumpElevationCard(
+        tester,
+        tracks: [_track(10, DateTime(2026, 5, 15, 10), ascent: 100)],
+      );
+
+      expect(
+        tester
+            .widget<MouseRegion>(
+              find
+                  .ancestor(
+                    of: _cardControl('summary-period-dropdown'),
+                    matching: find.byType(MouseRegion),
+                  )
+                  .first,
+            )
+            .cursor,
+        SystemMouseCursors.click,
+      );
+      expect(
+        tester
+            .widget<FloatingActionButton>(_cardControl('summary-mode-fab'))
+            .mouseCursor,
+        SystemMouseCursors.click,
+      );
+      _expectWindowCursors(tester, SystemMouseCursors.basic);
+
+      await tester.tap(_cardControl('summary-period-dropdown'));
+      await tester.pumpAndSettle();
+      for (final item in tester.widgetList<PopupMenuItem>(
+        find.byType(PopupMenuItem),
+      )) {
+        expect(item.mouseCursor, SystemMouseCursors.click);
+      }
+
+      await tester.tapAt(const Offset(300, 300));
+      await tester.pumpAndSettle();
+      await _pumpElevationCard(
+        tester,
+        tracks: [
+          for (var year = 2014; year <= 2026; year++)
+            _track(year, DateTime(year, 5, 15, 10), ascent: 100),
+        ],
+      );
+      await tester.tap(_cardControl('summary-period-dropdown'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All Time').last);
+      await tester.pumpAndSettle();
+      _expectPreviousCursor(tester, SystemMouseCursors.click);
+      _expectNextCursor(tester, SystemMouseCursors.basic);
+
+      await tester.tap(_cardControl('summary-prev-window'));
+      await tester.pumpAndSettle();
+      _expectNextCursor(tester, SystemMouseCursors.click);
+    });
+
     testWidgets('renders aligned all time year buckets', (tester) async {
       await _pumpElevationCard(
         tester,
@@ -517,6 +575,25 @@ Finder _cardControl(String key) {
   return find.descendant(
     of: find.byKey(const Key('elevation-card')),
     matching: find.byKey(Key(key)),
+  );
+}
+
+void _expectWindowCursors(WidgetTester tester, MouseCursor cursor) {
+  _expectPreviousCursor(tester, cursor);
+  _expectNextCursor(tester, cursor);
+}
+
+void _expectPreviousCursor(WidgetTester tester, MouseCursor cursor) {
+  expect(
+    tester.widget<IconButton>(_cardControl('summary-prev-window')).mouseCursor,
+    cursor,
+  );
+}
+
+void _expectNextCursor(WidgetTester tester, MouseCursor cursor) {
+  expect(
+    tester.widget<IconButton>(_cardControl('summary-next-window')).mouseCursor,
+    cursor,
   );
 }
 
