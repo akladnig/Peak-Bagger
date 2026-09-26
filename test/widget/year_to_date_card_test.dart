@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/widgets/dashboard/year_to_date_card.dart';
 
 void main() {
@@ -12,6 +13,7 @@ void main() {
       await _pumpYearToDateCard(
         tester,
         tracks: const [],
+        peaksBagged: const [],
         isLoading: true,
         settle: false,
       );
@@ -52,6 +54,14 @@ void main() {
             peakIds: [3],
           ),
         ],
+        peaksBagged: [
+          _bagged(1, peakId: 2, gpxId: 20, date: DateTime.utc(2026, 6, 15)),
+          _bagged(2, peakId: 2, gpxId: 21, date: DateTime.utc(2026, 6, 16)),
+          _bagged(3, peakId: 3, gpxId: 22, date: DateTime.utc(2026, 6, 17)),
+          _bagged(4, peakId: 1, gpxId: 10, date: DateTime.utc(2025, 6, 15)),
+          _bagged(5, peakId: 3, gpxId: 30, date: DateTime.utc(2027, 6, 15)),
+          _bagged(6, peakId: 4, gpxId: 23, date: null),
+        ],
         now: DateTime.utc(2026, 5, 15, 12),
       );
 
@@ -78,14 +88,49 @@ void main() {
         findsOneWidget,
       );
       expect(
+        tester
+            .widget<Text>(
+              find.byKey(const Key('year-to-date-peaks-climbed-value')),
+            )
+            .data,
+        '3',
+      );
+      expect(
         find.byKey(const Key('year-to-date-new-peaks-climbed-value')),
         findsOneWidget,
+      );
+      for (final label in const [
+        'Kilometers walked',
+        'Metres climbed',
+        'Total walks',
+        'Peaks climbed',
+        'New peaks climbed',
+      ]) {
+        expect(find.text(label), findsOneWidget);
+      }
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const Key('year-to-date-prev-year')))
+            .mouseCursor,
+        SystemMouseCursors.click,
       );
       expect(
         tester
             .widget<IconButton>(find.byKey(const Key('year-to-date-next-year')))
             .onPressed,
         isNull,
+      );
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const Key('year-to-date-next-year')))
+            .tooltip,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const Key('year-to-date-next-year')))
+            .mouseCursor,
+        SystemMouseCursors.basic,
       );
 
       await tester.tap(find.byKey(const Key('year-to-date-prev-year')));
@@ -110,6 +155,18 @@ void main() {
             .onPressed,
         isNotNull,
       );
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const Key('year-to-date-next-year')))
+            .tooltip,
+        'Next year',
+      );
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const Key('year-to-date-next-year')))
+            .mouseCursor,
+        SystemMouseCursors.click,
+      );
 
       await tester.tap(find.byKey(const Key('year-to-date-next-year')));
       await tester.pumpAndSettle();
@@ -131,6 +188,9 @@ void main() {
             ascent: 40,
             peakIds: [1],
           ),
+        ],
+        peaksBagged: [
+          _bagged(1, peakId: 1, gpxId: 10, date: DateTime.utc(2026, 6, 15)),
         ],
         now: DateTime.utc(2024, 5, 15, 12),
       );
@@ -155,6 +215,7 @@ void main() {
 Future<void> _pumpYearToDateCard(
   WidgetTester tester, {
   required List<GpxTrack> tracks,
+  required List<PeaksBagged> peaksBagged,
   bool isLoading = false,
   DateTime? now,
   bool settle = true,
@@ -166,7 +227,12 @@ Future<void> _pumpYearToDateCard(
         body: SizedBox(
           width: width,
           height: 320,
-          child: YearToDateCard(tracks: tracks, isLoading: isLoading, now: now),
+          child: YearToDateCard(
+            tracks: tracks,
+            peaksBagged: peaksBagged,
+            isLoading: isLoading,
+            now: now,
+          ),
         ),
       ),
     ),
@@ -176,6 +242,20 @@ Future<void> _pumpYearToDateCard(
   } else {
     await tester.pump();
   }
+}
+
+PeaksBagged _bagged(
+  int baggedId, {
+  required int peakId,
+  required int gpxId,
+  required DateTime? date,
+}) {
+  return PeaksBagged(
+    baggedId: baggedId,
+    peakId: peakId,
+    gpxId: gpxId,
+    date: date,
+  );
 }
 
 GpxTrack _track(

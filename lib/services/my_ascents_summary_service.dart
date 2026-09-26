@@ -122,7 +122,7 @@ class MyAscentsSummaryService {
       peakName: peakName,
       elevationText: elevationText,
       date: date,
-      dateText: formatTrackDate(date),
+      dateText: formatTrackDateShortMonth(date),
     );
   }
 

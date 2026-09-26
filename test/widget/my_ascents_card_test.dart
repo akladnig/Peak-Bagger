@@ -25,7 +25,7 @@ void main() {
         ),
         peaksBaggedRepository: PeaksBaggedRepository.test(
           InMemoryPeaksBaggedStorage([
-            _bagged(1, peakId: 10, date: DateTime.utc(2026, 5, 15)),
+            _bagged(1, peakId: 10, date: DateTime.utc(2026, 9, 15)),
             _bagged(2, peakId: 20, date: DateTime.utc(2025, 5, 14)),
             _bagged(3, peakId: 10, date: null),
           ]),
@@ -41,6 +41,15 @@ void main() {
       expect(find.text('Date Climbed'), findsOneWidget);
       expect(find.byKey(const Key('my-ascents-year-2026')), findsOneWidget);
       expect(find.byKey(const Key('my-ascents-year-2025')), findsOneWidget);
+      expect(find.text('2026 - 1 peaks climbed'), findsOneWidget);
+      expect(find.text('2025 - 1 peaks climbed'), findsOneWidget);
+      expect(find.text('Tue, 15 Sep 2026'), findsOneWidget);
+      expect(
+        tester
+            .widget<IconButton>(find.byKey(const Key('my-ascents-sort-toggle')))
+            .mouseCursor,
+        SystemMouseCursors.click,
+      );
       expect(find.byKey(const Key('my-ascents-row-1')), findsOneWidget);
       expect(find.byKey(const Key('my-ascents-row-2')), findsOneWidget);
       expect(find.byKey(const Key('my-ascents-row-3')), findsNothing);

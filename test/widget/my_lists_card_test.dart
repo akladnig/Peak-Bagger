@@ -39,7 +39,7 @@ void main() {
       expect(find.text('List'), findsOneWidget);
       expect(find.text('Total Peaks'), findsOneWidget);
       expect(find.text('Climbed'), findsOneWidget);
-      expect(find.text('% Climbed'), findsOneWidget);
+      expect(find.text('Climbed %'), findsOneWidget);
       expect(find.text('Unclimbed'), findsOneWidget);
       expect(find.byKey(const Key('my-lists-row-10')), findsOneWidget);
       expect(find.byKey(const Key('my-lists-row-11')), findsOneWidget);
@@ -60,6 +60,17 @@ void main() {
           matching: find.text('67%'),
         ),
         findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: find.byKey(const Key('my-lists-row-14')),
+                matching: find.text('67%'),
+              ),
+            )
+            .textAlign,
+        TextAlign.end,
       );
     });
 
@@ -177,17 +188,16 @@ Future<void> _pumpMyListsCard(
   String name,
   List<int> peakIds,
 ) {
-  return (
-    peakList: PeakList(peakListId: id, name: name),
-    peakIds: peakIds,
-  );
+  return (peakList: PeakList(peakListId: id, name: name), peakIds: peakIds);
 }
 
 PeakListRepository _peakListRepository(
   List<({PeakList peakList, List<int> peakIds})> definitions,
 ) {
   final peakLists = [for (final definition in definitions) definition.peakList];
-  final peakListsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
+  final peakListsById = {
+    for (final peakList in peakLists) peakList.peakListId: peakList,
+  };
   final items = <PeakListItemEntity>[];
   var itemId = 1;
   for (final definition in definitions) {

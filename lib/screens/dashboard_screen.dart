@@ -8,6 +8,7 @@ import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_marker_info_settings_provider.dart';
+import '../providers/peak_list_provider.dart';
 import '../router.dart';
 import '../services/latest_walk_summary.dart';
 import '../services/summary_card_service.dart';
@@ -74,6 +75,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Widget build(BuildContext context) {
     final order = ref.watch(dashboardLayoutProvider);
     final tracks = ref.watch(mapProvider.select((state) => state.tracks));
+    final peaksBagged = ref.watch(peaksBaggedRepositoryProvider).getAll();
     final latestWalkTrackId = LatestWalkSummary.selectLatestTrack(
       tracks,
     )?.gpxTrackId;
@@ -146,6 +148,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     ),
                     'year-to-date' => YearToDateCard(
                       tracks: tracks,
+                      peaksBagged: peaksBagged,
                       isLoading: isLoadingTracks,
                       now: widget.now,
                     ),

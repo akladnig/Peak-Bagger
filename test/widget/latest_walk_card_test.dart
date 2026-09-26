@@ -78,7 +78,7 @@ void main() {
     expect(find.text('Track 20'), findsOneWidget);
     expect(
       find.text(
-        '${formatTrackDate(DateTime.utc(2026, 5, 15, 10))} • 12.4 km / 12.7 km • 638 m',
+        '${formatTrackDateShortMonth(DateTime.utc(2026, 5, 15, 10))} • 12.4 km / 12.7 km • 638 m',
       ),
       findsOneWidget,
     );
@@ -97,12 +97,24 @@ void main() {
       tester
           .widget<IconButton>(find.byKey(const Key('latest-walk-next-track')))
           .tooltip,
-      'Next track',
+      isNull,
     );
     expect(
       tester
           .widget<IconButton>(find.byKey(const Key('latest-walk-next-track')))
           .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const Key('latest-walk-prev-track')))
+          .mouseCursor,
+      SystemMouseCursors.click,
+    );
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const Key('latest-walk-next-track')))
+          .mouseCursor,
       isNull,
     );
     expect(find.byKey(const ValueKey('latest-walk-map-20')), findsOneWidget);
@@ -219,6 +231,12 @@ void main() {
           .onPressed,
       isNotNull,
     );
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const Key('latest-walk-prev-track')))
+          .mouseCursor,
+      SystemMouseCursors.click,
+    );
 
     await tester.tap(find.byKey(const Key('latest-walk-prev-track')));
     await tester.pumpAndSettle();
@@ -230,6 +248,12 @@ void main() {
           .widget<IconButton>(find.byKey(const Key('latest-walk-next-track')))
           .onPressed,
       isNotNull,
+    );
+    expect(
+      tester
+          .widget<IconButton>(find.byKey(const Key('latest-walk-next-track')))
+          .mouseCursor,
+      SystemMouseCursors.click,
     );
 
     await tester.tap(find.byKey(const Key('latest-walk-next-track')));

@@ -1,4 +1,5 @@
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 
 class YearToDateSummary {
   const YearToDateSummary({
@@ -28,6 +29,7 @@ class YearToDateSummaryService {
 
   YearToDateSummary buildSummary({
     required Iterable<GpxTrack> tracks,
+    required Iterable<PeaksBagged> peaksBagged,
     required int year,
   }) {
     final usableTracks = tracks
@@ -48,18 +50,14 @@ class YearToDateSummaryService {
         (sum, track) => sum + (track.ascent ?? 0),
       ),
       walkCount: yearTracks.length,
-      peaksClimbed: _countUniquePeaks(yearTracks),
+      peaksClimbed: _countRecordedClimbs(peaksBagged, year),
       newPeaksClimbed: _countNewPeaks(usableTracks, year),
     );
   }
 
-  int _countUniquePeaks(Iterable<GpxTrack> tracks) {
-    final uniquePeakIds = <int>{};
-    for (final track in tracks) {
-      uniquePeakIds.addAll(_peakIdsForTrack(track));
-    }
-    return uniquePeakIds.length;
-  }
+  int _countRecordedClimbs(Iterable<PeaksBagged> rows, int year) => rows
+      .where((row) => row.date != null && _localYear(row.date!) == year)
+      .length;
 
   int _countNewPeaks(List<GpxTrack> tracks, int year) {
     final occurrences = <_PeakOccurrence>[];

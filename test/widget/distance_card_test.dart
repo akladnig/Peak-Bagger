@@ -1,4 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/core/constants.dart';
@@ -90,6 +91,13 @@ void main() {
         'summary-period-dropdown',
         SystemMouseCursors.click,
       );
+      expect(
+        find.descendant(
+          of: _cardControl('summary-period-dropdown'),
+          matching: find.byType(Tooltip),
+        ),
+        findsNothing,
+      );
       _expectControlCursor(
         tester,
         'summary-mode-fab',
@@ -105,15 +113,31 @@ void main() {
         'summary-next-window',
         SystemMouseCursors.basic,
       );
+      expect(
+        tester.widget<IconButton>(_cardControl('summary-prev-window')).tooltip,
+        isNull,
+      );
+      expect(
+        tester.widget<IconButton>(_cardControl('summary-next-window')).tooltip,
+        isNull,
+      );
 
       await tester.tap(_cardControl('summary-period-dropdown'));
       await tester.pumpAndSettle();
 
-      for (final item in tester.widgetList<PopupMenuItem>(
-        find.byType(PopupMenuItem),
+      for (final item in tester.widgetList<MenuItemButton>(
+        find.byType(MenuItemButton),
       )) {
-        expect(item.mouseCursor, SystemMouseCursors.click);
+        expect(
+          item.style?.mouseCursor?.resolve(const <WidgetState>{}),
+          SystemMouseCursors.click,
+        );
       }
+      await _expectCursorAt(
+        tester,
+        find.byType(MenuItemButton).first,
+        SystemMouseCursors.click,
+      );
 
       await tester.tapAt(const Offset(300, 300));
       await tester.pumpAndSettle();
@@ -138,10 +162,18 @@ void main() {
         'summary-prev-window',
         SystemMouseCursors.click,
       );
+      expect(
+        tester.widget<IconButton>(_cardControl('summary-prev-window')).tooltip,
+        'Previous window',
+      );
       _expectControlCursor(
         tester,
         'summary-next-window',
         SystemMouseCursors.basic,
+      );
+      expect(
+        tester.widget<IconButton>(_cardControl('summary-next-window')).tooltip,
+        isNull,
       );
 
       await tester.tap(_cardControl('summary-prev-window'));
@@ -660,13 +692,9 @@ Future<void> _pumpDistanceCard(
 }
 
 Future<void> _selectPeriod(WidgetTester tester, String label) async {
-  final period = SummaryPeriodPreset.values.firstWhere(
-    (value) => value.label == label,
-  );
-  final dynamic dropdown = tester.widget<PopupMenuButton>(
-    _cardControl('summary-period-dropdown'),
-  );
-  dropdown.onSelected?.call(period);
+  await tester.tap(_cardControl('summary-period-dropdown'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
 }
 
@@ -681,19 +709,28 @@ void _expectControlCursor(WidgetTester tester, String key, MouseCursor cursor) {
   final control = _cardControl(key);
   final widget = tester.widget(control);
   final actualCursor = switch (widget) {
-    PopupMenuButton() =>
-      tester
-          .widget<MouseRegion>(
-            find
-                .ancestor(of: control, matching: find.byType(MouseRegion))
-                .first,
-          )
-          .cursor,
+    InkWell() => widget.mouseCursor,
     IconButton() => widget.mouseCursor,
     FloatingActionButton() => widget.mouseCursor,
     _ => null,
   };
   expect(actualCursor, cursor);
+}
+
+Future<void> _expectCursorAt(
+  WidgetTester tester,
+  Finder target,
+  MouseCursor cursor,
+) async {
+  await tester.sendEventToBinding(
+    PointerHoverEvent(
+      device: 1,
+      kind: PointerDeviceKind.mouse,
+      position: tester.getCenter(target),
+    ),
+  );
+  await tester.pump();
+  expect(tester.binding.mouseTracker.debugDeviceActiveCursor(1), cursor);
 }
 
 double _numericValue(String? text) {

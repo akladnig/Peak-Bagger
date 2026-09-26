@@ -532,51 +532,65 @@ class _SummaryHeader extends StatelessWidget {
                       alpha: 0.8,
                     ),
                   ),
-                  child: MouseRegion(
-                    cursor: SystemMouseCursors.click,
-                    child: PopupMenuButton<SummaryPeriodPreset>(
-                      key: const Key('summary-period-dropdown'),
-                      initialValue: period,
-                      position: PopupMenuPosition.under,
-                      padding: EdgeInsets.zero,
-                      menuPadding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      onSelected: onPeriodChanged,
-                      itemBuilder: (context) {
-                        return SummaryPeriodPreset.values
-                            .map(
-                              (value) => PopupMenuItem<SummaryPeriodPreset>(
-                                value: value,
-                                mouseCursor: SystemMouseCursors.click,
-                                height: 36,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                ),
-                                child: Text(value.label),
-                              ),
-                            )
-                            .toList(growable: false);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                period.label,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const Icon(Icons.expand_more),
-                          ],
+                  child: MenuAnchor(
+                    style: const MenuStyle(
+                      alignment: AlignmentDirectional.bottomStart,
+                      padding: WidgetStatePropertyAll(EdgeInsets.zero),
+                      shape: WidgetStatePropertyAll(
+                        RoundedRectangleBorder(
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
                         ),
                       ),
                     ),
+                    menuChildren: [
+                      for (final value in SummaryPeriodPreset.values)
+                        MenuItemButton(
+                          onPressed: () => onPeriodChanged(value),
+                          style: const ButtonStyle(
+                            minimumSize: WidgetStatePropertyAll(
+                              Size(_periodDropdownWidth, 36),
+                            ),
+                            padding: WidgetStatePropertyAll(
+                              EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                            mouseCursor: WidgetStatePropertyAll(
+                              SystemMouseCursors.click,
+                            ),
+                          ),
+                          child: Text(value.label),
+                        ),
+                    ],
+                    builder: (context, controller, child) {
+                      return InkWell(
+                        key: const Key('summary-period-dropdown'),
+                        mouseCursor: SystemMouseCursors.click,
+                        borderRadius: BorderRadius.circular(6),
+                        onTap: () {
+                          if (controller.isOpen) {
+                            controller.close();
+                          } else {
+                            controller.open();
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  period.label,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const Icon(Icons.expand_more),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),
@@ -585,7 +599,7 @@ class _SummaryHeader extends StatelessWidget {
             const Spacer(),
             IconButton(
               key: const Key('summary-prev-window'),
-              tooltip: 'Previous window',
+              tooltip: canMovePrevious ? 'Previous window' : null,
               onPressed: canMovePrevious ? onPrevious : null,
               mouseCursor: canMovePrevious
                   ? SystemMouseCursors.click
@@ -594,7 +608,7 @@ class _SummaryHeader extends StatelessWidget {
             ),
             IconButton(
               key: const Key('summary-next-window'),
-              tooltip: 'Next window',
+              tooltip: canMoveNext ? 'Next window' : null,
               onPressed: canMoveNext ? onNext : null,
               mouseCursor: canMoveNext
                   ? SystemMouseCursors.click

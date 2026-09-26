@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../core/number_formatters.dart';
 import '../../models/gpx_track.dart';
+import '../../models/peaks_bagged.dart';
 import '../../services/year_to_date_summary_service.dart';
 
 class YearToDateCard extends StatefulWidget {
   const YearToDateCard({
     super.key,
     required this.tracks,
+    required this.peaksBagged,
     required this.isLoading,
     this.now,
   });
 
   final List<GpxTrack> tracks;
+  final List<PeaksBagged> peaksBagged;
   final bool isLoading;
   final DateTime? now;
 
@@ -66,6 +69,7 @@ class _YearToDateCardState extends State<YearToDateCard> {
                     child: _YearToDateMetrics(
                       summary: _service.buildSummary(
                         tracks: widget.tracks,
+                        peaksBagged: widget.peaksBagged,
                         year: _selectedYear,
                       ),
                     ),
@@ -121,6 +125,7 @@ class _YearToDateHeader extends StatelessWidget {
           key: const Key('year-to-date-prev-year'),
           tooltip: 'Previous year',
           onPressed: onPrevious,
+          mouseCursor: SystemMouseCursors.click,
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,
           constraints: const BoxConstraints.tightFor(width: 32, height: 32),
@@ -129,8 +134,11 @@ class _YearToDateHeader extends StatelessWidget {
         ),
         IconButton(
           key: const Key('year-to-date-next-year'),
-          tooltip: 'Next year',
+          tooltip: canMoveNext ? 'Next year' : null,
           onPressed: canMoveNext ? onNext : null,
+          mouseCursor: canMoveNext
+              ? SystemMouseCursors.click
+              : SystemMouseCursors.basic,
           padding: EdgeInsets.zero,
           visualDensity: VisualDensity.compact,
           constraints: const BoxConstraints.tightFor(width: 32, height: 32),
@@ -174,21 +182,21 @@ class _YearToDateMetrics extends StatelessWidget {
           valueStyle: valueStyle,
         ),
         _YearToDateMetricRow(
-          label: 'Total Walks',
+          label: 'Total walks',
           value: formatCount(summary.walkCount),
           valueKey: const Key('year-to-date-total-walks-value'),
           labelStyle: labelStyle,
           valueStyle: valueStyle,
         ),
         _YearToDateMetricRow(
-          label: 'Peaks Climbed',
+          label: 'Peaks climbed',
           value: formatCount(summary.peaksClimbed),
           valueKey: const Key('year-to-date-peaks-climbed-value'),
           labelStyle: labelStyle,
           valueStyle: valueStyle,
         ),
         _YearToDateMetricRow(
-          label: 'New Peaks Climbed',
+          label: 'New peaks climbed',
           value: formatCount(summary.newPeaksClimbed),
           valueKey: const Key('year-to-date-new-peaks-climbed-value'),
           labelStyle: labelStyle,

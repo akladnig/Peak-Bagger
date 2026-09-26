@@ -326,6 +326,78 @@ void main() {
       );
     });
 
+    testWidgets('passes persisted climbs to the year to date summary', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final peaksBaggedRepository = PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(
+            baggedId: 1,
+            peakId: 11,
+            gpxId: 1,
+            date: DateTime.utc(2026, 5, 15),
+          ),
+          PeaksBagged(
+            baggedId: 2,
+            peakId: 11,
+            gpxId: 2,
+            date: DateTime.utc(2026, 5, 16),
+          ),
+          PeaksBagged(
+            baggedId: 3,
+            peakId: 22,
+            gpxId: 3,
+            date: DateTime.utc(2026, 5, 17),
+          ),
+        ]),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          mapProvider.overrideWith(
+            () => TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 10,
+                basemap: Basemap.tracestrack,
+                tracks: [
+                  _track(1, DateTime.utc(2026, 5, 15, 10), peakIds: [11]),
+                ],
+              ),
+            ),
+          ),
+          peakListRepositoryProvider.overrideWithValue(
+            PeakListRepository.test(InMemoryPeakListStorage()),
+          ),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            peaksBaggedRepository,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.binding.setSurfaceSize(const Size(2200, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            home: DashboardScreen(now: DateTime.utc(2026, 5, 15, 12)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const Key('year-to-date-peaks-climbed-value')),
+            )
+            .data,
+        '3',
+      );
+    });
+
     testWidgets('shows distance summary in the header', (tester) async {
       SharedPreferences.setMockInitialValues({});
 

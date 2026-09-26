@@ -126,7 +126,7 @@ class _MyListsTableHeader extends StatelessWidget {
             style: style,
           ),
           _MyListsTableCell(
-            label: '% Climbed',
+            label: 'Climbed %',
             flex: 2,
             textAlign: TextAlign.end,
             style: style,

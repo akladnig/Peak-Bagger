@@ -63,15 +63,8 @@ void main() {
 
       expect(
         tester
-            .widget<MouseRegion>(
-              find
-                  .ancestor(
-                    of: _cardControl('summary-period-dropdown'),
-                    matching: find.byType(MouseRegion),
-                  )
-                  .first,
-            )
-            .cursor,
+            .widget<InkWell>(_cardControl('summary-period-dropdown'))
+            .mouseCursor,
         SystemMouseCursors.click,
       );
       expect(
@@ -84,10 +77,13 @@ void main() {
 
       await tester.tap(_cardControl('summary-period-dropdown'));
       await tester.pumpAndSettle();
-      for (final item in tester.widgetList<PopupMenuItem>(
-        find.byType(PopupMenuItem),
+      for (final item in tester.widgetList<MenuItemButton>(
+        find.byType(MenuItemButton),
       )) {
-        expect(item.mouseCursor, SystemMouseCursors.click);
+        expect(
+          item.style?.mouseCursor?.resolve(const <WidgetState>{}),
+          SystemMouseCursors.click,
+        );
       }
 
       await tester.tapAt(const Offset(300, 300));
