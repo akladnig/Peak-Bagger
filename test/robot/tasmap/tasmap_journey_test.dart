@@ -135,6 +135,17 @@ void main() {
     final initialCalls = repository.getAllMapsCallCount;
 
     final resetMapDataTile = find.byKey(const Key('reset-map-data-tile'));
+    final settingsScrollable = find
+        .descendant(
+          of: find.byKey(const Key('settings-scrollable')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      resetMapDataTile,
+      300,
+      scrollable: settingsScrollable,
+    );
     await tester.tap(resetMapDataTile);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('reset-map-data-confirm')));
