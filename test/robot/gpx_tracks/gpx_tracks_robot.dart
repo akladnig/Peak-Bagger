@@ -844,7 +844,12 @@ class GpxTracksRobot {
     }
   }
 
-  void expectMirroredStartupFailureDetail(String message) {
+  Future<void> expectMirroredStartupFailureDetail(String message) async {
+    await tester.scrollUntilVisible(
+      find.text(message),
+      300,
+      scrollable: _settingsScrollable,
+    );
     expect(find.text('Settings'), findsWidgets);
     expect(find.text(message), findsOneWidget);
   }

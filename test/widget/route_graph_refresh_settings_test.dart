@@ -226,7 +226,7 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('route-graph-refresh-error-close')));
-    await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(
       find.text('Route graph unavailable. Use Refresh Route Graph to retry.'),
