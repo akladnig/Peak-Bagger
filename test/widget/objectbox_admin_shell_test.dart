@@ -72,6 +72,98 @@ void main() {
     expect(find.text('Route').last, findsOneWidget);
   });
 
+  testWidgets('admin selector normalizes duplicate entity descriptors', (
+    tester,
+  ) async {
+    await _pumpApp(tester, entities: [_peakEntity(), _peakEntity()]);
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('objectbox-admin-table')), findsOneWidget);
+    expect(find.text('Mt Ossa'), findsOneWidget);
+
+    final dropdown = tester
+        .widget<DropdownButton<ObjectBoxAdminEntityDescriptor>>(
+          find.descendant(
+            of: find.byKey(const Key('objectbox-admin-entity-dropdown')),
+            matching: find.byType(
+              DropdownButton<ObjectBoxAdminEntityDescriptor>,
+            ),
+          ),
+        );
+    expect(dropdown.items, hasLength(1));
+    expect(dropdown.items!.single.value!.name, 'Peak');
+
+    await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('admin selector retains its canonical value after refresh', (
+    tester,
+  ) async {
+    final repository = TestObjectBoxAdminRepository();
+    await _pumpApp(tester, repository: repository);
+
+    await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+    await tester.pumpAndSettle();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byKey(const Key('shared-app-bar'))),
+    );
+    final peak = container
+        .read(objectboxAdminProvider)
+        .entities
+        .firstWhere((entity) => entity.name == 'Peak');
+    await container.read(objectboxAdminProvider.notifier).selectEntity(peak);
+    await tester.pumpAndSettle();
+
+    const refreshedPeak = ObjectBoxAdminEntityDescriptor(
+      name: 'Peak',
+      displayName: 'Refreshed Peak',
+      primaryKeyField: 'id',
+      primaryNameField: 'name',
+      fields: [
+        ObjectBoxAdminFieldDescriptor(
+          name: 'id',
+          typeLabel: 'int',
+          nullable: false,
+          isPrimaryKey: true,
+          isPrimaryName: false,
+        ),
+        ObjectBoxAdminFieldDescriptor(
+          name: 'name',
+          typeLabel: 'String',
+          nullable: false,
+          isPrimaryKey: false,
+          isPrimaryName: true,
+        ),
+      ],
+    );
+    repository.replaceEntities([refreshedPeak, refreshedPeak]);
+
+    await container.read(objectboxAdminProvider.notifier).refresh();
+    await tester.pumpAndSettle();
+
+    final dropdown = tester
+        .widget<DropdownButton<ObjectBoxAdminEntityDescriptor>>(
+          find.descendant(
+            of: find.byKey(const Key('objectbox-admin-entity-dropdown')),
+            matching: find.byType(
+              DropdownButton<ObjectBoxAdminEntityDescriptor>,
+            ),
+          ),
+        );
+    expect(dropdown.value, same(refreshedPeak));
+    expect(dropdown.items, hasLength(1));
+    expect(find.text('Mt Ossa'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('gpx track file details are capped and selectable', (
     tester,
   ) async {

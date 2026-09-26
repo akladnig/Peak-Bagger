@@ -145,7 +145,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   @override
   ObjectBoxAdminState build() {
     _repository = ref.read(objectboxAdminRepositoryProvider);
-    final entities = _repository.getEntities();
+    final entities = _normalizeEntities(_repository.getEntities());
     final launchSelection = consumeObjectBoxAdminPendingPeakSelection();
     final launchPeakId = launchSelection?.peakId;
     ObjectBoxAdminEntityDescriptor? initialEntity;
@@ -199,7 +199,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   }
 
   Future<void> refresh({Object? keepSelectedRowPrimaryKey}) async {
-    final entities = _repository.getEntities();
+    final entities = _normalizeEntities(_repository.getEntities());
     final pendingSelection = consumeObjectBoxAdminPendingPeakSelection();
     final selectedEntity = pendingSelection != null
         ? (_peakEntity(entities) ?? _resolveSelectedEntity(entities))
@@ -365,6 +365,16 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
       }
     }
     return null;
+  }
+
+  List<ObjectBoxAdminEntityDescriptor> _normalizeEntities(
+    List<ObjectBoxAdminEntityDescriptor> entities,
+  ) {
+    final entitiesByName = <String, ObjectBoxAdminEntityDescriptor>{};
+    for (final entity in entities) {
+      entitiesByName.putIfAbsent(entity.name, () => entity);
+    }
+    return entitiesByName.values.toList(growable: false);
   }
 
   ObjectBoxAdminEntityDescriptor? _resolveSelectedEntity(
