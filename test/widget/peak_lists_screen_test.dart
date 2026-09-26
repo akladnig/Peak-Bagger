@@ -672,13 +672,14 @@ void main() {
       filePicker: TestPeakListFilePicker(),
       repository: PeakListRepository.test(
         InMemoryPeakListStorage([
-          _buildPeakList(1, 'Alpha List', [100]),
+          _buildPeakList(1, 'Alpha List', [100, 101]),
           _buildPeakList(2, 'Beta List', [200]),
         ]),
       ),
       peakRepository: PeakRepository.test(
         InMemoryPeakStorage([
           _buildPeak(100, 'Alpha Peak', -42.0, 146.0),
+          _buildPeak(101, 'Alpha Ridge', -42.05, 146.05),
           _buildPeak(200, 'Beta Peak', -42.1, 146.1),
         ]),
       ),
@@ -1069,7 +1070,9 @@ void main() {
     );
   });
 
-  testWidgets('summary rows use click cursor and hover theme', (tester) async {
+  testWidgets('summary rows use click cursor and data grid hover theme', (
+    tester,
+  ) async {
     await _pumpPeakListsScreen(
       tester,
       filePicker: TestPeakListFilePicker(),
@@ -1102,11 +1105,9 @@ void main() {
     await tester.pump();
 
     final theme = Theme.of(tester.element(row));
-    final rowTheme =
-        theme.extension<RowHoverTheme>() ??
-        (theme.brightness == Brightness.dark
-            ? RowHoverTheme.dark
-            : RowHoverTheme.light);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
     final hoveredText = tester.widget<Text>(
       find.descendant(of: row, matching: find.text('Alpha List')),
     );
@@ -1117,9 +1118,9 @@ void main() {
     expect(hoveredDecoration.decoration, isNotNull);
     expect(
       (hoveredDecoration.decoration! as BoxDecoration).color,
-      rowTheme.hoverColor,
+      dataGridTheme.hoverColor,
     );
-    expect(hoveredText.style?.color, rowTheme.hoveredTextColor);
+    expect(hoveredText.style?.color, dataGridTheme.hoveredTextColor);
   });
 
   testWidgets('tapping a peak row opens and closes the detail dialog', (
@@ -1168,7 +1169,9 @@ void main() {
     expect(find.byKey(const Key('peak-list-peak-dialog')), findsNothing);
   });
 
-  testWidgets('detail rows use click cursor and hover theme', (tester) async {
+  testWidgets('detail rows use click cursor and data grid hover theme', (
+    tester,
+  ) async {
     await _pumpPeakListsApp(
       tester,
       filePicker: TestPeakListFilePicker(),
@@ -1211,16 +1214,91 @@ void main() {
     await tester.pump();
 
     final theme = Theme.of(tester.element(row));
-    final rowTheme =
-        theme.extension<RowHoverTheme>() ??
-        (theme.brightness == Brightness.dark
-            ? RowHoverTheme.dark
-            : RowHoverTheme.light);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
     final hoveredText = tester.widget<Text>(
       find.descendant(of: row, matching: find.text('Beta Peak')),
     );
 
-    expect(hoveredText.style?.color, rowTheme.hoveredTextColor);
+    expect(hoveredText.style?.color, dataGridTheme.hoveredTextColor);
+  });
+
+  testWidgets('data grid keeps selected rows styled at desktop text scale', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pumpPeakListsScreen(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'Alpha List', [100, 101]),
+          _buildPeakList(2, 'Beta List', [200]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([
+            _buildPeak(100, 'Alpha Peak', -42.0, 146.0),
+            _buildPeak(101, 'Alpha Ridge', -42.05, 146.05),
+            _buildPeak(200, 'Beta Peak', -42.1, 146.1),
+        ]),
+      ),
+      initialPeakListId: 1,
+      textScaler: TextScaler.linear(2),
+    );
+
+    final row = find.byKey(const Key('peak-lists-row-1'));
+    final decorationFinder = find.byKey(
+      const Key('peak-lists-row-decoration-1'),
+    );
+    final theme = Theme.of(tester.element(row));
+    final dataGridTheme = theme.extension<DataGridTheme>()!;
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(row));
+    await tester.pump();
+    expect(
+      (tester.widget<Container>(decorationFinder).decoration! as BoxDecoration)
+          .color,
+      dataGridTheme.selectedRowColor,
+    );
+
+    final press = await tester.startGesture(tester.getCenter(row));
+    await tester.pump();
+    final pressedDecoration =
+        tester.widget<Container>(decorationFinder).decoration! as BoxDecoration;
+    expect(pressedDecoration.color, dataGridTheme.selectedRowColor);
+    expect(pressedDecoration.border, isA<Border>());
+    await press.up();
+    await tester.pump();
+
+    final sortHeader = find.byKey(const Key('peak-lists-details-sort-name'));
+    expect(find.bySemanticsLabel('Peak Name'), findsOneWidget);
+    expect(
+      find.byKey(const Key('peak-lists-summary-divider-0')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const Key('peak-lists-details-divider-0')),
+      findsOneWidget,
+    );
+    await tester.tap(sortHeader);
+    await tester.pump();
+    expect(
+      tester
+          .widget<Icon>(
+            find.byKey(const Key('peak-lists-details-sort-icon-name')),
+          )
+          .icon,
+      Icons.arrow_upward,
+    );
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('summary and detail sort headers use click cursors', (
@@ -3990,11 +4068,17 @@ void main() {
     final elevationHeaderSize = tester.getSize(
       find.byKey(const Key('peak-lists-details-sort-elevation')),
     );
-    final elevationHeaderStyle = Theme.of(
+    final headerTheme = Theme.of(
       tester.element(
         find.byKey(const Key('peak-lists-details-sort-elevation')),
       ),
-    ).textTheme.labelLarge;
+    );
+    final elevationHeaderStyle =
+        headerTheme.extension<DataGridTheme>()?.headerTextStyle ??
+        DataGridTheme.fromColorScheme(
+          headerTheme.colorScheme,
+          headerTheme.textTheme,
+        ).headerTextStyle;
     final elevationTextPainter = TextPainter(
       text: TextSpan(text: 'Hgt', style: elevationHeaderStyle),
       textDirection: TextDirection.ltr,
@@ -5455,6 +5539,7 @@ Future<void> _pumpPeakListsScreen(
   PeakListDuplicateNameChecker? duplicateNameChecker,
   TestMapNotifier? mapNotifier,
   int? initialPeakListId,
+  TextScaler? textScaler,
   List overrides = const [],
 }) async {
   final effectivePeakRepository =
@@ -5509,7 +5594,21 @@ Future<void> _pumpPeakListsScreen(
         ...overrides,
       ],
       child: MaterialApp(
-        home: PeakListsScreen(initialPeakListId: initialPeakListId),
+        theme: MyTheme.light,
+        home: textScaler == null
+            ? PeakListsScreen(initialPeakListId: initialPeakListId)
+            : Builder(
+                builder: (context) {
+                  return MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(textScaler: textScaler),
+                    child: PeakListsScreen(
+                      initialPeakListId: initialPeakListId,
+                    ),
+                  );
+                },
+              ),
       ),
     ),
   );

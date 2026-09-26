@@ -59,7 +59,7 @@ class _MyAscentsCardState extends ConsumerState<MyAscentsCard> {
                         padding: EdgeInsets.zero,
                         children: [
                           for (final section in summary.sections) ...[
-                            _MyAscentsYearHeader(year: section.year),
+                            _MyAscentsYearHeader(section: section),
                             for (final row in section.rows)
                               _MyAscentsTableRow(
                                 row: row,
@@ -129,6 +129,7 @@ class _MyAscentsTableHeader extends StatelessWidget {
           key: const Key('my-ascents-sort-toggle'),
           tooltip: ascending ? 'Sort newest first' : 'Sort oldest first',
           onPressed: onToggleSort,
+          mouseCursor: SystemMouseCursors.click,
           icon: Icon(ascending ? Icons.arrow_upward : Icons.arrow_downward),
         ),
       ],
@@ -137,16 +138,16 @@ class _MyAscentsTableHeader extends StatelessWidget {
 }
 
 class _MyAscentsYearHeader extends StatelessWidget {
-  const _MyAscentsYearHeader({required this.year});
+  const _MyAscentsYearHeader({required this.section});
 
-  final int year;
+  final MyAscentsYearSection section;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return KeyedSubtree(
-      key: Key('my-ascents-year-$year'),
+      key: Key('my-ascents-year-${section.year}'),
       child: Container(
         margin: const EdgeInsets.only(top: 8, bottom: 4),
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -156,7 +157,7 @@ class _MyAscentsYearHeader extends StatelessWidget {
           ),
         ),
         child: Text(
-          '$year',
+          '${section.year} - ${section.rows.length} peaks climbed',
           style: theme.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w700,
           ),

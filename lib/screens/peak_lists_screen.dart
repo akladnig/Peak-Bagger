@@ -187,7 +187,9 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
         _miniPeakMapKey.currentState?.cancelKeyboardScroll();
         return;
       }
-      if (_screenFocusNode.hasFocus) {
+      final primaryFocus = FocusManager.instance.primaryFocus;
+      if (_screenFocusNode.hasFocus ||
+          primaryFocus?.ancestors.contains(_screenFocusNode) == true) {
         return;
       }
       _screenFocusNode.requestFocus();
@@ -849,9 +851,12 @@ _SummaryTableWidths _resolveSummaryTableWidths(
   List<_PeakListSummaryRow> rows,
 ) {
   final theme = Theme.of(context);
-  final headerStyle = theme.textTheme.labelLarge;
-  final cellStyle = theme.textTheme.bodyMedium;
-  final selectedStyle = cellStyle?.copyWith(fontWeight: FontWeight.w600);
+  final dataGridTheme =
+      theme.extension<DataGridTheme>() ??
+      DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
+  final headerStyle = dataGridTheme.headerTextStyle;
+  final cellStyle = dataGridTheme.rowTextStyle;
+  final selectedStyle = cellStyle.copyWith(fontWeight: FontWeight.w600);
   const horizontalPadding = UiConstants.columnCellHorizontalPadding * 2;
   const headerLabelGap = UiConstants.headerLabelGap;
 
@@ -926,6 +931,7 @@ _SummaryTableWidths _resolveSummaryTableWidths(
       unclimbed +
       ascents +
       actions +
+      (dataGridTheme.columnGap * 6) +
       rowHorizontalPadding;
   return (
     list: list,
@@ -944,11 +950,16 @@ _PeakTableWidths _resolvePeakTableWidths(
   _PeakListSummaryRow? selectedSummaryRow,
 ) {
   final theme = Theme.of(context);
-  final headerStyle = theme.textTheme.labelLarge;
-  final cellStyle = theme.textTheme.bodyMedium;
-  // const horizontalPadding = UiConstants.columnCellHorizontalPadding * 2;
+  final dataGridTheme =
+      theme.extension<DataGridTheme>() ??
+      DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
+  final headerStyle = dataGridTheme.headerTextStyle;
+  final cellStyle = dataGridTheme.rowTextStyle;
+  final rowHorizontalPadding = dataGridTheme.rowPadding
+      .resolve(Directionality.of(context))
+      .horizontal;
   const horizontalPadding = UiConstants.columnCellHorizontalPadding;
-  const columnGap = UiConstants.columnGap;
+  final columnGap = dataGridTheme.columnGap;
   const headerIconWidth = UiConstants.headerIconWidth;
   const headerLabelGap = UiConstants.headerLabelGap;
   const headerControlWidth = headerIconWidth + headerLabelGap;
@@ -997,8 +1008,7 @@ _PeakTableWidths _resolvePeakTableWidths(
       horizontalPadding;
   double duration =
       math.max(
-        _measureTextWidth(context, 'Time', headerStyle) +
-            headerControlWidth,
+        _measureTextWidth(context, 'Time', headerStyle) + headerControlWidth,
         0,
       ) +
       horizontalPadding;
@@ -1034,8 +1044,7 @@ _PeakTableWidths _resolvePeakTableWidths(
     difficulty = math.max(
       difficulty,
       // _measureTextWidth(context, row.difficultyLabel, cellStyle) +
-      _measureTextWidth(context, 'Medium', cellStyle) +
-          horizontalPadding,
+      _measureTextWidth(context, 'Medium', cellStyle) + horizontalPadding,
     );
     duration = math.max(
       duration,
@@ -1065,7 +1074,8 @@ _PeakTableWidths _resolvePeakTableWidths(
         ascents +
         difficulty +
         duration +
-        (columnGap * 6),
+        (columnGap * 6) +
+        rowHorizontalPadding,
   );
 }
 
@@ -1179,6 +1189,7 @@ class _SummaryListCard extends StatefulWidget {
 
 class _SummaryListCardState extends State<_SummaryListCard> {
   int? _hoveredPeakListId;
+  int? _pressedPeakListId;
 
   @override
   Widget build(BuildContext context) {
@@ -1238,7 +1249,8 @@ class _SummaryListCardState extends State<_SummaryListCard> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.stretch,
                                             children: [
-                                              for (final row in widget.rows)
+                                              for (final (index, row)
+                                                  in widget.rows.indexed) ...[
                                                 _SummaryRowCard(
                                                   row: row,
                                                   selectedPeakListId:
@@ -1246,6 +1258,9 @@ class _SummaryListCardState extends State<_SummaryListCard> {
                                                   widths: widths,
                                                   isHovered:
                                                       _hoveredPeakListId ==
+                                                      row.peakList.peakListId,
+                                                  isPressed:
+                                                      _pressedPeakListId ==
                                                       row.peakList.peakListId,
                                                   onHoverChanged: (value) {
                                                     final peakListId =
@@ -1268,10 +1283,34 @@ class _SummaryListCardState extends State<_SummaryListCard> {
                                                           nextHoveredPeakListId;
                                                     });
                                                   },
+                                                  onPressedChanged: (value) {
+                                                    final peakListId =
+                                                        row.peakList.peakListId;
+                                                    final nextPressedPeakListId =
+                                                        value
+                                                        ? peakListId
+                                                        : null;
+                                                    if (_pressedPeakListId ==
+                                                        nextPressedPeakListId) {
+                                                      return;
+                                                    }
+                                                    setState(() {
+                                                      _pressedPeakListId =
+                                                          nextPressedPeakListId;
+                                                    });
+                                                  },
                                                   onSelected: widget.onSelected,
                                                   onDeleteRequested:
                                                       widget.onDeleteRequested,
                                                 ),
+                                                if (index <
+                                                    widget.rows.length - 1)
+                                                  _DataGridDivider(
+                                                    key: Key(
+                                                      'peak-lists-summary-divider-$index',
+                                                    ),
+                                                  ),
+                                              ],
                                             ],
                                           ),
                                         ),
@@ -1546,81 +1585,94 @@ class _SummaryHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = Theme.of(context).textTheme.labelLarge;
-    return Row(
-      key: const Key('peak-lists-summary-header'),
-      children: [
-        SizedBox(
-          width: widths.list,
-          child: _SortHeaderCell(
-            label: 'List',
-            column: _PeakListSortColumn.name,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: style,
+    final theme = Theme.of(context);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
+    final columnGap = SizedBox(width: dataGridTheme.columnGap);
+    return Padding(
+      padding: dataGridTheme.headerPadding,
+      child: Row(
+        key: const Key('peak-lists-summary-header'),
+        children: [
+          SizedBox(
+            width: widths.list,
+            child: _SortHeaderCell(
+              label: 'List',
+              column: _PeakListSortColumn.name,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: dataGridTheme.headerTextStyle,
+            ),
           ),
-        ),
-        SizedBox(
-          width: widths.totalPeaks,
-          child: _SortHeaderCell(
-            label: 'Total Peaks',
-            column: _PeakListSortColumn.totalPeaks,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: style,
+          columnGap,
+          SizedBox(
+            width: widths.totalPeaks,
+            child: _SortHeaderCell(
+              label: 'Total Peaks',
+              column: _PeakListSortColumn.totalPeaks,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: dataGridTheme.headerTextStyle,
+            ),
           ),
-        ),
-        SizedBox(
-          width: widths.climbed,
-          child: _SortHeaderCell(
-            label: 'Climbed',
-            column: _PeakListSortColumn.climbed,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: style,
+          columnGap,
+          SizedBox(
+            width: widths.climbed,
+            child: _SortHeaderCell(
+              label: 'Climbed',
+              column: _PeakListSortColumn.climbed,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: dataGridTheme.headerTextStyle,
+            ),
           ),
-        ),
-        SizedBox(
-          width: widths.percentage,
-          child: _SortHeaderCell(
-            label: 'Percentage',
-            column: _PeakListSortColumn.percentage,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: style,
+          columnGap,
+          SizedBox(
+            width: widths.percentage,
+            child: _SortHeaderCell(
+              label: 'Percentage',
+              column: _PeakListSortColumn.percentage,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: dataGridTheme.headerTextStyle,
+            ),
           ),
-        ),
-        SizedBox(
-          width: widths.unclimbed,
-          child: _SortHeaderCell(
-            label: 'Unclimbed',
-            column: _PeakListSortColumn.unclimbed,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: style,
+          columnGap,
+          SizedBox(
+            width: widths.unclimbed,
+            child: _SortHeaderCell(
+              label: 'Unclimbed',
+              column: _PeakListSortColumn.unclimbed,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: dataGridTheme.headerTextStyle,
+            ),
           ),
-        ),
-        SizedBox(
-          width: widths.ascents,
-          child: _SortHeaderCell(
-            label: 'Ascents',
-            column: _PeakListSortColumn.ascents,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: style,
+          columnGap,
+          SizedBox(
+            width: widths.ascents,
+            child: _SortHeaderCell(
+              label: 'Ascents',
+              column: _PeakListSortColumn.ascents,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: dataGridTheme.headerTextStyle,
+            ),
           ),
-        ),
-        SizedBox(
-          width: widths.actions,
-          child: Text('Actions', style: style),
-        ),
-      ],
+          columnGap,
+          SizedBox(
+            width: widths.actions,
+            child: Text('Actions', style: dataGridTheme.headerTextStyle),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1649,12 +1701,15 @@ class _SortHeaderCell extends StatelessWidget {
         ? (sortAscending ? Icons.arrow_upward : Icons.arrow_downward)
         : Icons.unfold_more;
 
-    return InkWell(
-      key: Key('peak-lists-sort-${column.name}'),
-      onTap: () => onTap(column),
-      mouseCursor: SystemMouseCursors.click,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter): () => onTap(column),
+        const SingleActivator(LogicalKeyboardKey.space): () => onTap(column),
+      },
+      child: InkWell(
+        key: Key('peak-lists-sort-${column.name}'),
+        onTap: () => onTap(column),
+        mouseCursor: SystemMouseCursors.click,
         child: Row(
           children: [
             Expanded(
@@ -1685,7 +1740,9 @@ class _SummaryRowCard extends StatelessWidget {
     required this.selectedPeakListId,
     required this.widths,
     required this.isHovered,
+    required this.isPressed,
     required this.onHoverChanged,
+    required this.onPressedChanged,
     required this.onSelected,
     required this.onDeleteRequested,
   });
@@ -1694,25 +1751,28 @@ class _SummaryRowCard extends StatelessWidget {
   final int? selectedPeakListId;
   final _SummaryTableWidths widths;
   final bool isHovered;
+  final bool isPressed;
   final ValueChanged<bool> onHoverChanged;
+  final ValueChanged<bool> onPressedChanged;
   final ValueChanged<int> onSelected;
   final ValueChanged<int> onDeleteRequested;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final rowTheme =
-        theme.extension<RowHoverTheme>() ??
-        (theme.brightness == Brightness.dark
-            ? RowHoverTheme.dark
-            : RowHoverTheme.light);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
     final peakListId = row.peakList.peakListId;
     final isSelected = peakListId == selectedPeakListId;
     final isHovered = this.isHovered && !isSelected;
+    final isPressed = this.isPressed && !isSelected;
     final decoration = isSelected
-        ? _selectedRowDecoration(context)
+        ? _selectedRowDecoration(dataGridTheme)
+        : isPressed
+        ? BoxDecoration(color: dataGridTheme.pressedRowColor)
         : isHovered
-        ? BoxDecoration(color: rowTheme.hoverColor)
+        ? BoxDecoration(color: dataGridTheme.hoverColor)
         : null;
 
     return Card(
@@ -1725,13 +1785,15 @@ class _SummaryRowCard extends StatelessWidget {
           key: Key('peak-lists-row-$peakListId'),
           onTap: () => onSelected(peakListId),
           onHover: onHoverChanged,
+          onHighlightChanged: onPressedChanged,
           mouseCursor: SystemMouseCursors.click,
           hoverColor: Colors.transparent,
           highlightColor: Colors.transparent,
           splashColor: Colors.transparent,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: dataGridTheme.rowPadding,
             child: Row(
+              spacing: dataGridTheme.columnGap,
               children: [
                 SizedBox(
                   width: widths.list,
@@ -1740,9 +1802,9 @@ class _SummaryRowCard extends StatelessWidget {
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
-                    style: TextStyle(
+                    style: dataGridTheme.rowTextStyle.copyWith(
                       fontWeight: isSelected ? FontWeight.w600 : null,
-                      color: isHovered ? rowTheme.hoveredTextColor : null,
+                      color: isHovered ? dataGridTheme.hoveredTextColor : null,
                     ),
                   ),
                 ),
@@ -1754,8 +1816,8 @@ class _SummaryRowCard extends StatelessWidget {
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
-                    style: TextStyle(
-                      color: isHovered ? rowTheme.hoveredTextColor : null,
+                    style: dataGridTheme.rowTextStyle.copyWith(
+                      color: isHovered ? dataGridTheme.hoveredTextColor : null,
                     ),
                   ),
                 ),
@@ -1767,8 +1829,8 @@ class _SummaryRowCard extends StatelessWidget {
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
-                    style: TextStyle(
-                      color: isHovered ? rowTheme.hoveredTextColor : null,
+                    style: dataGridTheme.rowTextStyle.copyWith(
+                      color: isHovered ? dataGridTheme.hoveredTextColor : null,
                     ),
                   ),
                 ),
@@ -1780,8 +1842,8 @@ class _SummaryRowCard extends StatelessWidget {
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
-                    style: TextStyle(
-                      color: isHovered ? rowTheme.hoveredTextColor : null,
+                    style: dataGridTheme.rowTextStyle.copyWith(
+                      color: isHovered ? dataGridTheme.hoveredTextColor : null,
                     ),
                   ),
                 ),
@@ -1793,8 +1855,8 @@ class _SummaryRowCard extends StatelessWidget {
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
-                    style: TextStyle(
-                      color: isHovered ? rowTheme.hoveredTextColor : null,
+                    style: dataGridTheme.rowTextStyle.copyWith(
+                      color: isHovered ? dataGridTheme.hoveredTextColor : null,
                     ),
                   ),
                 ),
@@ -1806,8 +1868,8 @@ class _SummaryRowCard extends StatelessWidget {
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
-                    style: TextStyle(
-                      color: isHovered ? rowTheme.hoveredTextColor : null,
+                    style: dataGridTheme.rowTextStyle.copyWith(
+                      color: isHovered ? dataGridTheme.hoveredTextColor : null,
                     ),
                   ),
                 ),
@@ -1842,15 +1904,31 @@ class _SummaryRowCard extends StatelessWidget {
   }
 }
 
-BoxDecoration _selectedRowDecoration(BuildContext context) {
-  var rowColour = Theme.of(context).colorScheme.primaryContainer;
+BoxDecoration _selectedRowDecoration(DataGridTheme dataGridTheme) {
   return BoxDecoration(
-    color: darken(rowColour, 0.30),
+    color: dataGridTheme.selectedRowColor,
     border: Border(
-      top: BorderSide(color: darken(rowColour, 0.08)),
-      bottom: BorderSide(color: darken(rowColour, 0.08)),
+      top: BorderSide(color: dataGridTheme.selectedRowBorderColor),
+      bottom: BorderSide(color: dataGridTheme.selectedRowBorderColor),
     ),
   );
+}
+
+class _DataGridDivider extends StatelessWidget {
+  const _DataGridDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
+    return Divider(
+      height: dataGridTheme.dividerThickness,
+      thickness: dataGridTheme.dividerThickness,
+      color: dataGridTheme.dividerColor,
+    );
+  }
 }
 
 class _DetailsPane extends StatelessWidget {
@@ -2115,6 +2193,7 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
   _PeakDetailSortColumn? _sortColumn = _PeakDetailSortColumn.ascentDate;
   bool _sortAscending = false;
   int? _hoveredPeakId;
+  int? _pressedPeakId;
   final _tableScrollKey = GlobalKey();
   final Map<int, GlobalKey> _rowKeys = {};
 
@@ -2130,6 +2209,7 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
       _sortColumn = _PeakDetailSortColumn.ascentDate;
       _sortAscending = false;
       _hoveredPeakId = null;
+      _pressedPeakId = null;
       _rowKeys.clear();
     }
   }
@@ -2139,6 +2219,10 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
     final rows = widget.rows;
     final sortedRows = _sortRows(rows);
     final widths = _resolvePeakTableWidths(context, widget.selectedSummaryRow);
+    final theme = Theme.of(context);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
 
     return Card(
       child: Padding(
@@ -2155,7 +2239,7 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _PeakDetailsHeaderRow(
-                      textStyle: Theme.of(context).textTheme.labelLarge,
+                      textStyle: dataGridTheme.headerTextStyle,
                       widths: widths,
                       sortColumn: _sortColumn,
                       sortAscending: _sortAscending,
@@ -2186,7 +2270,8 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  for (final row in sortedRows)
+                                  for (final (index, row)
+                                      in sortedRows.indexed) ...[
                                     KeyedSubtree(
                                       key: Key(
                                         'peak-lists-details-row-${row.peakId}',
@@ -2197,6 +2282,7 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
                                         widths: widths,
                                         selectedPeakId: widget.selectedPeakId,
                                         isHovered: _hoveredPeakId == row.peakId,
+                                        isPressed: _pressedPeakId == row.peakId,
                                         onHoverChanged: (value) {
                                           if (!value &&
                                               _hoveredPeakId != row.peakId) {
@@ -2213,9 +2299,28 @@ class _PeakDetailsTableCardState extends State<_PeakDetailsTableCard> {
                                             _hoveredPeakId = nextHoveredPeakId;
                                           });
                                         },
+                                        onPressedChanged: (value) {
+                                          final nextPressedPeakId = value
+                                              ? row.peakId
+                                              : null;
+                                          if (_pressedPeakId ==
+                                              nextPressedPeakId) {
+                                            return;
+                                          }
+                                          setState(() {
+                                            _pressedPeakId = nextPressedPeakId;
+                                          });
+                                        },
                                         onPeakSelected: widget.onPeakSelected,
                                       ),
                                     ),
+                                    if (index < sortedRows.length - 1)
+                                      _DataGridDivider(
+                                        key: Key(
+                                          'peak-lists-details-divider-$index',
+                                        ),
+                                      ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -2454,7 +2559,9 @@ class _PeakDetailsTableRow extends StatelessWidget {
     required this.widths,
     required this.selectedPeakId,
     required this.isHovered,
+    required this.isPressed,
     required this.onHoverChanged,
+    required this.onPressedChanged,
     required this.onPeakSelected,
   });
 
@@ -2462,27 +2569,32 @@ class _PeakDetailsTableRow extends StatelessWidget {
   final _PeakTableWidths widths;
   final int? selectedPeakId;
   final bool isHovered;
+  final bool isPressed;
   final ValueChanged<bool> onHoverChanged;
+  final ValueChanged<bool> onPressedChanged;
   final Future<void> Function(int) onPeakSelected;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final rowTheme =
-        theme.extension<RowHoverTheme>() ??
-        (theme.brightness == Brightness.dark
-            ? RowHoverTheme.dark
-            : RowHoverTheme.light);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
     final isSelected = row.peakId == selectedPeakId;
     final isHovered = this.isHovered && !isSelected;
+    final isPressed = this.isPressed && !isSelected;
     final decoration = isSelected
-        ? _selectedRowDecoration(context)
+        ? _selectedRowDecoration(dataGridTheme)
+        : isPressed
+        ? BoxDecoration(color: dataGridTheme.pressedRowColor)
         : isHovered
-        ? BoxDecoration(color: rowTheme.hoverColor)
+        ? BoxDecoration(color: dataGridTheme.hoverColor)
         : null;
     final textStyle = isHovered
-        ? theme.textTheme.bodyMedium?.copyWith(color: rowTheme.hoveredTextColor)
-        : null;
+        ? dataGridTheme.rowTextStyle.copyWith(
+            color: dataGridTheme.hoveredTextColor,
+          )
+        : dataGridTheme.rowTextStyle;
 
     return Container(
       decoration: decoration,
@@ -2491,13 +2603,15 @@ class _PeakDetailsTableRow extends StatelessWidget {
           await onPeakSelected(row.peakId);
         },
         onHover: onHoverChanged,
+        onHighlightChanged: onPressedChanged,
         mouseCursor: SystemMouseCursors.click,
         hoverColor: Colors.transparent,
         highlightColor: Colors.transparent,
         splashColor: Colors.transparent,
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          padding: dataGridTheme.rowPadding,
           child: Row(
+            spacing: dataGridTheme.columnGap,
             children: [
               SizedBox(
                 width: widths.rating,
@@ -2507,7 +2621,6 @@ class _PeakDetailsTableRow extends StatelessWidget {
                   textStyle: textStyle,
                 ),
               ),
-              const SizedBox(width: 12),
               SizedBox(
                 width: widths.peakName,
                 child: Text(
@@ -2518,7 +2631,6 @@ class _PeakDetailsTableRow extends StatelessWidget {
                   style: textStyle,
                 ),
               ),
-              const SizedBox(width: 12),
               SizedBox(
                 width: widths.elevation,
                 child: Text(
@@ -2530,7 +2642,6 @@ class _PeakDetailsTableRow extends StatelessWidget {
                   style: textStyle,
                 ),
               ),
-              const SizedBox(width: 12),
               SizedBox(
                 width: widths.ascentDate,
                 child: Text(
@@ -2543,7 +2654,6 @@ class _PeakDetailsTableRow extends StatelessWidget {
                   style: textStyle,
                 ),
               ),
-              const SizedBox(width: 12),
               SizedBox(
                 width: widths.ascents,
                 child: Text(
@@ -2556,7 +2666,6 @@ class _PeakDetailsTableRow extends StatelessWidget {
                   style: textStyle,
                 ),
               ),
-              const SizedBox(width: 12),
               SizedBox(
                 width: widths.difficulty,
                 child: Text(
@@ -2568,7 +2677,6 @@ class _PeakDetailsTableRow extends StatelessWidget {
                   style: textStyle,
                 ),
               ),
-              const SizedBox(width: 12),
               SizedBox(
                 width: widths.duration,
                 child: Text(
@@ -2606,97 +2714,98 @@ class _PeakDetailsHeaderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const columnGap = SizedBox(width: UiConstants.columnGap);
-    return Row(
-      children: [
-        SizedBox(
-          width: widths.rating,
-          child: _DetailSortHeaderCell(
-            label: 'Rating',
-            column: _PeakDetailSortColumn.rating,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: textStyle,
+    final theme = Theme.of(context);
+    final dataGridTheme =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
+    return Padding(
+      padding: dataGridTheme.headerPadding,
+      child: Row(
+        spacing: dataGridTheme.columnGap,
+        children: [
+          SizedBox(
+            width: widths.rating,
+            child: _DetailSortHeaderCell(
+              label: 'Rating',
+              column: _PeakDetailSortColumn.rating,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: textStyle,
+            ),
           ),
-        ),
-        columnGap,
-        SizedBox(
-          width: widths.peakName,
-          child: _DetailSortHeaderCell(
-            label: 'Peak Name',
-            column: _PeakDetailSortColumn.name,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: textStyle,
+          SizedBox(
+            width: widths.peakName,
+            child: _DetailSortHeaderCell(
+              label: 'Peak Name',
+              column: _PeakDetailSortColumn.name,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: textStyle,
+            ),
           ),
-        ),
-        columnGap,
-        SizedBox(
-          width: widths.elevation,
-          child: _DetailSortHeaderCell(
-            label: 'Hgt',
-            column: _PeakDetailSortColumn.elevation,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: textStyle,
-            textAlign: TextAlign.right,
+          SizedBox(
+            width: widths.elevation,
+            child: _DetailSortHeaderCell(
+              label: 'Hgt',
+              column: _PeakDetailSortColumn.elevation,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: textStyle,
+              textAlign: TextAlign.right,
+            ),
           ),
-        ),
-        columnGap,
-        SizedBox(
-          width: widths.ascentDate,
-          child: _DetailSortHeaderCell(
-            label: 'Date',
-            column: _PeakDetailSortColumn.ascentDate,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: textStyle,
-            textAlign: TextAlign.right,
+          SizedBox(
+            width: widths.ascentDate,
+            child: _DetailSortHeaderCell(
+              label: 'Date',
+              column: _PeakDetailSortColumn.ascentDate,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: textStyle,
+              textAlign: TextAlign.right,
+            ),
           ),
-        ),
-        columnGap,
-        SizedBox(
-          width: widths.ascents,
-          child: _DetailSortHeaderCell(
-            label: 'Asc',
-            column: _PeakDetailSortColumn.ascents,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: textStyle,
-            textAlign: TextAlign.right,
+          SizedBox(
+            width: widths.ascents,
+            child: _DetailSortHeaderCell(
+              label: 'Asc',
+              column: _PeakDetailSortColumn.ascents,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: textStyle,
+              textAlign: TextAlign.right,
+            ),
           ),
-        ),
-        columnGap,
-        SizedBox(
-          width: widths.difficulty,
-          child: _DetailSortHeaderCell(
-            label: 'Diff',
-            column: _PeakDetailSortColumn.difficulty,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: textStyle,
+          SizedBox(
+            width: widths.difficulty,
+            child: _DetailSortHeaderCell(
+              label: 'Diff',
+              column: _PeakDetailSortColumn.difficulty,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: textStyle,
+            ),
           ),
-        ),
-        columnGap,
-        SizedBox(
-          width: widths.duration,
-          child: _DetailSortHeaderCell(
-            label: 'Time',
-            column: _PeakDetailSortColumn.duration,
-            sortColumn: sortColumn,
-            sortAscending: sortAscending,
-            onTap: onSortSelected,
-            textStyle: textStyle,
-            textAlign: TextAlign.right,
+          SizedBox(
+            width: widths.duration,
+            child: _DetailSortHeaderCell(
+              label: 'Time',
+              column: _PeakDetailSortColumn.duration,
+              sortColumn: sortColumn,
+              sortAscending: sortAscending,
+              onTap: onSortSelected,
+              textStyle: textStyle,
+              textAlign: TextAlign.right,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -2785,12 +2894,15 @@ class _DetailSortHeaderCell extends StatelessWidget {
         ? (sortAscending ? Icons.arrow_upward : Icons.arrow_downward)
         : Icons.unfold_more;
 
-    return InkWell(
-      key: Key('peak-lists-details-sort-${column.name}'),
-      onTap: () => onTap(column),
-      mouseCursor: SystemMouseCursors.click,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.enter): () => onTap(column),
+        const SingleActivator(LogicalKeyboardKey.space): () => onTap(column),
+      },
+      child: InkWell(
+        key: Key('peak-lists-details-sort-${column.name}'),
+        onTap: () => onTap(column),
+        mouseCursor: SystemMouseCursors.click,
         child: Row(
           children: [
             Expanded(

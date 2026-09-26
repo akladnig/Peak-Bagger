@@ -135,9 +135,27 @@ void main() {
       ),
     ]);
 
-    expect(summary.dateText, formatTrackDate(DateTime.utc(2026, 1, 7, 23, 30)));
+    expect(
+      summary.dateText,
+      formatTrackDateShortMonth(DateTime.utc(2026, 1, 7, 23, 30)),
+    );
     expect(summary.distanceText, '12.4 km / 12.7 km');
     expect(summary.ascentText, 'Unknown');
+  });
+
+  test('uses unknown date fallback for a track without a start date', () {
+    final summary = LatestWalkSummary.fromTrack(
+      _track(
+        10,
+        null,
+        segments: [
+          [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+        ],
+      ),
+    );
+
+    expect(summary.isEmpty, isFalse);
+    expect(summary.dateText, 'Unknown');
   });
 
   test('formats mixed-unit combined distance from selected track', () {

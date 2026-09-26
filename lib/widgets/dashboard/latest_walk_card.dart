@@ -163,6 +163,8 @@ class _LatestWalkContent extends StatelessWidget {
     );
     final textStyle = theme.textTheme.bodySmall;
     final isClickable = summary.track != null && onOpenTrack != null;
+    final canSelectPrevious = selectedIndex < trackCount - 1;
+    final canSelectNext = selectedIndex > 0;
 
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -196,14 +198,18 @@ class _LatestWalkContent extends StatelessWidget {
               ),
               IconButton(
                 key: const Key('latest-walk-prev-track'),
-                tooltip: 'Previous track',
-                onPressed: selectedIndex < trackCount - 1 ? onPrevious : null,
+                tooltip: canSelectPrevious ? 'Previous track' : null,
+                onPressed: canSelectPrevious ? onPrevious : null,
+                mouseCursor: canSelectPrevious
+                    ? SystemMouseCursors.click
+                    : null,
                 icon: const Icon(Icons.chevron_left),
               ),
               IconButton(
                 key: const Key('latest-walk-next-track'),
-                tooltip: 'Next track',
-                onPressed: selectedIndex > 0 ? onNext : null,
+                tooltip: canSelectNext ? 'Next track' : null,
+                onPressed: canSelectNext ? onNext : null,
+                mouseCursor: canSelectNext ? SystemMouseCursors.click : null,
                 icon: const Icon(Icons.chevron_right),
               ),
             ],

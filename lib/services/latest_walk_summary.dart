@@ -51,7 +51,7 @@ class LatestWalkSummary {
         segments.map((segment) => List<LatLng>.unmodifiable(segment)),
       ),
       title: track.trackName.isEmpty ? 'Unnamed Track' : track.trackName,
-      dateText: formatTrackDate(track.startDateTime),
+      dateText: formatTrackDateShortMonth(track.startDateTime),
       distanceText: formatDistance2d3d(track.distance2d, track.distance3d),
       ascentText: formatAscent(track.ascent),
     );

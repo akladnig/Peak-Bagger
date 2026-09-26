@@ -10,7 +10,7 @@ void main() {
     final summary = service.build(
       MyAscentsDataset(
         baggedRows: [
-          _bagged(1, peakId: 10, date: DateTime.utc(2026, 5, 15)),
+          _bagged(1, peakId: 10, date: DateTime.utc(2026, 9, 15)),
           _bagged(2, peakId: 20, date: DateTime.utc(2025, 5, 15)),
           _bagged(3, peakId: 10, date: DateTime.utc(2026, 5, 14)),
           _bagged(4, peakId: 30, date: null),
@@ -27,7 +27,7 @@ void main() {
     expect(summary.sections, hasLength(2));
     expect(summary.sections.first.year, 2026);
     expect(summary.sections.first.rows.map((row) => row.baggedId), [1, 3]);
-    expect(summary.sections.first.rows.first.dateText, 'Fri, 15 May 2026');
+    expect(summary.sections.first.rows.first.dateText, 'Tue, 15 Sep 2026');
     expect(summary.sections.first.rows.first.elevationText, '1234 m');
     expect(summary.sections.last.year, 2025);
     expect(summary.sections.last.rows.single.peakName, 'Beta');

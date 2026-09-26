@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
-import 'package:peak_bagger/services/summary_card_service.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/dashboard/peaks_bagged_card.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_card.dart';
@@ -72,15 +71,8 @@ void main() {
 
       expect(
         tester
-            .widget<MouseRegion>(
-              find
-                  .ancestor(
-                    of: _cardControl('summary-period-dropdown'),
-                    matching: find.byType(MouseRegion),
-                  )
-                  .first,
-            )
-            .cursor,
+            .widget<InkWell>(_cardControl('summary-period-dropdown'))
+            .mouseCursor,
         SystemMouseCursors.click,
       );
       expect(
@@ -93,10 +85,13 @@ void main() {
 
       await tester.tap(_cardControl('summary-period-dropdown'));
       await tester.pumpAndSettle();
-      for (final item in tester.widgetList<PopupMenuItem>(
-        find.byType(PopupMenuItem),
+      for (final item in tester.widgetList<MenuItemButton>(
+        find.byType(MenuItemButton),
       )) {
-        expect(item.mouseCursor, SystemMouseCursors.click);
+        expect(
+          item.style?.mouseCursor?.resolve(const <WidgetState>{}),
+          SystemMouseCursors.click,
+        );
       }
 
       await tester.tapAt(const Offset(300, 300));
@@ -383,13 +378,9 @@ Future<void> _pumpPeaksBaggedCard(
 }
 
 Future<void> _selectPeriod(WidgetTester tester, String label) async {
-  final period = SummaryPeriodPreset.values.firstWhere(
-    (value) => value.label == label,
-  );
-  final dynamic dropdown = tester.widget<PopupMenuButton>(
-    _cardControl('summary-period-dropdown'),
-  );
-  dropdown.onSelected?.call(period);
+  await tester.tap(_cardControl('summary-period-dropdown'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
   await tester.pumpAndSettle();
 }
 

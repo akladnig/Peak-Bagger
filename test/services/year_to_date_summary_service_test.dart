@@ -1,13 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/services/year_to_date_summary_service.dart';
 
 void main() {
   group('YearToDateSummaryService', () {
     const service = YearToDateSummaryService();
 
-    test('derives the selected year and yearly totals', () {
+    test('counts dated persisted climb associations in the selected year', () {
       final summary = service.buildSummary(
         tracks: [
           _track(
@@ -47,6 +48,14 @@ void main() {
           ),
           _track(60, null, distance2d: 9000, ascent: 100, peakIds: [6]),
         ],
+        peaksBagged: [
+          _bagged(1, peakId: 1, gpxId: 10, date: DateTime.utc(2025, 12, 31)),
+          _bagged(2, peakId: 2, gpxId: 20, date: DateTime.utc(2026, 1, 1)),
+          _bagged(3, peakId: 3, gpxId: 30, date: DateTime.utc(2026, 6, 15)),
+          _bagged(4, peakId: 3, gpxId: 40, date: DateTime.utc(2026, 6, 15)),
+          _bagged(5, peakId: 1, gpxId: 50, date: DateTime.utc(2027, 1, 1)),
+          _bagged(6, peakId: 6, gpxId: 60, date: null),
+        ],
         year: 2026,
       );
 
@@ -54,7 +63,7 @@ void main() {
       expect(summary.distance2d, 6000);
       expect(summary.ascentMetres, 125);
       expect(summary.walkCount, 3);
-      expect(summary.peaksClimbed, 4);
+      expect(summary.peaksClimbed, 3);
       expect(summary.newPeaksClimbed, 3);
     });
 
@@ -72,6 +81,9 @@ void main() {
             ascent: 10,
             peakIds: [1],
           ),
+        ],
+        peaksBagged: [
+          _bagged(1, peakId: 1, gpxId: 10, date: DateTime.utc(2026, 1, 1)),
         ],
         year: 2024,
       );
@@ -101,13 +113,33 @@ void main() {
             peakIds: [-1, 3],
           ),
         ],
+        peaksBagged: [
+          _bagged(1, peakId: -1, gpxId: 10, date: DateTime.utc(2026, 1, 1)),
+          _bagged(2, peakId: 2, gpxId: 10, date: DateTime.utc(2026, 1, 1)),
+          _bagged(3, peakId: -1, gpxId: 20, date: DateTime.utc(2026, 6, 15)),
+          _bagged(4, peakId: 3, gpxId: 20, date: DateTime.utc(2026, 6, 15)),
+        ],
         year: 2026,
       );
 
-      expect(summary.peaksClimbed, 3);
+      expect(summary.peaksClimbed, 4);
       expect(summary.newPeaksClimbed, 3);
     });
   });
+}
+
+PeaksBagged _bagged(
+  int baggedId, {
+  required int peakId,
+  required int gpxId,
+  required DateTime? date,
+}) {
+  return PeaksBagged(
+    baggedId: baggedId,
+    peakId: peakId,
+    gpxId: gpxId,
+    date: date,
+  );
 }
 
 GpxTrack _track(
