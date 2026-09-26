@@ -24,11 +24,11 @@ class PlatformGpxFilePicker implements GpxFilePicker {
       allowedExtensions: const ['gpx'],
     );
 
-    if (result.isEmpty) {
+    if (result == null || result.files.isEmpty) {
       return null;
     }
 
-    return result.map((file) => file.path).whereType<String>().toList();
+    return result.files.map((f) => f.path).whereType<String>().toList();
   }
 
   @override
