@@ -70,6 +70,89 @@ void main() {
       expect(find.byKey(const Key('distance-bucket-0')), findsOneWidget);
     });
 
+    testWidgets('uses cursors for enabled and disabled summary controls', (
+      tester,
+    ) async {
+      await _pumpDistanceCard(
+        tester,
+        tracks: [
+          _track(
+            10,
+            DateTime(2026, 5, 15, 10),
+            distance2d: 1000,
+            distance3d: 1050,
+          ),
+        ],
+      );
+
+      _expectControlCursor(
+        tester,
+        'summary-period-dropdown',
+        SystemMouseCursors.click,
+      );
+      _expectControlCursor(
+        tester,
+        'summary-mode-fab',
+        SystemMouseCursors.click,
+      );
+      _expectControlCursor(
+        tester,
+        'summary-prev-window',
+        SystemMouseCursors.basic,
+      );
+      _expectControlCursor(
+        tester,
+        'summary-next-window',
+        SystemMouseCursors.basic,
+      );
+
+      await tester.tap(_cardControl('summary-period-dropdown'));
+      await tester.pumpAndSettle();
+
+      for (final item in tester.widgetList<PopupMenuItem>(
+        find.byType(PopupMenuItem),
+      )) {
+        expect(item.mouseCursor, SystemMouseCursors.click);
+      }
+
+      await tester.tapAt(const Offset(300, 300));
+      await tester.pumpAndSettle();
+      await _pumpDistanceCard(
+        tester,
+        tracks: [
+          for (var year = 2014; year <= 2026; year++)
+            _track(
+              year,
+              DateTime(year, 5, 15, 10),
+              distance2d: 1000,
+              distance3d: 1050,
+            ),
+        ],
+      );
+      await tester.tap(_cardControl('summary-period-dropdown'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All Time').last);
+      await tester.pumpAndSettle();
+      _expectControlCursor(
+        tester,
+        'summary-prev-window',
+        SystemMouseCursors.click,
+      );
+      _expectControlCursor(
+        tester,
+        'summary-next-window',
+        SystemMouseCursors.basic,
+      );
+
+      await tester.tap(_cardControl('summary-prev-window'));
+      await tester.pumpAndSettle();
+      _expectControlCursor(
+        tester,
+        'summary-next-window',
+        SystemMouseCursors.click,
+      );
+    });
+
     testWidgets('reports visible summary when period changes', (tester) async {
       SummaryVisibleSummary? summary;
 
@@ -592,6 +675,25 @@ Finder _cardControl(String key) {
     of: find.byKey(const Key('distance-card')),
     matching: find.byKey(Key(key)),
   );
+}
+
+void _expectControlCursor(WidgetTester tester, String key, MouseCursor cursor) {
+  final control = _cardControl(key);
+  final widget = tester.widget(control);
+  final actualCursor = switch (widget) {
+    PopupMenuButton() =>
+      tester
+          .widget<MouseRegion>(
+            find
+                .ancestor(of: control, matching: find.byType(MouseRegion))
+                .first,
+          )
+          .cursor,
+    IconButton() => widget.mouseCursor,
+    FloatingActionButton() => widget.mouseCursor,
+    _ => null,
+  };
+  expect(actualCursor, cursor);
 }
 
 double _numericValue(String? text) {

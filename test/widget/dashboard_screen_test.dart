@@ -248,20 +248,12 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: header, matching: find.text('Total:')),
+        find.descendant(of: header, matching: find.text('Total: 1234 m')),
         findsOneWidget,
       );
       expect(
-        find.descendant(of: header, matching: find.text('Annual Avg 1234 m')),
-        findsNothing,
-      );
-      expect(
-        find.descendant(of: header, matching: find.text('Annual Avg:')),
+        find.descendant(of: header, matching: find.text('Annual Avg: 1234 m')),
         findsOneWidget,
-      );
-      expect(
-        find.descendant(of: header, matching: find.text('1234 m')),
-        findsNWidgets(2),
       );
     });
 
@@ -330,7 +322,7 @@ void main() {
                   .first,
             )
             .data,
-        '30 m',
+        'Monthly Avg: 30 m',
       );
     });
 
@@ -385,16 +377,12 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: header, matching: find.text('Total:')),
+        find.descendant(of: header, matching: find.text('Total: 12 km')),
         findsOneWidget,
       );
       expect(
-        find.descendant(of: header, matching: find.text('Annual Avg:')),
+        find.descendant(of: header, matching: find.text('Annual Avg: 12 km')),
         findsOneWidget,
-      );
-      expect(
-        find.descendant(of: header, matching: find.text('12 km')),
-        findsNWidgets(2),
       );
     });
 
@@ -446,7 +434,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(of: header, matching: find.text('Total:')),
+        find.descendant(of: header, matching: find.text('Total: 4')),
         findsOneWidget,
       );
       expect(
@@ -469,13 +457,88 @@ void main() {
                   .first,
             )
             .data,
-        '4',
+        'Total: 4',
       );
       expect(
-        find.descendant(of: header, matching: find.text('Monthly Avg:')),
-        findsOneWidget,
+        tester
+            .widget<Text>(
+              find
+                  .descendant(
+                    of: header,
+                    matching: find.byKey(
+                      const Key('dashboard-card-summary-average-value'),
+                    ),
+                  )
+                  .first,
+            )
+            .data,
+        matches(RegExp(r'^Monthly Avg: \d+$')),
       );
     });
+
+    testWidgets(
+      'keeps header metrics right aligned at constrained width and text scale',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        final container = ProviderContainer(
+          overrides: [
+            mapProvider.overrideWith(
+              () => TestMapNotifier(
+                MapState(
+                  center: const LatLng(-41.5, 146.5),
+                  zoom: 10,
+                  basemap: Basemap.tracestrack,
+                  tracks: [_track(1, DateTime(2026, 5, 15, 10), ascent: 1234)],
+                ),
+              ),
+            ),
+            peakListRepositoryProvider.overrideWithValue(
+              PeakListRepository.test(InMemoryPeakListStorage()),
+            ),
+            peaksBaggedRepositoryProvider.overrideWithValue(
+              PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        await tester.binding.setSurfaceSize(const Size(700, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              home: MediaQuery(
+                data: MediaQueryData(textScaler: TextScaler.linear(2)),
+                child: DashboardScreen(now: DateTime(2026, 5, 15, 12)),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final header = find.byKey(
+          const Key('dashboard-card-elevation-drag-handle'),
+        );
+        final averageMetric = find.descendant(
+          of: header,
+          matching: find.byKey(
+            const Key('dashboard-card-summary-average-value'),
+          ),
+        );
+        final dragIndicator = find.descendant(
+          of: header,
+          matching: find.byIcon(Icons.drag_indicator),
+        );
+
+        expect(tester.widget<Text>(averageMetric).data, 'Monthly Avg: 1234 m');
+        expect(
+          tester.getRect(averageMetric).right,
+          lessThanOrEqualTo(tester.getRect(dragIndicator).left),
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets(
       'rebinds latest walk to the newest imported track after revisit',

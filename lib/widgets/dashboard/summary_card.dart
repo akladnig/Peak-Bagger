@@ -532,45 +532,49 @@ class _SummaryHeader extends StatelessWidget {
                       alpha: 0.8,
                     ),
                   ),
-                  child: PopupMenuButton<SummaryPeriodPreset>(
-                    key: const Key('summary-period-dropdown'),
-                    initialValue: period,
-                    position: PopupMenuPosition.under,
-                    padding: EdgeInsets.zero,
-                    menuPadding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    onSelected: onPeriodChanged,
-                    itemBuilder: (context) {
-                      return SummaryPeriodPreset.values
-                          .map(
-                            (value) => PopupMenuItem<SummaryPeriodPreset>(
-                              value: value,
-                              height: 36,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                              child: Text(value.label),
-                            ),
-                          )
-                          .toList(growable: false);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: PopupMenuButton<SummaryPeriodPreset>(
+                      key: const Key('summary-period-dropdown'),
+                      initialValue: period,
+                      position: PopupMenuPosition.under,
+                      padding: EdgeInsets.zero,
+                      menuPadding: EdgeInsets.zero,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              period.label,
-                              overflow: TextOverflow.ellipsis,
+                      onSelected: onPeriodChanged,
+                      itemBuilder: (context) {
+                        return SummaryPeriodPreset.values
+                            .map(
+                              (value) => PopupMenuItem<SummaryPeriodPreset>(
+                                value: value,
+                                mouseCursor: SystemMouseCursors.click,
+                                height: 36,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                                child: Text(value.label),
+                              ),
+                            )
+                            .toList(growable: false);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                period.label,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
-                          ),
-                          const Icon(Icons.expand_more),
-                        ],
+                            const Icon(Icons.expand_more),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -583,18 +587,25 @@ class _SummaryHeader extends StatelessWidget {
               key: const Key('summary-prev-window'),
               tooltip: 'Previous window',
               onPressed: canMovePrevious ? onPrevious : null,
+              mouseCursor: canMovePrevious
+                  ? SystemMouseCursors.click
+                  : SystemMouseCursors.basic,
               icon: const Icon(Icons.chevron_left),
             ),
             IconButton(
               key: const Key('summary-next-window'),
               tooltip: 'Next window',
               onPressed: canMoveNext ? onNext : null,
+              mouseCursor: canMoveNext
+                  ? SystemMouseCursors.click
+                  : SystemMouseCursors.basic,
               icon: const Icon(Icons.chevron_right),
             ),
             const SizedBox(width: 8),
             FloatingActionButton.small(
               key: const Key('summary-mode-fab'),
               onPressed: onToggleMode,
+              mouseCursor: SystemMouseCursors.click,
               tooltip: mode == SummaryDisplayMode.columns
                   ? 'Switch to line view'
                   : 'Switch to column view',
