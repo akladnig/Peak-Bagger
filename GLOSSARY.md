@@ -307,3 +307,7 @@ _Avoid_: assuming every imported natural feature is refreshed unconditionally
 **Contact**:
 An independent address-book record with a first name, surname, and optional nickname, not linked to another app entity in the current domain model.
 _Avoid_: contact person when referring to the persisted entity
+
+**Data grid style**:
+The shared visual treatment for tabular and row-based data browsing surfaces, including headers, spacing, selection, hover feedback, and dividers.
+_Avoid_: calling every participating surface a table
