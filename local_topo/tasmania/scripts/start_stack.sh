@@ -115,7 +115,7 @@ if [ "$mode" = "preview" ]; then
   fi
 
   export TILESERVER_STYLE_ID="$preview_style_id"
-  export TILESERVER_TILE_SCALE="${LOCAL_TOPO_PREVIEW_TILE_SCALE:-}"
+  export TILESERVER_TILE_SCALE="${LOCAL_TOPO_PREVIEW_TILE_SCALE:-@2x}"
   if preview_style_uses_osm_backend "$preview_style_id"; then
     export TILESERVER_OSM_BACKEND="$preview_tileserver"
     printf 'Using preview style %s with %s OSM preview backend\n' "$preview_style_id" "$preview_tileserver"
