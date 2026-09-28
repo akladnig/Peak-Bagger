@@ -1544,7 +1544,7 @@ class MapNotifier extends Notifier<MapState> {
   late final PeakRepository _peakRepository;
   late final PeakRefreshService _peakRefreshService;
   late final PeakRegionAssetImportService _peakRegionAssetImportService;
-  late final MapSearchService _mapSearchService;
+  MapSearchService? _mapSearchServiceCache;
   late final TasmapRepository _tasmapRepository;
   late final GpxTrackRepository _gpxTrackRepository;
   late final RouteRepository _routeRepository;
@@ -1685,16 +1685,6 @@ class MapNotifier extends Notifier<MapState> {
         _injectedRouteRepository ?? ref.read(routeRepositoryProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
-    _mapSearchService = MapSearchService(
-      peakRepository: _peakRepository,
-      gpxTrackRepository: _gpxTrackRepository,
-      routeRepository: _routeRepository,
-      tasmapRepository: _tasmapRepository,
-      peaksBaggedRepository: _peaksBaggedRepository,
-      naturalFeatureRepository: ref.read(naturalFeatureRepositoryProvider),
-      namedWaySearch:
-          _injectedNamedWaySearch ?? ref.read(routeGraphQueryServiceProvider),
-    );
     _routeElevationSampler =
         _injectedRouteElevationSampler ??
         ref.read(routeElevationSamplerProvider);
@@ -1744,6 +1734,19 @@ class MapNotifier extends Notifier<MapState> {
           ? null
           : _convertToMgrs(restoredMarkerLocation),
       cursorPoint: restoredMarkerLocation,
+    );
+  }
+
+  MapSearchService get _mapSearchService {
+    return _mapSearchServiceCache ??= MapSearchService(
+      peakRepository: _peakRepository,
+      gpxTrackRepository: _gpxTrackRepository,
+      routeRepository: _routeRepository,
+      tasmapRepository: _tasmapRepository,
+      peaksBaggedRepository: _peaksBaggedRepository,
+      naturalFeatureRepository: ref.read(naturalFeatureRepositoryProvider),
+      namedWaySearch:
+          _injectedNamedWaySearch ?? ref.read(routeGraphQueryServiceProvider),
     );
   }
 
