@@ -56,5 +56,3 @@ flutter:
     - assets/peaks/
     - assets/polygons/
     - assets/tasmap50k.csv
-    - assets/cop30_hh.tif
-    - assets/tasmania_dem_25m.tif
