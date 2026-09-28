@@ -23,13 +23,14 @@ Some rules to be followed when developing specs and plans
 These are macOS only so use the Cmd+ sequence rather than Ctrl+ which is used for Windows.
 In general Vim style keys are used.
 
-### GlobalShortcuts
+### Global Shortcuts
 Search - Cmd+F
 Escape/Cancel - Esc, Ctrl+C
 Left - Left, h
 Right - Right, l  
 Up - Up, k
 Down - Down, j
+Zoom - +, _, =, -
 Undo - Cmd+z
 Redo - Cmd+shift+z
 Previous - Navigate to previous state
@@ -40,6 +41,8 @@ Next - Navigate to next state
 
 ### Number and Date Formatting
 - use number_formatters.dart
+- use date_formatters.dart
+
 ### Text Fields
 ### FABs
 ### Icon + Text and Text Buttons
@@ -48,6 +51,7 @@ Next - Navigate to next state
 - Simple popups should use /lib/core/widgets/popup_shell.dart
 - Buttons in simple popups to use FilledButton and right aligned at the bottom.
 - Complex popups should use  shared numeric/style tokens such as border radius, padding, and close icon sizing in `./lib/core/constants.dart` rather than duplicating them inside the shell widget
+
 ### Dialogues
 ### Icons
 Common Icons to be used are listed below and the default colour is onSurface unless overridden:
@@ -70,3 +74,6 @@ Common Icons to be used are listed below and the default colour is onSurface unl
 - View: Icons.visibility_outlined
 - Zoom In: Icons.zoom_in
 - Zoom Out: Icons.zoom_out
+- Route:
+- Trail: Icons.hiking
+- zoom out peak clusters are turning green.
