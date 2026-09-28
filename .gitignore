@@ -46,7 +46,6 @@ app.*.map.json
 /android/app/release
 /assets/~$tasmap50k.xlsx
 /assets/cop30_hh.tif
-/assets/highway.json
 /assets/tasmania_dem_25m.tif
 /assets/tasmania_dem_25m.vrt
 /assets/tassy dem.xlsx
@@ -57,4 +56,7 @@ app.*.map.json
 /objectbox/lock.mdb
 /objectbox/data.mdb
 /dart_defines.local.json
+/local_topo/tasmania/.tmp-rebuild-tests
 /local_topo/tasmania/output/*.mbtiles
+/pubspec.lock
+/local_topo/tasmania/.tmp-start-stack-tests/peak-bagger-local-topo-start-Ed3gLD/runtime
