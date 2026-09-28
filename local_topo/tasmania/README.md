@@ -28,7 +28,7 @@ Start the local stack on `http://127.0.0.1:8090`:
 npm run stack:up
 ```
 
-This default stack mode starts preview rendering. It requires rebuilt `output/tasmania-osm.mbtiles`, `output/tasmania-relief.mbtiles`, and `output/tasmania-contours.mbtiles`, defaults `LOCAL_TOPO_STYLE` to `tasmania-openstreetmap-contours-martin`, defaults `LOCAL_TOPO_TILESERVER` to `martin`, and fails fast instead of silently falling back to static tiles or smoke fixtures.
+This default stack mode starts preview rendering. It requires rebuilt `output/tasmania-osm.mbtiles`, `output/tasmania-relief.mbtiles`, and `output/tasmania-contours.mbtiles`, defaults `LOCAL_TOPO_STYLE` to `tasmania-openstreetmap-contours-martin`, defaults `LOCAL_TOPO_TILESERVER` to `martin`, defaults `LOCAL_TOPO_PREVIEW_TILE_SCALE` to `@2x` for crisper rendered tiles, and fails fast instead of silently falling back to static tiles or smoke fixtures.
 
 Start the explicit preview alias that renders the committed style on demand from rebuilt `output/*.mbtiles` inputs:
 
@@ -122,7 +122,7 @@ LOCAL_TOPO_STYLE=tasmania-maptiler-outdoor npm run stack:up:preview
 npm run review:cartography -- --style-id=tasmania-maptiler-outdoor
 ```
 
-For `tasmania-openstreetmap-contours-martin`, the review checks that zoom `12` shows the emphasized `50 m contour` and `100 m contour` tiers without `minor contour line` noise, and that zoom `13` adds the delayed `minor contour line` mesh plus `50 m` and `100 m` contour labels that follow line direction instead of staying screen-upright.
+For `tasmania-openstreetmap-contours-martin`, the review checks that zoom `12` shows the emphasized `50 m contour` and `100 m contour` tiers without `minor contour line` noise, while targeted standing-water polygon interiors such as Lake St Clair hide contour lines and keep water naming above the fill. At zoom `13`, the review also checks for the delayed `minor contour line` mesh, `50 m` and `100 m` contour labels that stay readable rather than rendering upside-down, no contour lines or contour labels inside the targeted standing-water overlaps, and preserved contour visibility on adjacent land right up to the shoreline.
 
 The review fixture is keyed by preview style id and saves each run under `runtime/review/cartography/<styleId>/` so `tasmania-openstreetmap-contours-martin`, `tasmania-maptiler-topo`, and `tasmania-maptiler-outdoor` captures do not overwrite one another.
 
