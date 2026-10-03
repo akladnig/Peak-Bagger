@@ -684,4 +684,8 @@ class _AppBarSearchTrigger extends ConsumerWidget {
   }
 }
 
-GoRouter router = createRouter();
+GoRouter? _router;
+
+GoRouter get router => _router ??= createRouter();
+
+set router(GoRouter value) => _router = value;

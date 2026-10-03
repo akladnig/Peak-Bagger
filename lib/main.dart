@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,7 +24,7 @@ import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
 import 'package:peak_bagger/services/route_graph_coverage_resolver.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
-import 'package:peak_bagger/services/region_manifest_catalog.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
@@ -32,8 +33,11 @@ import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:peak_bagger/startup_shell.dart';
+import 'package:peak_bagger/router.dart' show createRouter, router;
 
 late final Store objectboxStore;
+late final Widget Function(MappingCatalog catalog) _readyAppBuilder;
 
 const _objectBoxMaxDbSizeInKB = 8 * 1024 * 1024;
 
@@ -56,122 +60,129 @@ Future<T> _runStartupPhase<T>(String label, Future<T> Function() action) async {
   }
 }
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
   _logStartup('Widgets binding initialized');
 
-  registerLocalTopoRegionKeyValidator(
-    (regionKey) => regionManifestCatalog.regionByKey(regionKey) != null,
+  runApp(
+    StartupShell(
+      coordinator: MappingStoreStartupCoordinator(
+        isMacOS: Platform.isMacOS,
+        mappingDataStore: MappingDataStore(),
+        initialize: _initializeReadyDependencies,
+      ),
+      readyBuilder: (catalog) => _readyAppBuilder(catalog),
+      onQuit: () => exit(0),
+    ),
   );
-  _logStartup('Registered local topo region key validator');
-  await _runStartupPhase('local topo runtime restore', () {
-    return localTopoRuntime.restore();
-  });
-  await _runStartupPhase('tile cache initialization', () {
-    return TileCacheService.initialize();
-  });
-  unawaited(TileCacheService.ensureLowZoomWarmup());
-  _logStartup('Scheduled low zoom tile warmup');
+}
 
-  final primaryObjectBoxDirectory = await _runStartupPhase(
-    'ObjectBox directory prepare',
-    () {
-      return preparePrimaryObjectBoxDirectory(log: _logStartup);
-    },
-  );
-  _logStartup(
-    'Primary ObjectBox directory: '
-    '${primaryObjectBoxDirectory ?? '<ObjectBox default>'}',
-  );
-  final store = await _runStartupPhase('ObjectBox store open', () {
-    return openStore(
-      directory: primaryObjectBoxDirectory,
-      maxDBSizeInKB: _objectBoxMaxDbSizeInKB,
-    );
-  });
+Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
+  Store? store;
   try {
+    final primaryObjectBoxDirectory = await _runStartupPhase(
+      'ObjectBox directory prepare',
+      () {
+        return preparePrimaryObjectBoxDirectory(log: _logStartup);
+      },
+    );
+    _logStartup(
+      'Primary ObjectBox directory: '
+      '${primaryObjectBoxDirectory ?? '<ObjectBox default>'}',
+    );
+    store = await _runStartupPhase('ObjectBox store open', () {
+      return openStore(
+        directory: primaryObjectBoxDirectory,
+        maxDBSizeInKB: _objectBoxMaxDbSizeInKB,
+      );
+    });
+    final initializedStore = store!;
     await _runStartupPhase('ObjectBox schema verification', () {
       return ObjectBoxSchemaGuard().verify();
     });
-    objectboxStore = store;
+    registerLocalTopoRegionKeyValidator(
+      (regionKey) => catalog.regionByKey(regionKey) != null,
+    );
+    await _runStartupPhase('local topo runtime restore', () {
+      return localTopoRuntime.restore();
+    });
+    final themePreferences = await _runStartupPhase(
+      'SharedPreferences load',
+      SharedPreferences.getInstance,
+    );
+
+    final peakListRewritePort = ObjectBoxPeakListRewritePort(initializedStore);
+    final peakDeleteGuard = PeakDeleteGuard(
+      ObjectBoxPeakDeleteGuardSource(initializedStore),
+    );
+    final peakRepository = PeakRepository(
+      initializedStore,
+      peakListRewritePort: peakListRewritePort,
+    );
+    final peakListRepo = PeakListRepository(
+      initializedStore,
+      peakRepository: peakRepository,
+    );
+    final contactRepository = ContactRepository(initializedStore);
+    final naturalFeatureRepository = NaturalFeatureRepository(initializedStore);
+    final overpassService = OverpassService();
+    final routeGraphRepository = RouteGraphRepository.objectBox(
+      initializedStore,
+    );
+    final routeGraphImportService = RouteGraphImportService(
+      routeGraphRepository,
+    );
+    final routeGraphImportCoordinator = RouteGraphImportCoordinator(
+      coverageResolver: RouteGraphCoverageResolver(),
+      importService: routeGraphImportService,
+      repository: routeGraphRepository,
+    );
+    final routeGraphStore = ObjectBoxRouteGraphStore(
+      repository: routeGraphRepository,
+      importService: routeGraphImportService,
+      importCoordinator: routeGraphImportCoordinator,
+    );
+    final tasmapRepo = TasmapRepository(initializedStore);
+
+    await _runStartupPhase('tile cache initialization', () {
+      return TileCacheService.initialize();
+    });
+    objectboxStore = initializedStore;
+    _readyAppBuilder = (catalog) {
+      router = createRouter();
+      return ProviderScope(
+        overrides: [
+          mappingCatalogProvider.overrideWithValue(catalog),
+          peakRepositoryProvider.overrideWithValue(peakRepository),
+          contactRepositoryProvider.overrideWithValue(contactRepository),
+          naturalFeatureRepositoryProvider.overrideWithValue(
+            naturalFeatureRepository,
+          ),
+          peakListRewritePortProvider.overrideWithValue(peakListRewritePort),
+          peakDeleteGuardProvider.overrideWithValue(peakDeleteGuard),
+          peakListRepositoryProvider.overrideWithValue(peakListRepo),
+          overpassServiceProvider.overrideWithValue(overpassService),
+          tasmapRepositoryProvider.overrideWithValue(tasmapRepo),
+          routeGraphStoreProvider.overrideWithValue(routeGraphStore),
+          routeGraphImportCoordinatorProvider.overrideWithValue(
+            routeGraphImportCoordinator,
+          ),
+          objectboxAdminRepositoryProvider.overrideWithValue(
+            ObjectBoxAdminRepositoryImpl(store: initializedStore),
+          ),
+          bootstrappedThemePreferencesProvider.overrideWithValue(
+            themePreferences,
+          ),
+          bootstrappedBackgroundJobsPreferencesProvider.overrideWithValue(
+            themePreferences,
+          ),
+        ],
+        child: App(router: router),
+      );
+    };
+    unawaited(TileCacheService.ensureLowZoomWarmup());
   } catch (_) {
-    store.close();
+    store?.close();
     rethrow;
   }
-
-  final peakListRewritePort = ObjectBoxPeakListRewritePort(objectboxStore);
-  final peakDeleteGuard = PeakDeleteGuard(
-    ObjectBoxPeakDeleteGuardSource(objectboxStore),
-  );
-  final peakRepository = PeakRepository(
-    objectboxStore,
-    peakListRewritePort: peakListRewritePort,
-  );
-  final peakListRepo = PeakListRepository(
-    objectboxStore,
-    peakRepository: peakRepository,
-  );
-  final contactRepository = ContactRepository(objectboxStore);
-  final naturalFeatureRepository = NaturalFeatureRepository(objectboxStore);
-  final overpassService = OverpassService();
-  final routeGraphRepository = RouteGraphRepository.objectBox(objectboxStore);
-  final routeGraphImportService = RouteGraphImportService(routeGraphRepository);
-  final routeGraphImportCoordinator = RouteGraphImportCoordinator(
-    coverageResolver: RouteGraphCoverageResolver(),
-    importService: routeGraphImportService,
-    repository: routeGraphRepository,
-  );
-  final routeGraphStore = ObjectBoxRouteGraphStore(
-    repository: routeGraphRepository,
-    importService: routeGraphImportService,
-    importCoordinator: routeGraphImportCoordinator,
-  );
-  final tasmapRepo = TasmapRepository(objectboxStore);
-  try {
-    await _runStartupPhase('Tasmap CSV bootstrap', () {
-      return tasmapRepo.loadFromCsvIfEmpty('assets/tasmap50k.csv');
-    });
-  } catch (_) {
-    // Continue with an empty database if the import fails.
-    _logStartup('Tasmap CSV bootstrap failed; continuing with empty database');
-  }
-
-  final themePreferences = await _runStartupPhase('SharedPreferences load', () {
-    return SharedPreferences.getInstance();
-  });
-
-  _logStartup('Calling runApp');
-
-  runApp(
-    ProviderScope(
-      overrides: [
-        peakRepositoryProvider.overrideWithValue(peakRepository),
-        contactRepositoryProvider.overrideWithValue(contactRepository),
-        naturalFeatureRepositoryProvider.overrideWithValue(
-          naturalFeatureRepository,
-        ),
-        peakListRewritePortProvider.overrideWithValue(peakListRewritePort),
-        peakDeleteGuardProvider.overrideWithValue(peakDeleteGuard),
-        peakListRepositoryProvider.overrideWithValue(peakListRepo),
-        overpassServiceProvider.overrideWithValue(overpassService),
-        tasmapRepositoryProvider.overrideWithValue(tasmapRepo),
-        routeGraphStoreProvider.overrideWithValue(routeGraphStore),
-        routeGraphImportCoordinatorProvider.overrideWithValue(
-          routeGraphImportCoordinator,
-        ),
-        objectboxAdminRepositoryProvider.overrideWithValue(
-          ObjectBoxAdminRepositoryImpl(store: objectboxStore),
-        ),
-        bootstrappedThemePreferencesProvider.overrideWithValue(
-          themePreferences,
-        ),
-        bootstrappedBackgroundJobsPreferencesProvider.overrideWithValue(
-          themePreferences,
-        ),
-      ],
-      child: const App(),
-    ),
-  );
-
-  _logStartup('runApp completed');
 }

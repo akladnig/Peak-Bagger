@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
-import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/router.dart' as app_router;
 import 'package:peak_bagger/theme.dart';
 
 class App extends ConsumerWidget {
-  const App({super.key});
+  const App({this.router, super.key});
+
+  final GoRouter? router;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -27,7 +30,7 @@ class App extends ConsumerWidget {
       theme: MyTheme.lightWith(themeConfig),
       darkTheme: MyTheme.darkWith(themeConfig),
       themeMode: themeMode,
-      routerConfig: router,
+      routerConfig: router ?? (app_router.router = app_router.createRouter()),
       debugShowCheckedModeBanner: false,
     );
   }
