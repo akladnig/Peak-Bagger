@@ -5,6 +5,7 @@ import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/natural_feature_refresh_service.dart';
 import 'package:peak_bagger/services/natural_feature_repository.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 
 void main() {
@@ -78,51 +79,104 @@ void main() {
     expect(line['longitude'], closeTo(146.786838, 0.000001));
   });
 
-  test('protects Manual identity before attempting invalid geometry', () async {
-    final repository = NaturalFeatureRepository.test(
-      InMemoryNaturalFeatureStorage([
-        NaturalFeature(
-          id: 7,
-          name: 'Curated lake',
-          tag: 'lake',
-          latitude: -42.7,
-          longitude: 146.5,
-          osmId: 44,
-          osmType: 'way',
-          sourceOfTruth: 'Manual',
-        ),
-      ]),
-    );
-    final result = await serviceFor(
-      '''{"elements":[{"type":"way","id":44,"nodes":[999],"tags":{"name":"Source lake","natural":"water"}}]}''',
-      repository: repository,
-    ).refresh();
+  test(
+    'preserves a Manual row while creating an OSM row with the same identity',
+    () async {
+      final repository = NaturalFeatureRepository.test(
+        InMemoryNaturalFeatureStorage([
+          NaturalFeature(
+            id: 7,
+            name: 'Curated lake',
+            tag: 'lake',
+            latitude: -42.7,
+            longitude: 146.5,
+            osmId: 44,
+            osmType: 'way',
+            sourceOfTruth: 'Manual',
+          ),
+        ]),
+      );
+      final result = await serviceFor(
+        '''{"elements":[{"type":"node","id":44,"lat":-42.6,"lon":146.4,"tags":{"name":"Source lake","natural":"water"}}]}''',
+        repository: repository,
+      ).refresh();
 
-    expect(result.protectedCount, 1);
-    expect(result.skippedCount, 0);
-    expect(repository.getAllNaturalFeatures().single.name, 'Curated lake');
-  });
+      expect(result.protectedCount, 0);
+      expect(result.skippedCount, 0);
+      expect(repository.getAllNaturalFeatures(), hasLength(2));
+      expect(
+        repository
+            .getAllNaturalFeatures()
+            .where((feature) => feature.sourceOfTruth == 'Manual')
+            .single
+            .name,
+        'Curated lake',
+      );
+      expect(
+        repository
+            .getAllNaturalFeatures()
+            .where((feature) => feature.sourceOfTruth == 'OSM')
+            .single
+            .sourceKey,
+        'OSM:node:44',
+      );
+    },
+  );
 
   test('rejects duplicate source identities before persistence', () async {
     var persisted = false;
 
     await expectLater(
-      serviceFor('''{"elements":[
+      serviceFor(
+        '''{"elements":[
           {"type":"node","id":1,"lat":-42,"lon":146,"tags":{"name":"One","natural":"tree"}},
           {"type":"node","id":1,"lat":-42,"lon":146,"tags":{"name":"Two","natural":"tree"}}
-        ]}''', persistence: (_) => persisted = true).refresh(),
+        ]}''',
+        persistence: ({required upserts, required deletedIds}) =>
+            persisted = true,
+      ).refresh(),
       throwsA(anything),
     );
 
     expect(persisted, isFalse);
   });
 
+  test(
+    'rejects malformed selected candidates without changing stored rows',
+    () async {
+      final repository = NaturalFeatureRepository.test(
+        InMemoryNaturalFeatureStorage([
+          NaturalFeature(
+            id: 5,
+            name: 'Existing lake',
+            tag: 'lake',
+            latitude: -42,
+            longitude: 146,
+            osmId: 5,
+            osmType: 'node',
+          ),
+        ]),
+      );
+
+      await expectLater(
+        serviceFor(
+          '''{"elements":[{"type":"node","id":6,"lat":"invalid","lon":146,"tags":{"name":"Broken lake","natural":"water"}}]}''',
+          repository: repository,
+        ).refresh(),
+        throwsA(isA<MappingStoreOperationException>()),
+      );
+
+      expect(repository.getAllNaturalFeatures().single.name, 'Existing lake');
+    },
+  );
+
   test('keeps stored records when MGRS conversion fails', () async {
     var persisted = false;
     final result = await serviceFor(
       '''{"elements":[{"type":"node","id":1,"lat":-42,"lon":146,"tags":{"name":"One","natural":"tree"}}]}''',
       converter: (_) => throw const FormatException('invalid MGRS'),
-      persistence: (_) => persisted = true,
+      persistence: ({required upserts, required deletedIds}) =>
+          persisted = true,
     ).refresh();
 
     expect(result.createdCount, 0);
@@ -164,7 +218,7 @@ void main() {
     expect(updated.tag, 'water');
   });
 
-  test('reports the fixed unavailable-source failure', () async {
+  test('reports an unavailable Mapping source with its catalog path', () async {
     final service = NaturalFeatureRefreshService(
       NaturalFeatureRepository.test(InMemoryNaturalFeatureStorage()),
       fileReader: (_) => throw FileSystemException(),
@@ -173,37 +227,48 @@ void main() {
     await expectLater(
       service.refresh(),
       throwsA(
-        isA<StateError>().having(
-          (error) => error.message,
-          'message',
-          'Error refreshing natural features: source file is unavailable at '
-              '/Volumes/Services/Features/tasmania_natural_features.json',
+        isA<MappingStoreOperationException>().having(
+          (error) => error.paths,
+          'paths',
+          ['naturalFeatures.catalog'],
         ),
       ),
     );
   });
 
   test(
-    'rejects duplicate stored identities without persisting a plan',
+    'migrates duplicate OSM rows by retaining the lowest ObjectBox id',
     () async {
       var persisted = false;
       final repository = NaturalFeatureRepository.test(
         InMemoryNaturalFeatureStorage([_feature(id: 1), _feature(id: 2)]),
       );
 
-      await expectLater(
-        serviceFor(
-          '''{"elements":[]}''',
-          repository: repository,
-          persistence: (_) => persisted = true,
-        ).refresh(),
-        throwsA(isA<StateError>()),
-      );
+      await serviceFor(
+        '''{"elements":[]}''',
+        repository: repository,
+        persistence: ({required upserts, required deletedIds}) {
+          persisted = true;
+          expect(upserts, isEmpty);
+          expect(deletedIds, [2]);
+        },
+      ).refresh();
 
-      expect(persisted, isFalse);
-      expect(repository.getAllNaturalFeatures(), hasLength(2));
+      expect(persisted, isTrue);
     },
   );
+
+  test('retains OSM rows that are absent from a successful source', () async {
+    final repository = NaturalFeatureRepository.test(
+      InMemoryNaturalFeatureStorage([_feature(id: 1)]),
+    );
+
+    await serviceFor('''{"elements":[]}''', repository: repository).refresh();
+
+    final retained = repository.getAllNaturalFeatures().single;
+    expect(retained.id, 1);
+    expect(retained.sourceKey, 'OSM:node:99');
+  });
 
   test(
     'a write-phase persistence failure rolls ObjectBox changes back',

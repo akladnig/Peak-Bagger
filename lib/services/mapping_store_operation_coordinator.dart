@@ -213,6 +213,7 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
   final List<MappingStoreOperationFailure> _failures = [];
   final Map<MappingStoreOperationKey, Future<void> Function()> _retryActions =
       {};
+  final Map<MappingStoreOperationKey, List<String>> _failurePaths = {};
   bool _isRetrying = false;
 
   List<MappingStoreOperationFailure> get failures =>
@@ -220,6 +221,19 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
   MappingStoreOperationFailure? get activeFailure =>
       _failures.isEmpty ? null : _failures.first;
   bool get isRetrying => _isRetrying;
+  bool isPending(MappingStoreOperationKey key) => _pending.containsKey(key);
+  MappingStoreOperationFailure? failureFor(MappingStoreOperationKey key) {
+    final paths = _failurePaths[key];
+    final retry = _retryActions[key];
+    if (paths == null || retry == null) {
+      return null;
+    }
+    return MappingStoreOperationFailure(
+      key: key,
+      paths: paths,
+      retryAction: retry,
+    );
+  }
 
   Future<T> run<T>({
     required MappingStoreOperationKey key,
@@ -321,6 +335,7 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
     required Future<void> Function() retry,
   }) {
     _retryActions[key] = retry;
+    _failurePaths[key] = List.unmodifiable(_uniquePaths(paths));
     final failure = MappingStoreOperationFailure(
       key: key,
       paths: paths,
@@ -338,6 +353,7 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
   void _removeFailure(MappingStoreOperationKey key) {
     final index = _failures.indexWhere((entry) => entry.key == key);
     _retryActions.remove(key);
+    _failurePaths.remove(key);
     if (index == -1) {
       return;
     }

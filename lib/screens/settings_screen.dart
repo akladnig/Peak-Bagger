@@ -18,6 +18,7 @@ import 'package:peak_bagger/providers/peak_list_csv_export_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/providers/natural_feature_provider.dart';
+import 'package:peak_bagger/providers/mapping_store_operation_provider.dart';
 import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
@@ -37,6 +38,7 @@ import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/services/natural_feature_refresh_service.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/services/tile_cache_download_scope.dart';
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
@@ -162,7 +164,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               leading: const Icon(Icons.terrain),
               title: const Text('Refresh Natural Features'),
               subtitle: const Text(
-                'Import Tasmanian natural features from the local source file',
+                'Import Tasmanian natural features from Mapping data store',
               ),
               trailing: _isRefreshingNaturalFeatures
                   ? const SizedBox(
@@ -972,7 +974,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }) async {
     final jobsNotifier = ref.read(backgroundJobsProvider.notifier);
     try {
-      final result = await ref.read(naturalFeatureRefreshRunnerProvider)();
+      final result = await ref
+          .read(mappingStoreOperationCoordinatorProvider)
+          .run(
+            key: const MappingStoreOperationKey.naturalFeaturesRefresh(),
+            writerTables: const ['NaturalFeature'],
+            action: ref.read(naturalFeatureRefreshRunnerProvider),
+          );
       final summary = _naturalFeatureRefreshSummary(result);
       jobsNotifier.completeRunningJob(jobId: jobId, summary: summary);
       jobsNotifier.queueSnackBar(message: summary, actions: [openJobsAction]);
@@ -985,7 +993,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       jobsNotifier.queueSnackBar(message: status, actions: [openJobsAction]);
       if (mounted) {
         _setStatus(status, key: const Key('natural-feature-refresh-status'));
-        await _showNaturalFeatureRefreshFailure(error.toString());
       }
     } finally {
       if (mounted) {
@@ -1678,19 +1685,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return 'ObjectBox database is full. Restart after increasing maxDBSizeInKB, then refresh Route Graph again.';
     }
     return error;
-  }
-
-  Future<void> _showNaturalFeatureRefreshFailure(String error) async {
-    if (!mounted) {
-      return;
-    }
-
-    await showSingleActionDialog(
-      context: context,
-      title: 'Natural Feature Refresh Failed',
-      closeKey: 'natural-feature-refresh-error-close',
-      content: Text(error),
-    );
   }
 
   Future<void> _showRecalculateTrackStatisticsResult(

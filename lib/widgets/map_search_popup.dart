@@ -39,6 +39,8 @@ class MapSearchPopup extends StatefulWidget {
     required this.onSelectResult,
     this.mappingUnavailableReason,
     this.onRetryMapping,
+    this.naturalFeaturesUnavailableReason,
+    this.onRetryNaturalFeatures,
     this.clock = DateTime.now,
     super.key,
   });
@@ -65,6 +67,8 @@ class MapSearchPopup extends StatefulWidget {
   final ValueChanged<MapSearchResult> onSelectResult;
   final String? mappingUnavailableReason;
   final VoidCallback? onRetryMapping;
+  final String? naturalFeaturesUnavailableReason;
+  final VoidCallback? onRetryNaturalFeatures;
   final DateTime Function() clock;
 
   @override
@@ -651,8 +655,17 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
               Text('Results', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: PopupUIConstants.headerSpacing),
               Expanded(
-                child: widget.mappingUnavailableReason == null
-                    ? MapSearchResultsList(
+                child: widget.mappingUnavailableReason != null
+                    ? _MappingUnavailableState(
+                        reason: widget.mappingUnavailableReason!,
+                        onRetry: widget.onRetryMapping,
+                      )
+                    : widget.naturalFeaturesUnavailableReason != null
+                    ? _NaturalFeaturesMappingUnavailableState(
+                        reason: widget.naturalFeaturesUnavailableReason!,
+                        onRetry: widget.onRetryNaturalFeatures,
+                      )
+                    : MapSearchResultsList(
                         key: ValueKey((
                           widget.searchQuery,
                           widget.trackDateRange,
@@ -670,10 +683,6 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                         group: widget.group,
                         onLoadMore: widget.onLoadMore,
                         onSelectResult: widget.onSelectResult,
-                      )
-                    : _MappingUnavailableState(
-                        reason: widget.mappingUnavailableReason!,
-                        onRetry: widget.onRetryMapping,
                       ),
               ),
             ],
@@ -1094,6 +1103,40 @@ class _MappingUnavailableState extends StatelessWidget {
             const SizedBox(height: PopupUIConstants.actionSpacing),
             FilledButton(
               key: const Key('peak-search-mapping-unavailable-retry'),
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NaturalFeaturesMappingUnavailableState extends StatelessWidget {
+  const _NaturalFeaturesMappingUnavailableState({
+    required this.reason,
+    required this.onRetry,
+  });
+
+  final String reason;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(PopupUIConstants.actionSpacing),
+        child: Column(
+          key: const Key('natural-features-mapping-unavailable'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Natural Features are unavailable.'),
+            const SizedBox(height: 8),
+            Text(reason, textAlign: TextAlign.center),
+            const SizedBox(height: PopupUIConstants.actionSpacing),
+            FilledButton(
+              key: const Key('natural-features-mapping-unavailable-retry'),
               onPressed: onRetry,
               child: const Text('Retry'),
             ),

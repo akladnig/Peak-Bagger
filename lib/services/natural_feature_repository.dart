@@ -12,7 +12,10 @@ abstract class NaturalFeatureStorage {
 
   bool remove(int id);
 
-  void putAllAtomically(List<NaturalFeature> naturalFeatures);
+  void reconcileAtomically({
+    required List<NaturalFeature> upserts,
+    required List<int> deletedIds,
+  });
 }
 
 enum NaturalFeatureWriteFailure { afterFirstWrite }
@@ -39,16 +42,22 @@ class ObjectBoxNaturalFeatureStorage implements NaturalFeatureStorage {
   bool remove(int id) => _box.remove(id);
 
   @override
-  void putAllAtomically(List<NaturalFeature> naturalFeatures) {
+  void reconcileAtomically({
+    required List<NaturalFeature> upserts,
+    required List<int> deletedIds,
+  }) {
     _store.runInTransaction(TxMode.write, () {
-      for (var index = 0; index < naturalFeatures.length; index++) {
-        _box.put(naturalFeatures[index]);
+      for (var index = 0; index < upserts.length; index++) {
+        _box.put(upserts[index]);
         if (failureForTest == NaturalFeatureWriteFailure.afterFirstWrite &&
             index == 0) {
           throw StateError(
             'Injected failure after the first Natural Feature write',
           );
         }
+      }
+      for (final id in deletedIds) {
+        _box.remove(id);
       }
     });
   }
@@ -116,18 +125,24 @@ class InMemoryNaturalFeatureStorage implements NaturalFeatureStorage {
   }
 
   @override
-  void putAllAtomically(List<NaturalFeature> naturalFeatures) {
+  void reconcileAtomically({
+    required List<NaturalFeature> upserts,
+    required List<int> deletedIds,
+  }) {
     final previousFeatures = List<NaturalFeature>.from(_naturalFeatures);
     final previousNextId = _nextId;
     try {
-      for (var index = 0; index < naturalFeatures.length; index++) {
-        put(naturalFeatures[index]);
+      for (var index = 0; index < upserts.length; index++) {
+        put(upserts[index]);
         if (failureForTest == NaturalFeatureWriteFailure.afterFirstWrite &&
             index == 0) {
           throw StateError(
             'Injected failure after the first Natural Feature write',
           );
         }
+      }
+      for (final id in deletedIds) {
+        remove(id);
       }
     } catch (_) {
       _naturalFeatures = previousFeatures;
@@ -153,9 +168,12 @@ class NaturalFeatureRepository {
   NaturalFeature? findByOsmIdentity({
     required String osmType,
     required int osmId,
+    String ownership = 'OSM',
   }) {
     for (final naturalFeature in _storage.getAll()) {
-      if (naturalFeature.osmType == osmType && naturalFeature.osmId == osmId) {
+      if (naturalFeature.sourceOfTruth == ownership &&
+          naturalFeature.osmType == osmType &&
+          naturalFeature.osmId == osmId) {
         return naturalFeature;
       }
     }
@@ -167,8 +185,13 @@ class NaturalFeatureRepository {
     return naturalFeature;
   }
 
-  void upsertAllAtomically(List<NaturalFeature> naturalFeatures) {
-    _storage.putAllAtomically(naturalFeatures);
+  bool isEmpty() => _storage.getAll().isEmpty;
+
+  void reconcileAtomically({
+    required List<NaturalFeature> upserts,
+    required List<int> deletedIds,
+  }) {
+    _storage.reconcileAtomically(upserts: upserts, deletedIds: deletedIds);
   }
 
   bool delete(int id) => _storage.remove(id);

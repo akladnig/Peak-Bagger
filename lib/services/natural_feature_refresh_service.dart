@@ -1,20 +1,21 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/services/natural_feature_repository.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
-
-const naturalFeatureSourcePath =
-    '/Volumes/Services/Features/tasmania_natural_features.json';
 
 typedef NaturalFeatureFileReader = Future<String> Function(String path);
 typedef NaturalFeatureMgrsConverter = PeakMgrsComponents Function(LatLng point);
 typedef NaturalFeatureRefreshPersistence =
-    void Function(List<NaturalFeature> features);
+    void Function({
+      required List<NaturalFeature> upserts,
+      required List<int> deletedIds,
+    });
 typedef NaturalFeatureDiagnosticLogger = void Function(String message);
 
 class NaturalFeatureRefreshResult {
@@ -35,28 +36,29 @@ class NaturalFeatureRefreshResult {
 class NaturalFeatureRefreshService {
   NaturalFeatureRefreshService(
     this._repository, {
-    NaturalFeatureFileReader? fileReader,
+    this.catalog,
+    this.fileReader,
+    MappingStoreFileSystem? fileSystem,
     NaturalFeatureMgrsConverter? mgrsConverter,
     NaturalFeatureRefreshPersistence? persistence,
     NaturalFeatureDiagnosticLogger? diagnosticLogger,
-  }) : _fileReader = fileReader ?? _readSourceFile,
+  }) : _fileSystem = fileSystem ?? const IoMappingStoreFileSystem(),
        _mgrsConverter = mgrsConverter ?? PeakMgrsConverter.fromLatLng,
        _persistence = persistence ?? _repositoryPersistence(_repository),
        _diagnosticLogger = diagnosticLogger ?? _discardDiagnostic;
 
   final NaturalFeatureRepository _repository;
-  final NaturalFeatureFileReader _fileReader;
+  final MappingCatalog? catalog;
+  final NaturalFeatureFileReader? fileReader;
+  final MappingStoreFileSystem _fileSystem;
   final NaturalFeatureMgrsConverter _mgrsConverter;
   final NaturalFeatureRefreshPersistence _persistence;
   final NaturalFeatureDiagnosticLogger _diagnosticLogger;
 
-  static Future<String> _readSourceFile(String path) =>
-      File(path).readAsString();
-
   static NaturalFeatureRefreshPersistence _repositoryPersistence(
     NaturalFeatureRepository repository,
   ) {
-    return repository.upsertAllAtomically;
+    return repository.reconcileAtomically;
   }
 
   static void _discardDiagnostic(String _) {}
@@ -64,27 +66,27 @@ class NaturalFeatureRefreshService {
   Future<NaturalFeatureRefreshResult> refresh() async {
     final sourceText = await _readSourceText();
     final stored = _repository.getAllNaturalFeatures();
-    _ensureUniqueStoredIdentities(stored);
-    final manualIdentities = stored
-        .where((feature) => feature.sourceOfTruth == 'Manual')
-        .map((feature) => _identity(feature.osmType, feature.osmId))
-        .toList(growable: false);
 
-    final workerResult = await Isolate.run<Map<String, Object?>>(
-      () => buildNaturalFeatureRefreshPlan({
-        'sourceText': sourceText,
-        'manualIdentities': manualIdentities,
-      }),
-    );
+    final workerResult = await _buildRefreshPlan(sourceText);
     final geometryErrors = workerResult['geometryErrors']! as List<Object?>;
     for (final error in geometryErrors) {
       _diagnosticLogger(error! as String);
     }
 
-    final existingByIdentity = <String, NaturalFeature>{
-      for (final feature in stored)
-        _identity(feature.osmType, feature.osmId): feature,
-    };
+    final existingByIdentity = <String, NaturalFeature>{};
+    final deletedIds = <int>[];
+    for (final feature in stored.where(_isOsmOwned)) {
+      final identity = _identity(feature.osmType, feature.osmId);
+      final existing = existingByIdentity[identity];
+      if (existing == null || _isPreferredDuplicate(feature, existing)) {
+        if (existing != null && existing.id > 0) {
+          deletedIds.add(existing.id);
+        }
+        existingByIdentity[identity] = feature;
+      } else if (feature.id > 0) {
+        deletedIds.add(feature.id);
+      }
+    }
     final upserts = <NaturalFeature>[];
     var skippedCount = workerResult['skippedCount']! as int;
     var createdCount = 0;
@@ -116,6 +118,11 @@ class NaturalFeatureRefreshService {
         osmId: feature['osmId']! as int,
         osmType: feature['osmType']! as String,
         sourceOfTruth: 'OSM',
+        sourceKey: naturalFeatureSourceKey(
+          'OSM',
+          feature['osmType']! as String,
+          feature['osmId']! as int,
+        ),
       );
       if (existing == null) {
         upserts.add(sourceFeature);
@@ -126,7 +133,19 @@ class NaturalFeatureRefreshService {
       }
     }
 
-    _persistence(upserts);
+    for (final feature in existingByIdentity.values) {
+      final expectedKey = naturalFeatureSourceKey(
+        'OSM',
+        feature.osmType,
+        feature.osmId,
+      );
+      if (feature.sourceKey != expectedKey &&
+          !upserts.any((upsert) => upsert.id == feature.id)) {
+        upserts.add(_withSourceKey(feature, expectedKey));
+      }
+    }
+
+    _persistence(upserts: upserts, deletedIds: deletedIds);
     return NaturalFeatureRefreshResult(
       createdCount: createdCount,
       updatedCount: updatedCount,
@@ -136,12 +155,42 @@ class NaturalFeatureRefreshService {
   }
 
   Future<String> _readSourceText() async {
+    final path = catalog?.naturalFeaturesCatalogPath;
+    if (path == null && fileReader == null) {
+      throw StateError('Natural Features Mapping catalog is unavailable.');
+    }
     try {
-      return await _fileReader(naturalFeatureSourcePath);
-    } catch (_) {
-      throw StateError(
-        'Error refreshing natural features: source file is unavailable at '
-        '$naturalFeatureSourcePath',
+      final reader = fileReader;
+      if (reader != null) {
+        return await reader(path ?? '');
+      }
+      return await MappingStoreOperationFileAccess(
+        rootPath: catalog!.rootPath,
+        fileSystem: _fileSystem,
+      ).readText(path!);
+    } on MappingStoreOperationException {
+      rethrow;
+    } on Object catch (error) {
+      throw MappingStoreOperationException(
+        paths: [path ?? 'naturalFeatures.catalog'],
+        cause: error,
+      );
+    }
+  }
+
+  Future<Map<String, Object?>> _buildRefreshPlan(String sourceText) async {
+    try {
+      return await Isolate.run<Map<String, Object?>>(
+        () => buildNaturalFeatureRefreshPlan({'sourceText': sourceText}),
+      );
+    } on MappingStoreOperationException {
+      rethrow;
+    } on Object catch (error) {
+      throw MappingStoreOperationException(
+        paths: [
+          catalog?.naturalFeaturesCatalogPath ?? 'naturalFeatures.catalog',
+        ],
+        cause: error,
       );
     }
   }
@@ -180,20 +229,43 @@ class NaturalFeatureRefreshService {
       osmId: source.osmId,
       osmType: source.osmType,
       sourceOfTruth: 'OSM',
+      sourceKey: naturalFeatureSourceKey('OSM', source.osmType, source.osmId),
+    );
+  }
+
+  NaturalFeature _withSourceKey(NaturalFeature feature, String sourceKey) {
+    return NaturalFeature(
+      id: feature.id,
+      name: feature.name,
+      altName: feature.altName,
+      tag: feature.tag,
+      country: feature.country,
+      county: feature.county,
+      region: feature.region,
+      latitude: feature.latitude,
+      longitude: feature.longitude,
+      gridZoneDesignator: feature.gridZoneDesignator,
+      mgrs100kId: feature.mgrs100kId,
+      easting: feature.easting,
+      northing: feature.northing,
+      osmId: feature.osmId,
+      osmType: feature.osmType,
+      sourceOfTruth: 'OSM',
+      sourceKey: sourceKey,
     );
   }
 }
 
 String _identity(String osmType, int osmId) => '$osmType:$osmId';
 
-void _ensureUniqueStoredIdentities(List<NaturalFeature> features) {
-  final identities = <String>{};
-  for (final feature in features) {
-    if (!identities.add(_identity(feature.osmType, feature.osmId))) {
-      throw StateError('Duplicate stored OSM feature identity');
-    }
-  }
-}
+String naturalFeatureSourceKey(String ownership, String osmType, int osmId) =>
+    '$ownership:$osmType:$osmId';
+
+bool _isOsmOwned(NaturalFeature feature) =>
+    feature.sourceOfTruth.trim().toUpperCase() == 'OSM';
+
+bool _isPreferredDuplicate(NaturalFeature candidate, NaturalFeature current) =>
+    candidate.id > 0 && (current.id <= 0 || candidate.id < current.id);
 
 /// Top-level isolate worker: accepts and returns only JSON-compatible values.
 Map<String, Object?> buildNaturalFeatureRefreshPlan(
@@ -204,9 +276,6 @@ Map<String, Object?> buildNaturalFeatureRefreshPlan(
     throw const FormatException('Source JSON must contain an elements array');
   }
   final elements = decoded['elements']! as List;
-  final manualIdentities = (input['manualIdentities']! as List<Object?>)
-      .cast<String>()
-      .toSet();
   final source = _NaturalFeatureSource(elements);
   final features = <Map<String, Object?>>[];
   final identities = <String>{};
@@ -227,14 +296,9 @@ Map<String, Object?> buildNaturalFeatureRefreshPlan(
     if (!identities.add(identity)) {
       throw StateError('Duplicate source OSM feature identity');
     }
-    if (manualIdentities.contains(identity)) {
-      protectedCount += 1;
-      continue;
-    }
     final geometry = source.geometryFor(candidate, geometryErrors);
     if (geometry == null) {
-      skippedCount += 1;
-      continue;
+      throw FormatException('Malformed Natural Feature geometry for $identity');
     }
     features.add({
       'identity': identity,
@@ -325,7 +389,9 @@ class _NaturalFeatureSource {
     }
     final id = _positiveId(element['id']);
     if (id == null) {
-      return const _NaturalFeatureCandidate();
+      throw const FormatException(
+        'Selected Natural Feature has an invalid OSM id',
+      );
     }
     final water = _trimmedTag(tags, 'water');
     return _NaturalFeatureCandidate(

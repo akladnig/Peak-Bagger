@@ -45,12 +45,13 @@ void main() {
         .dy;
     expect(naturalFeatureTop, greaterThan(peakTop));
     expect(
-      find.text('Import Tasmanian natural features from the local source file'),
+      find.text('Import Tasmanian natural features from Mapping data store'),
       findsOneWidget,
     );
 
     await tester.tap(find.byKey(const Key('refresh-natural-features-tile')));
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(calls, 1);
     expect(find.byType(AlertDialog), findsNothing);
@@ -150,15 +151,14 @@ void main() {
     await tester.tap(find.byKey(const Key('refresh-natural-features-tile')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(calls, 0);
     expect(repository.getAllNaturalFeatures().single.name, 'Stored feature');
     expect(find.text('Import Peak List is already running.'), findsOneWidget);
   });
 
-  testWidgets('shows an error dialog and status when refresh fails', (
-    tester,
-  ) async {
+  testWidgets('does not show the retired local failure dialog', (tester) async {
     await _pumpSettings(
       tester,
       runner: () async => throw StateError('source invalid'),
@@ -168,16 +168,9 @@ void main() {
     await tester.tap(find.byKey(const Key('refresh-natural-features-tile')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(
-      find.text('Error refreshing natural features: Bad state: source invalid'),
-      findsWidgets,
-    );
-    expect(find.text('Natural Feature Refresh Failed'), findsOneWidget);
-    expect(
-      find.byKey(const Key('natural-feature-refresh-error-close')),
-      findsOneWidget,
-    );
+    expect(find.byType(AlertDialog), findsNothing);
   });
 }
 

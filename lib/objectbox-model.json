@@ -1096,7 +1096,7 @@
     },
     {
       "id": "16:4873570092347596398",
-      "lastPropertyId": "16:7596891895938370304",
+      "lastPropertyId": "17:4062087676225271519",
       "name": "NaturalFeature",
       "properties": [
         {
@@ -1178,6 +1178,11 @@
         {
           "id": "16:7596891895938370304",
           "name": "sourceOfTruth",
+          "type": 9
+        },
+        {
+          "id": "17:4062087676225271519",
+          "name": "sourceKey",
           "type": 9
         }
       ],

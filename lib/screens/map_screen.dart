@@ -29,6 +29,7 @@ import 'package:peak_bagger/providers/polygon_assets_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/mapping_store_operation_provider.dart';
 import 'package:peak_bagger/providers/local_topo_overlay_settings_provider.dart';
 import 'package:peak_bagger/providers/local_topo_overlay_outage_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
@@ -54,6 +55,7 @@ import 'package:peak_bagger/services/map_search_region_filter.dart';
 import 'package:peak_bagger/services/open_route_service.dart';
 import 'package:peak_bagger/services/route_graph_drive_eta_hit_service.dart';
 import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/local_topo_overlay_tile_provider.dart';
@@ -2590,6 +2592,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
   Widget build(BuildContext context) {
     MapRebuildDebugCounters.recordRouteRootBuild();
     final peakListDrawerEntries = ref.watch(mapPeakListDrawerEntriesProvider);
+    final naturalFeatureAvailability = ref.watch(
+      naturalFeatureAvailabilityProvider,
+    );
     final routeChrome = ref.watch(
       mapProvider.select(
         (state) => (
@@ -4162,6 +4167,19 @@ class _MapScreenState extends ConsumerState<MapScreen>
                             : () => ref
                                   .read(mapProvider.notifier)
                                   .retryPeakSearchMapping(),
+                        naturalFeaturesUnavailableReason:
+                            routeChrome.searchCategories.length == 1 &&
+                                routeChrome.searchCategories.contains(
+                                  MapSearchCategory.natural,
+                                ) &&
+                                !naturalFeatureAvailability.isAvailable
+                            ? naturalFeatureAvailability.reason
+                            : null,
+                        onRetryNaturalFeatures: () => ref
+                            .read(mappingStoreOperationCoordinatorProvider)
+                            .retry(
+                              const MappingStoreOperationKey.naturalFeaturesBootstrap(),
+                            ),
                         availableRegions: buildMapSearchRegionOptions(),
                         onChanged: (value) {
                           ref

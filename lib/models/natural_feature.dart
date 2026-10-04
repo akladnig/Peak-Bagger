@@ -20,6 +20,7 @@ class NaturalFeature {
   int osmId;
   String osmType;
   String sourceOfTruth;
+  String sourceKey;
 
   NaturalFeature({
     this.id = 0,
@@ -38,5 +39,6 @@ class NaturalFeature {
     required this.osmId,
     required this.osmType,
     this.sourceOfTruth = 'OSM',
-  });
+    String? sourceKey,
+  }) : sourceKey = sourceKey ?? '$sourceOfTruth:$osmType:$osmId';
 }

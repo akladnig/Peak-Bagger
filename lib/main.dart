@@ -30,6 +30,7 @@ import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/background_jobs_provider.dart';
+import 'package:peak_bagger/providers/mapping_store_operation_provider.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
@@ -162,6 +163,7 @@ Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
           naturalFeatureRepositoryProvider.overrideWithValue(
             naturalFeatureRepository,
           ),
+          naturalFeatureBootstrapEnabledProvider.overrideWithValue(true),
           peakListRewritePortProvider.overrideWithValue(peakListRewritePort),
           peakDeleteGuardProvider.overrideWithValue(peakDeleteGuard),
           peakListRepositoryProvider.overrideWithValue(peakListRepo),
