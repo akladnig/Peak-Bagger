@@ -12,10 +12,12 @@ import 'drawer_outline_button.dart';
 import 'peak_list_control_visual_style.dart';
 
 class MapPeakListsDrawer extends ConsumerWidget {
-  const MapPeakListsDrawer({super.key});
+  const MapPeakListsDrawer({required this.visiblePeakLists, super.key});
 
   static const _allPeaksLabel = 'All Peaks';
   static const _drawerTrailingButtonWidth = 32.0;
+
+  final List<MapPeakListDrawerEntry> visiblePeakLists;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -28,8 +30,6 @@ class MapPeakListsDrawer extends ConsumerWidget {
       ),
     );
     final peakListsLoadState = ref.watch(peakListsLoadProvider);
-    final visiblePeakLists = ref.watch(mapPeakListDrawerEntriesProvider);
-
     return Drawer(
       key: const Key('peak-lists-drawer'),
       width: drawerWidthForLabels(context, [

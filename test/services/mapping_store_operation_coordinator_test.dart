@@ -140,6 +140,32 @@ void main() {
       expect(coordinator.activeFailure, isNull);
     });
 
+    test('a dismissed failure can retry its original operation key', () async {
+      final coordinator = MappingStoreOperationCoordinator();
+      var shouldFail = true;
+      var calls = 0;
+      final key = MappingStoreOperationKey.peakSeed('tasmania');
+
+      Future<void> load() async {
+        calls++;
+        if (shouldFail) {
+          throw MappingStoreOperationException(paths: ['Peaks/tasmania.json']);
+        }
+      }
+
+      await expectLater(
+        coordinator.run<void>(key: key, action: load),
+        throwsA(isA<MappingStoreOperationException>()),
+      );
+      coordinator.dismissActive();
+      shouldFail = false;
+
+      await coordinator.retry(key);
+
+      expect(calls, 2);
+      expect(coordinator.failures, isEmpty);
+    });
+
     test('a failed retry updates its one active failure', () async {
       final coordinator = MappingStoreOperationCoordinator();
       var attempts = 0;

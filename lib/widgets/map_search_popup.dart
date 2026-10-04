@@ -37,6 +37,8 @@ class MapSearchPopup extends StatefulWidget {
     required this.onLoadMore,
     required this.onClose,
     required this.onSelectResult,
+    this.mappingUnavailableReason,
+    this.onRetryMapping,
     this.clock = DateTime.now,
     super.key,
   });
@@ -61,6 +63,8 @@ class MapSearchPopup extends StatefulWidget {
   final VoidCallback onLoadMore;
   final VoidCallback onClose;
   final ValueChanged<MapSearchResult> onSelectResult;
+  final String? mappingUnavailableReason;
+  final VoidCallback? onRetryMapping;
   final DateTime Function() clock;
 
   @override
@@ -647,25 +651,30 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
               Text('Results', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: PopupUIConstants.headerSpacing),
               Expanded(
-                child: MapSearchResultsList(
-                  key: ValueKey((
-                    widget.searchQuery,
-                    widget.trackDateRange,
-                    widget.categories,
-                    widget.selectedRegionKey,
-                    widget.sort,
-                    widget.group,
-                  )),
-                  searchResults: widget.searchResults,
-                  isLoadingMore: widget.isLoadingMore,
-                  isExhausted: widget.isExhausted,
-                  searchQuery: widget.searchQuery,
-                  isTrackDateRangeActive: widget.trackDateRange != null,
-                  sort: widget.sort,
-                  group: widget.group,
-                  onLoadMore: widget.onLoadMore,
-                  onSelectResult: widget.onSelectResult,
-                ),
+                child: widget.mappingUnavailableReason == null
+                    ? MapSearchResultsList(
+                        key: ValueKey((
+                          widget.searchQuery,
+                          widget.trackDateRange,
+                          widget.categories,
+                          widget.selectedRegionKey,
+                          widget.sort,
+                          widget.group,
+                        )),
+                        searchResults: widget.searchResults,
+                        isLoadingMore: widget.isLoadingMore,
+                        isExhausted: widget.isExhausted,
+                        searchQuery: widget.searchQuery,
+                        isTrackDateRangeActive: widget.trackDateRange != null,
+                        sort: widget.sort,
+                        group: widget.group,
+                        onLoadMore: widget.onLoadMore,
+                        onSelectResult: widget.onSelectResult,
+                      )
+                    : _MappingUnavailableState(
+                        reason: widget.mappingUnavailableReason!,
+                        onRetry: widget.onRetryMapping,
+                      ),
               ),
             ],
           ),
@@ -1061,6 +1070,37 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
       }
     }
     return 'Filter';
+  }
+}
+
+class _MappingUnavailableState extends StatelessWidget {
+  const _MappingUnavailableState({required this.reason, required this.onRetry});
+
+  final String reason;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(PopupUIConstants.actionSpacing),
+        child: Column(
+          key: const Key('peak-search-mapping-unavailable'),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Peak data is unavailable.'),
+            const SizedBox(height: 8),
+            Text(reason, textAlign: TextAlign.center),
+            const SizedBox(height: PopupUIConstants.actionSpacing),
+            FilledButton(
+              key: const Key('peak-search-mapping-unavailable-retry'),
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

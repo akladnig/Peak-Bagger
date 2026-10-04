@@ -13,9 +13,9 @@ import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/contact_repository.dart';
 import 'package:peak_bagger/services/natural_feature_repository.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/objectbox_schema_guard.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
+import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 import 'package:peak_bagger/services/objectbox_store_directory.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
@@ -32,6 +32,7 @@ import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/theme_provider.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
+import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/startup_shell.dart';
 import 'package:peak_bagger/router.dart' show createRouter, router;
@@ -123,9 +124,12 @@ Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
       initializedStore,
       peakRepository: peakRepository,
     );
+    final peaksBaggedRepository = PeaksBaggedRepository(initializedStore);
     final contactRepository = ContactRepository(initializedStore);
     final naturalFeatureRepository = NaturalFeatureRepository(initializedStore);
-    final overpassService = OverpassService();
+    final peakRegionImportService = PeakRegionAssetImportService(
+      catalog: catalog,
+    );
     final routeGraphRepository = RouteGraphRepository.objectBox(
       initializedStore,
     );
@@ -161,7 +165,12 @@ Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
           peakListRewritePortProvider.overrideWithValue(peakListRewritePort),
           peakDeleteGuardProvider.overrideWithValue(peakDeleteGuard),
           peakListRepositoryProvider.overrideWithValue(peakListRepo),
-          overpassServiceProvider.overrideWithValue(overpassService),
+          peaksBaggedRepositoryProvider.overrideWithValue(
+            peaksBaggedRepository,
+          ),
+          peakRegionImportServiceProvider.overrideWithValue(
+            peakRegionImportService,
+          ),
           tasmapRepositoryProvider.overrideWithValue(tasmapRepo),
           routeGraphStoreProvider.overrideWithValue(routeGraphStore),
           routeGraphImportCoordinatorProvider.overrideWithValue(

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
@@ -29,7 +28,7 @@ final peakListMutationRepositoryProvider = Provider<PeakListRepository>((ref) {
 });
 
 final peaksBaggedRepositoryProvider = Provider<PeaksBaggedRepository>((ref) {
-  return PeaksBaggedRepository(objectboxStore);
+  return PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage());
 });
 
 final peaksBaggedRevisionProvider =
@@ -73,9 +72,7 @@ final peakListImportBackgroundRunnerProvider =
         final currentPath = ref.read(currentRoutePathProvider);
         if (currentPath != '/peaks') {
           final mapNotifier = ref.read(mapProvider.notifier);
-          unawaited(
-            Future<void>(() => mapNotifier.reloadPeakMarkers()),
-          );
+          unawaited(Future<void>(() => mapNotifier.reloadPeakMarkers()));
         }
         return PeakListImportPresentationResult(
           updated: result.updated,

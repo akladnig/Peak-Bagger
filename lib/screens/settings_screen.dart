@@ -35,7 +35,7 @@ import 'package:peak_bagger/services/tassy_full_peak_list_sync_service.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
-import 'package:peak_bagger/services/peak_refresh_result.dart';
+import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/services/natural_feature_refresh_service.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/services/tile_cache_download_scope.dart';
@@ -58,7 +58,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _isRefreshingTassyFull = false;
   bool _isResettingMaps = false;
   String _status = '';
-  Key _statusKey = const Key('peak-refresh-status');
+  Key _statusKey = const Key('peak-update-status');
   late final VoidCallback _routerListener;
   late final TextEditingController _localTopoBaseUrlController;
   String _lastSeededLocalTopoBaseUrl = '';
@@ -144,10 +144,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
             _buildLocalTopoSettingsSection(localTopoSettings),
             ListTile(
-              key: const Key('refresh-peak-data-tile'),
+              key: const Key('update-peak-data-tile'),
               leading: const Icon(Icons.refresh),
-              title: const Text('Refresh Peak Data'),
-              subtitle: const Text('Re-fetch peaks from Overpass API'),
+              title: const Text('Update Peak Data'),
+              subtitle: const Text('Update peaks from Mapping data store'),
               trailing: _isRefreshingPeaks
                   ? const SizedBox(
                       width: 20,
@@ -155,7 +155,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : null,
-              onTap: _isStatusActionBusy ? null : _confirmRefreshPeakData,
+              onTap: _isStatusActionBusy ? null : _confirmUpdatePeakData,
             ),
             ListTile(
               key: const Key('refresh-natural-features-tile'),
@@ -917,7 +917,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _setStatus(String value, {Key? key}) {
     setState(() {
       _status = value;
-      _statusKey = key ?? const Key('peak-refresh-status');
+      _statusKey = key ?? const Key('peak-update-status');
     });
   }
 
@@ -1000,16 +1000,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         '${result.skippedCount} skipped.';
   }
 
-  Future<void> _confirmRefreshPeakData() async {
+  Future<void> _confirmUpdatePeakData() async {
     final confirmed = await showDangerConfirmDialog(
       context: context,
-      title: 'Refresh Peak Data?',
+      title: 'Update Peak Data?',
       message:
-          'This will overwrite the current peak set. Do you want to proceed?',
-      cancelKey: 'peak-refresh-cancel',
+          'This will update peaks from the Mapping data store. Do you want to proceed?',
+      cancelKey: 'peak-update-cancel',
       cancelLabel: 'Cancel',
-      confirmKey: 'peak-refresh-confirm',
-      confirmLabel: 'Refresh',
+      confirmKey: 'peak-update-confirm',
+      confirmLabel: 'Update',
     );
 
     if (confirmed != true || !mounted) {
@@ -1019,19 +1019,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() {
       _isRefreshingPeaks = true;
     });
-    _setStatus('Refreshing peak data...');
+    _setStatus('Updating peak data...');
 
     try {
-      final result = await ref.read(mapProvider.notifier).refreshPeaks();
+      final result = await ref.read(mapProvider.notifier).updatePeaks();
       if (!mounted) {
         return;
       }
 
-      _setStatus('${formatCount(result.importedCount)} Peaks imported');
+      _setStatus('${formatCount(result.importedCount)} Peaks updated');
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _showPeakRefreshResult(result);
+          _showPeakUpdateResult(result);
         }
       });
     } catch (e) {
@@ -1039,9 +1039,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return;
       }
 
-      _setStatus('Error refreshing peak data: $e');
-
-      await _showPeakRefreshFailure(e.toString());
+      _setStatus('Error updating peak data: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -1558,23 +1556,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Future<void> _showPeakRefreshResult(PeakRefreshResult result) async {
+  Future<void> _showPeakUpdateResult(PeakRegionAssetImportResult result) async {
     if (!mounted) {
       return;
     }
 
     await showSingleActionDialog(
       context: context,
-      title: 'Peak Data Refreshed',
-      closeKey: 'peak-refresh-result-close',
+      title: 'Peak Data Updated',
+      closeKey: 'peak-update-result-close',
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('${formatCount(result.importedCount)} Peaks imported'),
-          if (result.warning != null) ...[
+          Text('${formatCount(result.importedCount)} Peaks updated'),
+          if (result.skippedPeakCount > 0) ...[
             const SizedBox(height: 12),
-            Text(result.warning!),
+            Text('${formatCount(result.skippedPeakCount)} peaks skipped'),
           ],
         ],
       ),
@@ -1675,19 +1673,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       return 'ObjectBox database is full. Restart after increasing maxDBSizeInKB, then refresh Route Graph again.';
     }
     return error;
-  }
-
-  Future<void> _showPeakRefreshFailure(String error) async {
-    if (!mounted) {
-      return;
-    }
-
-    await showSingleActionDialog(
-      context: context,
-      title: 'Peak Data Refresh Failed',
-      closeKey: 'peak-refresh-error-close',
-      content: Text(error),
-    );
   }
 
   Future<void> _showNaturalFeatureRefreshFailure(String error) async {
@@ -2253,7 +2238,12 @@ class _TileCacheSettingsScreenState
   }
 
   String _basemapLabel(Basemap basemap) {
-    return regionManifestCatalog.basemapForEnum(basemap)?.name ?? basemap.name;
+    return ref
+            .read(mapProvider.notifier)
+            .mappingCatalog
+            .basemapByKey(basemap.name)
+            ?.name ??
+        basemap.name;
   }
 
   void _handleMapSearchChanged(String value) {

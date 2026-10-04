@@ -211,6 +211,8 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
   final Map<MappingStoreOperationKey, Future<dynamic>> _pending = {};
   final Map<String, Future<void>> _writerTails = {};
   final List<MappingStoreOperationFailure> _failures = [];
+  final Map<MappingStoreOperationKey, Future<void> Function()> _retryActions =
+      {};
   bool _isRetrying = false;
 
   List<MappingStoreOperationFailure> get failures =>
@@ -256,13 +258,21 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
 
   Future<void> retryActive() async {
     final active = activeFailure;
-    if (active == null || _isRetrying) {
+    if (active == null) {
+      return;
+    }
+    await retry(active.key);
+  }
+
+  Future<void> retry(MappingStoreOperationKey key) async {
+    final retryAction = _retryActions[key];
+    if (retryAction == null || _isRetrying) {
       return;
     }
     _isRetrying = true;
     notifyListeners();
     try {
-      await active.retry();
+      await retryAction();
     } on Object {
       // The failed retry replaces the active entry with updated details.
     } finally {
@@ -310,6 +320,7 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
     required Iterable<String> paths,
     required Future<void> Function() retry,
   }) {
+    _retryActions[key] = retry;
     final failure = MappingStoreOperationFailure(
       key: key,
       paths: paths,
@@ -326,6 +337,7 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
 
   void _removeFailure(MappingStoreOperationKey key) {
     final index = _failures.indexWhere((entry) => entry.key == key);
+    _retryActions.remove(key);
     if (index == -1) {
       return;
     }

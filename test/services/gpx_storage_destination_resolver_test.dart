@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
@@ -12,7 +10,16 @@ void main() {
   setUp(() {
     resolver = GpxStorageDestinationResolver(
       polygonAssetRepository: PolygonAssetRepository(
-        assetLoader: (assetPath) async => File(assetPath).readAsString(),
+        assetLoader: (assetPath) async => switch (assetPath) {
+          'assets/polygons/manifest.json' =>
+            '["italy-nord-est.poly", "italy-nord-ovest.poly", "slovenia.poly", "croatia.poly", "new-south-wales.poly"]',
+          'italy-nord-est.poly' => _polygonText(12, 45, 14, 47),
+          'italy-nord-ovest.poly' => _polygonText(6, 44, 9, 46),
+          'slovenia.poly' => _polygonText(13.8, 45.8, 15.7, 46.8),
+          'croatia.poly' => _polygonText(15.8, 45.5, 17, 46.2),
+          'new-south-wales.poly' => _polygonText(146, -38, 150, -35),
+          _ => throw StateError('Unexpected polygon asset: $assetPath'),
+        },
       ),
     );
   });
@@ -98,4 +105,8 @@ void main() {
 
     expect(destination, isNull);
   });
+}
+
+String _polygonText(double west, double south, double east, double north) {
+  return 'none\n1\n$west $south\n$east $south\n$east $north\n$west $north\n$west $south\nEND\nEND\n';
 }

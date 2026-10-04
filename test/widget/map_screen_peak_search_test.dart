@@ -512,6 +512,56 @@ void main() {
     focusNode.dispose();
   });
 
+  testWidgets('mapping source failure remains actionable in peak search', (
+    tester,
+  ) async {
+    var retryCount = 0;
+    final focusNode = FocusNode();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MapSearchPopup(
+            focusNode: focusNode,
+            searchResults: const [],
+            isLoadingMore: false,
+            isExhausted: true,
+            searchQuery: '',
+            trackDateRange: null,
+            categories: MapSearchService.defaultCategories,
+            selectedRegionKey: null,
+            sort: MapSearchSort.nameAscending,
+            group: MapSearchGroup.none,
+            availableRegions: const <MapSearchRegionOption>[],
+            onChanged: (_) {},
+            onToggleCategory: (_) {},
+            onSelectTrackDateRange: (_) {},
+            onSelectRegionKey: (_) {},
+            onSelectSort: (_) {},
+            onSelectGroup: (_) {},
+            onLoadMore: () {},
+            onClose: () {},
+            onSelectResult: (_) {},
+            mappingUnavailableReason: 'Mapping store is unavailable.',
+            onRetryMapping: () => retryCount++,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const Key('peak-search-mapping-unavailable')),
+      findsOneWidget,
+    );
+    expect(find.text('Mapping store is unavailable.'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('peak-search-mapping-unavailable-retry')),
+    );
+
+    expect(retryCount, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    focusNode.dispose();
+  });
+
   testWidgets('typed track date searches by range and rejects invalid dates', (
     tester,
   ) async {

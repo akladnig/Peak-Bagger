@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/manifest_priority.dart';
 
 import '../harness/test_tasmap_repository.dart';
 
@@ -16,6 +18,7 @@ void main() {
 
     final resolved = resolveMapNameForPoint(
       tasmapRepository: repository,
+      mappingCatalog: _catalog,
       point: point,
     );
 
@@ -28,6 +31,7 @@ void main() {
 
     final resolved = resolveMapNameForPoint(
       tasmapRepository: repository,
+      mappingCatalog: _catalog,
       point: const LatLng(-43.0, 147.0),
     );
 
@@ -40,6 +44,7 @@ void main() {
 
     final resolved = resolveMapNameForMgrs(
       tasmapRepository: repository,
+      mappingCatalog: _catalog,
       mgrsText: '55G DM 80000 95000',
     );
 
@@ -52,6 +57,7 @@ void main() {
 
     final resolved = resolveMapNameForPoint(
       tasmapRepository: repository,
+      mappingCatalog: _catalog,
       point: const LatLng(0, 0),
     );
 
@@ -59,3 +65,39 @@ void main() {
     expect(resolved.origin, MapNameOrigin.unknown);
   });
 }
+
+final _catalog = MappingCatalog(
+  rootPath: '/test',
+  regions: [
+    MappingCatalogRegion(
+      key: 'tasmania',
+      name: 'Tasmania',
+      shortName: 'Tas',
+      priority: const ManifestPriority([1]),
+      showInPeakList: true,
+      polyPaths: const [],
+      polygons: const [
+        [
+          LatLng(-45, 145),
+          LatLng(-45, 149),
+          LatLng(-41, 149),
+          LatLng(-41, 145),
+        ],
+      ],
+      basemapKeys: const [],
+      mapSet: const [],
+      peakListFilterAliases: const [],
+      routingCoverage: null,
+      seedOnStartup: false,
+      composite: false,
+      peaks: const [],
+      highways: const [],
+      fingerprint: null,
+    ),
+  ],
+  basemaps: const [],
+  tasmapCatalogPath: 'Maps/tasmap50k.csv',
+  naturalFeaturesCatalogPath: 'Features/natural_features.json',
+  demSources: const {},
+  routingCoverageRegionKeys: const {},
+);

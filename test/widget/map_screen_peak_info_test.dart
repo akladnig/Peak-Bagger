@@ -24,6 +24,8 @@ import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart'
+    show mappingCatalogProvider;
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
@@ -1337,6 +1339,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        mappingCatalogProvider.overrideWithValue(testMappingCatalog),
         mapProvider.overrideWith(
           () => MapNotifier(
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -1833,6 +1836,7 @@ Future<void> _pumpMap(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        mappingCatalogProvider.overrideWithValue(testMappingCatalog),
         mapProvider.overrideWith(
           () => TestMapNotifier(
             state,

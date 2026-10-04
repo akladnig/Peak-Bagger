@@ -1,14 +1,14 @@
 import 'dart:convert';
-import 'dart:developer' as developer;
 
-import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_region_import_marker_store.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
-typedef PeakRegionAssetLoader = Future<String> Function(String assetPath);
+typedef PeakRegionSourceReader = Future<String> Function(String relativePath);
 typedef PeakRegionMgrsConverter = PeakMgrsComponents Function(LatLng location);
 
 class PeakRegionAssetImportResult {
@@ -23,58 +23,34 @@ class PeakRegionAssetImportResult {
   final int skippedPeakCount;
 
   bool get hasChanges => importedRegions.isNotEmpty;
+
+  int get importedCount => importedPeakCount;
 }
 
 class PeakRegionAssetImportService {
   PeakRegionAssetImportService({
-    PeakRegionAssetLoader? assetLoader,
     PeakRegionMgrsConverter? mgrsConverter,
     PeakRegionImportMarkerStore? markerStore,
-  }) : _assetLoader = assetLoader ?? rootBundle.loadString,
-       _mgrsConverter = mgrsConverter ?? PeakMgrsConverter.fromLatLng,
+    required this.catalog,
+    this._sourceReader,
+  }) : _mgrsConverter = mgrsConverter ?? PeakMgrsConverter.fromLatLng,
        _markerStore = markerStore ?? const PeakRegionImportMarkerStore();
 
-  static const manifestAssetPath = 'assets/region_manifest.json';
-
-  final PeakRegionAssetLoader _assetLoader;
   final PeakRegionMgrsConverter _mgrsConverter;
   final PeakRegionImportMarkerStore _markerStore;
+  final MappingCatalog catalog;
+  final PeakRegionSourceReader? _sourceReader;
 
   Future<PeakRegionAssetImportResult> syncOnStartup({
     required PeakRepository peakRepository,
   }) async {
-    final manifest = await _loadManifest();
-    if (peakRepository.isEmpty()) {
-      return _importRegions(
-        peakRepository: peakRepository,
-        regions: manifest,
-        storedFingerprints: const {},
-      );
+    await migrateLegacyFingerprints(peakRepository: peakRepository);
+    if (!peakRepository.isEmpty()) {
+      return _emptyResult;
     }
-
-    var storedFingerprints = await _markerStore.loadFingerprints();
-    if (storedFingerprints.isEmpty) {
-      storedFingerprints = await _bootstrapLegacyTasmania(
-        existingPeaks: peakRepository.getAllPeaks(),
-        manifest: manifest,
-      );
-    }
-
-    final missingRegions = manifest
-        .where((region) => storedFingerprints[region.key] != region.fingerprint)
-        .toList(growable: false);
-    if (missingRegions.isEmpty) {
-      return const PeakRegionAssetImportResult(
-        importedRegions: [],
-        importedPeakCount: 0,
-        skippedPeakCount: 0,
-      );
-    }
-
-    return _importRegions(
+    return _seedCatalogRegions(
       peakRepository: peakRepository,
-      regions: missingRegions,
-      storedFingerprints: storedFingerprints,
+      catalog: catalog,
     );
   }
 
@@ -82,203 +58,293 @@ class PeakRegionAssetImportService {
     required PeakRepository peakRepository,
   }) async {
     if (!peakRepository.isEmpty()) {
-      return const PeakRegionAssetImportResult(
-        importedRegions: [],
-        importedPeakCount: 0,
-        skippedPeakCount: 0,
-      );
+      return _emptyResult;
     }
-
-    final manifest = await _loadManifest();
-    return _importRegions(
+    return _seedCatalogRegions(
       peakRepository: peakRepository,
-      regions: manifest,
-      storedFingerprints: const {},
+      catalog: catalog,
     );
   }
 
-  Future<Map<String, String>> _bootstrapLegacyTasmania({
-    required List<Peak> existingPeaks,
-    required List<_ManifestRegion> manifest,
-  }) async {
-    if (!existingPeaks.any((peak) => peak.region == Peak.defaultRegion)) {
-      return const {};
-    }
+  static const _emptyResult = PeakRegionAssetImportResult(
+    importedRegions: [],
+    importedPeakCount: 0,
+    skippedPeakCount: 0,
+  );
 
-    for (final region in manifest) {
-      if (region.key != Peak.defaultRegion) {
-        continue;
-      }
-      final fingerprints = {region.key: region.fingerprint};
-      await _markerStore.saveFingerprints(fingerprints);
-      return fingerprints;
-    }
-
-    return const {};
-  }
-
-  Future<PeakRegionAssetImportResult> _importRegions({
+  List<String> changedSeedableRegionKeys({
     required PeakRepository peakRepository,
-    required List<_ManifestRegion> regions,
-    required Map<String, String> storedFingerprints,
-  }) async {
-    final importedRegions = <String>[];
-    final nextFingerprints = Map<String, String>.from(storedFingerprints);
-    var currentPeaksByOsmId = {
-      for (final peak in peakRepository.getAllPeaks()) peak.osmId: peak,
-    };
-    var importedPeakCount = 0;
-    var skippedPeakCount = 0;
+  }) {
+    final fingerprints = peakRepository.regionFingerprints();
+    return List.unmodifiable([
+      for (final region in _seedableCatalogRegions(catalog))
+        if (fingerprints[region.key] != region.fingerprint) region.key,
+    ]);
+  }
 
-    for (final region in regions) {
-      final regionPeaks = <Peak>[];
-      for (final assetPath in region.peakAssetPaths) {
-        final assetResult = await _loadRegionPeaks(
-          regionKey: region.key,
-          assetPath: assetPath,
-        );
-        skippedPeakCount += assetResult.skippedPeakCount;
-        regionPeaks.addAll(assetResult.peaks);
-      }
-
-      var regionChanged = false;
-      final nextPeaksByOsmId = Map<int, Peak>.from(currentPeaksByOsmId);
-      for (final peak in regionPeaks) {
-        final existingPeak = nextPeaksByOsmId[peak.osmId];
-        if (existingPeak == null) {
-          nextPeaksByOsmId[peak.osmId] = peak;
-          importedPeakCount += 1;
-          regionChanged = true;
-          continue;
-        }
-        if (existingPeak.sourceOfTruth != Peak.sourceOfTruthOsm) {
-          continue;
-        }
-        nextPeaksByOsmId[peak.osmId] = peak;
-        importedPeakCount += 1;
-        regionChanged = true;
-      }
-
-      if (regionChanged) {
-        await peakRepository.replaceAll(
-          nextPeaksByOsmId.values.toList(growable: false),
-        );
-        currentPeaksByOsmId = {
-          for (final peak in peakRepository.getAllPeaks()) peak.osmId: peak,
-        };
-      }
-
-      nextFingerprints[region.key] = region.fingerprint;
-      await _markerStore.saveFingerprints(nextFingerprints);
-      importedRegions.add(region.key);
-    }
-
-    return PeakRegionAssetImportResult(
-      importedRegions: List<String>.unmodifiable(importedRegions),
-      importedPeakCount: importedPeakCount,
-      skippedPeakCount: skippedPeakCount,
+  List<String> seedableRegionKeys() {
+    return List.unmodifiable(
+      _seedableCatalogRegions(catalog).map((region) => region.key),
     );
   }
 
-  Future<List<_ManifestRegion>> _loadManifest() async {
-    final manifestText = await _assetLoader(manifestAssetPath);
-    final decoded = jsonDecode(manifestText);
-    if (decoded is! Map<String, dynamic>) {
-      throw StateError('Peak region manifest must be a JSON object.');
-    }
+  Future<PeakRegionAssetImportResult> seedRegion({
+    required PeakRepository peakRepository,
+    required String regionKey,
+  }) {
+    return updateRegion(peakRepository: peakRepository, regionKey: regionKey);
+  }
 
-    final regions = <_ManifestRegion>[];
-    for (final entry in decoded.entries) {
-      if (entry.key == 'routingCoverages') {
-        continue;
-      }
-      final value = entry.value;
-      if (value is! Map<String, dynamic>) {
-        throw StateError('Region ${entry.key} must be a JSON object.');
-      }
-      if (!_isSeedableRegion(value)) {
-        continue;
-      }
-      final fingerprint = value['fingerprint'];
-      final peakAssets = value['peaks'];
-      if (fingerprint is! String || fingerprint.isEmpty) {
-        throw StateError(
-          'Seedable region ${entry.key} is missing a fingerprint.',
-        );
-      }
-      if (peakAssets is! List) {
-        throw StateError(
-          'Seedable region ${entry.key} must define peak assets.',
-        );
-      }
-      regions.add(
-        _ManifestRegion(
-          key: entry.key,
-          fingerprint: fingerprint,
-          peakAssetPaths: peakAssets.whereType<String>().toList(
-            growable: false,
-          ),
+  Future<void> migrateLegacyFingerprints({
+    required PeakRepository peakRepository,
+  }) async {
+    final legacy = await _markerStore.loadFingerprints();
+    final seedableByKey = {
+      for (final region in _seedableCatalogRegions(catalog)) region.key: region,
+    };
+    final valid = <String, String>{
+      for (final entry in legacy.entries)
+        if (seedableByKey.containsKey(entry.key) &&
+            entry.value.trim().isNotEmpty)
+          entry.key: entry.value.trim(),
+    };
+    if (valid.isEmpty) {
+      return;
+    }
+    await peakRepository.migrateRegionFingerprints(valid);
+    await _markerStore.removeFingerprints();
+  }
+
+  Future<PeakRegionAssetImportResult> updateRegion({
+    required PeakRepository peakRepository,
+    required String regionKey,
+  }) async {
+    final region = catalog.regionByKey(regionKey);
+    if (region == null || !_isCatalogRegionSeedable(region)) {
+      throw ArgumentError.value(regionKey, 'regionKey', 'is not seedable');
+    }
+    return _importCatalogRegion(peakRepository: peakRepository, region: region);
+  }
+
+  Future<PeakRegionAssetImportResult> _seedCatalogRegions({
+    required PeakRepository peakRepository,
+    required MappingCatalog catalog,
+  }) async {
+    final results = <PeakRegionAssetImportResult>[];
+    for (final region in _seedableCatalogRegions(catalog)) {
+      results.add(
+        await _importCatalogRegion(
+          peakRepository: peakRepository,
+          region: region,
         ),
       );
     }
-    return regions;
+    return _combineResults(results);
   }
 
-  bool _isSeedableRegion(Map<String, dynamic> regionValue) {
-    return regionValue['composite'] != true &&
-        regionValue['seedOnStartup'] != false;
-  }
-
-  Future<_RegionAssetLoadResult> _loadRegionPeaks({
-    required String regionKey,
-    required String assetPath,
+  Future<PeakRegionAssetImportResult> _importCatalogRegion({
+    required PeakRepository peakRepository,
+    required MappingCatalogRegion region,
   }) async {
-    final assetText = await _assetLoader(assetPath);
-    final decoded = jsonDecode(assetText);
-    if (decoded is! Map<String, dynamic>) {
-      throw StateError('Peak asset $assetPath must be a JSON object.');
+    final paths = region.peaks;
+    final imported = <Peak>[];
+    var skipped = 0;
+    for (final path in paths) {
+      final result = await _loadCatalogRegionSource(region: region, path: path);
+      imported.addAll(result.peaks);
+      skipped += result.skippedPeakCount;
     }
-    final elements = decoded['elements'];
-    if (elements is! List) {
-      throw StateError('Peak asset $assetPath must contain an elements list.');
+    final ids = <int>{};
+    for (final peak in imported) {
+      if (!ids.add(peak.osmId)) {
+        throw MappingStoreOperationException(paths: paths);
+      }
     }
+    try {
+      await peakRepository.reconcileOsmRegion(
+        regionKey: region.key,
+        fingerprint: region.fingerprint!,
+        incomingPeaks: imported,
+        validRegionKeys: catalog.regions
+            .map((candidate) => candidate.key)
+            .toSet(),
+      );
+    } on MappingStoreOperationException {
+      rethrow;
+    } on Object catch (error) {
+      throw MappingStoreOperationException(paths: paths, cause: error);
+    }
+    return PeakRegionAssetImportResult(
+      importedRegions: [region.key],
+      importedPeakCount: imported.length,
+      skippedPeakCount: skipped,
+    );
+  }
 
-    final peaks = <Peak>[];
-    var skippedPeakCount = 0;
-    for (final element in elements) {
-      if (element is! Map) {
-        skippedPeakCount += 1;
+  Future<_RegionAssetLoadResult> _loadCatalogRegionSource({
+    required MappingCatalogRegion region,
+    required String path,
+  }) async {
+    try {
+      final source = await _readCatalogSource(path);
+      final decoded = jsonDecode(source);
+      if (decoded is! Map || decoded['elements'] is! List) {
+        throw const FormatException(
+          'Peak source must contain an elements list.',
+        );
+      }
+      final peaks = <Peak>[];
+      var skipped = 0;
+      for (final element in decoded['elements'] as List) {
+        if (element is! Map) {
+          throw const FormatException('Peak source elements must be objects.');
+        }
+        final value = Map<String, dynamic>.from(element);
+        final tags = value['tags'];
+        final isPeak =
+            value['type'] == 'node' && tags is Map && tags['natural'] == 'peak';
+        if (!isPeak) {
+          skipped += 1;
+          continue;
+        }
+        peaks.add(_parseCatalogPeak(value, region: region, path: path));
+      }
+      return _RegionAssetLoadResult(peaks: peaks, skippedPeakCount: skipped);
+    } on MappingStoreOperationException {
+      rethrow;
+    } on Object catch (error) {
+      throw MappingStoreOperationException(paths: [path], cause: error);
+    }
+  }
+
+  Peak _parseCatalogPeak(
+    Map<String, dynamic> value, {
+    required MappingCatalogRegion region,
+    required String path,
+  }) {
+    final id = value['id'];
+    final tags = value['tags'];
+    final name = tags is Map ? tags['name'] : null;
+    final lat = value['lat'];
+    final lon = value['lon'];
+    if (id is! int ||
+        id <= 0 ||
+        name is! String ||
+        name.trim().isEmpty ||
+        lat is! num ||
+        lon is! num ||
+        !lat.isFinite ||
+        !lon.isFinite ||
+        lat < -90 ||
+        lat > 90 ||
+        lon < -180 ||
+        lon > 180) {
+      throw FormatException('Invalid peak record in $path.');
+    }
+    final base = Peak(
+      osmId: id,
+      name: name.trim(),
+      elevation: _parseElevation(tags['ele']),
+      latitude: lat.toDouble(),
+      longitude: lon.toDouble(),
+      region: region.key,
+      sourceOfTruth: Peak.sourceOfTruthOsm,
+    );
+    final enriched = _enrichPeak(base);
+    if (enriched == null) {
+      throw FormatException('Unable to derive MGRS fields in $path.');
+    }
+    return enriched;
+  }
+
+  double? _parseElevation(Object? value) {
+    if (value is num && value.isFinite) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      final parsed = double.tryParse(value.trim());
+      return parsed?.isFinite == true ? parsed : null;
+    }
+    return null;
+  }
+
+  Future<String> _readCatalogSource(String path) {
+    final reader = _sourceReader;
+    if (reader != null) {
+      return reader(path);
+    }
+    return MappingStoreOperationFileAccess(
+      rootPath: catalog.rootPath,
+      fileSystem: const IoMappingStoreFileSystem(),
+    ).readText(path);
+  }
+
+  List<MappingCatalogRegion> _seedableCatalogRegions(MappingCatalog catalog) {
+    return List.unmodifiable(catalog.regions.where(_isCatalogRegionSeedable));
+  }
+
+  bool _isCatalogRegionSeedable(MappingCatalogRegion region) {
+    return !region.composite &&
+        region.seedOnStartup &&
+        region.fingerprint != null &&
+        region.fingerprint!.trim().isNotEmpty &&
+        region.peaks.isNotEmpty;
+  }
+
+  PeakRegionAssetImportResult _combineResults(
+    List<PeakRegionAssetImportResult> results,
+  ) {
+    if (results.isEmpty) {
+      return _emptyResult;
+    }
+    return PeakRegionAssetImportResult(
+      importedRegions: [
+        for (final result in results) ...result.importedRegions,
+      ],
+      importedPeakCount: results.fold(
+        0,
+        (count, result) => count + result.importedPeakCount,
+      ),
+      skippedPeakCount: results.fold(
+        0,
+        (count, result) => count + result.skippedPeakCount,
+      ),
+    );
+  }
+
+  Future<bool> backfillStoredPeaks({
+    required PeakRepository peakRepository,
+  }) async {
+    final peaks = peakRepository.getAllPeaks();
+    if (peaks.isEmpty || peaks.every(_hasMgrsFields)) {
+      return false;
+    }
+    final updated = <Peak>[];
+    var changed = false;
+    for (final peak in peaks) {
+      if (_hasMgrsFields(peak)) {
+        updated.add(peak);
         continue;
       }
-      try {
-        final peak = Peak.fromOverpass(
-          Map<String, dynamic>.from(element),
-        ).copyWith(region: regionKey);
-        if (peak.name == 'Unknown') {
-          skippedPeakCount += 1;
-          continue;
-        }
-        final enrichedPeak = _enrichPeak(peak);
-        if (enrichedPeak == null) {
-          skippedPeakCount += 1;
-          continue;
-        }
-        peaks.add(enrichedPeak);
-      } catch (error, stackTrace) {
-        developer.log(
-          'Skipping malformed peak row in $assetPath.',
-          error: error,
-          stackTrace: stackTrace,
-          name: 'PeakRegionAssetImportService',
-        );
-        skippedPeakCount += 1;
+      final enriched = _enrichPeak(peak);
+      if (enriched == null) {
+        updated.add(peak);
+        continue;
       }
+      updated.add(enriched);
+      changed = true;
     }
+    if (changed) {
+      await peakRepository.replaceAll(updated);
+    }
+    return changed;
+  }
 
-    return _RegionAssetLoadResult(
-      peaks: List<Peak>.unmodifiable(peaks),
-      skippedPeakCount: skippedPeakCount,
-    );
+  bool _hasMgrsFields(Peak peak) {
+    return peak.gridZoneDesignator.isNotEmpty &&
+        peak.mgrs100kId.isNotEmpty &&
+        peak.easting.isNotEmpty &&
+        peak.northing.isNotEmpty;
   }
 
   Peak? _enrichPeak(Peak peak) {
@@ -294,18 +360,6 @@ class PeakRegionAssetImportService {
       return null;
     }
   }
-}
-
-class _ManifestRegion {
-  const _ManifestRegion({
-    required this.key,
-    required this.fingerprint,
-    required this.peakAssetPaths,
-  });
-
-  final String key;
-  final String fingerprint;
-  final List<String> peakAssetPaths;
 }
 
 class _RegionAssetLoadResult {

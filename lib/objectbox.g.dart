@@ -19,6 +19,7 @@ import 'models/gpx_track.dart';
 import 'models/natural_feature.dart';
 import 'models/peak.dart';
 import 'models/peak_list.dart';
+import 'models/peak_region_fingerprint.dart';
 import 'models/peaks_bagged.dart';
 import 'models/route.dart';
 import 'models/route_graph_chunk.dart';
@@ -1403,6 +1404,35 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(17, 4224728018239922669),
+    name: 'PeakRegionFingerprint',
+    lastPropertyId: const obx_int.IdUid(3, 571763795470411177),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 131560405577640429),
+        name: 'id',
+        type: 6,
+        flags: 1,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 5126026526761184949),
+        name: 'regionKey',
+        type: 9,
+        flags: 2080,
+        indexId: const obx_int.IdUid(25, 1184207881804842512),
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 571763795470411177),
+        name: 'fingerprint',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -1448,8 +1478,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(16, 4873570092347596398),
-    lastIndexId: const obx_int.IdUid(24, 1139331039385892952),
+    lastEntityId: const obx_int.IdUid(17, 4224728018239922669),
+    lastIndexId: const obx_int.IdUid(25, 1184207881804842512),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [],
@@ -3252,6 +3282,48 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    PeakRegionFingerprint: obx_int.EntityDefinition<PeakRegionFingerprint>(
+      model: _entities[16],
+      toOneRelations: (PeakRegionFingerprint object) => [],
+      toManyRelations: (PeakRegionFingerprint object) => {},
+      getId: (PeakRegionFingerprint object) => object.id,
+      setId: (PeakRegionFingerprint object, int id) {
+        object.id = id;
+      },
+      objectToFB: (PeakRegionFingerprint object, fb.Builder fbb) {
+        final regionKeyOffset = fbb.writeString(object.regionKey);
+        final fingerprintOffset = fbb.writeString(object.fingerprint);
+        fbb.startTable(4);
+        fbb.addInt64(0, object.id);
+        fbb.addOffset(1, regionKeyOffset);
+        fbb.addOffset(2, fingerprintOffset);
+        fbb.finish(fbb.endTable());
+        return object.id;
+      },
+      objectFromFB: (obx.Store store, ByteData fbData) {
+        final buffer = fb.BufferContext(fbData);
+        final rootOffset = buffer.derefObject(0);
+        final idParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          4,
+          0,
+        );
+        final regionKeyParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 6, '');
+        final fingerprintParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 8, '');
+        final object = PeakRegionFingerprint(
+          id: idParam,
+          regionKey: regionKeyParam,
+          fingerprint: fingerprintParam,
+        );
+
+        return object;
+      },
+    ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -4287,5 +4359,23 @@ class NaturalFeature_ {
   /// See [NaturalFeature.sourceOfTruth].
   static final sourceOfTruth = obx.QueryStringProperty<NaturalFeature>(
     _entities[15].properties[15],
+  );
+}
+
+/// [PeakRegionFingerprint] entity fields to define ObjectBox queries.
+class PeakRegionFingerprint_ {
+  /// See [PeakRegionFingerprint.id].
+  static final id = obx.QueryIntegerProperty<PeakRegionFingerprint>(
+    _entities[16].properties[0],
+  );
+
+  /// See [PeakRegionFingerprint.regionKey].
+  static final regionKey = obx.QueryStringProperty<PeakRegionFingerprint>(
+    _entities[16].properties[1],
+  );
+
+  /// See [PeakRegionFingerprint.fingerprint].
+  static final fingerprint = obx.QueryStringProperty<PeakRegionFingerprint>(
+    _entities[16].properties[2],
   );
 }

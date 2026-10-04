@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -275,21 +272,11 @@ void main() {
     },
   );
 
-  test('peak-list regions follow the manifest showInPeakList contract', () {
-    final manifest =
-        jsonDecode(File('assets/region_manifest.json').readAsStringSync())
-            as Map<String, dynamic>;
-    final expectedRegionKeys = [
-      for (final entry in manifest.entries)
-        if (entry.key != 'routingCoverages')
-          if ((entry.value as Map<String, dynamic>)['showInPeakList'] == 'true')
-            entry.key,
-    ];
-
+  test('peak-list regions follow the retained contract', () {
     final visibleRegions = regionManifestCatalog.peakListRegions();
     expect(
       visibleRegions.map((region) => region.key).toList(growable: false),
-      expectedRegionKeys,
+      const ['tasmania', 'italy-nord-est', 'italy-nord-ovest', 'slovenia'],
     );
     expect(
       visibleRegions.map((region) => region.shortName).toList(growable: false),

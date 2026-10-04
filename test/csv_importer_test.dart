@@ -3,18 +3,20 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
 
+const _tasmapFixturePath = 'test/fixtures/tasmap50k.csv';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('CsvImporter', () {
-    test('importFromCsv returns 75 maps', () async {
-      final result = await CsvImporter.importFromCsv('assets/tasmap50k.csv');
-      expect(result.importedCount, 75);
-      expect(result.maps, hasLength(75));
+    test('importFromCsv returns fixture maps', () async {
+      final result = await CsvImporter.importFromCsv(_tasmapFixturePath);
+      expect(result.importedCount, 3);
+      expect(result.maps, hasLength(3));
     });
 
     test('importFromCsv populates new fields correctly', () async {
-      final result = await CsvImporter.importFromCsv('assets/tasmap50k.csv');
+      final result = await CsvImporter.importFromCsv(_tasmapFixturePath);
       final wellington = result.maps.firstWhere((m) => m.name == 'Wellington');
 
       expect(wellington.mgrsMid, 'EN');
@@ -33,7 +35,7 @@ void main() {
     test(
       'importFromCsv uses correct column names (eastingMin not Xmin)',
       () async {
-        final result = await CsvImporter.importFromCsv('assets/tasmap50k.csv');
+        final result = await CsvImporter.importFromCsv(_tasmapFixturePath);
         final wellington = result.maps.firstWhere(
           (m) => m.name == 'Wellington',
         );
@@ -46,7 +48,7 @@ void main() {
     );
 
     test('importFromCsv handles wrap-around ranges', () async {
-      final result = await CsvImporter.importFromCsv('assets/tasmap50k.csv');
+      final result = await CsvImporter.importFromCsv(_tasmapFixturePath);
       final blackBluff = result.maps.firstWhere((m) => m.name == 'Black Bluff');
 
       expect(blackBluff.eastingMin, 80000);
@@ -60,10 +62,10 @@ void main() {
       addTearDown(() => tempDir.delete(recursive: true));
 
       final csvFile = File('${tempDir.path}/tasmap50k.csv');
-      final sourceContents = await File('assets/tasmap50k.csv').readAsString();
+      final sourceContents = await File(_tasmapFixturePath).readAsString();
       final modifiedContents = sourceContents.replaceFirst(
-        'TQ08,Wellington,8312,EN   ,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,',
-        'TQ08,Wellington Test,8312,EN   ,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,',
+        'TQ08,Wellington,8312,EN,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000',
+        'TQ08,Wellington Test,8312,EN,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000',
       );
       await csvFile.writeAsString(modifiedContents);
 
@@ -72,7 +74,7 @@ void main() {
         (map) => map.name == 'Wellington Test',
       );
 
-      expect(result.importedCount, 75);
+      expect(result.importedCount, 3);
       expect(wellington.name, 'Wellington Test');
       expect(wellington.p4, 'EN0000040000');
     });

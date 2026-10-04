@@ -14,7 +14,6 @@ import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -240,7 +239,6 @@ Future<void> _pumpApp(WidgetTester tester, {List overrides = const []}) async {
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
-        overpassServiceProvider.overrideWithValue(OverpassService()),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         peakListRewritePortProvider.overrideWithValue(
           _NoopPeakListRewritePort(),

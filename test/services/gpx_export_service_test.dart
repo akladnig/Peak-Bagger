@@ -61,7 +61,7 @@ void main() {
       final service = GpxExportService(
         trackDownloadsDirectoryResolver: () => routesDir,
         routeExportsDirectoryResolver: () => routesDir,
-        storageDestinationResolver: _fileBackedResolver(),
+        storageDestinationResolver: _testResolver(),
       );
       final route = app_route.Route(
         name: 'Route 1',
@@ -95,7 +95,7 @@ void main() {
       final service = GpxExportService(
         trackDownloadsDirectoryResolver: () => routesDir,
         routeExportsDirectoryResolver: () => routesDir,
-        storageDestinationResolver: _fileBackedResolver(),
+        storageDestinationResolver: _testResolver(),
       );
       final route = app_route.Route(
         name: 'Route 1',
@@ -120,7 +120,7 @@ void main() {
         final service = GpxExportService(
           trackDownloadsDirectoryResolver: () => routesDir,
           routeExportsDirectoryResolver: () => routesDir,
-          storageDestinationResolver: _fileBackedResolver(),
+          storageDestinationResolver: _testResolver(),
         );
 
         final sloveniaPlan = await service.planRouteExport(
@@ -446,10 +446,41 @@ void main() {
   });
 }
 
-GpxStorageDestinationResolver _fileBackedResolver() {
+GpxStorageDestinationResolver _testResolver() {
   return GpxStorageDestinationResolver(
     polygonAssetRepository: PolygonAssetRepository(
-      assetLoader: (assetPath) async => File(assetPath).readAsString(),
+      assetLoader: (assetPath) async => switch (assetPath) {
+        'assets/polygons/manifest.json' =>
+          '["italy-nord-est.poly", "slovenia.poly", "croatia.poly"]',
+        'italy-nord-est.poly' => _polygonText(
+          west: 12,
+          south: 45,
+          east: 14,
+          north: 47,
+        ),
+        'slovenia.poly' => _polygonText(
+          west: 13.8,
+          south: 45.8,
+          east: 15.7,
+          north: 46.8,
+        ),
+        'croatia.poly' => _polygonText(
+          west: 15.8,
+          south: 45.5,
+          east: 17,
+          north: 46.2,
+        ),
+        _ => throw StateError('Unexpected polygon asset: $assetPath'),
+      },
     ),
   );
+}
+
+String _polygonText({
+  required double west,
+  required double south,
+  required double east,
+  required double north,
+}) {
+  return 'none\n1\n$west $south\n$east $south\n$east $north\n$west $north\n$west $south\nEND\nEND\n';
 }

@@ -1,15 +1,12 @@
 import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/services/polygon_asset_repository.dart';
 
 void main() {
-  test('parsePolygonAsset reads the bundled tasmania polygon', () async {
-    final contents = await File('assets/polygons/tasmania.poly').readAsString();
+  test('parsePolygonAsset reads a Tasmania fixture polygon', () {
     final result = parsePolygonAsset(
-      contents,
+      _tasmaniaPolygon,
       assetPath: 'assets/polygons/tasmania.poly',
     );
 
@@ -20,10 +17,9 @@ void main() {
     expect(result.asset!.points.first, const LatLng(-44.0, 148.8867));
   });
 
-  test('parsePolygonAsset reads the bundled croatia polygon', () async {
-    final contents = await File('assets/polygons/croatia.poly').readAsString();
+  test('parsePolygonAsset reads a Croatia fixture polygon', () {
     final result = parsePolygonAsset(
-      contents,
+      _croatiaPolygon,
       assetPath: 'assets/polygons/croatia.poly',
     );
 
@@ -46,7 +42,6 @@ void main() {
   });
 
   test('loadPolygons filters asset manifest polygon paths', () async {
-    final tasmania = await File('assets/polygons/tasmania.poly').readAsString();
     final repository = PolygonAssetRepository(
       assetLoader: (assetPath) async {
         return switch (assetPath) {
@@ -57,7 +52,7 @@ void main() {
           ]),
           'assets/polygons/alpha.poly' =>
             'none\n1\n0 0\n1 0\n1 1\n0 0\nEND\nEND\n',
-          'assets/polygons/tasmania.poly' => tasmania,
+          'assets/polygons/tasmania.poly' => _tasmaniaPolygon,
           _ => throw StateError('Unexpected asset: $assetPath'),
         };
       },
@@ -71,3 +66,29 @@ void main() {
     expect(polygons.first.points, hasLength(3));
   });
 }
+
+const _tasmaniaPolygon = '''
+none
+1
+148.8867 -44.0
+143.4704 -44.0
+143.4704 -39.1982
+146.2510 -39.19759
+146.6251 -39.19687
+146.9203 -39.19721
+147.1105 -39.19767
+148.8867 -39.52946
+END
+END
+''';
+
+const _croatiaPolygon = '''
+none
+1
+18.51463 42.43746
+18.53434 42.42769
+18.55029 42.38946
+18.48013 42.24400
+END
+END
+''';

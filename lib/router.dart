@@ -84,18 +84,18 @@ const shellDestinations = <ShellDestination>[
   ),
 ];
 
-void _runShellPreNavigationCleanup(WidgetRef ref) {
-  if (ref.read(mapProvider).peakInfoPeak != null) {
-    ref.read(mapProvider.notifier).closePeakInfoPopup();
+void _runShellPreNavigationCleanup(ProviderContainer container) {
+  if (container.read(mapProvider).peakInfoPeak != null) {
+    container.read(mapProvider.notifier).closePeakInfoPopup();
   }
-  if (ref.read(mapProvider).showInfoPopup) {
-    ref.read(mapProvider.notifier).toggleInfoPopup();
+  if (container.read(mapProvider).showInfoPopup) {
+    container.read(mapProvider.notifier).toggleInfoPopup();
   }
-  if (ref.read(mapProvider).showPeakSearch) {
-    ref.read(mapProvider.notifier).closeSearchPopup();
+  if (container.read(mapProvider).showPeakSearch) {
+    container.read(mapProvider.notifier).closeSearchPopup();
   }
-  if (ref.read(mapProvider).showGotoInput) {
-    ref.read(mapProvider.notifier).setGotoInputVisible(false);
+  if (container.read(mapProvider).showGotoInput) {
+    container.read(mapProvider.notifier).setGotoInputVisible(false);
   }
 }
 
@@ -107,6 +107,7 @@ GoRouter createRouter() {
         builder: (context, state, navigationShell) {
           return Consumer(
             builder: (context, ref, _) {
+              final container = ProviderScope.containerOf(context);
               final currentDestination = shellDestinations.firstWhere(
                 (destination) =>
                     destination.branchIndex == navigationShell.currentIndex,
@@ -116,7 +117,7 @@ GoRouter createRouter() {
                 if (destination.branchIndex == navigationShell.currentIndex) {
                   return;
                 }
-                _runShellPreNavigationCleanup(ref);
+                _runShellPreNavigationCleanup(container);
                 navigationShell.goBranch(destination.branchIndex);
               }
 
@@ -181,7 +182,10 @@ GoRouter createRouter() {
                                         'startup-backfill-warning-open-settings',
                                       ),
                                       onPressed: () {
-                                        goToDestination(shellDestinations[4]);
+                                        _runShellPreNavigationCleanup(
+                                          container,
+                                        );
+                                        router.go('/settings');
                                       },
                                       child: const Text('Open Settings'),
                                     ),

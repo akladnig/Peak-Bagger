@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/peak_region_fingerprint.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/route.dart';
@@ -142,7 +143,9 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
   }) {
     var rewrittenCount = 0;
     var skippedMalformedCount = 0;
-    final peaksByOsmId = {for (final peak in _peakBox.getAll()) peak.osmId: peak};
+    final peaksByOsmId = {
+      for (final peak in _peakBox.getAll()) peak.osmId: peak,
+    };
 
     final peakLists = _peakListBox.getAll().toList(growable: false)
       ..sort((a, b) {
@@ -159,7 +162,9 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
         _peakListItemEntitiesForPeakList(peakList.peakListId),
       )) {
         if (item.peakOsmId == oldOsmId) {
-          updatedItems.add(PeakListItem(peakOsmId: newOsmId, points: item.points));
+          updatedItems.add(
+            PeakListItem(peakOsmId: newOsmId, points: item.points),
+          );
           changed = true;
         } else {
           updatedItems.add(item);
@@ -344,9 +349,9 @@ class ObjectBoxPeakListRewritePort implements PeakListRewritePort {
     List<PeakListItem> items, {
     required Map<int, Peak> peaksByOsmId,
   }) {
-    final existingIds = _peakListItemEntitiesForPeakList(peakList.peakListId)
-        .map((item) => item.id)
-        .toList(growable: false);
+    final existingIds = _peakListItemEntitiesForPeakList(
+      peakList.peakListId,
+    ).map((item) => item.id).toList(growable: false);
     if (existingIds.isNotEmpty) {
       _peakListItemBox.removeMany(existingIds);
     }
@@ -399,16 +404,22 @@ class InMemoryPeakListRewritePort implements PeakListRewritePort {
   }) {
     var rewrittenCount = 0;
     var skippedMalformedCount = 0;
-    final peaksByOsmId = {for (final peak in peakStorage.getAll()) peak.osmId: peak};
+    final peaksByOsmId = {
+      for (final peak in peakStorage.getAll()) peak.osmId: peak,
+    };
 
     for (var index = 0; index < peakLists.length; index++) {
       final peakList = peakLists[index];
-      final relationalRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
+      final relationalRows = _peakListItemEntitiesForPeakList(
+        peakList.peakListId,
+      );
       var changed = false;
       final updatedItems = <PeakListItem>[];
       for (final item in _peakListItemsFromEntities(relationalRows)) {
         if (item.peakOsmId == oldOsmId) {
-          updatedItems.add(PeakListItem(peakOsmId: newOsmId, points: item.points));
+          updatedItems.add(
+            PeakListItem(peakOsmId: newOsmId, points: item.points),
+          );
           changed = true;
         } else {
           updatedItems.add(item);
@@ -564,7 +575,9 @@ class InMemoryPeakListRewritePort implements PeakListRewritePort {
   }
 
   List<PeakListItem> _loadActivePeakListItems(PeakList peakList) {
-    final relationalRows = _peakListItemEntitiesForPeakList(peakList.peakListId);
+    final relationalRows = _peakListItemEntitiesForPeakList(
+      peakList.peakListId,
+    );
     return _peakListItemsFromEntities(relationalRows);
   }
 
@@ -1130,6 +1143,175 @@ class PeakRepository implements PeakSource {
   Future<void> clearAll() async {
     await _storage.clearAll();
   }
+
+  Map<String, String> regionFingerprints() {
+    final store = _store;
+    if (store == null) {
+      return Map.unmodifiable(_inMemoryRegionFingerprints);
+    }
+    return Map.unmodifiable({
+      for (final row in store.box<PeakRegionFingerprint>().getAll())
+        row.regionKey: row.fingerprint,
+    });
+  }
+
+  /// Reconciles one authoritative OSM source without taking ownership of
+  /// records that belong to another source or to the user.
+  Future<void> reconcileOsmRegion({
+    required String regionKey,
+    required String fingerprint,
+    required List<Peak> incomingPeaks,
+    required Set<String> validRegionKeys,
+  }) async {
+    final existing = _storage.getAll();
+    final incomingByOsmId = <int, Peak>{};
+    for (final peak in incomingPeaks) {
+      if (peak.osmId <= 0 || incomingByOsmId.containsKey(peak.osmId)) {
+        throw StateError('Duplicate or invalid OSM identity in $regionKey.');
+      }
+      incomingByOsmId[peak.osmId] = peak;
+    }
+
+    final existingByOsmId = <int, Peak>{
+      for (final peak in existing) peak.osmId: peak,
+    };
+    for (final incoming in incomingPeaks) {
+      final previous = existingByOsmId[incoming.osmId];
+      if (previous == null) {
+        continue;
+      }
+      if (previous.sourceOfTruth != Peak.sourceOfTruthOsm ||
+          previous.region == null ||
+          !validRegionKeys.contains(previous.region) ||
+          previous.region != regionKey) {
+        throw StateError(
+          'OSM identity ${incoming.osmId} cannot be imported for $regionKey.',
+        );
+      }
+    }
+
+    final reconciled = <Peak>[];
+    for (final previous in existing) {
+      final incoming = incomingByOsmId.remove(previous.osmId);
+      if (incoming == null) {
+        final isMissingOwnedOsm =
+            previous.sourceOfTruth == Peak.sourceOfTruthOsm &&
+            previous.region == regionKey;
+        if (!isMissingOwnedOsm) {
+          reconciled.add(previous);
+        }
+        continue;
+      }
+      reconciled.add(_mergeImportedPeak(previous, incoming));
+    }
+    reconciled.addAll(incomingByOsmId.values);
+
+    final store = _store;
+    if (store == null) {
+      final peaksSnapshot = _storage.getAll();
+      final fingerprintsSnapshot = Map<String, String>.from(
+        _inMemoryRegionFingerprints,
+      );
+      try {
+        await _storage.replaceAll(reconciled);
+        _inMemoryRegionFingerprints[regionKey] = fingerprint;
+      } catch (_) {
+        await _storage.replaceAll(peaksSnapshot);
+        _inMemoryRegionFingerprints
+          ..clear()
+          ..addAll(fingerprintsSnapshot);
+        rethrow;
+      }
+      return;
+    }
+
+    final peakBox = store.box<Peak>();
+    final fingerprintBox = store.box<PeakRegionFingerprint>();
+    store.runInTransaction(TxMode.write, () {
+      peakBox.removeAll();
+      peakBox.putMany(reconciled);
+      final existingFingerprint = fingerprintBox
+          .query(PeakRegionFingerprint_.regionKey.equals(regionKey))
+          .build();
+      try {
+        final row = existingFingerprint.findFirst();
+        fingerprintBox.put(
+          PeakRegionFingerprint(
+            id: row?.id ?? 0,
+            regionKey: regionKey,
+            fingerprint: fingerprint,
+          ),
+        );
+      } finally {
+        existingFingerprint.close();
+      }
+    });
+  }
+
+  Future<void> migrateRegionFingerprints(
+    Map<String, String> fingerprints,
+  ) async {
+    if (fingerprints.isEmpty) {
+      return;
+    }
+    final store = _store;
+    if (store == null) {
+      _inMemoryRegionFingerprints.addAll(fingerprints);
+      return;
+    }
+    final box = store.box<PeakRegionFingerprint>();
+    store.runInTransaction(TxMode.write, () {
+      for (final entry in fingerprints.entries) {
+        final query = box
+            .query(PeakRegionFingerprint_.regionKey.equals(entry.key))
+            .build();
+        try {
+          final existing = query.findFirst();
+          box.put(
+            PeakRegionFingerprint(
+              id: existing?.id ?? 0,
+              regionKey: entry.key,
+              fingerprint: entry.value,
+            ),
+          );
+        } finally {
+          query.close();
+        }
+      }
+    });
+  }
+
+  Peak _mergeImportedPeak(Peak existing, Peak imported) {
+    return Peak(
+      id: existing.id,
+      osmId: imported.osmId,
+      peakbaggerPid: existing.peakbaggerPid,
+      name: imported.name,
+      altName: existing.altName,
+      elevation: imported.elevation,
+      prominence: existing.prominence,
+      country: existing.country,
+      county: existing.county,
+      range: existing.range,
+      rating: existing.rating,
+      durationMinutes: existing.durationMinutes,
+      durationLabel: existing.durationLabel,
+      difficulty: existing.difficulty,
+      viaFerrata: existing.viaFerrata,
+      notes: existing.notes,
+      latitude: imported.latitude,
+      longitude: imported.longitude,
+      region: imported.region,
+      gridZoneDesignator: imported.gridZoneDesignator,
+      mgrs100kId: imported.mgrs100kId,
+      easting: imported.easting,
+      northing: imported.northing,
+      verified: existing.verified,
+      sourceOfTruth: Peak.sourceOfTruthOsm,
+    );
+  }
+
+  final Map<String, String> _inMemoryRegionFingerprints = {};
 
   bool _shouldRefreshPeakListDerivedData(Peak? previous, Peak updatedPeak) {
     if (previous == null) {

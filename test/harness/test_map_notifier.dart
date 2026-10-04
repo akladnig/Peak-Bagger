@@ -9,10 +9,12 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
+
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
-import 'package:peak_bagger/services/peak_refresh_result.dart';
+import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/map_search_service.dart';
 import 'package:peak_bagger/services/natural_feature_repository.dart';
@@ -39,6 +41,54 @@ typedef _SearchPopupCriteria = ({
   MapSearchSort sort,
   MapSearchGroup group,
 });
+
+final testMappingCatalog = MappingCatalog(
+  rootPath: '/test',
+  regions: [
+    for (final region in regionManifestCatalog.allRegions())
+      MappingCatalogRegion(
+        key: region.key,
+        name: region.name,
+        shortName: region.shortName,
+        priority: region.priority,
+        showInPeakList: region.showInPeakList == true,
+        polyPaths: const [],
+        polygons: region.polygons,
+        basemapKeys: region.basemapKeys,
+        mapSet: region.mapSet,
+        peakListFilterAliases: region.peakListFilterAliases,
+        routingCoverage: switch (region.key) {
+          'tasmania' => 'tasmania',
+          'fvg' || 'veneto' || 'slovenia' => 'northeast-alps',
+          _ => null,
+        },
+        seedOnStartup: false,
+        composite: region.key == 'italy',
+        peaks: const [],
+        highways: const [],
+        fingerprint: null,
+      ),
+  ],
+  basemaps: [
+    for (final basemap in regionManifestCatalogData.basemaps)
+      MappingCatalogBasemap(
+        key: basemap.key,
+        name: basemap.name,
+        tileUrl: basemap.tileUrl,
+        attribution: basemap.attribution,
+        maxZoom: basemap.maxZoom,
+        coveragePolygonPaths: const [],
+        coveragePolygons: basemap.coveragePolygons,
+      ),
+  ],
+  tasmapCatalogPath: 'Maps/tasmap50k.csv',
+  naturalFeaturesCatalogPath: 'Features/tasmania_natural_features.json',
+  demSources: const {},
+  routingCoverageRegionKeys: const {
+    'tasmania': ['tasmania'],
+    'northeast-alps': ['fvg', 'veneto', 'slovenia'],
+  },
+);
 
 class TestMapNotifier extends MapNotifier {
   TestMapNotifier(
@@ -69,7 +119,9 @@ class TestMapNotifier extends MapNotifier {
     this.routeSaveErrorMessage,
     this.searchPopupLoadMoreDelay = Duration.zero,
     this._correlatedPeakIds = const {},
-  }) : _startupBackfillWarningMessage = startupBackfillWarningMessage;
+    MappingCatalog? mappingCatalog,
+  }) : _startupBackfillWarningMessage = startupBackfillWarningMessage,
+       super(mappingCatalog: mappingCatalog ?? testMappingCatalog);
 
   final MapState initialState;
   final String rescanStatus;
@@ -267,6 +319,7 @@ class TestMapNotifier extends MapNotifier {
     try {
       return resolveMapNameForMgrs(
         tasmapRepository: ref.read(tasmapRepositoryProvider),
+        mappingCatalog: mappingCatalog,
         mgrsText: mgrsText,
       ).displayName;
     } catch (_) {
@@ -279,6 +332,7 @@ class TestMapNotifier extends MapNotifier {
     try {
       return resolveMapNameForPoint(
         tasmapRepository: ref.read(tasmapRepositoryProvider),
+        mappingCatalog: mappingCatalog,
         point: point,
       ).displayName;
     } catch (_) {
@@ -516,10 +570,7 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
-  Future<PeakRefreshResult> refreshPeaks({
-    String region = Peak.defaultRegion,
-    LatLngBounds? bounds,
-  }) async {
+  Future<PeakRegionAssetImportResult> updatePeaks() async {
     refreshCallCount += 1;
     final peaks = peakRepository?.getAllPeaks() ?? state.peaks;
     final refreshedPeakInfo = _refreshedPeakInfo(peaks);
@@ -530,7 +581,11 @@ class TestMapNotifier extends MapNotifier {
       peakInfo: refreshedPeakInfo,
       clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
     );
-    return PeakRefreshResult(importedCount: peaks.length, skippedCount: 0);
+    return PeakRegionAssetImportResult(
+      importedRegions: const [],
+      importedPeakCount: peaks.length,
+      skippedPeakCount: 0,
+    );
   }
 
   @override
@@ -577,6 +632,7 @@ class TestMapNotifier extends MapNotifier {
           peak: peak,
           peakListRepository: ref.read(peakListRepositoryProvider),
           tasmapRepository: ref.read(tasmapRepositoryProvider),
+          mappingCatalog: mappingCatalog,
           peaksBaggedRepository: resolvedPeaksBaggedRepository,
           gpxTrackRepository: resolvedGpxTrackRepository,
         );

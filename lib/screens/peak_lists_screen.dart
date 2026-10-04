@@ -3282,6 +3282,7 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
       peak: tappedPeak,
       peakListRepository: ref.read(peakListRepositoryProvider),
       tasmapRepository: ref.read(tasmapRepositoryProvider),
+      mappingCatalog: ref.read(mapProvider.notifier).mappingCatalog,
       peaksBaggedRepository: _readPeaksBaggedRepository(),
       gpxTrackRepository: _readGpxTrackRepository(),
     );

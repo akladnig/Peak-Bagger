@@ -42,6 +42,7 @@ void main() {
       'TrackReplacementRecoveryIssue',
       'Contact',
       'NaturalFeature',
+      'PeakRegionFingerprint',
     ]);
     expect(
       entities.map((entity) => entity.name).toSet().length,

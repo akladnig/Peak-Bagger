@@ -56,7 +56,10 @@ void main() {
           ),
           items: const [PeakListItem(peakOsmId: 7000, points: 1)],
         ),
-        (peakList: PeakList(peakListId: 3, name: 'Broken', region: 'tasmania'), items: const []),
+        (
+          peakList: PeakList(peakListId: 3, name: 'Broken', region: 'tasmania'),
+          items: const [],
+        ),
       ],
     );
     final robot = GpxTracksRobot(
@@ -927,6 +930,7 @@ void main() {
       ),
     );
     final notifier = MapNotifier(
+      mappingCatalog: testMappingCatalog,
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: tasmapRepository,
@@ -979,6 +983,7 @@ void main() {
     expect(find.byType(PolylineLayer), findsOneWidget);
 
     final restartNotifier = MapNotifier(
+      mappingCatalog: testMappingCatalog,
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: tasmapRepository,
@@ -1022,6 +1027,7 @@ void main() {
     final routeRepository = RouteRepository.test(InMemoryRouteStorage());
     final tasmapRepository = await TestTasmapRepository.create();
     final notifier = MapNotifier(
+      mappingCatalog: testMappingCatalog,
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: tasmapRepository,

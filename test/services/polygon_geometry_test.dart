@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
@@ -99,10 +97,8 @@ void main() {
     );
   });
 
-  test('parses the bundled tasmania polygon into generic vertices', () async {
-    final contents = await File('assets/polygons/tasmania.poly').readAsString();
-
-    final result = parsePolygonText(contents);
+  test('parses a Tasmania fixture polygon into generic vertices', () {
+    final result = parsePolygonText(_tasmaniaPolygon);
 
     expect(result.isSuccess, isTrue);
     expect(result.polygon!.name, 'none');
@@ -130,29 +126,38 @@ void main() {
     expect(extraRing.error, contains('unsupported additional rings'));
   });
 
-  test(
-    'parsed tasmania vertices interoperate with containment checks',
-    () async {
-      final contents = await File(
-        'assets/polygons/tasmania.poly',
-      ).readAsString();
-      final result = parsePolygonText(contents);
+  test('parsed Tasmania vertices interoperate with containment checks', () {
+    final result = parsePolygonText(_tasmaniaPolygon);
 
-      expect(result.isSuccess, isTrue);
-      expect(
-        polygonContainsPoint(
-          const LatLng(-42.896016, 147.237306),
-          result.polygon!.vertices,
-        ),
-        isTrue,
-      );
-      expect(
-        polygonContainsPoint(
-          const LatLng(-33.865143, 151.209900),
-          result.polygon!.vertices,
-        ),
-        isFalse,
-      );
-    },
-  );
+    expect(result.isSuccess, isTrue);
+    expect(
+      polygonContainsPoint(
+        const LatLng(-42.896016, 147.237306),
+        result.polygon!.vertices,
+      ),
+      isTrue,
+    );
+    expect(
+      polygonContainsPoint(
+        const LatLng(-33.865143, 151.209900),
+        result.polygon!.vertices,
+      ),
+      isFalse,
+    );
+  });
 }
+
+const _tasmaniaPolygon = '''
+none
+1
+148.8867 -44.0
+143.4704 -44.0
+143.4704 -39.1982
+146.2510 -39.19759
+146.6251 -39.19687
+146.9203 -39.19721
+147.1105 -39.19767
+148.8867 -39.52946
+END
+END
+''';

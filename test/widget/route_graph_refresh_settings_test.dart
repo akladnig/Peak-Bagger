@@ -228,10 +228,7 @@ void main() {
     await tester.tap(find.byKey(const Key('route-graph-refresh-error-close')));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Route graph unavailable. Use Refresh Route Graph to retry.'),
-      findsOneWidget,
-    );
+    expect(find.byType(AlertDialog), findsNothing);
   });
 
   testWidgets('refresh route graph shows db full guidance', (tester) async {

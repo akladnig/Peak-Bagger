@@ -2589,11 +2589,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
   @override
   Widget build(BuildContext context) {
     MapRebuildDebugCounters.recordRouteRootBuild();
+    final peakListDrawerEntries = ref.watch(mapPeakListDrawerEntriesProvider);
     final routeChrome = ref.watch(
       mapProvider.select(
         (state) => (
           endDrawerMode: state.endDrawerMode,
           showPeakSearch: state.showPeakSearch,
+          peakSearchMappingUnavailableReason:
+              state.peakSearchMappingUnavailableReason,
           searchResults: state.searchPopupResults,
           searchQuery: state.searchPopupQuery,
           searchPopupTrackDateRange: state.searchPopupTrackDateRange,
@@ -2819,7 +2822,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 basemapKeys: _basemapDrawerBasemapKeys ?? const [],
                 showOverlays: _basemapDrawerShowOverlays,
               ),
-              EndDrawerMode.peakLists => const MapPeakListsDrawer(),
+              EndDrawerMode.peakLists => MapPeakListsDrawer(
+                visiblePeakLists: peakListDrawerEntries,
+              ),
               EndDrawerMode.tracksRoutes => const MapTracksRoutesDrawer(),
             },
             onEndDrawerChanged: (isOpen) {
@@ -4146,6 +4151,15 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         selectedRegionKey: routeChrome.searchRegionKey,
                         sort: routeChrome.searchSort,
                         group: routeChrome.searchGroup,
+                        mappingUnavailableReason:
+                            routeChrome.peakSearchMappingUnavailableReason,
+                        onRetryMapping:
+                            routeChrome.peakSearchMappingUnavailableReason ==
+                                null
+                            ? null
+                            : () => ref
+                                  .read(mapProvider.notifier)
+                                  .retryPeakSearchMapping(),
                         availableRegions: buildMapSearchRegionOptions(),
                         onChanged: (value) {
                           ref

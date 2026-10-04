@@ -71,6 +71,8 @@ final _peakListSelectionRefreshInputsProvider =
         :pinnedPeakListIdsByRegion,
         :visibleBounds,
         :peaks,
+        :peakVisibilityMode,
+        :endDrawerMode,
       ) = ref.watch(
         mapProvider.select(
           (state) => (
@@ -79,6 +81,8 @@ final _peakListSelectionRefreshInputsProvider =
             pinnedPeakListIdsByRegion: state.pinnedPeakListIdsByRegion,
             visibleBounds: state.visibleBounds,
             peaks: state.peaks,
+            peakVisibilityMode: state.peakVisibilityMode,
+            endDrawerMode: state.endDrawerMode,
           ),
         ),
       );
@@ -87,7 +91,11 @@ final _peakListSelectionRefreshInputsProvider =
         peakListSelectionMode: peakListSelectionMode,
         selectedPeakListIds: selectedPeakListIds,
         pinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion,
-        visibleBounds: visibleBounds,
+        visibleBounds:
+            peakVisibilityMode == PeakVisibilityMode.hidePeaks &&
+                endDrawerMode != EndDrawerMode.peakLists
+            ? null
+            : visibleBounds,
         peaks: peaks,
         peakLists: peakLists,
         revision: revision,
@@ -95,10 +103,13 @@ final _peakListSelectionRefreshInputsProvider =
     });
 
 final _peakListSelectionDerivedStateProvider =
-    NotifierProvider<
-      _PeakListSelectionDerivedStateNotifier,
-      _PeakListSelectionDerivedState
-    >(_PeakListSelectionDerivedStateNotifier.new);
+    Provider<_PeakListSelectionDerivedState>((ref) {
+      final inputs = ref.watch(_peakListSelectionRefreshInputsProvider);
+      return _buildDerivedState(
+        inputs: inputs,
+        repo: ref.watch(peakListRepositoryProvider),
+      );
+    });
 
 final peakListSelectionSummaryProvider = Provider<PeakListSelectionSummary>((
   ref,
@@ -257,18 +268,6 @@ Map<int, List<PeakOwnershipRingSegment>> _buildOwnershipRingSegments({
   return Map<int, List<PeakOwnershipRingSegment>>.unmodifiable(
     segmentsByPeakId,
   );
-}
-
-class _PeakListSelectionDerivedStateNotifier
-    extends Notifier<_PeakListSelectionDerivedState> {
-  @override
-  _PeakListSelectionDerivedState build() {
-    final inputs = ref.watch(_peakListSelectionRefreshInputsProvider);
-    return _buildDerivedState(
-      inputs: inputs,
-      repo: ref.watch(peakListRepositoryProvider),
-    );
-  }
 }
 
 _PeakListSelectionDerivedState _buildDerivedState({

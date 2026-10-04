@@ -33,15 +33,16 @@ import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/services/item_visibility_backfill_service.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart'
+    show MappingCatalog, mappingCatalogProvider;
 import 'package:peak_bagger/services/map_search_service.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_list_derived_data.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
-import 'package:peak_bagger/services/peak_refresh_result.dart';
-import 'package:peak_bagger/services/peak_refresh_service.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
+import 'package:peak_bagger/providers/mapping_store_operation_provider.dart';
 import 'package:peak_bagger/services/peak_info_content_resolver.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -701,6 +702,7 @@ class MapState {
   final List<Peak> peaks;
   final LatLngBounds? visibleBounds;
   final bool isLoadingPeaks;
+  final String? peakSearchMappingUnavailableReason;
   final List<Peak> searchResults;
   final String searchQuery;
   final List<MapSearchResult> searchPopupResults;
@@ -809,6 +811,7 @@ class MapState {
     this.peaks = const [],
     this.visibleBounds,
     this.isLoadingPeaks = false,
+    this.peakSearchMappingUnavailableReason,
     this.searchResults = const [],
     this.searchQuery = '',
     this.searchPopupResults = const [],
@@ -1056,6 +1059,8 @@ class MapState {
     bool? syncEnabled,
     List<Peak>? peaks,
     bool? isLoadingPeaks,
+    String? peakSearchMappingUnavailableReason,
+    bool clearPeakSearchMappingUnavailableReason = false,
     List<Peak>? searchResults,
     String? searchQuery,
     List<MapSearchResult>? searchPopupResults,
@@ -1222,6 +1227,11 @@ class MapState {
       peaks: peaks ?? this.peaks,
       visibleBounds: visibleBounds ?? this.visibleBounds,
       isLoadingPeaks: isLoadingPeaks ?? this.isLoadingPeaks,
+      peakSearchMappingUnavailableReason:
+          clearPeakSearchMappingUnavailableReason
+          ? null
+          : (peakSearchMappingUnavailableReason ??
+                this.peakSearchMappingUnavailableReason),
       searchResults: searchResults ?? this.searchResults,
       searchQuery: searchQuery ?? this.searchQuery,
       searchPopupResults: searchPopupResults ?? this.searchPopupResults,
@@ -1486,8 +1496,9 @@ class MapNotifier extends Notifier<MapState> {
   _PersistedPeakListSelectionState? _hiddenPeakListSelectionPersistenceState;
 
   MapNotifier({
+    MappingCatalog? mappingCatalog,
     PeakRepository? peakRepository,
-    OverpassService? overpassService,
+    Object? overpassService,
     TasmapRepository? tasmapRepository,
     GpxTrackRepository? gpxTrackRepository,
     RouteRepository? routeRepository,
@@ -1504,8 +1515,8 @@ class MapNotifier extends Notifier<MapState> {
     this._loadPositionOnBuild = true,
     this._loadPeaksOnBuild = true,
     this._loadTracksOnBuild = true,
-  }) : _injectedPeakRepository = peakRepository,
-       _injectedOverpassService = overpassService,
+  }) : _injectedMappingCatalog = mappingCatalog,
+       _injectedPeakRepository = peakRepository,
        _injectedTasmapRepository = tasmapRepository,
        _injectedGpxTrackRepository = gpxTrackRepository,
        _injectedRouteRepository = routeRepository,
@@ -1521,8 +1532,8 @@ class MapNotifier extends Notifier<MapState> {
        _injectedPeakRegionAssetImportService = peakRegionAssetImportService,
        _injectedNamedWaySearch = namedWaySearch;
 
+  final MappingCatalog? _injectedMappingCatalog;
   final PeakRepository? _injectedPeakRepository;
-  final OverpassService? _injectedOverpassService;
   final TasmapRepository? _injectedTasmapRepository;
   final GpxTrackRepository? _injectedGpxTrackRepository;
   final RouteRepository? _injectedRouteRepository;
@@ -1542,10 +1553,27 @@ class MapNotifier extends Notifier<MapState> {
   final bool _loadTracksOnBuild;
 
   late final PeakRepository _peakRepository;
-  late final PeakRefreshService _peakRefreshService;
-  late final PeakRegionAssetImportService _peakRegionAssetImportService;
+  PeakRegionAssetImportService? _resolvedPeakRegionAssetImportService;
+  late final MappingStoreOperationCoordinator _mappingStoreOperationCoordinator;
+  MappingStoreOperationKey? _failedPeakMappingOperation;
   MapSearchService? _mapSearchServiceCache;
   late final TasmapRepository _tasmapRepository;
+  MappingCatalog? _resolvedMappingCatalog;
+
+  MappingCatalog get mappingCatalog {
+    final injected = _injectedMappingCatalog;
+    if (injected != null) {
+      return injected;
+    }
+    final resolved = _resolvedMappingCatalog;
+    if (resolved != null) {
+      return resolved;
+    }
+    final catalog = ref.read(mappingCatalogProvider);
+    _resolvedMappingCatalog = catalog;
+    return catalog;
+  }
+
   late final GpxTrackRepository _gpxTrackRepository;
   late final RouteRepository _routeRepository;
   late final RouteElevationSampler _routeElevationSampler;
@@ -1647,8 +1675,17 @@ class MapNotifier extends Notifier<MapState> {
 
   String mapNameForMgrs(String mgrsText) {
     try {
+      final repository = tasmapRepository;
+      final sheetName = resolveSheetMapNameForMgrs(
+        tasmapRepository: repository,
+        mgrsText: mgrsText,
+      );
+      if (sheetName != null) {
+        return sheetName;
+      }
       return resolveMapNameForMgrs(
-        tasmapRepository: tasmapRepository,
+        tasmapRepository: repository,
+        mappingCatalog: mappingCatalog,
         mgrsText: mgrsText,
       ).displayName;
     } catch (_) {
@@ -1658,11 +1695,28 @@ class MapNotifier extends Notifier<MapState> {
 
   String mapNameForPoint(LatLng point) {
     try {
+      final repository = tasmapRepository;
+      final sheetName = resolveSheetMapNameForPoint(
+        tasmapRepository: repository,
+        point: point,
+      );
+      if (sheetName != null) {
+        return sheetName;
+      }
       return resolveMapNameForPoint(
-        tasmapRepository: tasmapRepository,
+        tasmapRepository: repository,
+        mappingCatalog: mappingCatalog,
         point: point,
       ).displayName;
     } catch (_) {
+      try {
+        final region = mappingCatalog.regionForPoint(point);
+        if (region != null) {
+          return formatRegionDisplayName(region.key);
+        }
+      } catch (_) {
+        // Test notifiers can intentionally bypass MapNotifier.build().
+      }
       return 'Unknown';
     }
   }
@@ -1673,10 +1727,6 @@ class MapNotifier extends Notifier<MapState> {
   MapState build() {
     _peakRepository =
         _injectedPeakRepository ?? ref.read(peakRepositoryProvider);
-    _peakRefreshService = PeakRefreshService(
-      _injectedOverpassService ?? ref.read(overpassServiceProvider),
-      _peakRepository,
-    );
     _tasmapRepository =
         _injectedTasmapRepository ?? ref.read(tasmapRepositoryProvider);
     _gpxTrackRepository =
@@ -1717,8 +1767,9 @@ class MapNotifier extends Notifier<MapState> {
       migrationMarkerStore: _migrationMarkerStore,
     );
     _prefsLoader = ref.read(mapPreferencesLoaderProvider);
-    _peakRegionAssetImportService =
-        _injectedPeakRegionAssetImportService ?? PeakRegionAssetImportService();
+    _mappingStoreOperationCoordinator = ref.read(
+      mappingStoreOperationCoordinatorProvider,
+    );
     unawaited(
       Future<void>(() async {
         await _runStartupLoad();
@@ -1794,6 +1845,20 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
+  PeakRegionAssetImportService get _peakRegionAssetImportService {
+    final injected = _injectedPeakRegionAssetImportService;
+    if (injected != null) {
+      return injected;
+    }
+    final resolved = _resolvedPeakRegionAssetImportService;
+    if (resolved != null) {
+      return resolved;
+    }
+    final service = ref.read(peakRegionImportServiceProvider);
+    _resolvedPeakRegionAssetImportService = service;
+    return service;
+  }
+
   Future<void> _backfillItemVisibility() async {
     try {
       final changed = await _itemVisibilityBackfillService
@@ -1829,25 +1894,71 @@ class MapNotifier extends Notifier<MapState> {
   Future<void> _loadPeaks() async {
     state = state.copyWith(isLoadingPeaks: true);
     try {
-      final importResult = await _peakRegionAssetImportService.syncOnStartup(
+      final importResult = await _loadPeakRegions();
+      final changed = await _peakRegionAssetImportService.backfillStoredPeaks(
         peakRepository: _peakRepository,
       );
-      final changed = await _peakRefreshService.backfillStoredPeaks();
       if (importResult.hasChanges || changed) {
         ref.read(peakRevisionProvider.notifier).increment();
       }
+      _failedPeakMappingOperation = null;
       state = state.copyWith(
         peaks: _peakRepository.getAllPeaks(),
         isLoadingPeaks: false,
         clearError: true,
+        clearPeakSearchMappingUnavailableReason: true,
       );
       reconcileSelectedPeakList();
+    } on MappingStoreOperationException catch (error) {
+      state = state.copyWith(
+        peaks: _peakRepository.getAllPeaks(),
+        isLoadingPeaks: false,
+        error: 'Failed to load peaks: $error',
+        peakSearchMappingUnavailableReason: error.toString(),
+      );
     } catch (e) {
       state = state.copyWith(
+        peaks: _peakRepository.getAllPeaks(),
         isLoadingPeaks: false,
         error: 'Failed to load peaks: $e',
       );
     }
+  }
+
+  Future<PeakRegionAssetImportResult> _loadPeakRegions() async {
+    final wasEmpty = _peakRepository.isEmpty();
+    await _peakRegionAssetImportService.migrateLegacyFingerprints(
+      peakRepository: _peakRepository,
+    );
+    if (!wasEmpty) {
+      return const PeakRegionAssetImportResult(
+        importedRegions: [],
+        importedPeakCount: 0,
+        skippedPeakCount: 0,
+      );
+    }
+
+    final results = <PeakRegionAssetImportResult>[];
+    for (final regionKey
+        in _peakRegionAssetImportService.seedableRegionKeys()) {
+      final operationKey = MappingStoreOperationKey.peakSeed(regionKey);
+      try {
+        results.add(
+          await _mappingStoreOperationCoordinator.run(
+            key: operationKey,
+            writerTables: const ['Peak', 'PeakRegionFingerprint'],
+            action: () => _peakRegionAssetImportService.seedRegion(
+              peakRepository: _peakRepository,
+              regionKey: regionKey,
+            ),
+          ),
+        );
+      } on MappingStoreOperationException {
+        _failedPeakMappingOperation = operationKey;
+        rethrow;
+      }
+    }
+    return _combinePeakRegionImportResults(results);
   }
 
   Future<void> _loadTracks() async {
@@ -8483,35 +8594,110 @@ class MapNotifier extends Notifier<MapState> {
     reconcileSelectedPeakList();
   }
 
-  Future<PeakRefreshResult> refreshPeaks({
-    String region = Peak.defaultRegion,
-    LatLngBounds? bounds,
-  }) async {
+  Future<PeakRegionAssetImportResult> updatePeaks() async {
     state = state.copyWith(isLoadingPeaks: true, clearError: true);
     try {
-      final result = await _peakRefreshService.refreshPeaks(
-        region: region,
-        bounds: bounds,
-      );
-      ref.read(peakRevisionProvider.notifier).increment();
+      final results = <PeakRegionAssetImportResult>[];
+      for (final regionKey
+          in _peakRegionAssetImportService.changedSeedableRegionKeys(
+            peakRepository: _peakRepository,
+          )) {
+        final operationKey = MappingStoreOperationKey.peakUpdate(regionKey);
+        try {
+          results.add(
+            await _mappingStoreOperationCoordinator.run(
+              key: operationKey,
+              writerTables: const ['Peak', 'PeakRegionFingerprint'],
+              action: () => _peakRegionAssetImportService.updateRegion(
+                peakRepository: _peakRepository,
+                regionKey: regionKey,
+              ),
+            ),
+          );
+        } on MappingStoreOperationException {
+          _failedPeakMappingOperation = operationKey;
+          rethrow;
+        }
+      }
+      final result = _combinePeakRegionImportResults(results);
+      if (result.hasChanges) {
+        ref.read(peakRevisionProvider.notifier).increment();
+      }
+      _failedPeakMappingOperation = null;
       final peaks = _peakRepository.getAllPeaks();
       final refreshedPeakInfo = _refreshedPeakInfo(peaks);
       state = state.copyWith(
         peaks: peaks,
         isLoadingPeaks: false,
         clearError: true,
+        clearPeakSearchMappingUnavailableReason: true,
         peakInfo: refreshedPeakInfo,
         clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
       );
       reconcileSelectedPeakList();
       return result;
+    } on MappingStoreOperationException catch (error) {
+      state = state.copyWith(
+        isLoadingPeaks: false,
+        error: 'Failed to update peaks: $error',
+        peakSearchMappingUnavailableReason: error.toString(),
+      );
+      rethrow;
     } catch (e) {
       state = state.copyWith(
         isLoadingPeaks: false,
-        error: 'Failed to refresh peaks: $e',
+        error: 'Failed to update peaks: $e',
       );
       rethrow;
     }
+  }
+
+  Future<void> retryPeakSearchMapping() async {
+    final operationKey = _failedPeakMappingOperation;
+    if (operationKey == null ||
+        state.peakSearchMappingUnavailableReason == null) {
+      return;
+    }
+    state = state.copyWith(isLoadingPeaks: true, clearError: true);
+    await _mappingStoreOperationCoordinator.retry(operationKey);
+    if (_mappingStoreOperationCoordinator.failures.any(
+      (failure) => failure.key == operationKey,
+    )) {
+      state = state.copyWith(isLoadingPeaks: false);
+      return;
+    }
+
+    final peaks = _peakRepository.getAllPeaks();
+    final refreshedPeakInfo = _refreshedPeakInfo(peaks);
+    state = state.copyWith(
+      peaks: peaks,
+      isLoadingPeaks: false,
+      clearError: true,
+      clearPeakSearchMappingUnavailableReason: true,
+      peakInfo: refreshedPeakInfo,
+      clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
+    );
+    _failedPeakMappingOperation = null;
+    ref.read(peakRevisionProvider.notifier).increment();
+    reconcileSelectedPeakList();
+  }
+
+  PeakRegionAssetImportResult _combinePeakRegionImportResults(
+    List<PeakRegionAssetImportResult> results,
+  ) {
+    return PeakRegionAssetImportResult(
+      importedRegions: [
+        for (final result in results) ...result.importedRegions,
+      ],
+      importedPeakCount: results.fold(
+        0,
+        (count, result) => count + result.importedPeakCount,
+      ),
+      skippedPeakCount: results.fold(
+        0,
+        (count, result) => count + result.skippedPeakCount,
+      ),
+    );
   }
 
   Set<int> _refreshCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
@@ -8550,6 +8736,7 @@ class MapNotifier extends Notifier<MapState> {
         peak: peak,
         peakListRepository: ref.read(peakListRepositoryProvider),
         tasmapRepository: ref.read(tasmapRepositoryProvider),
+        mappingCatalog: mappingCatalog,
         peaksBaggedRepository: _readPeaksBaggedRepository(),
         gpxTrackRepository: _readGpxTrackRepository(),
       );

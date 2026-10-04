@@ -23,7 +23,7 @@ void main() {
     router = createRouter();
   });
 
-  testWidgets('places the tile below peak refresh and hands off immediately', (
+  testWidgets('places the tile below peak update and hands off immediately', (
     tester,
   ) async {
     final completer = Completer<NaturalFeatureRefreshResult>();
@@ -38,7 +38,7 @@ void main() {
     await _scrollNaturalFeatureTileIntoView(tester);
 
     final peakTop = tester
-        .getTopLeft(find.byKey(const Key('refresh-peak-data-tile')))
+        .getTopLeft(find.byKey(const Key('update-peak-data-tile')))
         .dy;
     final naturalFeatureTop = tester
         .getTopLeft(find.byKey(const Key('refresh-natural-features-tile')))

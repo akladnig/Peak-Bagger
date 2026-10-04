@@ -116,7 +116,7 @@ void main() {
       service: service,
     );
 
-    expect(service.csvPath, 'peak-bagger-peak-data-lat-lon.csv');
+    expect(service.csvPath, 'peak-bagger-peak-data.csv');
     expect(service.createUnmatchedPeaks, isTrue);
     expect(result.csvContents, 'csv');
   });
@@ -134,7 +134,7 @@ void main() {
         service: service,
       );
 
-      expect(service.csvPath, 'peak-bagger-peak-data-lat-lon.csv');
+      expect(service.csvPath, 'peak-bagger-peak-data.csv');
       expect(service.exactNameOnly, isTrue);
       expect(service.elevationOnly, isTrue);
       expect(service.elevationToleranceMeters, 7);
@@ -150,7 +150,7 @@ void main() {
       service: service,
     );
 
-    expect(service.csvPath, 'peak-bagger-peak-data-lat-lon.csv');
+    expect(service.csvPath, 'peak-bagger-peak-data.csv');
     expect(service.maxRows, 12);
   });
 

@@ -50,9 +50,4 @@ dependency_overrides:
 flutter:
   uses-material-design: true
   assets:
-    - assets/highways/
-    - assets/region_manifest.json
     - assets/svg/
-    - assets/peaks/
-    - assets/polygons/
-    - assets/tasmap50k.csv

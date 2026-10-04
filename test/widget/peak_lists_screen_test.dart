@@ -1242,10 +1242,10 @@ void main() {
         ]),
       ),
       peakRepository: PeakRepository.test(
-          InMemoryPeakStorage([
-            _buildPeak(100, 'Alpha Peak', -42.0, 146.0),
-            _buildPeak(101, 'Alpha Ridge', -42.05, 146.05),
-            _buildPeak(200, 'Beta Peak', -42.1, 146.1),
+        InMemoryPeakStorage([
+          _buildPeak(100, 'Alpha Peak', -42.0, 146.0),
+          _buildPeak(101, 'Alpha Ridge', -42.05, 146.05),
+          _buildPeak(200, 'Beta Peak', -42.1, 146.1),
         ]),
       ),
       initialPeakListId: 1,
@@ -1857,13 +1857,6 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(1600, 900));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      final mapNotifier = TestMapNotifier(
-        MapState(
-          center: const LatLng(-41.5, 146.5),
-          zoom: 10,
-          basemap: Basemap.tracestrack,
-        ),
-      );
       final gpxTrackRepository = GpxTrackRepository.test(
         InMemoryGpxTrackStorage([
           GpxTrack(
@@ -1876,6 +1869,14 @@ void main() {
             ]),
           ),
         ]),
+      );
+      final mapNotifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 10,
+          basemap: Basemap.tracestrack,
+        ),
+        gpxTrackRepository: gpxTrackRepository,
       );
       await _pumpPeakListsApp(
         tester,
@@ -5526,6 +5527,7 @@ Future<void> _pumpPeakListsApp(
   router.go('/peaks');
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
+  await tester.pumpAndSettle();
 }
 
 Future<void> _pumpPeakListsScreen(

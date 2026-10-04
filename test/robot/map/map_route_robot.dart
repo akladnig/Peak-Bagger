@@ -33,6 +33,7 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import '../../harness/test_tasmap_repository.dart';
+import '../../harness/test_map_notifier.dart' show testMappingCatalog;
 
 class MapRouteRobot {
   MapRouteRobot(
@@ -106,6 +107,7 @@ class MapRouteRobot {
     _tasmapRepository = await TestTasmapRepository.create();
     router = createRouter();
     _mapNotifier = MapNotifier(
+      mappingCatalog: testMappingCatalog,
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: _tasmapRepository,
