@@ -717,6 +717,7 @@ class MapState {
   final MapSearchGroup searchPopupGroup;
   final List<Peak> selectedPeaks;
   final Tasmap50k? selectedMap;
+  final String? mapSelectionMappingUnavailableReason;
   final TasmapDisplayMode tasmapDisplayMode;
   final MapGridVisibility gridVisibility;
   final PeakVisibilityMode peakVisibilityMode;
@@ -826,6 +827,7 @@ class MapState {
     this.searchPopupGroup = MapSearchGroup.none,
     this.selectedPeaks = const [],
     this.selectedMap,
+    this.mapSelectionMappingUnavailableReason,
     this.tasmapDisplayMode = TasmapDisplayMode.none,
     MapGridVisibility? gridVisibility,
     this.peakVisibilityMode = PeakVisibilityMode.showPeakClusters,
@@ -1079,6 +1081,8 @@ class MapState {
     LatLngBounds? visibleBounds,
     Tasmap50k? selectedMap,
     bool clearSelectedMap = false,
+    String? mapSelectionMappingUnavailableReason,
+    bool clearMapSelectionMappingUnavailableReason = false,
     TasmapDisplayMode? tasmapDisplayMode,
     MapGridVisibility? gridVisibility,
     PeakVisibilityMode? peakVisibilityMode,
@@ -1255,6 +1259,11 @@ class MapState {
       searchPopupGroup: searchPopupGroup ?? this.searchPopupGroup,
       selectedPeaks: selectedPeaks ?? this.selectedPeaks,
       selectedMap: clearSelectedMap ? null : (selectedMap ?? this.selectedMap),
+      mapSelectionMappingUnavailableReason:
+          clearMapSelectionMappingUnavailableReason
+          ? null
+          : (mapSelectionMappingUnavailableReason ??
+                this.mapSelectionMappingUnavailableReason),
       tasmapDisplayMode: tasmapDisplayMode ?? this.tasmapDisplayMode,
       gridVisibility: gridVisibility ?? this.gridVisibility,
       peakVisibilityMode: peakVisibilityMode ?? this.peakVisibilityMode,
@@ -7579,8 +7588,21 @@ class MapNotifier extends Notifier<MapState> {
 
     // Check for map name only (no digits = no coordinates)
     if (!RegExp(r'[0-9]').hasMatch(trimmed)) {
+      final unavailableReason = _tasmapMappingUnavailableReason();
+      if (unavailableReason != null) {
+        state = state.copyWith(
+          mapSuggestions: [],
+          mapSearchQuery: trimmed,
+          mapSelectionMappingUnavailableReason: unavailableReason,
+        );
+        return (null, unavailableReason);
+      }
       final maps = _tasmapRepository.searchMaps(trimmed);
-      state = state.copyWith(mapSuggestions: maps, mapSearchQuery: trimmed);
+      state = state.copyWith(
+        mapSuggestions: maps,
+        mapSearchQuery: trimmed,
+        clearMapSelectionMappingUnavailableReason: true,
+      );
 
       if (maps.isEmpty) {
         return (null, "No maps found matching '$trimmed'");
@@ -8083,11 +8105,55 @@ class MapNotifier extends Notifier<MapState> {
 
   void searchMapSuggestions(String query) {
     if (query.isEmpty) {
-      state = state.copyWith(mapSuggestions: [], mapSearchQuery: '');
+      state = state.copyWith(
+        mapSuggestions: [],
+        mapSearchQuery: '',
+        clearMapSelectionMappingUnavailableReason: true,
+      );
+      return;
+    }
+    final unavailableReason = _tasmapMappingUnavailableReason();
+    if (unavailableReason != null) {
+      state = state.copyWith(
+        mapSuggestions: [],
+        mapSearchQuery: query,
+        mapSelectionMappingUnavailableReason: unavailableReason,
+      );
       return;
     }
     final maps = _tasmapRepository.searchMaps(query);
-    state = state.copyWith(mapSuggestions: maps, mapSearchQuery: query);
+    state = state.copyWith(
+      mapSuggestions: maps,
+      mapSearchQuery: query,
+      clearMapSelectionMappingUnavailableReason: true,
+    );
+  }
+
+  String? _tasmapMappingUnavailableReason() {
+    final tasmap = ref.read(tasmapStateProvider);
+    if (tasmap.error != null && _tasmapRepository.isEmpty()) {
+      return tasmap.error;
+    }
+    if (tasmap.isLoading && _tasmapRepository.isEmpty()) {
+      return 'TasMap data is loading from the Mapping data store.';
+    }
+    return null;
+  }
+
+  Future<void> retryMapSelectionMapping() async {
+    const operation = MappingStoreOperationKey.tasmapBootstrap();
+    await _mappingStoreOperationCoordinator.retry(operation);
+    final hasFailure = _mappingStoreOperationCoordinator.failures.any(
+      (failure) => failure.key == operation,
+    );
+    state = state.copyWith(
+      mapSuggestions: const [],
+      clearMapSelectionMappingUnavailableReason: !hasFailure,
+      mapSelectionMappingUnavailableReason: hasFailure
+          ? _tasmapMappingUnavailableReason() ??
+                'TasMap data remains unavailable.'
+          : null,
+    );
   }
 
   void selectMap(Tasmap50k map) {
@@ -8114,6 +8180,27 @@ class MapNotifier extends Notifier<MapState> {
       mapSearchQuery: '',
       clearGotoMgrs: true,
     );
+  }
+
+  /// Rehydrates a selected sheet after a TasMap reconciliation preserves or
+  /// retargets its ObjectBox identity.
+  void reconcileTasmapSelection(Map<int, int> selectionRetargets) {
+    final selected = state.selectedMap;
+    if (selected == null) {
+      return;
+    }
+    final selectedId = selectionRetargets[selected.id] ?? selected.id;
+    final refreshed = _tasmapRepository.getMapById(selectedId);
+    if (refreshed == null) {
+      state = state.copyWith(
+        clearSelectedMap: true,
+        tasmapDisplayMode: state.gridVisibility == MapGridVisibility.hidden
+            ? TasmapDisplayMode.none
+            : TasmapDisplayMode.overlay,
+      );
+      return;
+    }
+    state = state.copyWith(selectedMap: refreshed);
   }
 
   void clearSearchResultSelection() {

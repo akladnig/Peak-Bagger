@@ -1937,12 +1937,14 @@ class MapGotoPanel extends StatelessWidget {
     required this.controller,
     required this.errorText,
     required this.mapSuggestions,
+    required this.mappingUnavailableReason,
     required this.onChanged,
     required this.onSubmitted,
     required this.onClose,
     required this.onNavigate,
     required this.onTabShortcut,
     required this.onSelectSuggestion,
+    required this.onRetryMapping,
     super.key,
   });
 
@@ -1950,12 +1952,14 @@ class MapGotoPanel extends StatelessWidget {
   final TextEditingController controller;
   final String? errorText;
   final List<Tasmap50k> mapSuggestions;
+  final String? mappingUnavailableReason;
   final ValueChanged<String> onChanged;
   final ValueChanged<String> onSubmitted;
   final VoidCallback onClose;
   final VoidCallback onNavigate;
   final VoidCallback onTabShortcut;
   final ValueChanged<Tasmap50k> onSelectSuggestion;
+  final Future<void> Function() onRetryMapping;
 
   @override
   Widget build(BuildContext context) {
@@ -2015,6 +2019,22 @@ class MapGotoPanel extends StatelessWidget {
                     onTap: () => onSelectSuggestion(map),
                   );
                 },
+              ),
+            ),
+          if (mappingUnavailableReason != null)
+            Padding(
+              key: const Key('map-selection-mapping-unavailable'),
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(mappingUnavailableReason!),
+                  TextButton(
+                    key: const Key('map-selection-mapping-unavailable-retry'),
+                    onPressed: onRetryMapping,
+                    child: const Text('Retry'),
+                  ),
+                ],
               ),
             ),
         ],

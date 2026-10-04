@@ -195,10 +195,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
             ListTile(
-              key: const Key('reset-map-data-tile'),
+              key: const Key('update-map-data-tile'),
               leading: const Icon(Icons.map),
-              title: const Text('Reset Map Data'),
-              subtitle: const Text('Clear and re-import map data'),
+              title: const Text('Update Map Data'),
+              subtitle: const Text(
+                'Update TasMap sheets from Mapping data store',
+              ),
               trailing: _isResettingMaps
                   ? const SizedBox(
                       width: 20,
@@ -206,7 +208,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : null,
-              onTap: _isStatusActionBusy ? null : _confirmResetMapData,
+              onTap: _isStatusActionBusy ? null : _confirmUpdateMapData,
             ),
             ListTile(
               key: const Key('reset-track-data-tile'),
@@ -1137,16 +1139,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _confirmResetMapData() async {
+  Future<void> _confirmUpdateMapData() async {
     final confirmed = await showDangerConfirmDialog(
       context: context,
-      title: 'Reset Map Data?',
+      title: 'Update Map Data?',
       message:
-          'This will clear all map data and re-import from source files. Do you wish to proceed?',
-      cancelKey: 'reset-map-data-cancel',
+          'This will update TasMap sheets from the Mapping data store. Do you wish to proceed?',
+      cancelKey: 'update-map-data-cancel',
       cancelLabel: 'Cancel',
-      confirmKey: 'reset-map-data-confirm',
-      confirmLabel: 'Reset',
+      confirmKey: 'update-map-data-confirm',
+      confirmLabel: 'Update',
     );
 
     if (confirmed != true || !mounted) {
@@ -1156,25 +1158,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     setState(() {
       _isResettingMaps = true;
     });
-    _setStatus('Clearing map data...');
+    _setStatus('Updating map data...');
 
     try {
       final result = await ref
           .read(tasmapStateProvider.notifier)
-          .resetAndReimport();
+          .updateFromMappingStore();
+      ref
+          .read(mapProvider.notifier)
+          .reconcileTasmapSelection(result.selectionRetargets);
       if (!mounted) {
         return;
       }
       _setStatus(
         result.warning == null
-            ? 'Map data reset successfully!'
-            : 'Map data reset successfully! ${result.warning}',
+            ? 'Map data updated successfully!'
+            : 'Map data updated successfully! ${result.warning}',
       );
     } catch (e) {
       if (!mounted) {
         return;
       }
-      _setStatus('Error resetting map data: $e');
+      _setStatus('Error updating map data: $e');
     } finally {
       if (mounted) {
         setState(() {

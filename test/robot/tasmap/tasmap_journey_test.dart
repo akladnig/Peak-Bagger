@@ -13,7 +13,7 @@ import '../../harness/test_tasmap_notifier.dart';
 import 'tasmap_robot.dart';
 
 void main() {
-  testWidgets('reset map data then select a Tasmap from goto', (tester) async {
+  testWidgets('update map data then select a Tasmap from goto', (tester) async {
     SharedPreferences.setMockInitialValues({});
 
     final repository = await TestTasmapRepository.create();
@@ -33,12 +33,12 @@ void main() {
     robot.expectMapReady();
 
     await robot.openSettings();
-    await robot.resetTasmapData();
-    robot.expectResetStatusVisible();
+    await robot.updateTasmapData();
+    robot.expectUpdateStatusVisible();
 
     await robot.returnToMap();
     await robot.openSettings();
-    expect(find.text('Map data reset successfully!'), findsNothing);
+    expect(find.text('Map data updated successfully!'), findsNothing);
 
     await robot.returnToMap();
     robot.expectMapReady();
@@ -106,7 +106,7 @@ void main() {
     );
   });
 
-  testWidgets('reset map data refreshes Tasmap reads', (tester) async {
+  testWidgets('update map data refreshes Tasmap reads', (tester) async {
     SharedPreferences.setMockInitialValues({});
 
     final repository = await TestTasmapRepository.create();
@@ -134,7 +134,7 @@ void main() {
 
     final initialCalls = repository.getAllMapsCallCount;
 
-    final resetMapDataTile = find.byKey(const Key('reset-map-data-tile'));
+    final updateMapDataTile = find.byKey(const Key('update-map-data-tile'));
     final settingsScrollable = find
         .descendant(
           of: find.byKey(const Key('settings-scrollable')),
@@ -142,13 +142,13 @@ void main() {
         )
         .first;
     await tester.scrollUntilVisible(
-      resetMapDataTile,
+      updateMapDataTile,
       300,
       scrollable: settingsScrollable,
     );
-    await tester.tap(resetMapDataTile);
+    await tester.tap(updateMapDataTile);
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('reset-map-data-confirm')));
+    await tester.tap(find.byKey(const Key('update-map-data-confirm')));
     await tester.pumpAndSettle();
 
     expect(repository.getAllMapsCallCount, greaterThan(initialCalls));

@@ -39,9 +39,9 @@ class TasmapRobot {
   Finder get gridMapFab => find.byKey(const Key('grid-map-fab'));
   Finder get mapInfoFab => find.byKey(const Key('map-info-fab'));
   Finder get gotoMapInput => find.byKey(const Key('goto-map-input'));
-  Finder get resetMapDataTile => find.byKey(const Key('reset-map-data-tile'));
-  Finder get resetMapDataConfirm =>
-      find.byKey(const Key('reset-map-data-confirm'));
+  Finder get updateMapDataTile => find.byKey(const Key('update-map-data-tile'));
+  Finder get updateMapDataConfirm =>
+      find.byKey(const Key('update-map-data-confirm'));
   Finder get tasmapOutlineLayer =>
       find.byKey(const Key('tasmap-outline-layer'));
 
@@ -57,15 +57,15 @@ class TasmapRobot {
     await tester.pump(const Duration(milliseconds: 100));
   }
 
-  Future<void> resetTasmapData() async {
+  Future<void> updateTasmapData() async {
     await tester.scrollUntilVisible(
-      resetMapDataTile,
+      updateMapDataTile,
       300,
       scrollable: _settingsScrollable,
     );
-    await tester.tap(resetMapDataTile);
+    await tester.tap(updateMapDataTile);
     await tester.pumpAndSettle();
-    await tester.tap(resetMapDataConfirm);
+    await tester.tap(updateMapDataConfirm);
     await tester.pumpAndSettle();
   }
 
@@ -91,7 +91,7 @@ class TasmapRobot {
     expect(mapInteractionRegion, findsOneWidget);
   }
 
-  void expectResetStatusVisible() {
+  void expectUpdateStatusVisible() {
     expect(tasmapNotifier.state.mapCount, repository.mapCount);
   }
 

@@ -57,7 +57,7 @@ void main() {
     expect(polygon.points, _expectedPoints(selectedMap));
   });
 
-  testWidgets('tasmap reset reimports from csv', (tester) async {
+  testWidgets('TasMap update refreshes from the mapping store', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final container = ProviderContainer(
       overrides: [
@@ -84,9 +84,22 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.byKey(const Key('reset-map-data-tile')));
+    await tester.tap(find.byKey(const Key('update-map-data-tile')));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('reset-map-data-confirm')));
+    expect(find.text('Update Map Data'), findsOneWidget);
+    expect(
+      find.text('Update TasMap sheets from Mapping data store'),
+      findsOneWidget,
+    );
+    expect(find.text('Update Map Data?'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Update'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('update-map-data-confirm')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
@@ -100,7 +113,7 @@ class TestTasmapNotifier extends TasmapNotifier {
   TasmapState build() => const TasmapState();
 
   @override
-  Future<TasmapCsvImportResult> resetAndReimport() async {
+  Future<TasmapCsvImportResult> updateFromMappingStore() async {
     state = state.copyWith(
       mapCount: 75,
       tasmapRevision: state.tasmapRevision + 1,

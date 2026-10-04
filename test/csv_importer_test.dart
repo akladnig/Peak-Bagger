@@ -83,6 +83,37 @@ void main() {
       expect(CsvImporter.normalizePointValue('en 00000 69999'), 'EN0000069999');
     });
 
+    test('parses quoted RFC 4180 fields and ignores blank rows', () {
+      final result = CsvImporter.importFromContents(
+        'Series,Name,Parent,MGRS,eastingMin,eastingMax,northingMin,northingMax,mgrsMid,eastingMid,northingMid,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,,\r\n'
+        'TQ08,Wellington,"Parent, quoted",EN,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,,,,,\r\n'
+        ',,,,,,,,,,,,,,,,,,,,,,\r\n',
+      );
+
+      expect(result.maps.single.parentSeries, 'Parent, quoted');
+    });
+
+    test('rejects duplicate, unknown, and incomplete headers', () {
+      const row =
+          'TQ08,Wellington,8312,EN,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,,,,,';
+      expect(
+        () => CsvImporter.importFromContents(
+          'Series,Series,Parent,MGRS,eastingMin,eastingMax,northingMin,northingMax,mgrsMid,eastingMid,northingMid,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12\n$row',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => CsvImporter.importFromContents(
+          'Series,Name,Parent,MGRS,eastingMin,eastingMax,northingMin,northingMax,mgrsMid,eastingMid,northingMid,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,unexpected\n$row',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => CsvImporter.importFromContents('Series,Name\n'),
+        throwsFormatException,
+      );
+    });
+
     test('parseRow accepts 12 sequential point columns', () {
       final headers = [
         'Series',
@@ -245,7 +276,7 @@ void main() {
       final result = CsvImporter.parseRow(headers, row, rowNumber: 2);
 
       expect(result.map, isNull);
-      expect(result.error, contains('expected 4, 6, or 8 points'));
+      expect(result.error, contains('expected 4, 6, 8, 10, or 12 points'));
     });
 
     test('parseRow rejects populated point columns beyond p12', () {

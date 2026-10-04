@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 
@@ -27,6 +28,16 @@ class TestTasmapRepository implements TasmapRepository {
   List<Tasmap50k> getAllMaps() {
     getAllMapsCallCount += 1;
     return List.unmodifiable(_maps);
+  }
+
+  @override
+  Tasmap50k? getMapById(int id) {
+    for (final map in _maps) {
+      if (map.id == id) {
+        return map;
+      }
+    }
+    return null;
   }
 
   @override
@@ -202,6 +213,21 @@ class TestTasmapRepository implements TasmapRepository {
       skippedCount: 0,
     );
   }
+
+  @override
+  Future<TasmapCsvImportResult> reconcileCsvContents(String contents) async {
+    final result = CsvImporter.importFromContents(contents);
+    _maps
+      ..clear()
+      ..addAll(result.maps);
+    _invalidateLookupEntries();
+    return result;
+  }
+
+  @override
+  Future<TasmapCsvImportResult> reconcileFromMappingStore(
+    MappingCatalog catalog,
+  ) => throw UnimplementedError();
 
   @override
   Future<void> clearAll() async {

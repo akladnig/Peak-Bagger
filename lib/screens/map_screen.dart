@@ -2608,6 +2608,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
           searchGroup: state.searchPopupGroup,
           showGotoInput: state.showGotoInput,
           mapSuggestions: state.mapSuggestions,
+          mapSelectionMappingUnavailableReason:
+              state.mapSelectionMappingUnavailableReason,
           showInfoPopup: state.showInfoPopup,
           infoMapName: state.infoMapName,
           infoMgrs: state.infoMgrs,
@@ -4249,6 +4251,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       controller: _gotoController,
                       errorText: _gotoError,
                       mapSuggestions: routeChrome.mapSuggestions,
+                      mappingUnavailableReason:
+                          routeChrome.mapSelectionMappingUnavailableReason,
                       onChanged: (value) {
                         if (_gotoError != null) {
                           setState(() => _gotoError = null);
@@ -4276,6 +4280,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                             .read(mapProvider.notifier)
                             .setGotoInputVisible(false);
                       },
+                      onRetryMapping: () => ref
+                          .read(mapProvider.notifier)
+                          .retryMapSelectionMapping(),
                     ),
                   ),
                 if (routeChrome.showInfoPopup)

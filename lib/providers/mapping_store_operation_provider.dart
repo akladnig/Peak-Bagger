@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 
 final mappingStoreOperationCoordinatorProvider =
@@ -32,9 +33,19 @@ class MappingStoreOperationRevisionNotifier extends Notifier<int> {
   }
 }
 
-/// Feature work items contribute their automatic ready-scope operations here.
 final mappingStoreBootstrapOperationsProvider =
-    Provider<List<MappingStoreBootstrapOperation>>((ref) => const []);
+    Provider<List<MappingStoreBootstrapOperation>>((ref) {
+      final repository = ref.read(tasmapRepositoryProvider);
+      final notifier = ref.read(tasmapStateProvider.notifier);
+      return [
+        MappingStoreBootstrapOperation(
+          key: const MappingStoreOperationKey.tasmapBootstrap(),
+          shouldRun: repository.isEmpty,
+          writerTables: const ['Tasmap50k'],
+          run: notifier.bootstrapFromMappingStore,
+        ),
+      ];
+    });
 
 final mappingStoreBootstrapCoordinatorProvider =
     Provider<MappingStoreBootstrapCoordinator>((ref) {
