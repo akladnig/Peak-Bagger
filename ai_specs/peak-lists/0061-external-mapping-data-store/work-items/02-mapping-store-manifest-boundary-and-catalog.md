@@ -29,6 +29,33 @@ Add `test/fixtures/mapping_store/v1/region_manifest.json`, `Polygons/manifest.js
 - [x] Build required geometry through a versioned macOS app-support `MappingCatalogCache`; reuse entries only when schema version, manifest hash, relative path, size, modified time, and content hash match. Corrupt/missing/changed entries are reparsed; cache read/delete/replacement-write failures are non-blocking after valid source parsing.
 - [x] Unit and provider tests cover all parser, path, fixture, cache, manifest, routing, basemap, map-set, symlink, JSON Pointer, and no-source-content-read contracts in Testing Strategy items 1, 9, 10, and 13.
 
+## Prerequisite review — 2026-10-05
+
+**Incomplete runtime integration; blocks Work Item 12.** The checked parser,
+filesystem, fixture, and cache criteria above do not establish completion of
+this Work Item's required runtime replacement and catalog injection.
+
+- `lib/services/region_manifest_catalog.dart` still includes the generated
+  catalog as a `part` and defines the global `regionManifestCatalog` backed by
+  generated region, basemap, and polygon data.
+- `lib/providers/peak_list_region_filter_provider.dart` still returns generated
+  regions instead of reading `mappingCatalogProvider`. A temporary focused
+  provider probe injected a `MappingCatalog` with no regions and expected no
+  region options; `flutter test` failed with four generated
+  `RegionManifestRegionData` options. The temporary probe was removed after
+  recording the result; no mounted store or external service was used.
+- `lib/screens/map_screen_layers.dart` still obtains tile URLs and zoom metadata
+  from that global catalog. `map_provider.dart`, map search/filter services,
+  peak-list visibility/import, peak repository, Slovenia correlation, and Local
+  Topo settings also retain global generated-catalog consumers.
+- `Basemap` exists both in `mapping_store_core.dart` and in the generated
+  catalog. Runtime map consumers still use the generated enum.
+
+Complete constructor/provider injection for every runtime consumer, consolidate
+the app-owned `Basemap`, and add behavioral tests showing ready-scope manifest
+metadata and geometry govern these consumers without a generated fallback.
+Work Item 12 can then remove the generator/output and their tests as specified.
+
 ## Covers
 
 - User Stories: 1, 3

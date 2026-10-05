@@ -23,6 +23,23 @@ Migrate every inventoried first-party maintainer tool to the tool-manifest resol
 - [ ] Add regression tests for every inventory tool default/override, resolver-only subprocess paths, absence of runtime Overpass, no Mapping `assets/...` contracts in `pubspec.yaml` or user-facing copy, and no runtime generated-catalog dependency.
 - [ ] Run `flutter analyze`, `flutter test`, and `flutter build macos --release`. Inspect the release app for absent app sandbox entitlement and absent bundled GDAL/PROJ libraries/data, then perform the Spec's mounted-store macOS verification with the exact packaged bundle.
 
+## Execution status — 2026-10-05
+
+**Blocked before implementation by Work Item 02's incomplete runtime catalog
+integration.** Its checklist is checked, but its required replacement of global
+generated-catalog behavior is not complete. See that Work Item's prerequisite
+review for the reproducible provider failure and affected consumers.
+
+`peakListRegionFilterOptionsProvider` ignores an injected empty `MappingCatalog`
+and returns four generated regions. Runtime map layers also still resolve tile
+URLs from the generated global catalog. The condition in Required context—every
+runtime consumer uses injected `MappingCatalog` before deleting the generator
+and its tests—is therefore unmet.
+
+No tool migrations or asset deletions were performed. Resume this Work Item
+after the runtime catalog integration is completed and verified. Its acceptance
+criteria remain open; full-suite/build/mounted-store verification has not run.
+
 ## Covers
 
 - User Stories: 1, 3
