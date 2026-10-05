@@ -11,6 +11,8 @@ class RouteGraphChunk {
   String recordKey;
 
   String chunkKey;
+  @Index()
+  String routingCoverageKey;
   int generation;
   double minLat;
   double minLon;
@@ -23,6 +25,7 @@ class RouteGraphChunk {
     this.id = 0,
     required this.recordKey,
     required this.chunkKey,
+    this.routingCoverageKey = '',
     required this.generation,
     required this.minLat,
     required this.minLon,
@@ -31,6 +34,12 @@ class RouteGraphChunk {
     required this.elementCount,
     required this.payloadJson,
   });
+
+  static String recordKeyFor({
+    required String routingCoverageKey,
+    required int generation,
+    required String chunkKey,
+  }) => '$routingCoverageKey|$generation|$chunkKey';
 
   Map<String, dynamic> decodePayload() {
     final decoded = jsonDecode(payloadJson);
@@ -46,6 +55,7 @@ class RouteGraphChunk {
     int? id,
     String? recordKey,
     String? chunkKey,
+    String? routingCoverageKey,
     int? generation,
     double? minLat,
     double? minLon,
@@ -58,6 +68,7 @@ class RouteGraphChunk {
       id: id ?? this.id,
       recordKey: recordKey ?? this.recordKey,
       chunkKey: chunkKey ?? this.chunkKey,
+      routingCoverageKey: routingCoverageKey ?? this.routingCoverageKey,
       generation: generation ?? this.generation,
       minLat: minLat ?? this.minLat,
       minLon: minLon ?? this.minLon,

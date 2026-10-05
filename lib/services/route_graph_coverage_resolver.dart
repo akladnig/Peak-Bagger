@@ -1,10 +1,12 @@
 import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route_graph_coverage.dart';
 import 'package:peak_bagger/models/route_graph_manifest.dart';
 import 'package:peak_bagger/services/manifest_priority.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
 
 typedef RouteGraphCoverageAssetLoader =
@@ -14,16 +16,38 @@ class RouteGraphCoverageResolver {
   RouteGraphCoverageResolver({
     RouteGraphCoverageAssetLoader? assetLoader,
     this.manifestAssetPath = defaultManifestAssetPath,
-  }) : _assetLoader = assetLoader ?? rootBundle.loadString;
+    MappingCatalog? catalog,
+    MappingStoreOperationFileAccess? fileAccess,
+  }) : _assetLoader = assetLoader,
+       _catalog = catalog,
+       _fileAccess = fileAccess {
+    if ((catalog == null) != (fileAccess == null) ||
+        (catalog == null && assetLoader == null)) {
+      throw ArgumentError(
+        'Provide MappingCatalog and file access, or an explicit test loader.',
+      );
+    }
+  }
 
   static const defaultManifestAssetPath = 'assets/region_manifest.json';
   static const routingCoveragesKey = 'routingCoverages';
 
-  final RouteGraphCoverageAssetLoader _assetLoader;
+  final RouteGraphCoverageAssetLoader? _assetLoader;
+  final MappingCatalog? _catalog;
+  final MappingStoreOperationFileAccess? _fileAccess;
   final String manifestAssetPath;
 
+  bool get usesMappingCatalog => _catalog != null;
+
   Future<List<RouteGraphCoverageImportInput>> resolve() async {
-    final manifest = _decodeManifest(await _assetLoader(manifestAssetPath));
+    final catalog = _catalog;
+    if (catalog != null) {
+      return Future.wait(routingCoverageDefinitions().map(resolveCoverage));
+    }
+    final loader = _assetLoader;
+    if (loader == null)
+      throw StateError('Route graph source loader is missing.');
+    final manifest = _decodeManifest(await loader(manifestAssetPath));
     final definitions = _readDefinitions(manifest);
     final sourcesByCoverage = <String, List<_SourceRegion>>{
       for (final definition in definitions) definition.key: [],
@@ -84,7 +108,7 @@ class RouteGraphCoverageResolver {
         for (final sourcePath in sourcePaths) {
           final overpass = _decodeOverpass(
             sourcePath,
-            await _assetLoader(sourcePath),
+            await loader(sourcePath),
           );
           sourceAssets.add(
             RouteGraphCoverageSourceAsset(path: sourcePath, overpass: overpass),
@@ -138,11 +162,12 @@ class RouteGraphCoverageResolver {
         'routingCoverageKey': definition.key,
         'sourceRegions': hashSourceRegions,
       };
+      _validateSelectedRouteGraphWays(mergedElements);
       final nodeById = _validNodesById(mergedElements);
       if (unavailableFootprint.isEmpty) {
         for (final sourceRegion in sourceRegions) {
           for (final polygonPath in sourceRegion.polygonPaths) {
-            final parsed = parsePolygonText(await _assetLoader(polygonPath));
+            final parsed = parsePolygonText(await loader(polygonPath));
             if (!parsed.isSuccess) {
               throw FormatException(
                 'Routing coverage ${definition.key} has invalid coverage '
@@ -179,6 +204,139 @@ class RouteGraphCoverageResolver {
       );
     }
     return List.unmodifiable(inputs);
+  }
+
+  List<RouteGraphCoverageDefinition> routingCoverageDefinitions() {
+    final catalog = _catalog;
+    if (catalog == null) {
+      throw StateError(
+        'Routing coverage definitions require a MappingCatalog.',
+      );
+    }
+    return List.unmodifiable([
+      for (final entry in catalog.routingCoverageRegionKeys.entries)
+        RouteGraphCoverageDefinition(
+          key: entry.key,
+          displayName: entry.key,
+          sourceRegions: [
+            for (final regionKey in entry.value)
+              if (catalog.regionByKey(regionKey) case final region?)
+                RouteGraphCoverageSourceRegion(
+                  key: region.key,
+                  priority: region.priority,
+                  sourceAssets: const [],
+                ),
+          ],
+        ),
+    ]);
+  }
+
+  Future<RouteGraphCoverageImportInput> resolveCoverage(
+    RouteGraphCoverageDefinition definition,
+  ) async {
+    final catalog = _catalog;
+    final fileAccess = _fileAccess;
+    if (catalog == null || fileAccess == null) {
+      return (await resolve()).singleWhere(
+        (input) => input.definition.key == definition.key,
+      );
+    }
+    final sources = <RouteGraphCoverageSourceRegion>[];
+    final hashSourceRegions = <Object?>[];
+    final mergedElements = <Object?>[];
+    final identities = <String, String>{};
+    final unavailableFootprint = <RouteGraphFootprintBound>[];
+    final regionKeys = catalog.routingCoverageRegionKeys[definition.key];
+    if (regionKeys == null || regionKeys.isEmpty) {
+      throw FormatException(
+        'Routing coverage ${definition.key} has no source regions.',
+      );
+    }
+    for (final regionKey in regionKeys) {
+      final region = catalog.regionByKey(regionKey);
+      if (region == null ||
+          region.routingCoverage != definition.key ||
+          region.highways.isEmpty) {
+        throw FormatException(
+          'Routing coverage ${definition.key} has invalid source region $regionKey.',
+        );
+      }
+      final sourceAssets = <RouteGraphCoverageSourceAsset>[];
+      final hashSourceAssets = <Object?>[];
+      for (final sourcePath in (List<String>.from(region.highways)..sort())) {
+        final overpass = _decodeOverpass(
+          sourcePath,
+          await fileAccess.readText(sourcePath),
+        );
+        sourceAssets.add(
+          RouteGraphCoverageSourceAsset(path: sourcePath, overpass: overpass),
+        );
+        hashSourceAssets.add({'path': sourcePath, 'overpass': overpass});
+        final bound = _nodeCoordinateBound(overpass['elements']! as List);
+        if (bound != null) unavailableFootprint.add(bound);
+        for (final element in overpass['elements']! as List<Object?>) {
+          final canonicalElement = canonicalJsonValue(element);
+          final identity = _osmIdentity(canonicalElement);
+          if (identity != null) {
+            final encoded = canonicalJsonEncode(canonicalElement);
+            final existing = identities[identity];
+            if (existing != null) {
+              if (existing != encoded) {
+                throw FormatException(
+                  'Routing coverage ${definition.key} has conflicting OSM element $identity.',
+                );
+              }
+              continue;
+            }
+            identities[identity] = encoded;
+          }
+          mergedElements.add(canonicalElement);
+        }
+      }
+      if (unavailableFootprint.isEmpty) {
+        for (final polygon in region.polygons) {
+          unavailableFootprint.add(_footprintForPolygon(polygon));
+        }
+      }
+      sources.add(
+        RouteGraphCoverageSourceRegion(
+          key: region.key,
+          priority: region.priority,
+          sourceAssets: List.unmodifiable(sourceAssets),
+        ),
+      );
+      hashSourceRegions.add({
+        'key': region.key,
+        'prioritySegments': region.priority.segments,
+        'sourceAssets': hashSourceAssets,
+      });
+    }
+    _validateSelectedRouteGraphWays(mergedElements);
+    final nodeById = _validNodesById(mergedElements);
+    return RouteGraphCoverageImportInput(
+      definition: RouteGraphCoverageDefinition(
+        key: definition.key,
+        displayName: definition.displayName,
+        sourceRegions: List.unmodifiable(sources),
+      ),
+      sourceHash: sha256
+          .convert(
+            utf8.encode(
+              canonicalJsonEncode({
+                'routingCoverageKey': definition.key,
+                'sourceRegions': hashSourceRegions,
+              }),
+            ),
+          )
+          .toString(),
+      mergedOverpass: {'elements': List.unmodifiable(mergedElements)},
+      acceptedWayCount: mergedElements
+          .where(
+            (element) => isAcceptedRouteGraphWay(element, nodeById: nodeById),
+          )
+          .length,
+      unavailableFootprint: List.unmodifiable(unavailableFootprint),
+    );
   }
 
   Map<String, Object?> _decodeManifest(String text) {
@@ -283,6 +441,62 @@ class RouteGraphCoverageResolver {
       );
     }
     return overpass;
+  }
+}
+
+RouteGraphFootprintBound _footprintForPolygon(List<LatLng> polygon) {
+  return RouteGraphFootprintBound(
+    minLat: polygon.map((point) => point.latitude).reduce(_min),
+    minLon: polygon.map((point) => point.longitude).reduce(_min),
+    maxLat: polygon.map((point) => point.latitude).reduce(_max),
+    maxLon: polygon.map((point) => point.longitude).reduce(_max),
+  );
+}
+
+void _validateSelectedRouteGraphWays(List<Object?> elements) {
+  final nodes = <int, Map>{};
+  for (final element in elements) {
+    if (element is! Map || element['type'] != 'node') continue;
+    final id = element['id'];
+    final lat = element['lat'];
+    final lon = element['lon'];
+    if (id is int &&
+        id > 0 &&
+        lat is num &&
+        lon is num &&
+        lat.isFinite &&
+        lon.isFinite &&
+        lat >= -90 &&
+        lat <= 90 &&
+        lon >= -180 &&
+        lon <= 180) {
+      nodes[id] = element;
+    }
+  }
+  for (final element in elements) {
+    if (element is! Map || element['type'] != 'way') continue;
+    final tags = element['tags'];
+    if (tags is! Map || tags['area'] == 'yes' || tags['place'] == 'square') {
+      continue;
+    }
+    final highway = tags['highway'];
+    if (highway is! String || highway.trim().isEmpty) continue;
+    final id = element['id'];
+    final references = element['nodes'];
+    if (id is! int ||
+        id <= 0 ||
+        references is! List ||
+        references.length < 2 ||
+        references.any(
+          (reference) =>
+              reference is! int ||
+              reference <= 0 ||
+              !nodes.containsKey(reference),
+        )) {
+      throw const FormatException(
+        'Route graph contains a malformed selected way.',
+      );
+    }
   }
 }
 

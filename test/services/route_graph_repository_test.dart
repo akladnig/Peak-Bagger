@@ -154,29 +154,13 @@ void main() {
       pruneStaleGenerations: true,
     );
 
-    await storage.replaceGeneration(
-      manifest: RouteGraphManifest(
-        sourceHash: 'old',
-        schemaVersion: 'route-graph-v2',
-        activeGeneration: 1,
-        importedAt: DateTime.utc(2024),
-        chunkCount: 0,
-        nodeCount: 0,
-        edgeCount: 0,
-        readinessState: RouteGraphManifest.readinessReady,
-      ),
-      chunks: const [],
-      wayIndexRows: const [],
-      trailDisplayChunks: const [],
-      pruneStaleGenerations: false,
-    );
-
-    expect(storage.activeTrailDisplayChunks(), isEmpty);
+    expect(storage.activeTrailDisplayChunks(), hasLength(1));
   });
 
   test('buildTripServiceForActiveGeneration loads active payloads', () async {
     final storage = InMemoryRouteGraphStorage(
       manifest: RouteGraphManifest(
+        routingCoverageKey: defaultRouteGraphCoverageKey,
         sourceHash: 'hash',
         schemaVersion: 'route-graph-v1',
         activeGeneration: 7,
@@ -184,12 +168,18 @@ void main() {
         chunkCount: 1,
         nodeCount: 2,
         edgeCount: 1,
+        wayIndexCount: 1,
         readinessState: RouteGraphManifest.readinessReady,
       ),
       chunks: [
         RouteGraphChunk(
-          recordKey: '7|0_0',
+          recordKey: RouteGraphChunk.recordKeyFor(
+            routingCoverageKey: defaultRouteGraphCoverageKey,
+            generation: 7,
+            chunkKey: '0_0',
+          ),
           chunkKey: '0_0',
+          routingCoverageKey: defaultRouteGraphCoverageKey,
           generation: 7,
           minLat: -42,
           minLon: 146,
@@ -208,11 +198,13 @@ void main() {
       wayIndexRows: [
         RouteGraphWayIndex(
           recordKey: RouteGraphWayIndex.recordKeyFor(
+            routingCoverageKey: defaultRouteGraphCoverageKey,
             generation: 7,
             chunkKey: '0_0',
             osmWayId: 10,
           ),
           generation: 7,
+          routingCoverageKey: defaultRouteGraphCoverageKey,
           chunkKey: '0_0',
           osmWayId: 10,
           lengthMeters: 10,
@@ -307,6 +299,14 @@ void main() {
       4,
     ]);
     expect(
+      store.box<RouteGraphChunk>().getAll().single.routingCoverageKey,
+      'tasmania',
+    );
+    expect(
+      store.box<RouteGraphChunk>().getAll().single.recordKey,
+      'tasmania|4|tas-next',
+    );
+    expect(
       store.box<RouteGraphWayIndex>().getAll().map((row) => row.generation),
       [4],
     );
@@ -334,14 +334,30 @@ void main() {
         pruneStaleGenerations: true,
       );
       await repository.writePreparedGeneration(
-        _prepared(generation: 2, chunkKey: 'alps'),
+        _prepared(generation: 1, chunkKey: 'alps'),
         routingCoverageKey: 'northeast-alps',
         sourceRegionKeys: const ['fvg', 'veneto', 'slovenia'],
         pruneStaleGenerations: true,
       );
 
       expect(repository.activeChunks('tasmania').single.generation, 1);
-      expect(repository.activeChunks('northeast-alps').single.generation, 2);
+      expect(repository.activeChunks('northeast-alps').single.generation, 1);
+      expect(
+        repository.activeChunks('tasmania').single.routingCoverageKey,
+        'tasmania',
+      );
+      expect(
+        repository.activeChunks('northeast-alps').single.routingCoverageKey,
+        'northeast-alps',
+      );
+      expect(
+        repository.activeChunks('tasmania').single.recordKey,
+        'tasmania|1|tas',
+      );
+      expect(
+        repository.activeChunks('northeast-alps').single.recordKey,
+        'northeast-alps|1|alps',
+      );
       expect(
         repository.manifestForCoverage('northeast-alps')?.sourceRegionKeys,
         ['fvg', 'veneto', 'slovenia'],

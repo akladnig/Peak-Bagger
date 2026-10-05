@@ -23,7 +23,7 @@ void main() {
           if (generation == 1) {
             await firstImportHold.future;
           }
-          if (generation == 2) {
+          if (started.length == 2) {
             throw StateError('northeast alps is invalid');
           }
           return _preparedGeneration(rawJson, schemaVersion, generation);
@@ -50,7 +50,8 @@ void main() {
       firstImportHold.complete();
       final result = await bootstrap;
 
-      expect(started, [1, 2]);
+      // Validation completes before a persistent generation is reserved.
+      expect(started, [1, 1]);
       expect(result, isA<RouteGraphImportBatchCompleted>());
       final completed = result as RouteGraphImportBatchCompleted;
       expect(completed.outcomes.map((outcome) => outcome.routingCoverageKey), [

@@ -96,7 +96,15 @@ class RouteGraphImportService {
            generationPreparer ?? _prepareGenerationInBackground,
        _coverageResolver =
            coverageResolver ??
-           RouteGraphCoverageResolver(assetLoader: assetLoader);
+           RouteGraphCoverageResolver(
+             assetLoader:
+                 assetLoader ??
+                 (_) => Future<String>.error(
+                   StateError(
+                     'A MappingCatalog route-graph resolver is required.',
+                   ),
+                 ),
+           );
 
   static const _schemaVersion = 'route-graph-v5';
 
@@ -209,11 +217,15 @@ class RouteGraphImportService {
           'Route graph coverage has no accepted route graph ways.',
         );
       }
-      final nextGeneration = await _repository.reserveGeneration();
       final preparedMap = Map<String, Object?>.from(
-        await _generationPreparer(rawJson, schemaVersion, nextGeneration),
+        await _generationPreparer(rawJson, schemaVersion, 1),
       )..['sourceHash'] = resolvedSourceHash;
-      final prepared = _preparedGenerationFromMap(preparedMap);
+      final nextGeneration = await _repository.reserveGeneration();
+      final prepared = _qualifyPreparedGeneration(
+        _preparedGenerationFromMap(preparedMap),
+        routingCoverageKey: routingCoverageKey,
+        generation: nextGeneration,
+      );
       if (prepared.chunks.isEmpty) {
         throw const RouteGraphLoadException(
           'Route graph coverage has no prepared chunks.',
@@ -275,6 +287,60 @@ class RouteGraphImportService {
         ) &&
         manifest!.sourceHash == sourceHash;
   }
+}
+
+RouteGraphPreparedGeneration _qualifyPreparedGeneration(
+  RouteGraphPreparedGeneration prepared, {
+  required String routingCoverageKey,
+  required int generation,
+}) {
+  return RouteGraphPreparedGeneration(
+    generation: generation,
+    sourceHash: prepared.sourceHash,
+    schemaVersion: prepared.schemaVersion,
+    importedAt: prepared.importedAt,
+    chunkCount: prepared.chunks.length,
+    nodeCount: prepared.nodeCount,
+    edgeCount: prepared.edgeCount,
+    chunks: [
+      for (final row in prepared.chunks)
+        row.copyWith(
+          generation: generation,
+          routingCoverageKey: routingCoverageKey,
+          recordKey: RouteGraphChunk.recordKeyFor(
+            routingCoverageKey: routingCoverageKey,
+            generation: generation,
+            chunkKey: row.chunkKey,
+          ),
+        ),
+    ],
+    wayIndexRows: [
+      for (final row in prepared.wayIndexRows)
+        row.copyWith(
+          generation: generation,
+          routingCoverageKey: routingCoverageKey,
+          recordKey: RouteGraphWayIndex.recordKeyFor(
+            routingCoverageKey: routingCoverageKey,
+            generation: generation,
+            chunkKey: row.chunkKey,
+            osmWayId: row.osmWayId,
+          ),
+        ),
+    ],
+    trailDisplayChunks: [
+      for (final row in prepared.trailDisplayChunks)
+        row.copyWith(
+          generation: generation,
+          routingCoverageKey: routingCoverageKey,
+          recordKey: RouteGraphTrailDisplayChunk.recordKeyFor(
+            routingCoverageKey: routingCoverageKey,
+            generation: generation,
+            cacheZoom: row.cacheZoom,
+            chunkKey: row.chunkKey,
+          ),
+        ),
+    ],
+  );
 }
 
 Future<Map<String, Object?>> _prepareGenerationInBackground(

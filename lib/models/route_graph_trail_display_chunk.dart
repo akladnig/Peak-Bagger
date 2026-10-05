@@ -15,6 +15,9 @@ class RouteGraphTrailDisplayChunk {
   int generation;
 
   @Index()
+  String routingCoverageKey;
+
+  @Index()
   int cacheZoom;
 
   @Index()
@@ -29,17 +32,19 @@ class RouteGraphTrailDisplayChunk {
     this.id = 0,
     required this.recordKey,
     required this.generation,
+    this.routingCoverageKey = '',
     required this.cacheZoom,
     required this.chunkKey,
     required this.payloadJson,
   });
 
   static String recordKeyFor({
+    String routingCoverageKey = '',
     required int generation,
     required int cacheZoom,
     required String chunkKey,
   }) {
-    return '$generation|$cacheZoom|$chunkKey';
+    return '$routingCoverageKey|$generation|$cacheZoom|$chunkKey';
   }
 
   List<RouteGraphTrailDisplayWay> decodeWays() {
@@ -101,6 +106,7 @@ class RouteGraphTrailDisplayChunk {
     int? id,
     String? recordKey,
     int? generation,
+    String? routingCoverageKey,
     int? cacheZoom,
     String? chunkKey,
     String? payloadJson,
@@ -109,6 +115,7 @@ class RouteGraphTrailDisplayChunk {
       id: id ?? this.id,
       recordKey: recordKey ?? this.recordKey,
       generation: generation ?? this.generation,
+      routingCoverageKey: routingCoverageKey ?? this.routingCoverageKey,
       cacheZoom: cacheZoom ?? this.cacheZoom,
       chunkKey: chunkKey ?? this.chunkKey,
       payloadJson: payloadJson ?? this.payloadJson,

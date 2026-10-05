@@ -25,6 +25,7 @@ import 'package:peak_bagger/services/route_graph_coverage_resolver.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
@@ -134,13 +135,22 @@ Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
     final routeGraphRepository = RouteGraphRepository.objectBox(
       initializedStore,
     );
+    final mappingOperationCoordinator = MappingStoreOperationCoordinator();
     final routeGraphImportService = RouteGraphImportService(
       routeGraphRepository,
     );
+    final routeGraphCoverageResolver = RouteGraphCoverageResolver(
+      catalog: catalog,
+      fileAccess: MappingStoreOperationFileAccess(
+        rootPath: catalog.rootPath,
+        fileSystem: const IoMappingStoreFileSystem(),
+      ),
+    );
     final routeGraphImportCoordinator = RouteGraphImportCoordinator(
-      coverageResolver: RouteGraphCoverageResolver(),
+      coverageResolver: routeGraphCoverageResolver,
       importService: routeGraphImportService,
       repository: routeGraphRepository,
+      mappingOperationCoordinator: mappingOperationCoordinator,
     );
     final routeGraphStore = ObjectBoxRouteGraphStore(
       repository: routeGraphRepository,
@@ -158,6 +168,9 @@ Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
       return ProviderScope(
         overrides: [
           mappingCatalogProvider.overrideWithValue(catalog),
+          mappingStoreOperationCoordinatorProvider.overrideWithValue(
+            mappingOperationCoordinator,
+          ),
           peakRepositoryProvider.overrideWithValue(peakRepository),
           contactRepositoryProvider.overrideWithValue(contactRepository),
           naturalFeatureRepositoryProvider.overrideWithValue(

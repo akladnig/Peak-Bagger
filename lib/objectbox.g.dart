@@ -783,7 +783,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(7, 596705519527760639),
     name: 'RouteGraphChunk',
-    lastPropertyId: const obx_int.IdUid(10, 3398479501893264143),
+    lastPropertyId: const obx_int.IdUid(11, 4398440101349052094),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -847,6 +847,13 @@ final _entities = <obx_int.ModelEntity>[
         type: 9,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(11, 4398440101349052094),
+        name: 'routingCoverageKey',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(26, 2124171086143416313),
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -854,7 +861,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(8, 1444775778480771967),
     name: 'RouteGraphManifest',
-    lastPropertyId: const obx_int.IdUid(13, 7166793728012339321),
+    lastPropertyId: const obx_int.IdUid(15, 1011445670074837602),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -936,6 +943,18 @@ final _entities = <obx_int.ModelEntity>[
         type: 9,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(14, 7502542318968346831),
+        name: 'wayIndexCount',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(15, 1011445670074837602),
+        name: 'trailDisplayChunkCount',
+        type: 6,
+        flags: 0,
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -943,7 +962,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(9, 7206587872972155691),
     name: 'RouteGraphWayIndex',
-    lastPropertyId: const obx_int.IdUid(16, 8218973595292904004),
+    lastPropertyId: const obx_int.IdUid(17, 5381404823353121290),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -1056,6 +1075,13 @@ final _entities = <obx_int.ModelEntity>[
         type: 9,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(17, 5381404823353121290),
+        name: 'routingCoverageKey',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(28, 2425893039382816013),
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -1063,7 +1089,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(10, 6059948320416146250),
     name: 'RouteGraphTrailDisplayChunk',
-    lastPropertyId: const obx_int.IdUid(6, 7689183445842674669),
+    lastPropertyId: const obx_int.IdUid(7, 2547077165027930171),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -1105,6 +1131,13 @@ final _entities = <obx_int.ModelEntity>[
         name: 'payloadJson',
         type: 9,
         flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 2547077165027930171),
+        name: 'routingCoverageKey',
+        type: 9,
+        flags: 2048,
+        indexId: const obx_int.IdUid(27, 4068742416137832435),
       ),
     ],
     relations: <obx_int.ModelRelation>[],
@@ -1485,7 +1518,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
     lastEntityId: const obx_int.IdUid(17, 4224728018239922669),
-    lastIndexId: const obx_int.IdUid(25, 1184207881804842512),
+    lastIndexId: const obx_int.IdUid(28, 2425893039382816013),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [],
@@ -2481,7 +2514,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final recordKeyOffset = fbb.writeString(object.recordKey);
         final chunkKeyOffset = fbb.writeString(object.chunkKey);
         final payloadJsonOffset = fbb.writeString(object.payloadJson);
-        fbb.startTable(11);
+        final routingCoverageKeyOffset = fbb.writeString(
+          object.routingCoverageKey,
+        );
+        fbb.startTable(12);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, recordKeyOffset);
         fbb.addOffset(2, chunkKeyOffset);
@@ -2492,6 +2528,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addFloat64(7, object.maxLon);
         fbb.addInt64(8, object.elementCount);
         fbb.addOffset(9, payloadJsonOffset);
+        fbb.addOffset(10, routingCoverageKeyOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -2510,6 +2547,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final chunkKeyParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 8, '');
+        final routingCoverageKeyParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 24, '');
         final generationParam = const fb.Int64Reader().vTableGet(
           buffer,
           rootOffset,
@@ -2553,6 +2593,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           id: idParam,
           recordKey: recordKeyParam,
           chunkKey: chunkKeyParam,
+          routingCoverageKey: routingCoverageKeyParam,
           generation: generationParam,
           minLat: minLatParam,
           minLon: minLonParam,
@@ -2589,7 +2630,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final unavailableFootprintJsonOffset = fbb.writeString(
           object.unavailableFootprintJson,
         );
-        fbb.startTable(14);
+        fbb.startTable(16);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, sourceHashOffset);
         fbb.addOffset(2, schemaVersionOffset);
@@ -2603,6 +2644,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(10, routingCoverageKeyOffset);
         fbb.addOffset(11, sourceRegionKeysJsonOffset);
         fbb.addOffset(12, unavailableFootprintJsonOffset);
+        fbb.addInt64(13, object.wayIndexCount);
+        fbb.addInt64(14, object.trailDisplayChunkCount);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -2656,6 +2699,18 @@ obx_int.ModelDefinition getObjectBoxModel() {
           18,
           0,
         );
+        final wayIndexCountParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          30,
+          0,
+        );
+        final trailDisplayChunkCountParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          32,
+          0,
+        );
         final readinessStateParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 20, '');
@@ -2678,6 +2733,8 @@ obx_int.ModelDefinition getObjectBoxModel() {
           chunkCount: chunkCountParam,
           nodeCount: nodeCountParam,
           edgeCount: edgeCountParam,
+          wayIndexCount: wayIndexCountParam,
+          trailDisplayChunkCount: trailDisplayChunkCountParam,
           readinessState: readinessStateParam,
           lastError: lastErrorParam,
           sourceRegionKeysJson: sourceRegionKeysJsonParam,
@@ -2723,7 +2780,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
             ? null
             : fbb.writeString(object.normalizedName!);
         final tagsJsonOffset = fbb.writeString(object.tagsJson);
-        fbb.startTable(17);
+        final routingCoverageKeyOffset = fbb.writeString(
+          object.routingCoverageKey,
+        );
+        fbb.startTable(18);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, recordKeyOffset);
         fbb.addInt64(2, object.generation);
@@ -2740,6 +2800,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addInt64(13, object.lengthMeters);
         fbb.addInt64(14, object.tagCount);
         fbb.addOffset(15, tagsJsonOffset);
+        fbb.addOffset(16, routingCoverageKeyOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -2761,6 +2822,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
           8,
           0,
         );
+        final routingCoverageKeyParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGet(buffer, rootOffset, 36, '');
         final chunkKeyParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 10, '');
@@ -2813,6 +2877,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           id: idParam,
           recordKey: recordKeyParam,
           generation: generationParam,
+          routingCoverageKey: routingCoverageKeyParam,
           chunkKey: chunkKeyParam,
           osmWayId: osmWayIdParam,
           highway: highwayParam,
@@ -2844,13 +2909,17 @@ obx_int.ModelDefinition getObjectBoxModel() {
             final recordKeyOffset = fbb.writeString(object.recordKey);
             final chunkKeyOffset = fbb.writeString(object.chunkKey);
             final payloadJsonOffset = fbb.writeString(object.payloadJson);
-            fbb.startTable(7);
+            final routingCoverageKeyOffset = fbb.writeString(
+              object.routingCoverageKey,
+            );
+            fbb.startTable(8);
             fbb.addInt64(0, object.id);
             fbb.addOffset(1, recordKeyOffset);
             fbb.addInt64(2, object.generation);
             fbb.addInt64(3, object.cacheZoom);
             fbb.addOffset(4, chunkKeyOffset);
             fbb.addOffset(5, payloadJsonOffset);
+            fbb.addOffset(6, routingCoverageKeyOffset);
             fbb.finish(fbb.endTable());
             return object.id;
           },
@@ -2872,6 +2941,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
               8,
               0,
             );
+            final routingCoverageKeyParam = const fb.StringReader(
+              asciiOptimization: true,
+            ).vTableGet(buffer, rootOffset, 16, '');
             final cacheZoomParam = const fb.Int64Reader().vTableGet(
               buffer,
               rootOffset,
@@ -2888,6 +2960,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
               id: idParam,
               recordKey: recordKeyParam,
               generation: generationParam,
+              routingCoverageKey: routingCoverageKeyParam,
               cacheZoom: cacheZoomParam,
               chunkKey: chunkKeyParam,
               payloadJson: payloadJsonParam,
@@ -3974,6 +4047,11 @@ class RouteGraphChunk_ {
   static final payloadJson = obx.QueryStringProperty<RouteGraphChunk>(
     _entities[6].properties[9],
   );
+
+  /// See [RouteGraphChunk.routingCoverageKey].
+  static final routingCoverageKey = obx.QueryStringProperty<RouteGraphChunk>(
+    _entities[6].properties[10],
+  );
 }
 
 /// [RouteGraphManifest] entity fields to define ObjectBox queries.
@@ -4040,6 +4118,15 @@ class RouteGraphManifest_ {
   /// See [RouteGraphManifest.unavailableFootprintJson].
   static final unavailableFootprintJson =
       obx.QueryStringProperty<RouteGraphManifest>(_entities[7].properties[12]);
+
+  /// See [RouteGraphManifest.wayIndexCount].
+  static final wayIndexCount = obx.QueryIntegerProperty<RouteGraphManifest>(
+    _entities[7].properties[13],
+  );
+
+  /// See [RouteGraphManifest.trailDisplayChunkCount].
+  static final trailDisplayChunkCount =
+      obx.QueryIntegerProperty<RouteGraphManifest>(_entities[7].properties[14]);
 }
 
 /// [RouteGraphWayIndex] entity fields to define ObjectBox queries.
@@ -4123,6 +4210,11 @@ class RouteGraphWayIndex_ {
   static final tagsJson = obx.QueryStringProperty<RouteGraphWayIndex>(
     _entities[8].properties[15],
   );
+
+  /// See [RouteGraphWayIndex.routingCoverageKey].
+  static final routingCoverageKey = obx.QueryStringProperty<RouteGraphWayIndex>(
+    _entities[8].properties[16],
+  );
 }
 
 /// [RouteGraphTrailDisplayChunk] entity fields to define ObjectBox queries.
@@ -4158,6 +4250,12 @@ class RouteGraphTrailDisplayChunk_ {
   static final payloadJson =
       obx.QueryStringProperty<RouteGraphTrailDisplayChunk>(
         _entities[9].properties[5],
+      );
+
+  /// See [RouteGraphTrailDisplayChunk.routingCoverageKey].
+  static final routingCoverageKey =
+      obx.QueryStringProperty<RouteGraphTrailDisplayChunk>(
+        _entities[9].properties[6],
       );
 }
 

@@ -5,11 +5,13 @@ void main() {
   test('RouteGraphWayIndex carries the expected row shape', () {
     final row = RouteGraphWayIndex(
       recordKey: RouteGraphWayIndex.recordKeyFor(
+        routingCoverageKey: 'tasmania',
         generation: 12,
         chunkKey: '3_4',
         osmWayId: 42,
       ),
       generation: 12,
+      routingCoverageKey: 'tasmania',
       chunkKey: '3_4',
       osmWayId: 42,
       highway: 'footway',
@@ -25,7 +27,8 @@ void main() {
       tagsJson: '{"highway":"footway"}',
     );
 
-    expect(row.recordKey, '12|3_4|42');
+    expect(row.recordKey, 'tasmania|12|3_4|42');
+    expect(row.routingCoverageKey, 'tasmania');
     expect(row.generation, 12);
     expect(row.chunkKey, '3_4');
     expect(row.osmWayId, 42);
