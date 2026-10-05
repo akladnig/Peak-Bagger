@@ -172,7 +172,8 @@ class _TrailCacheRouteGraphStore
               maxLat: -41.0,
               maxLon: 147.0,
               elementCount: 0,
-              payloadJson: '{"elements":[]}',
+              payloadJson:
+                  '{"elements":[{"type":"node","id":1,"lat":-41.5,"lon":146.5},{"type":"node","id":2,"lat":-41.6,"lon":146.6},{"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path"}}]}',
             ),
           ],
           trailDisplayChunks: [

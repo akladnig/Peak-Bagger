@@ -15,17 +15,17 @@ Move Natural Features bootstrap and refresh from its fixed source path to `natur
 
 ## Acceptance criteria
 
-- [ ] Bootstrap runs only while the Natural Features table is empty; a populated table performs no source read. Pending or failed bootstrap remains unavailable rather than silently empty and retry resumes only the original operation.
+- [x] Bootstrap runs only while the Natural Features table is empty; a populated table performs no source read. Pending or failed bootstrap remains unavailable rather than silently empty and retry resumes only the original operation.
 - [x] Keep `Refresh Natural Features`, `refresh-natural-features-tile`, and `natural-feature-refresh-status`; refresh reads `naturalFeatures.catalog` through the Mapping boundary and remains a background job.
-- [ ] Treat malformed JSON, a missing `elements` list, duplicate source identities, or malformed selected candidates as all-or-nothing operation failures before ObjectBox writes. Documented ineligible records are diagnostic-only skips.
-- [ ] Persist source keys including ownership, OSM type, and positive OSM ID, for example `OSM:node:123` and `Manual:node:123`; Manual and OSM rows with the same OSM identity coexist. Refresh updates or creates only OSM rows, preserves Manual rows, and retains OSM rows absent from the source.
+- [x] Treat malformed JSON, a missing `elements` list, duplicate source identities, or malformed selected candidates as all-or-nothing operation failures before ObjectBox writes. Documented ineligible records are diagnostic-only skips.
+- [x] Persist source keys including ownership, OSM type, and positive OSM ID, for example `OSM:node:123` and `Manual:node:123`; Manual and OSM rows with the same OSM identity coexist. Refresh updates or creates only OSM rows, preserves Manual rows, and retains OSM rows absent from the source.
 - [x] Migrate legacy duplicate OSM rows by retaining the lowest positive ObjectBox ID and transactionally merging/removing duplicates during reconciliation without touching a Manual row.
-- [ ] A failed bootstrap or refresh preserves prior usable rows and uses `natural-features-mapping-unavailable` with `natural-features-mapping-unavailable-retry` after dialog dismissal.
-- [ ] Add source-format, repository, provider, widget, and robot coverage for pending/failed states, exact Settings controls, ownership, duplicate migration, retention, no-source-read bootstrap, retry, and typed Mapping failures.
+- [x] A failed bootstrap or refresh preserves prior usable rows and uses `natural-features-mapping-unavailable` with `natural-features-mapping-unavailable-retry` after dialog dismissal.
+- [x] Add source-format, repository, provider, widget, and robot coverage for pending/failed states, exact Settings controls, ownership, duplicate migration, retention, no-source-read bootstrap, retry, and typed Mapping failures.
 
 ## Verification — 2026-10-05
 
-**Incomplete; remains a blocker for Work Item 12.** Reviewed the implementation
+**Initial verification, superseded by remediation below.** Reviewed the implementation
 at `85f93c1`, including the Work Item 07 commit `855e3f4`. Passing existing tests
 do not establish the unchecked acceptance criteria.
 
@@ -65,6 +65,64 @@ do not establish the unchecked acceptance criteria.
   Settings widget tests do not verify the shared Mapping failure journey.
 - Re-run focused tests, ObjectBox generation/review, analysis, and the full suite
   before completing the remaining criteria.
+
+## Remediation and final verification — 2026-10-05
+
+**Complete.** All five reproduced failures are fixed. The Mapping operation
+coordinator now publishes pending/completed transitions, retains failure causes
+and original retry identities, and suppresses notifications after disposal.
+Natural Features availability includes manual refresh failures and successful
+empty-source bootstrap; the map retry uses the actual failed operation key.
+
+Source validation rejects duplicate supporting identities, invalid relation
+references, and malformed selected geometry before persistence. MGRS conversion
+failure is also all-or-nothing, with a typed source-path failure. Ineligible
+records emit diagnostics. Actual same-type/same-ID Manual and OSM rows coexist.
+
+ObjectBox adds a **nullable unique `sourceRecordKey`** alongside the retained
+`sourceKey`. Existing databases can open with unindexed legacy rows, including
+duplicates. Reconciliation deletes duplicate OSM rows before indexing the lowest
+positive-ID survivor in the same transaction, without touching Manual rows.
+Repository saves assign the canonical ownership/type/ID key. Generated property
+18 and index 29 were reviewed; existing property and entity UIDs are preserved.
+
+- Focused prerequisite suite: **76 passed**, plus final catalog-selection checks.
+- Full suite: `flutter test --no-pub --reporter expanded` — **2,152 passed,
+  5 skipped**.
+- Original temporary verification probes: **11 passed** across both Work Items.
+- `dart run build_runner build --delete-conflicting-outputs`: succeeded; the
+  installed runner ignores the removed flag. Final regeneration was stable.
+- `flutter analyze`: **7 pre-existing findings** (2 async-return warnings and
+  5 style infos); no new analysis findings. Exit status remains 1 for those
+  existing warnings.
+- Regression coverage lives in `natural_feature_refresh_service_test.dart`,
+  `natural_feature_repository_test.dart`, `natural_feature_availability_test.dart`,
+  and `natural_feature_refresh_settings_test.dart`, with dedicated popup/dialog
+  robot journeys and harnesses.
+
+### Journey Verification
+
+- Journey: Natural Features first-run bootstrap failure, dismissal, repair, retry
+- Verification command(s): `flutter test test/robot/natural_feature_mapping_journey_test.dart`
+- Required seams/selectors: controlled source/commit harness, ready provider
+  overrides, production `MapSearchPopup`, shared Mapping dialog keys,
+  `natural-features-mapping-unavailable` and its Retry key; robot methods
+  `pumpSurface`, `expectFailure`, `dismiss`, `expectUnavailable`, `retryFeature`.
+- Result: `pass`
+- Remaining risk: real mounted-store and packaged macOS interaction is deferred
+  to Work Item 12's explicit release verification; these journeys use deterministic
+  in-memory commits, with real importer/ObjectBox behavior verified separately.
+
+### Journey Verification
+
+- Journey: Populated Natural Features manual refresh failure, dismissal, repair, retry
+- Verification command(s): `flutter test test/robot/natural_feature_mapping_journey_test.dart`
+- Required seams/selectors: same production popup/dialog controls and deterministic
+  harness, populated repository, original `naturalFeaturesRefresh` key.
+- Result: `pass`
+- Remaining risk: the mounted source is not accessed in automated tests. Settings
+  background-job handoff and the shared failure dialog are covered by separate
+  production Settings widget tests.
 
 ## Covers
 

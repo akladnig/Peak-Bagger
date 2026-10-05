@@ -56,7 +56,6 @@ import 'package:peak_bagger/services/map_search_region_filter.dart';
 import 'package:peak_bagger/services/open_route_service.dart';
 import 'package:peak_bagger/services/route_graph_drive_eta_hit_service.dart';
 import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
-import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/local_topo_overlay_tile_provider.dart';
@@ -4182,11 +4181,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                 !naturalFeatureAvailability.isAvailable
                             ? naturalFeatureAvailability.reason
                             : null,
-                        onRetryNaturalFeatures: () => ref
-                            .read(mappingStoreOperationCoordinatorProvider)
-                            .retry(
-                              const MappingStoreOperationKey.naturalFeaturesBootstrap(),
-                            ),
+                        onRetryNaturalFeatures:
+                            naturalFeatureAvailability.retryKey == null
+                            ? null
+                            : () => ref
+                                  .read(
+                                    mappingStoreOperationCoordinatorProvider,
+                                  )
+                                  .retry(naturalFeatureAvailability.retryKey!),
                         availableRegions: buildMapSearchRegionOptions(),
                         onChanged: (value) {
                           ref

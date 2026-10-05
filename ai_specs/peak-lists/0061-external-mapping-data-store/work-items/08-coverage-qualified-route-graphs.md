@@ -16,17 +16,17 @@ Migrate route-graph source resolution to `MappingCatalog` and make all persisted
 ## Acceptance criteria
 
 - [x] Retain highway sources only for Tasmania and Northeast Alps in the catalog. Northeast Alps contains FVG, Veneto, and Slovenia and requires `Highways/slovenia-highways.json`; no absent NSW, Italy aggregate/North East/North West, or Croatia highway declaration remains.
-- [ ] Before opening a coverage highway source, determine whether it has a usable active generation. A usable generation is `ready`, has a positive active ID, and every chunk, way-index, and display row has the same coverage/generation and matches recorded chunk, node, edge, way-index, and trail-display counts. A zero-way import is unavailable.
-- [ ] Persist `routingCoverageKey` on every route-graph row; make every record key injective across coverage, generation, and row identity. Constrain active reads, counts, stale pruning, and orphan cleanup by both coverage and generation; reject mismatched rows before committing.
-- [ ] Immediately exclude legacy rows without `routingCoverageKey` from every read, delete them across all route-graph row tables in one transaction, then independently rebuild only declared coverages lacking usable qualified generations.
-- [ ] A usable coverage reads no highway source and stays available if its source later becomes unreadable. Failed/incomplete/orphaned coverage data may read and import; a failed manual refresh preserves the coverage's prior usable generation.
-- [ ] Resolve a route segment only when both endpoints resolve to exactly one identical coverage. Zero, multiple, or different coverages are ordinary route-unavailable results; only an unavailable resolved coverage enters Mapping failure flow. Use `route-planning-mapping-unavailable` and `route-planning-mapping-unavailable-retry` after dismissal.
-- [ ] Validate complete source input before ObjectBox writes: malformed selected candidates fail without writes; documented non-candidates are diagnostic skips; canonically identical repeated OSM elements merge and conflicting identities fail.
-- [ ] Add unit/repository/provider/widget/robot/concurrency coverage for every generation, row key, source, coverage resolution, legacy migration, retention, unavailable/retry, and cross-coverage isolation contract. Run `dart run build_runner build --delete-conflicting-outputs` and review generated ObjectBox changes.
+- [x] Before opening a coverage highway source, determine whether it has a usable active generation. A usable generation is `ready`, has a positive active ID, and every chunk, way-index, and display row has the same coverage/generation and matches recorded chunk, node, edge, way-index, and trail-display counts. A zero-way import is unavailable.
+- [x] Persist `routingCoverageKey` on every route-graph row; make every record key injective across coverage, generation, and row identity. Constrain active reads, counts, stale pruning, and orphan cleanup by both coverage and generation; reject mismatched rows before committing.
+- [x] Immediately exclude legacy rows without `routingCoverageKey` from every read, delete them across all route-graph row tables in one transaction, then independently rebuild only declared coverages lacking usable qualified generations.
+- [x] A usable coverage reads no highway source and stays available if its source later becomes unreadable. Failed/incomplete/orphaned coverage data may read and import; a failed manual refresh preserves the coverage's prior usable generation.
+- [x] Resolve a route segment only when both endpoints resolve to exactly one identical coverage. Zero, multiple, or different coverages are ordinary route-unavailable results; only an unavailable resolved coverage enters Mapping failure flow. Use `route-planning-mapping-unavailable` and `route-planning-mapping-unavailable-retry` after dismissal.
+- [x] Validate complete source input before ObjectBox writes: malformed selected candidates fail without writes; documented non-candidates are diagnostic skips; canonically identical repeated OSM elements merge and conflicting identities fail.
+- [x] Add unit/repository/provider/widget/robot/concurrency coverage for every generation, row key, source, coverage resolution, legacy migration, retention, unavailable/retry, and cross-coverage isolation contract. Run `dart run build_runner build --delete-conflicting-outputs` and review generated ObjectBox changes.
 
 ## Verification — 2026-10-05
 
-**Incomplete; remains a blocker for Work Item 12.** Reviewed the implementation
+**Initial verification, superseded by remediation below.** Reviewed the implementation
 at `85f93c1`, including the Work Item 08 commit `98b4b91`. The retained highway
 contract is verified by the catalog fixture/parser tests. Legacy ObjectBox row
 filtering and transactional deletion are implemented and tested, but the complete
@@ -82,6 +82,64 @@ exercise DEM failures, not route-graph coverage failures.
   current import-coordinator tests exercise the legacy injected-loader branch.
 - Re-run ObjectBox generation/review, focused checks, analysis, and the full
   suite before completing the remaining criteria.
+
+## Remediation and final verification — 2026-10-05
+
+**Complete.** The six reproduced failures and the catalog-selection gap are
+fixed. Usability rejects empty graphs and compares manifest node/way counts
+against unique persisted geometry, accounting for chunk overlap. Count parsing is
+cached by generation and payload set. Import manifests now record the geometry
+actually persisted, excluding unused diagnostic nodes.
+
+Catalog-mode source and zero-way failures are typed Mapping exceptions carrying
+the affected declared paths. The retried action includes importing/ready/failed
+state transitions. Independent coverage reads proceed concurrently; actual
+generation writes share table locks. A duplicate pending coverage request joins
+the same execution. Failed refresh retains the previous generation and source
+hash, while another coverage remains usable. Pruning removes stale/orphan rows
+only for the written coverage; mismatched supplied coverage rows are rejected
+before qualification and commit.
+
+Selected-way validation requires a non-empty string highway, valid tag shape,
+positive identities/references, and geographically valid supporting nodes. It is
+shared with in-process preparation. Canonical duplicate merging remains intact.
+Route requests now use `MappingCatalog.routingCoverageForPoint`, including highest
+priority and ambiguity handling, instead of graph footprints. Only a resolved,
+unusable coverage triggers its operation-scoped import/failure flow; the route
+surface retains its stable unavailable keys after dismissal and can retry the
+coverage followed by its retained segment. Readiness listens to successful
+coverage retries.
+
+- Focused prerequisite suite: **76 passed**; additional catalog overlap/priority
+  and refreshed-trail journey checks passed after correcting legacy fixtures.
+- Full suite: `flutter test --no-pub --reporter expanded` — **2,152 passed,
+  5 skipped**.
+- Original temporary verification probes: **11 passed** across both Work Items.
+- `dart run build_runner build --delete-conflicting-outputs`: succeeded and
+  reviewed. No route-graph schema changes were required; the only additive
+  ObjectBox change is Work Item 07's nullable unique identity index.
+- `flutter analyze`: **7 pre-existing findings** (2 async-return warnings and
+  5 style infos); no new findings. Exit status remains 1 for existing warnings.
+- Coverage includes `route_graph_mapping_contract_test.dart`,
+  `route_graph_catalog_selection_test.dart`, real ObjectBox legacy/orphan and
+  cross-coverage repository checks, existing resolver/import/coordinator tests,
+  and production route-overlay robot verification. Legacy synthetic fixtures now
+  contain geometry consistent with their recorded counts.
+
+### Journey Verification
+
+- Journey: Route segment coverage failure, dismissal, source repair, coverage retry, retained segment completion
+- Verification command(s): `flutter test test/robot/route_graph_mapping_journey_test.dart`
+- Required seams/selectors: injected Mapping catalog, deterministic highway reader
+  and generation preparation, production `MapNotifier`, route overlay and shared
+  failure dialog; `route-planning-mapping-unavailable` and its Retry key; robot
+  methods `pumpSurface`, `expectFailure`, `dismiss`, `expectUnavailable`,
+  `retryFeature`, `expectAvailable`.
+- Result: `pass`
+- Remaining risk: live mounted-store and packaged macOS flows are reserved for
+  Work Item 12. The UI journey uses deterministic generation preparation; real
+  preparation, import, ObjectBox persistence, and routing behavior have separate
+  service/repository coverage in the passing full suite.
 
 ## Covers
 

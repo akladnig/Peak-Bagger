@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:isolate';
 import 'dart:math' as math;
 
@@ -45,7 +46,7 @@ class NaturalFeatureRefreshService {
   }) : _fileSystem = fileSystem ?? const IoMappingStoreFileSystem(),
        _mgrsConverter = mgrsConverter ?? PeakMgrsConverter.fromLatLng,
        _persistence = persistence ?? _repositoryPersistence(_repository),
-       _diagnosticLogger = diagnosticLogger ?? _discardDiagnostic;
+       _diagnosticLogger = diagnosticLogger ?? _logDiagnostic;
 
   final NaturalFeatureRepository _repository;
   final MappingCatalog? catalog;
@@ -61,7 +62,8 @@ class NaturalFeatureRefreshService {
     return repository.reconcileAtomically;
   }
 
-  static void _discardDiagnostic(String _) {}
+  static void _logDiagnostic(String message) =>
+      developer.log(message, name: 'NaturalFeatureRefreshService');
 
   Future<NaturalFeatureRefreshResult> refresh() async {
     final sourceText = await _readSourceText();
@@ -98,10 +100,6 @@ class NaturalFeatureRefreshService {
       final identity = feature['identity']! as String;
       final existing = existingByIdentity[identity];
       final mgrs = _convertMgrs(feature);
-      if (mgrs == null) {
-        skippedCount += 1;
-        continue;
-      }
       final sourceFeature = NaturalFeature(
         name: feature['name']! as String,
         altName: feature['altName']! as String,
@@ -139,8 +137,8 @@ class NaturalFeatureRefreshService {
         feature.osmType,
         feature.osmId,
       );
-      if (feature.sourceKey != expectedKey &&
-          !upserts.any((upsert) => upsert.id == feature.id)) {
+      // Persist the new nullable unique index for retained legacy survivors too.
+      if (!upserts.any((upsert) => upsert.id == feature.id)) {
         upserts.add(_withSourceKey(feature, expectedKey));
       }
     }
@@ -195,7 +193,7 @@ class NaturalFeatureRefreshService {
     }
   }
 
-  PeakMgrsComponents? _convertMgrs(Map<Object?, Object?> feature) {
+  PeakMgrsComponents _convertMgrs(Map<Object?, Object?> feature) {
     try {
       return _mgrsConverter(
         LatLng(
@@ -203,8 +201,13 @@ class NaturalFeatureRefreshService {
           (feature['longitude']! as num).toDouble(),
         ),
       );
-    } catch (_) {
-      return null;
+    } catch (error) {
+      throw MappingStoreOperationException(
+        paths: [
+          catalog?.naturalFeaturesCatalogPath ?? 'naturalFeatures.catalog',
+        ],
+        cause: error,
+      );
     }
   }
 
@@ -286,9 +289,11 @@ Map<String, Object?> buildNaturalFeatureRefreshPlan(
   for (final rawElement in elements) {
     final candidate = source.candidateFor(rawElement);
     if (candidate == null) {
+      geometryErrors.add('Skipped ineligible Natural Feature source record.');
       continue;
     }
     if (!candidate.isEligible) {
+      geometryErrors.add('Skipped ineligible Natural Feature candidate.');
       skippedCount += 1;
       continue;
     }
@@ -346,6 +351,7 @@ class _NaturalFeatureCandidate {
 
 class _NaturalFeatureSource {
   _NaturalFeatureSource(this.elements) {
+    final identities = <String>{};
     for (final rawElement in elements) {
       final element = _asObject(rawElement);
       if (element == null) {
@@ -353,6 +359,11 @@ class _NaturalFeatureSource {
       }
       final type = element['type'];
       final id = _positiveId(element['id']);
+      if ((type == 'node' || type == 'way' || type == 'relation') &&
+          id != null &&
+          !identities.add('$type:$id')) {
+        throw const FormatException('Duplicate source OSM feature identity');
+      }
       if (type == 'node' && id != null) {
         final point = _pointFromElement(element);
         if (point != null) {
@@ -444,7 +455,7 @@ class _NaturalFeatureSource {
       final member = _asObject(rawMember);
       if (member == null ||
           member['type'] is! String ||
-          member['ref'] is! int) {
+          _positiveId(member['ref']) == null) {
         return null;
       }
       final type = member['type']! as String;
@@ -555,7 +566,9 @@ int? _positiveId(Object? value) {
 }
 
 List<int>? _nodeReferences(Object? value) {
-  if (value is! List || value.isEmpty || value.any((node) => node is! int)) {
+  if (value is! List ||
+      value.length < 2 ||
+      value.any((node) => _positiveId(node) == null)) {
     return null;
   }
   return value.cast<int>();

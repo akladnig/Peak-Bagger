@@ -162,11 +162,16 @@ class MappingStoreOperationFailure {
     required this.key,
     required Iterable<String> paths,
     required this.retryAction,
+    this.cause,
   }) : paths = List.unmodifiable(_uniquePaths(paths));
 
   final MappingStoreOperationKey key;
   final List<String> paths;
   final Future<void> Function() retryAction;
+  final Object? cause;
+
+  @override
+  String toString() => '${key.description}: ${cause ?? paths.join(', ')}';
 
   Future<void> retry() => retryAction();
 }
@@ -215,12 +220,27 @@ class MappingStoreOperationFileAccess {
 
 /// Coordinates Mapping-store operations after startup without owning feature state.
 class MappingStoreOperationCoordinator extends ChangeNotifier {
+  bool _disposed = false;
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
   final Map<MappingStoreOperationKey, Future<dynamic>> _pending = {};
+  final Set<MappingStoreOperationKey> _succeeded = {};
   final Map<String, Future<void>> _writerTails = {};
   final List<MappingStoreOperationFailure> _failures = [];
   final Map<MappingStoreOperationKey, Future<void> Function()> _retryActions =
       {};
   final Map<MappingStoreOperationKey, List<String>> _failurePaths = {};
+  final Map<MappingStoreOperationKey, Object?> _failureCauses = {};
   bool _isRetrying = false;
 
   List<MappingStoreOperationFailure> get failures =>
@@ -229,6 +249,7 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
       _failures.isEmpty ? null : _failures.first;
   bool get isRetrying => _isRetrying;
   bool isPending(MappingStoreOperationKey key) => _pending.containsKey(key);
+  bool hasSucceeded(MappingStoreOperationKey key) => _succeeded.contains(key);
   MappingStoreOperationFailure? failureFor(MappingStoreOperationKey key) {
     final paths = _failurePaths[key];
     final retry = _retryActions[key];
@@ -239,6 +260,7 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
       key: key,
       paths: paths,
       retryAction: retry,
+      cause: _failureCauses[key],
     );
   }
 
@@ -254,14 +276,18 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
 
     late final Future<T> future;
     future = Future<T>.microtask(() async {
+      notifyListeners();
       try {
         final result = await _runWithWriterLocks(writerTables, action);
+        _succeeded.add(key);
         _removeFailure(key);
         return result;
       } on MappingStoreOperationException catch (error, stackTrace) {
+        _succeeded.remove(key);
         _recordFailure(
           key: key,
           paths: error.paths,
+          cause: error.cause,
           retry: () async {
             await run<T>(key: key, action: action, writerTables: writerTables);
           },
@@ -330,9 +356,17 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
     return result;
   }
 
+  /// Source reads can proceed independently; only table-writing phases join
+  /// these locks, including retries and imports triggered by route requests.
+  Future<T> serializeWrites<T>({
+    required Iterable<String> tables,
+    required Future<T> Function() action,
+  }) => _runWithWriterLocks(tables, action);
+
   void _clearPending(MappingStoreOperationKey key, Future<dynamic> future) {
     if (identical(_pending[key], future)) {
       _pending.remove(key);
+      notifyListeners();
     }
   }
 
@@ -340,13 +374,16 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
     required MappingStoreOperationKey key,
     required Iterable<String> paths,
     required Future<void> Function() retry,
+    Object? cause,
   }) {
     _retryActions[key] = retry;
     _failurePaths[key] = List.unmodifiable(_uniquePaths(paths));
+    _failureCauses[key] = cause;
     final failure = MappingStoreOperationFailure(
       key: key,
       paths: paths,
       retryAction: retry,
+      cause: cause,
     );
     final index = _failures.indexWhere((entry) => entry.key == key);
     if (index == -1) {
@@ -361,6 +398,7 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
     final index = _failures.indexWhere((entry) => entry.key == key);
     _retryActions.remove(key);
     _failurePaths.remove(key);
+    _failureCauses.remove(key);
     if (index == -1) {
       return;
     }

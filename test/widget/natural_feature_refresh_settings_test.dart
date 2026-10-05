@@ -13,6 +13,8 @@ import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/natural_feature_refresh_service.dart';
 import 'package:peak_bagger/services/natural_feature_repository.dart';
+import 'package:peak_bagger/providers/mapping_store_operation_provider.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 
 import '../harness/test_peak_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
@@ -172,6 +174,42 @@ void main() {
 
     expect(find.byType(AlertDialog), findsNothing);
   });
+
+  testWidgets(
+    'Settings source failure enters the shared Mapping dialog with refresh context',
+    (tester) async {
+      await _pumpSettings(
+        tester,
+        runner: () async => throw MappingStoreOperationException(
+          paths: ['Features/tasmania_natural_features.json'],
+          cause: const FormatException('Invalid source'),
+        ),
+      );
+      await _scrollNaturalFeatureTileIntoView(tester);
+      await tester.tap(find.byKey(const Key('refresh-natural-features-tile')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+        find.byKey(const Key('mapping-store-failure-dialog')),
+        findsOneWidget,
+      );
+      expect(find.text('Natural Features refresh'), findsOneWidget);
+      expect(
+        find.text('Features/tasmania_natural_features.json'),
+        findsOneWidget,
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byKey(const Key('shared-app-bar'))),
+      );
+      expect(
+        container
+            .read(mappingStoreOperationCoordinatorProvider)
+            .activeFailure!
+            .key,
+        const MappingStoreOperationKey.naturalFeaturesRefresh(),
+      );
+    },
+  );
 }
 
 Future<void> _pumpSettings(

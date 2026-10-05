@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 
 import 'package:crypto/crypto.dart';
 import 'package:latlong2/latlong.dart';
@@ -39,14 +40,20 @@ class RouteGraphCoverageResolver {
 
   bool get usesMappingCatalog => _catalog != null;
 
+  List<String> sourcePathsForCoverage(String key) => [
+    for (final region in _catalog!.regions)
+      if (region.routingCoverage == key) ...region.highways,
+  ];
+
   Future<List<RouteGraphCoverageImportInput>> resolve() async {
     final catalog = _catalog;
     if (catalog != null) {
       return Future.wait(routingCoverageDefinitions().map(resolveCoverage));
     }
     final loader = _assetLoader;
-    if (loader == null)
+    if (loader == null) {
       throw StateError('Route graph source loader is missing.');
+    }
     final manifest = _decodeManifest(await loader(manifestAssetPath));
     final definitions = _readDefinitions(manifest);
     final sourcesByCoverage = <String, List<_SourceRegion>>{
@@ -162,7 +169,7 @@ class RouteGraphCoverageResolver {
         'routingCoverageKey': definition.key,
         'sourceRegions': hashSourceRegions,
       };
-      _validateSelectedRouteGraphWays(mergedElements);
+      validateSelectedRouteGraphWays(mergedElements);
       final nodeById = _validNodesById(mergedElements);
       if (unavailableFootprint.isEmpty) {
         for (final sourceRegion in sourceRegions) {
@@ -264,10 +271,18 @@ class RouteGraphCoverageResolver {
       final sourceAssets = <RouteGraphCoverageSourceAsset>[];
       final hashSourceAssets = <Object?>[];
       for (final sourcePath in (List<String>.from(region.highways)..sort())) {
-        final overpass = _decodeOverpass(
-          sourcePath,
-          await fileAccess.readText(sourcePath),
-        );
+        late final Map<String, Object?> overpass;
+        try {
+          overpass = _decodeOverpass(
+            sourcePath,
+            await fileAccess.readText(sourcePath),
+          );
+        } on FormatException catch (error) {
+          throw MappingStoreOperationException(
+            paths: [sourcePath],
+            cause: error,
+          );
+        }
         sourceAssets.add(
           RouteGraphCoverageSourceAsset(path: sourcePath, overpass: overpass),
         );
@@ -311,7 +326,7 @@ class RouteGraphCoverageResolver {
         'sourceAssets': hashSourceAssets,
       });
     }
-    _validateSelectedRouteGraphWays(mergedElements);
+    validateSelectedRouteGraphWays(mergedElements);
     final nodeById = _validNodesById(mergedElements);
     return RouteGraphCoverageImportInput(
       definition: RouteGraphCoverageDefinition(
@@ -453,7 +468,7 @@ RouteGraphFootprintBound _footprintForPolygon(List<LatLng> polygon) {
   );
 }
 
-void _validateSelectedRouteGraphWays(List<Object?> elements) {
+void validateSelectedRouteGraphWays(List<Object?> elements) {
   final nodes = <int, Map>{};
   for (final element in elements) {
     if (element is! Map || element['type'] != 'node') continue;
@@ -477,10 +492,23 @@ void _validateSelectedRouteGraphWays(List<Object?> elements) {
     if (element is! Map || element['type'] != 'way') continue;
     final tags = element['tags'];
     if (tags is! Map || tags['area'] == 'yes' || tags['place'] == 'square') {
+      developer.log(
+        'Skipped ineligible route-graph way.',
+        name: 'RouteGraphCoverageResolver',
+      );
       continue;
     }
     final highway = tags['highway'];
-    if (highway is! String || highway.trim().isEmpty) continue;
+    if (!tags.containsKey('highway')) continue;
+    if (highway is! String ||
+        highway.trim().isEmpty ||
+        tags.entries.any(
+          (entry) => entry.key is! String || entry.value is! String,
+        )) {
+      throw const FormatException(
+        'Route graph contains a malformed highway tag.',
+      );
+    }
     final id = element['id'];
     final references = element['nodes'];
     if (id is! int ||
@@ -543,7 +571,8 @@ bool isAcceptedRouteGraphWay(
   final tags = element['tags'];
   final nodes = element['nodes'];
   if (tags is! Map ||
-      tags['highway'] == null ||
+      tags['highway'] is! String ||
+      (tags['highway'] as String).trim().isEmpty ||
       tags['area'] == 'yes' ||
       tags['place'] == 'square' ||
       nodes is! List ||

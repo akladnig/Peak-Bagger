@@ -47,6 +47,9 @@ class ObjectBoxNaturalFeatureStorage implements NaturalFeatureStorage {
     required List<int> deletedIds,
   }) {
     _store.runInTransaction(TxMode.write, () {
+      for (final id in deletedIds) {
+        _box.remove(id);
+      }
       for (var index = 0; index < upserts.length; index++) {
         _box.put(upserts[index]);
         if (failureForTest == NaturalFeatureWriteFailure.afterFirstWrite &&
@@ -55,9 +58,6 @@ class ObjectBoxNaturalFeatureStorage implements NaturalFeatureStorage {
             'Injected failure after the first Natural Feature write',
           );
         }
-      }
-      for (final id in deletedIds) {
-        _box.remove(id);
       }
     });
   }
@@ -102,6 +102,14 @@ class InMemoryNaturalFeatureStorage implements NaturalFeatureStorage {
 
   @override
   int put(NaturalFeature naturalFeature) {
+    if (naturalFeature.sourceRecordKey != null &&
+        _naturalFeatures.any(
+          (existing) =>
+              existing.id != naturalFeature.id &&
+              existing.sourceRecordKey == naturalFeature.sourceRecordKey,
+        )) {
+      throw StateError('Duplicate Natural Feature source identity.');
+    }
     if (naturalFeature.id == 0) {
       naturalFeature.id = _nextId++;
     } else if (naturalFeature.id >= _nextId) {
@@ -132,6 +140,9 @@ class InMemoryNaturalFeatureStorage implements NaturalFeatureStorage {
     final previousFeatures = List<NaturalFeature>.from(_naturalFeatures);
     final previousNextId = _nextId;
     try {
+      for (final id in deletedIds) {
+        remove(id);
+      }
       for (var index = 0; index < upserts.length; index++) {
         put(upserts[index]);
         if (failureForTest == NaturalFeatureWriteFailure.afterFirstWrite &&
@@ -140,9 +151,6 @@ class InMemoryNaturalFeatureStorage implements NaturalFeatureStorage {
             'Injected failure after the first Natural Feature write',
           );
         }
-      }
-      for (final id in deletedIds) {
-        remove(id);
       }
     } catch (_) {
       _naturalFeatures = previousFeatures;
@@ -181,6 +189,10 @@ class NaturalFeatureRepository {
   }
 
   NaturalFeature save(NaturalFeature naturalFeature) {
+    final key =
+        '${naturalFeature.sourceOfTruth}:${naturalFeature.osmType}:${naturalFeature.osmId}';
+    naturalFeature.sourceKey = key;
+    naturalFeature.sourceRecordKey = key;
     naturalFeature.id = _storage.put(naturalFeature);
     return naturalFeature;
   }

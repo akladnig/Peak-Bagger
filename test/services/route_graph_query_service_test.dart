@@ -311,7 +311,7 @@ void main() {
   });
 
   test(
-    'searchNamedWays skips failed occurrences and keeps the first usable one',
+    'searchNamedWays excludes unusable coverage and keeps the first usable occurrence',
     () {
       final diagnostics = <String>[];
       final service = RouteGraphQueryService(
@@ -386,9 +386,9 @@ void main() {
       expect(candidates.single.chunkKey, 'b');
       expect(candidates.single.generation, 2);
       expect(candidates.single.highway, 'path');
-      expect(diagnostics, hasLength(1));
-      expect(diagnostics.single, contains('10'));
-      expect(diagnostics.single, contains('a'));
+      // Empty persisted generations are excluded before search, rather than
+      // being treated as a usable occurrence and diagnosed during geometry lookup.
+      expect(diagnostics, isEmpty);
     },
   );
 
@@ -447,6 +447,7 @@ void main() {
       RouteGraphRepository.test(
         InMemoryRouteGraphStorage(
           manifest: _manifest,
+          chunks: [_chunk('1|0_0', '0_0', -42, 146, -41, 147)],
           wayIndexRows: [
             _wayRow(
               recordKey: '1|0_0|10',

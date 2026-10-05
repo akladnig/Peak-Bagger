@@ -29,7 +29,7 @@ void main() {
               maxLat: -41,
               maxLon: 147,
               elementCount: 0,
-              payloadJson: '{"elements":[]}',
+              payloadJson: _trailPayload,
             ),
             RouteGraphChunk(
               recordKey: '1|0_1',
@@ -40,7 +40,7 @@ void main() {
               maxLat: -41,
               maxLon: 147,
               elementCount: 0,
-              payloadJson: '{"elements":[]}',
+              payloadJson: _trailPayload,
             ),
           ],
           trailDisplayChunks: [
@@ -147,7 +147,7 @@ void main() {
             maxLat: -41,
             maxLon: 147,
             elementCount: 0,
-            payloadJson: '{"elements":[]}',
+            payloadJson: _trailPayload,
           ),
         ],
         trailDisplayChunks: [
@@ -229,8 +229,13 @@ RouteGraphChunk _trailChunk({
   maxLat: -41,
   maxLon: 147,
   elementCount: 0,
-  payloadJson: '{"elements":[]}',
+  payloadJson: _trailPayload,
 );
+
+const _trailPayload =
+    '{"elements":[{"type":"node","id":1,"lat":-41.5,"lon":146.5},'
+    '{"type":"node","id":2,"lat":-41.6,"lon":146.6},'
+    '{"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path"}}]}';
 
 RouteGraphTrailDisplayChunk _trailDisplayChunk({
   required int generation,

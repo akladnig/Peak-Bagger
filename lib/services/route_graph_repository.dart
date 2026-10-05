@@ -13,6 +13,29 @@ import 'route_graph_errors.dart';
 
 const defaultRouteGraphCoverageKey = 'legacy';
 
+/// Chunk overlap duplicates geometry; manifest counts describe unique graph
+/// nodes and ways, not their repeated occurrences in neighboring chunks.
+({int nodes, int ways}) routeGraphPayloadCounts(Iterable<String> payloads) {
+  final nodes = <int>{};
+  final ways = <int>{};
+  for (final text in payloads) {
+    final payload = jsonDecode(text);
+    if (payload is! Map || payload['elements'] is! List) {
+      throw const FormatException('Invalid persisted route graph payload.');
+    }
+    for (final element in payload['elements'] as List) {
+      if (element is! Map ||
+          element['id'] is! int ||
+          (element['id'] as int) <= 0) {
+        throw const FormatException('Invalid persisted graph identity.');
+      }
+      if (element['type'] == 'node') nodes.add(element['id'] as int);
+      if (element['type'] == 'way') ways.add(element['id'] as int);
+    }
+  }
+  return (nodes: nodes.length, ways: ways.length);
+}
+
 class RouteGraphPreparedGeneration {
   const RouteGraphPreparedGeneration({
     required this.generation,
@@ -202,12 +225,11 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
       if (trailDisplayChunks.isNotEmpty) {
         _trailDisplayChunkBox.putMany(trailDisplayChunks);
       }
-      final previousGeneration = previous?.activeGeneration;
-      if (pruneStaleGenerations &&
-          previousGeneration != null &&
-          previousGeneration > 0 &&
-          previousGeneration != manifest.activeGeneration) {
-        _removeGenerationRows(manifest.routingCoverageKey, previousGeneration);
+      if (pruneStaleGenerations) {
+        _removeStaleGenerationRows(
+          manifest.routingCoverageKey,
+          manifest.activeGeneration,
+        );
       }
     });
   }
@@ -259,14 +281,14 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
     );
   }
 
-  void _removeGenerationRows(String coverage, int generation) {
+  void _removeStaleGenerationRows(String coverage, int generation) {
     _chunkBox.removeMany(
       _chunkBox
           .getAll()
           .where(
             (row) =>
                 row.routingCoverageKey == coverage &&
-                row.generation == generation,
+                row.generation != generation,
           )
           .map((row) => row.id)
           .toList(growable: false),
@@ -277,7 +299,7 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
           .where(
             (row) =>
                 row.routingCoverageKey == coverage &&
-                row.generation == generation,
+                row.generation != generation,
           )
           .map((row) => row.id)
           .toList(growable: false),
@@ -288,7 +310,7 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
           .where(
             (row) =>
                 row.routingCoverageKey == coverage &&
-                row.generation == generation,
+                row.generation != generation,
           )
           .map((row) => row.id)
           .toList(growable: false),
@@ -469,30 +491,25 @@ class InMemoryRouteGraphStorage implements RouteGraphStorage {
     _validateGenerationRows(manifest, chunks, wayIndexRows, trailDisplayChunks);
     final coverage = manifest.routingCoverageKey;
     final nextManifest = manifest;
-    final previous = _manifests[coverage];
     _manifests[coverage] = nextManifest;
     _chunks = [..._chunks, ...chunks];
     _wayIndexRows = [..._wayIndexRows, ...wayIndexRows];
     _trailDisplayChunks = [..._trailDisplayChunks, ...trailDisplayChunks];
-    final previousGeneration = previous?.activeGeneration;
-    if (pruneStaleGenerations &&
-        previousGeneration != null &&
-        previousGeneration > 0 &&
-        previousGeneration != nextManifest.activeGeneration) {
+    if (pruneStaleGenerations) {
       _chunks.removeWhere(
         (row) =>
             row.routingCoverageKey == coverage &&
-            row.generation == previousGeneration,
+            row.generation != nextManifest.activeGeneration,
       );
       _wayIndexRows.removeWhere(
         (row) =>
             row.routingCoverageKey == coverage &&
-            row.generation == previousGeneration,
+            row.generation != nextManifest.activeGeneration,
       );
       _trailDisplayChunks.removeWhere(
         (row) =>
             row.routingCoverageKey == coverage &&
-            row.generation == previousGeneration,
+            row.generation != nextManifest.activeGeneration,
       );
     }
   }
@@ -543,8 +560,27 @@ class InMemoryRouteGraphStorage implements RouteGraphStorage {
         ? defaultRouteGraphCoverageKey
         : manifest.routingCoverageKey;
     final generation = manifest.activeGeneration;
+    // Legacy in-memory snapshots have no recorded source-count contract. Derive
+    // their counts from their actual fixture geometry, as for row counts below.
+    // Explicit persisted fixtures (id == manifestId) are never normalized.
+    ({int nodes, int ways})? fixtureCounts;
+    try {
+      fixtureCounts = routeGraphPayloadCounts(
+        _chunks
+            .where(
+              (row) =>
+                  row.routingCoverageKey == coverage &&
+                  row.generation == generation,
+            )
+            .map((row) => row.payloadJson),
+      );
+    } on FormatException {
+      // Keep corrupt fixtures corrupt so production usability rejects them.
+    }
     return manifest.copyWith(
       routingCoverageKey: coverage,
+      nodeCount: fixtureCounts?.nodes,
+      edgeCount: fixtureCounts?.ways,
       // In-memory fixtures predate coverage-qualified count fields.
       // Production storage never takes this compatibility path.
       chunkCount: _chunks
@@ -692,7 +728,29 @@ class RouteGraphRepository {
     final chunks = _storage.activeChunks(coverage);
     final wayIndexRows = _storage.activeWayIndexRows(coverage);
     final trailDisplayChunks = _storage.activeTrailDisplayChunks(coverage);
-    return chunks.length == manifest!.chunkCount &&
+    if (manifest!.chunkCount <= 0 ||
+        manifest.nodeCount <= 0 ||
+        manifest.edgeCount <= 0) {
+      return false;
+    }
+    final cache = _cacheFor(coverage);
+    final payloads = [for (final row in chunks) row.payloadJson];
+    if (cache.countPayloads == null ||
+        cache.countPayloads!.length != payloads.length ||
+        [
+          for (var i = 0; i < payloads.length; i++)
+            cache.countPayloads![i] == payloads[i],
+        ].any((same) => !same)) {
+      try {
+        cache.counts = routeGraphPayloadCounts(payloads);
+        cache.countPayloads = payloads;
+      } on FormatException {
+        return false;
+      }
+    }
+    return cache.counts!.nodes == manifest.nodeCount &&
+        cache.counts!.ways == manifest.edgeCount &&
+        chunks.length == manifest.chunkCount &&
         wayIndexRows.length == manifest.wayIndexCount &&
         trailDisplayChunks.length == manifest.trailDisplayChunkCount &&
         chunks.every(
@@ -814,8 +872,12 @@ class RouteGraphRepository {
     final footprint = previous?.unavailableFootprint ?? unavailableFootprint;
     await _storage.markFailure(
       base.copyWith(
-        sourceHash: sourceHash,
-        schemaVersion: schemaVersion,
+        sourceHash: previous?.hasActiveGeneration == true
+            ? previous!.sourceHash
+            : sourceHash,
+        schemaVersion: previous?.hasActiveGeneration == true
+            ? previous!.schemaVersion
+            : schemaVersion,
         importedAt: previous?.importedAt ?? DateTime.now().toUtc(),
         readinessState: previous?.hasActiveGeneration == true
             ? RouteGraphManifest.readinessReady
@@ -929,6 +991,8 @@ class RouteGraphRepository {
         ..chunks = null
         ..wayIndexRows = null
         ..trailDisplayChunks = null;
+      cache.countPayloads = null;
+      cache.counts = null;
     }
     return cache;
   }
@@ -939,6 +1003,25 @@ class RouteGraphRepository {
     RouteGraphPreparedGeneration prepared, {
     required String routingCoverageKey,
   }) {
+    if (prepared.chunks.any(
+          (row) =>
+              row.routingCoverageKey.isNotEmpty &&
+              row.routingCoverageKey != routingCoverageKey,
+        ) ||
+        prepared.wayIndexRows.any(
+          (row) =>
+              row.routingCoverageKey.isNotEmpty &&
+              row.routingCoverageKey != routingCoverageKey,
+        ) ||
+        prepared.trailDisplayChunks.any(
+          (row) =>
+              row.routingCoverageKey.isNotEmpty &&
+              row.routingCoverageKey != routingCoverageKey,
+        )) {
+      throw StateError(
+        'Route-graph rows do not match their coverage generation.',
+      );
+    }
     return RouteGraphPreparedGeneration(
       generation: prepared.generation,
       sourceHash: prepared.sourceHash,
@@ -987,6 +1070,8 @@ class RouteGraphRepository {
 }
 
 class _RouteGraphCoverageCache {
+  List<String>? countPayloads;
+  ({int nodes, int ways})? counts;
   int? generation;
   List<RouteGraphChunk>? chunks;
   List<RouteGraphWayIndex>? wayIndexRows;

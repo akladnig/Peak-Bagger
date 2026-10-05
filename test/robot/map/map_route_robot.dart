@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
@@ -601,8 +602,24 @@ class TrailRouteGraphStore
             minLon: 146.0,
             maxLat: -41.0,
             maxLon: 147.0,
-            elementCount: 0,
-            payloadJson: '{"elements":[]}',
+            elementCount: points.length + 1,
+            payloadJson: jsonEncode({
+              'elements': [
+                for (var i = 0; i < points.length; i++)
+                  {
+                    'type': 'node',
+                    'id': i + 1,
+                    'lat': points[i].latitude,
+                    'lon': points[i].longitude,
+                  },
+                {
+                  'type': 'way',
+                  'id': 10,
+                  'nodes': [for (var i = 0; i < points.length; i++) i + 1],
+                  'tags': {'highway': 'path'},
+                },
+              ],
+            }),
           ),
         ],
         wayIndexRows: const [],

@@ -1127,7 +1127,7 @@
     },
     {
       "id": "16:4873570092347596398",
-      "lastPropertyId": "17:4062087676225271519",
+      "lastPropertyId": "18:8895360326946859874",
       "name": "NaturalFeature",
       "properties": [
         {
@@ -1215,6 +1215,13 @@
           "id": "17:4062087676225271519",
           "name": "sourceKey",
           "type": 9
+        },
+        {
+          "id": "18:8895360326946859874",
+          "name": "sourceRecordKey",
+          "indexId": "29:655196580284660726",
+          "type": 9,
+          "flags": 2080
         }
       ],
       "relations": []
@@ -1247,7 +1254,7 @@
     }
   ],
   "lastEntityId": "17:4224728018239922669",
-  "lastIndexId": "28:2425893039382816013",
+  "lastIndexId": "29:655196580284660726",
   "lastRelationId": "1:8194382659905112901",
   "lastSequenceId": "0:0",
   "modelVersion": 5,

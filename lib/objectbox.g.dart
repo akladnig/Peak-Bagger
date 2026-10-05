@@ -1334,7 +1334,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(16, 4873570092347596398),
     name: 'NaturalFeature',
-    lastPropertyId: const obx_int.IdUid(17, 4062087676225271519),
+    lastPropertyId: const obx_int.IdUid(18, 8895360326946859874),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -1439,6 +1439,13 @@ final _entities = <obx_int.ModelEntity>[
         type: 9,
         flags: 0,
       ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(18, 8895360326946859874),
+        name: 'sourceRecordKey',
+        type: 9,
+        flags: 2080,
+        indexId: const obx_int.IdUid(29, 655196580284660726),
+      ),
     ],
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
@@ -1518,7 +1525,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
     lastEntityId: const obx_int.IdUid(17, 4224728018239922669),
-    lastIndexId: const obx_int.IdUid(28, 2425893039382816013),
+    lastIndexId: const obx_int.IdUid(29, 655196580284660726),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
     retiredEntityUids: const [],
@@ -3257,7 +3264,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final osmTypeOffset = fbb.writeString(object.osmType);
         final sourceOfTruthOffset = fbb.writeString(object.sourceOfTruth);
         final sourceKeyOffset = fbb.writeString(object.sourceKey);
-        fbb.startTable(18);
+        final sourceRecordKeyOffset = object.sourceRecordKey == null
+            ? null
+            : fbb.writeString(object.sourceRecordKey!);
+        fbb.startTable(19);
         fbb.addInt64(0, object.id);
         fbb.addOffset(1, nameOffset);
         fbb.addOffset(2, altNameOffset);
@@ -3275,6 +3285,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addOffset(14, osmTypeOffset);
         fbb.addOffset(15, sourceOfTruthOffset);
         fbb.addOffset(16, sourceKeyOffset);
+        fbb.addOffset(17, sourceRecordKeyOffset);
         fbb.finish(fbb.endTable());
         return object.id;
       },
@@ -3344,6 +3355,9 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final sourceKeyParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 36, '');
+        final sourceRecordKeyParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 38);
         final object = NaturalFeature(
           id: idParam,
           name: nameParam,
@@ -3362,6 +3376,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
           osmType: osmTypeParam,
           sourceOfTruth: sourceOfTruthParam,
           sourceKey: sourceKeyParam,
+          sourceRecordKey: sourceRecordKeyParam,
         );
 
         return object;
@@ -4474,6 +4489,11 @@ class NaturalFeature_ {
   /// See [NaturalFeature.sourceKey].
   static final sourceKey = obx.QueryStringProperty<NaturalFeature>(
     _entities[15].properties[16],
+  );
+
+  /// See [NaturalFeature.sourceRecordKey].
+  static final sourceRecordKey = obx.QueryStringProperty<NaturalFeature>(
+    _entities[15].properties[17],
   );
 }
 

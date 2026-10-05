@@ -84,12 +84,16 @@ final mappingStoreBootstrapProvider = FutureProvider<void>((ref) {
 });
 
 class NaturalFeatureAvailability {
-  const NaturalFeatureAvailability._(this.reason);
+  const NaturalFeatureAvailability._(this.reason, this.retryKey);
 
-  const NaturalFeatureAvailability.available() : this._(null);
-  const NaturalFeatureAvailability.unavailable(String reason) : this._(reason);
+  const NaturalFeatureAvailability.available() : this._(null, null);
+  const NaturalFeatureAvailability.unavailable(
+    String reason, {
+    MappingStoreOperationKey? retryKey,
+  }) : this._(reason, retryKey);
 
   final String? reason;
+  final MappingStoreOperationKey? retryKey;
   bool get isAvailable => reason == null;
 }
 
@@ -100,20 +104,31 @@ final naturalFeatureAvailabilityProvider = Provider<NaturalFeatureAvailability>(
   if (!ref.watch(naturalFeatureBootstrapEnabledProvider)) {
     return const NaturalFeatureAvailability.available();
   }
+  final coordinator = ref.watch(mappingStoreOperationCoordinatorProvider);
+  for (final key in const [
+    MappingStoreOperationKey.naturalFeaturesRefresh(),
+    MappingStoreOperationKey.naturalFeaturesBootstrap(),
+  ]) {
+    final failure = coordinator.failureFor(key);
+    if (failure != null) {
+      return NaturalFeatureAvailability.unavailable(
+        failure.toString(),
+        retryKey: coordinator.isPending(key) ? null : key,
+      );
+    }
+  }
   final repository = ref.watch(naturalFeatureRepositoryProvider);
   if (!repository.isEmpty()) {
     return const NaturalFeatureAvailability.available();
   }
-  final coordinator = ref.watch(mappingStoreOperationCoordinatorProvider);
   const key = MappingStoreOperationKey.naturalFeaturesBootstrap();
+  if (coordinator.hasSucceeded(key)) {
+    return const NaturalFeatureAvailability.available();
+  }
   if (coordinator.isPending(key)) {
     return const NaturalFeatureAvailability.unavailable(
       'Natural Features are loading from the Mapping data store.',
     );
-  }
-  final failure = coordinator.failureFor(key);
-  if (failure != null) {
-    return NaturalFeatureAvailability.unavailable(failure.toString());
   }
   return const NaturalFeatureAvailability.unavailable(
     'Natural Features are unavailable until their Mapping data store bootstrap completes.',

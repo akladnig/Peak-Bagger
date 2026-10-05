@@ -369,11 +369,10 @@ Map<String, Object?> _prepareGeneration(
   if (elements is! List) {
     throw const RouteGraphLoadException('Expected top-level "elements" list.');
   }
+  validateSelectedRouteGraphWays(elements.cast<Object?>());
 
   final nodeMap = <int, Map<String, dynamic>>{};
   final wayMaps = <Map<String, dynamic>>[];
-  var nodeCount = 0;
-  var edgeCount = 0;
 
   for (final element in elements) {
     if (element is! Map) {
@@ -393,7 +392,6 @@ Map<String, Object?> _prepareGeneration(
           ..['id'] = id
           ..['lat'] = lat
           ..['lon'] = lon;
-        nodeCount += 1;
         break;
       case 'way':
         final tags = typed['tags'];
@@ -402,13 +400,15 @@ Map<String, Object?> _prepareGeneration(
             tags['area'] != 'yes' &&
             tags['place'] != 'square') {
           wayMaps.add(typed);
-          edgeCount += 1;
         }
         break;
     }
   }
 
   final prepared = _buildChunksAndWayIndexRows(nodeMap, wayMaps, generation);
+  final counts = routeGraphPayloadCounts(
+    prepared.chunks.map((row) => row['payloadJson'] as String),
+  );
 
   return {
     'generation': generation,
@@ -416,8 +416,8 @@ Map<String, Object?> _prepareGeneration(
     'schemaVersion': schemaVersion,
     'importedAtMillis': DateTime.now().toUtc().millisecondsSinceEpoch,
     'chunkCount': prepared.chunks.length,
-    'nodeCount': nodeCount,
-    'edgeCount': edgeCount,
+    'nodeCount': counts.nodes,
+    'edgeCount': counts.ways,
     'chunks': prepared.chunks,
     'wayIndexRows': prepared.wayIndexRows,
     'trailDisplayChunks': prepared.trailDisplayChunks,
