@@ -2100,7 +2100,7 @@ class MapNotifier extends Notifier<MapState> {
           if (track.gpxTrackId != 0) track.gpxTrackId: _cloneTrack(track),
       };
       final surfaceNotifications = resetExisting || state.tracks.isNotEmpty;
-      final importer = GpxImporter();
+      final importer = GpxImporter(mappingCatalog: mappingCatalog);
       final filterConfig = await ref.read(gpxFilterSettingsProvider.future);
       final result = await importer.importTracks(
         includeTasmaniaFolder: includeTasmaniaFolder,
@@ -2239,7 +2239,7 @@ class MapNotifier extends Notifier<MapState> {
         reportProgress(currentFileName: p.basename(orderedPaths.first));
       }
 
-      final importer = GpxImporter();
+      final importer = GpxImporter(mappingCatalog: mappingCatalog);
       final plan = await importer.planSelectiveImport(
         paths: pathToEditedNames.keys.toList(),
         pathToEditedNames: pathToEditedNames,
@@ -2572,7 +2572,7 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(isLoadingTracks: true, clearTrackImportError: true);
     final operations =
         _injectedManagedFileOperations ??
-        IoGpxManagedFileOperations(GpxImporter());
+        IoGpxManagedFileOperations(GpxImporter(mappingCatalog: mappingCatalog));
     try {
       if (operations.fileExists(issue.destinationPath)) {
         await operations.restoreIncomingFile(
@@ -2623,7 +2623,7 @@ class MapNotifier extends Notifier<MapState> {
     );
 
     try {
-      final importer = GpxImporter();
+      final importer = GpxImporter(mappingCatalog: mappingCatalog);
       final addedItems = <GpxRouteImportItem>[];
       var errorCount = 0;
       final totalCount = pathToEditedNames.length;

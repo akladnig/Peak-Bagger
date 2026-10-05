@@ -1,17 +1,18 @@
-import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/services/polygon_asset_repository.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
+import '../fixtures/polygon_mapping_store.dart';
 
 void main() {
   test('parsePolygonAsset reads a Tasmania fixture polygon', () {
     final result = parsePolygonAsset(
       _tasmaniaPolygon,
-      assetPath: 'assets/polygons/tasmania.poly',
+      assetPath: 'Polygons/tasmania.poly',
     );
 
     expect(result.isSuccess, isTrue);
-    expect(result.asset!.assetPath, 'assets/polygons/tasmania.poly');
+    expect(result.asset!.assetPath, 'Polygons/tasmania.poly');
     expect(result.asset!.name, 'none');
     expect(result.asset!.points, hasLength(8));
     expect(result.asset!.points.first, const LatLng(-44.0, 148.8867));
@@ -20,11 +21,11 @@ void main() {
   test('parsePolygonAsset reads a Croatia fixture polygon', () {
     final result = parsePolygonAsset(
       _croatiaPolygon,
-      assetPath: 'assets/polygons/croatia.poly',
+      assetPath: 'Polygons/croatia.poly',
     );
 
     expect(result.isSuccess, isTrue);
-    expect(result.asset!.assetPath, 'assets/polygons/croatia.poly');
+    expect(result.asset!.assetPath, 'Polygons/croatia.poly');
     expect(result.asset!.name, 'none');
     expect(result.asset!.points, isNotEmpty);
     expect(result.asset!.points.first, const LatLng(42.43746, 18.51463));
@@ -33,38 +34,153 @@ void main() {
   test('parsePolygonAsset rejects malformed coordinates', () {
     final result = parsePolygonAsset(
       'none\n1\ninvalid line\nEND\nEND\n',
-      assetPath: 'assets/polygons/broken.poly',
+      assetPath: 'Polygons/broken.poly',
     );
 
     expect(result.isSuccess, isFalse);
-    expect(result.error, contains('assets/polygons/broken.poly'));
+    expect(result.error, contains('Polygons/broken.poly'));
     expect(result.error, contains('invalid coordinate line'));
   });
 
-  test('loadPolygons filters asset manifest polygon paths', () async {
-    final repository = PolygonAssetRepository(
-      assetLoader: (assetPath) async {
-        return switch (assetPath) {
-          'assets/polygons/manifest.json' => jsonEncode([
-            'assets/polygons/alpha.poly',
-            'assets/polygons/tasmania.poly',
-            'assets/peak_marker.svg',
-          ]),
-          'assets/polygons/alpha.poly' =>
-            'none\n1\n0 0\n1 0\n1 1\n0 0\nEND\nEND\n',
-          'assets/polygons/tasmania.poly' => _tasmaniaPolygon,
-          _ => throw StateError('Unexpected asset: $assetPath'),
-        };
-      },
-    );
-
-    final polygons = await repository.loadPolygons();
-
-    expect(polygons, hasLength(2));
-    expect(polygons.first.assetPath, 'assets/polygons/alpha.poly');
-    expect(polygons.last.assetPath, 'assets/polygons/tasmania.poly');
-    expect(polygons.first.points, hasLength(3));
+  test('display parser rejects non-finite and out-of-bounds coordinates', () {
+    for (final coordinate in ['NaN 0', 'Infinity 0', '181 0', '0 -91']) {
+      expect(
+        parsePolygonAsset(
+          'none\n1\n$coordinate\n1 0\n1 1\nEND\nEND\n',
+          assetPath: 'Polygons/broken.poly',
+        ).isSuccess,
+        isFalse,
+      );
+    }
   });
+
+  test(
+    'startup and repository creation never inspect optional targets',
+    () async {
+      final store = PolygonMappingStore();
+      final catalog = await store.loadCatalog();
+      final repository = PolygonAssetRepository(
+        catalog: catalog,
+        fileSystem: store,
+      );
+      final optional =
+          '${PolygonMappingStore.root}/${PolygonMappingStore.optionalPath}';
+      expect(repository.paths, contains(PolygonMappingStore.optionalPath));
+      expect(store.resolutions, isNot(contains(optional)));
+      expect(store.checks, isNot(contains(optional)));
+      expect(store.reads, isNot(contains(optional)));
+      await expectLater(
+        repository.loadPolygon(PolygonMappingStore.optionalPath),
+        throwsA(isA<MappingStoreOperationException>()),
+      );
+      store.repairOptional();
+      final polygon = await repository.loadPolygon(
+        PolygonMappingStore.optionalPath,
+      );
+      expect(polygon.assetPath, PolygonMappingStore.optionalPath);
+      expect(polygon.points, hasLength(3));
+    },
+  );
+
+  test('unlisted and unsafe requests never reach the reader', () async {
+    final store = PolygonMappingStore();
+    final repository = PolygonAssetRepository(
+      catalog: await store.loadCatalog(),
+      fileSystem: store,
+    );
+    store.reads.clear();
+    for (final path in [
+      'Polygons/unlisted.poly',
+      '/tmp/evil.poly',
+      'Polygons/../evil.poly',
+      'Polygons/./optional.poly',
+      r'Polygons\optional.poly',
+      '',
+    ]) {
+      await expectLater(
+        repository.loadPolygon(path),
+        throwsA(isA<MappingStoreOperationException>()),
+      );
+    }
+    expect(store.reads, isEmpty);
+  });
+
+  test(
+    'symlink changed after preflight is revalidated before a display read',
+    () async {
+      final store = PolygonMappingStore()..repairOptional();
+      final repository = PolygonAssetRepository(
+        catalog: await store.loadCatalog(),
+        fileSystem: store,
+      );
+      final optional =
+          '${PolygonMappingStore.root}/${PolygonMappingStore.optionalPath}';
+      expect(
+        await repository.loadPolygon(PolygonMappingStore.optionalPath),
+        isNotNull,
+      );
+      store.reads.clear();
+      store.symlinks[optional] = '/outside/optional.poly';
+      store.files['/outside/optional.poly'] = polygonText;
+      await expectLater(
+        repository.loadPolygon(PolygonMappingStore.optionalPath),
+        throwsA(isA<MappingStoreOperationException>()),
+      );
+      expect(store.reads, isEmpty);
+      store.symlinks[optional] =
+          '${PolygonMappingStore.root}/Polygons/tasmania.poly';
+      expect(
+        await repository.loadPolygon(PolygonMappingStore.optionalPath),
+        isNotNull,
+      );
+      expect(
+        store.reads.single,
+        '${PolygonMappingStore.root}/Polygons/tasmania.poly',
+      );
+    },
+  );
+
+  test(
+    'unreadable, read errors, and malformed sources are typed path failures',
+    () async {
+      final store = PolygonMappingStore()..repairOptional();
+      final repository = PolygonAssetRepository(
+        catalog: await store.loadCatalog(),
+        fileSystem: store,
+      );
+      final optional =
+          '${PolygonMappingStore.root}/${PolygonMappingStore.optionalPath}';
+      final failure = throwsA(
+        isA<MappingStoreOperationException>().having(
+          (error) => error.paths,
+          'paths',
+          [PolygonMappingStore.optionalPath],
+        ),
+      );
+      store.unreadable.add(optional);
+      await expectLater(
+        repository.loadPolygon(PolygonMappingStore.optionalPath),
+        failure,
+      );
+      store.unreadable.clear();
+      store.optionalReadError = StateError('Read failed after metadata check');
+      await expectLater(
+        repository.loadPolygon(PolygonMappingStore.optionalPath),
+        failure,
+      );
+      store.optionalReadError = null;
+      store.files[optional] = 'malformed';
+      await expectLater(
+        repository.loadPolygon(PolygonMappingStore.optionalPath),
+        failure,
+      );
+      store.files[optional] = 'none\n1\ninvalid line\nEND\nEND\n';
+      await expectLater(
+        repository.loadPolygon(PolygonMappingStore.optionalPath),
+        failure,
+      );
+    },
+  );
 }
 
 const _tasmaniaPolygon = '''

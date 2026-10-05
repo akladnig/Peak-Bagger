@@ -1978,12 +1978,11 @@ END
 END
 ''';
       final importer = GpxImporter(
-        polygonAssetRepository: PolygonAssetRepository(
+        polygonAssetRepository: PolygonAssetRepository.test(
+          paths: ['Polygons/italy-nord-est.poly'],
           assetLoader: (assetPath) async {
             return switch (assetPath) {
-              'assets/polygons/manifest.json' =>
-                '["assets/polygons/italy-nord-est.poly"]',
-              'assets/polygons/italy-nord-est.poly' => italyPolygon,
+              'Polygons/italy-nord-est.poly' => italyPolygon,
               _ => throw Exception('Unexpected asset: $assetPath'),
             };
           },
@@ -2015,7 +2014,8 @@ END
           ..writeAsStringSync(_tasmanianGpx('Lake Skinner'));
 
         final importer = GpxImporter(
-          polygonAssetRepository: PolygonAssetRepository(
+          polygonAssetRepository: PolygonAssetRepository.test(
+            paths: [],
             assetLoader: (_) async => throw Exception('No polygon assets'),
           ),
         );

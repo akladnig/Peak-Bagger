@@ -80,10 +80,17 @@ class MappingStoreOperationKey {
     'geometryVersion': _requiredParameter('geometryVersion', geometryVersion),
   });
 
-  factory MappingStoreOperationKey.polygonDisplay(String path) =>
-      MappingStoreOperationKey._(MappingStoreOperationKind.polygonDisplay, {
-        'path': _requiredParameter('path', path),
-      });
+  factory MappingStoreOperationKey.polygonDisplay(String path) {
+    if (!_isSafeRelativePath(path) || !path.endsWith('.poly')) {
+      throw ArgumentError.value(path, 'path', 'must be a safe polygon path');
+    }
+    // Manifest entries are already canonical relative paths. Whitespace can
+    // be part of a filename; trimming would merge distinct allowlisted files.
+    return MappingStoreOperationKey._(
+      MappingStoreOperationKind.polygonDisplay,
+      {'path': path},
+    );
+  }
 
   final MappingStoreOperationKind kind;
   final Map<String, String> parameters;

@@ -14,6 +14,7 @@ import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_storage_destination_resolver.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/polygon_asset_repository.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
@@ -105,12 +106,13 @@ class GpxImporter {
     String? tasmaniaFolder,
     String? routesFolder,
     PolygonAssetRepository? polygonAssetRepository,
+    MappingCatalog? mappingCatalog,
   }) : tracksFolder = tracksFolder ?? _defaultTracksFolder(),
        tasmaniaFolder = tasmaniaFolder ?? _defaultTasmaniaFolder(),
        routesFolder = routesFolder ?? _defaultRoutesFolder(),
        _storageDestinationResolver = GpxStorageDestinationResolver(
-         polygonAssetRepository:
-             polygonAssetRepository ?? PolygonAssetRepository(),
+         polygonAssetRepository: polygonAssetRepository,
+         mappingCatalog: mappingCatalog,
        );
 
   static String _defaultTracksFolder() {

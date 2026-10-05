@@ -2,6 +2,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/models/map_polygon_asset.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/services/polygon_asset_repository.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
 
@@ -34,11 +35,12 @@ class GpxStorageDestination {
 
 class GpxStorageDestinationResolver {
   GpxStorageDestinationResolver({
-    PolygonAssetRepository? polygonAssetRepository,
-  }) : _polygonAssetRepository =
-           polygonAssetRepository ?? PolygonAssetRepository();
+    this.polygonAssetRepository,
+    this.mappingCatalog,
+  });
 
-  final PolygonAssetRepository _polygonAssetRepository;
+  final PolygonAssetRepository? polygonAssetRepository;
+  final MappingCatalog? mappingCatalog;
   List<MapPolygonAsset>? _polygonCache;
 
   Future<GpxStorageDestination?> resolveForPoint(LatLng point) async {
@@ -60,7 +62,17 @@ class GpxStorageDestinationResolver {
   }
 
   Future<List<MapPolygonAsset>> _loadPolygonAssets() async {
-    _polygonCache ??= await _polygonAssetRepository.loadPolygons();
+    _polygonCache ??= mappingCatalog != null
+        ? [
+            for (final region in mappingCatalog!.regions)
+              for (var index = 0; index < region.polyPaths.length; index++)
+                MapPolygonAsset(
+                  assetPath: region.polyPaths[index],
+                  name: region.name,
+                  points: region.polygons[index],
+                ),
+          ]
+        : await polygonAssetRepository?.loadPolygons() ?? const [];
     return _polygonCache!;
   }
 

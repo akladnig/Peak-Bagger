@@ -18,6 +18,8 @@ import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/overpass_service.dart';
@@ -128,6 +130,7 @@ class MapRouteRobot {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          mappingCatalogProvider.overrideWithValue(testMappingCatalog),
           mapProvider.overrideWith(() => _mapNotifier),
           routeGraphReadinessProvider.overrideWith(
             () => _ReadyRouteGraphReadinessNotifier(),
@@ -142,7 +145,7 @@ class MapRouteRobot {
           tasmapRepositoryProvider.overrideWithValue(_tasmapRepository),
           ...providerOverrides,
         ],
-        child: const App(),
+        child: App(router: router),
       ),
     );
     await tester.pump();
@@ -154,6 +157,56 @@ class MapRouteRobot {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> showPolygonBoundaries() async {
+    final readyContainer = container();
+    router.go('/settings');
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('show-polygons-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.ensureVisible(find.byKey(const Key('show-polygons-tile')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('show-polygons-switch')));
+    await tester.pumpAndSettle();
+    expect(readyContainer.read(showPolygonsSettingsProvider), isTrue);
+    await openMap();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> dismissMappingFailure() async {
+    await tester.tap(find.byKey(const Key('mapping-store-failure-dismiss')));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> retryMapSelectionMapping() async {
+    await tester.tap(
+      find.byKey(const Key('map-selection-mapping-unavailable-retry')),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  void expectPolygonGeometryVisible() {
+    expect(find.byKey(const Key('asset-polygon-layer')), findsOneWidget);
+  }
+
+  void expectMapSelectionUnavailable({required bool unavailable}) {
+    expect(
+      find.byKey(const Key('map-selection-mapping-unavailable')),
+      unavailable ? findsOneWidget : findsNothing,
+    );
+    expect(
+      find.byKey(const Key('map-selection-mapping-unavailable-retry')),
+      unavailable ? findsOneWidget : findsNothing,
+    );
   }
 
   Future<void> enterRouteMode() async {
@@ -183,6 +236,12 @@ class MapRouteRobot {
 
   Future<void> tapRoutePoint(Offset offset) async {
     await tester.tapAt(tester.getCenter(mapInteractionRegion) + offset);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> selectMapLocation(Offset offset) async {
+    await tapRoutePoint(offset);
+    await tester.tap(find.byKey(const Key('map-tap-action-drop-marker')));
     await tester.pumpAndSettle();
   }
 

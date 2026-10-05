@@ -4,6 +4,7 @@ import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/services/gpx_export_service.dart';
 import 'package:peak_bagger/services/gpx_storage_destination_resolver.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 
 final gpxExportServiceProvider = Provider<GpxExportService>((ref) {
   final routeElevationSampler = ref.watch(routeElevationSamplerProvider);
@@ -18,6 +19,8 @@ final gpxExportServiceProvider = Provider<GpxExportService>((ref) {
         elevationMeters: settings.elevationMeters,
       );
     },
-    storageDestinationResolver: GpxStorageDestinationResolver(),
+    storageDestinationResolver: GpxStorageDestinationResolver(
+      mappingCatalog: ref.watch(mappingCatalogProvider),
+    ),
   );
 });

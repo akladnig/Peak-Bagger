@@ -100,7 +100,10 @@ void main() {
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
           polygonAssetRepositoryProvider.overrideWithValue(
-            PolygonAssetRepository(assetLoader: _polygonAssetLoader),
+            PolygonAssetRepository.test(
+              paths: ['Polygons/test.poly'],
+              assetLoader: _polygonAssetLoader,
+            ),
           ),
           showPolygonsSettingsProvider.overrideWith(
             () => _TestShowPolygonsNotifier(true),
@@ -330,7 +333,8 @@ void main() {
           ),
         );
 
-        final initialRefreshes = MapRebuildDebugCounters.peakListDerivedRefreshes;
+        final initialRefreshes =
+            MapRebuildDebugCounters.peakListDerivedRefreshes;
         final initialBuilds = MapRebuildDebugCounters.peakProjectionBuilds;
         final region = find.byKey(const Key('map-interaction-region'));
         final gesture = await tester.startGesture(
@@ -442,7 +446,10 @@ void main() {
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
           polygonAssetRepositoryProvider.overrideWithValue(
-            PolygonAssetRepository(assetLoader: _polygonAssetLoader),
+            PolygonAssetRepository.test(
+              paths: ['Polygons/test.poly'],
+              assetLoader: _polygonAssetLoader,
+            ),
           ),
           showPolygonsSettingsProvider.overrideWith(() => polygonToggle),
         ],
@@ -549,7 +556,8 @@ Future<void> _pumpMapApp(
       overrides: [
         mapProvider.overrideWith(() => TestMapNotifier(state)),
         peakListRepositoryProvider.overrideWithValue(
-          peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
+          peakListRepository ??
+              PeakListRepository.test(InMemoryPeakListStorage()),
         ),
       ],
       child: const App(),
@@ -564,8 +572,7 @@ Future<void> _pumpMapApp(
 
 Future<String> _polygonAssetLoader(String assetPath) async {
   return switch (assetPath) {
-    'assets/polygons/manifest.json' => '["assets/polygons/test.poly"]',
-    'assets/polygons/test.poly' => 'none\n1\n0 0\n1 0\n1 1\n0 0\nEND\nEND\n',
+    'Polygons/test.poly' => 'none\n1\n0 0\n1 0\n1 1\n0 0\nEND\nEND\n',
     _ => throw StateError('Unexpected polygon asset: $assetPath'),
   };
 }

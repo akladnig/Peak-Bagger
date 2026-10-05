@@ -99,7 +99,7 @@ class MappingCatalogCacheSource {
 class MappingCatalogCache {
   MappingCatalogCache(this.directoryPath);
 
-  static const schemaVersion = 1;
+  static const schemaVersion = 2;
   static const _fileName = 'mapping_catalog_geometry.json';
 
   final String directoryPath;
@@ -309,7 +309,9 @@ class MappingCatalog {
     required this.naturalFeaturesCatalogPath,
     required Map<String, String> demSources,
     required Map<String, List<String>> routingCoverageRegionKeys,
+    Iterable<String> polygonDisplayPaths = const [],
   }) : regions = List.unmodifiable(regions),
+       polygonDisplayPaths = Set.unmodifiable(polygonDisplayPaths),
        basemaps = List.unmodifiable(basemaps),
        demSources = Map.unmodifiable(demSources),
        routingCoverageRegionKeys = Map.unmodifiable({
@@ -320,6 +322,10 @@ class MappingCatalog {
        _basemapsByKey = {for (final basemap in basemaps) basemap.key: basemap};
 
   final String rootPath;
+
+  /// Structurally validated entries from Polygons/manifest.json. Optional
+  /// entries have not been resolved, opened, or parsed during startup.
+  final Set<String> polygonDisplayPaths;
   final List<MappingCatalogRegion> regions;
   final List<MappingCatalogBasemap> basemaps;
   final String tasmapCatalogPath;
@@ -410,11 +416,13 @@ class MappingStorePreflight {
     required this.root,
     required this._manifest,
     required this.requiredPolygonPaths,
+    required this.polygonDisplayPaths,
   });
 
   final String root;
   final _MappingStoreManifest _manifest;
   final Set<String> requiredPolygonPaths;
+  final Set<String> polygonDisplayPaths;
 }
 
 class MappingDataStore {
@@ -486,6 +494,7 @@ class MappingDataStore {
       root: root,
       manifest: parsed,
       requiredPolygonPaths: requiredPolygonPaths,
+      polygonDisplayPaths: Set.unmodifiable(polygonPaths),
     );
   }
 
@@ -630,6 +639,7 @@ class MappingDataStore {
     ];
     return MappingCatalog(
       rootPath: preflightResult.root,
+      polygonDisplayPaths: preflightResult.polygonDisplayPaths,
       regions: regions,
       basemaps: basemaps,
       tasmapCatalogPath: preflightResult._manifest.tasmapCatalogPath,

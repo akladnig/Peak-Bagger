@@ -77,7 +77,14 @@ PolygonTextParseResult parsePolygonText(String contents) {
 
     final longitude = double.tryParse(parts[0]);
     final latitude = double.tryParse(parts[1]);
-    if (longitude == null || latitude == null) {
+    if (longitude == null ||
+        latitude == null ||
+        !longitude.isFinite ||
+        !latitude.isFinite ||
+        longitude < -180 ||
+        longitude > 180 ||
+        latitude < -90 ||
+        latitude > 90) {
       return PolygonTextParseResult.failure(
         'Polygon text has an invalid coordinate line: $line',
       );

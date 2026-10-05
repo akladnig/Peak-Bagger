@@ -26,6 +26,7 @@ import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/drive_eta_provider.dart';
 import 'package:peak_bagger/providers/polygon_assets_provider.dart';
+import 'package:peak_bagger/widgets/map_selection_mapping_unavailable.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -2907,8 +2908,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     final showPolygons = ref.watch(
                       showPolygonsSettingsProvider,
                     );
+                    if (showPolygons) ref.watch(polygonAssetsProvider);
                     final polygonAssets = showPolygons
-                        ? ref.watch(polygonAssetsProvider)
+                        ? ref.watch(polygonDisplayStateProvider).polygons
                         : null;
                     final shouldBuildPeakViewport =
                         mapScene.showPeaks &&
@@ -4135,6 +4137,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   onDropMarker: _showDropMarkerPopupForCurrentLocation,
                   onShowFavourites: _toggleFavouritesPopup,
                 ),
+                const Positioned(
+                  left: 16,
+                  top: 16,
+                  child: MapSelectionMappingUnavailable(),
+                ),
                 if (routeChrome.isRouteDrafting)
                   const Positioned(
                     key: Key('route-controls-overlay-root'),
@@ -4269,8 +4276,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       controller: _gotoController,
                       errorText: _gotoError,
                       mapSuggestions: routeChrome.mapSuggestions,
-                      mappingUnavailableReason:
-                          routeChrome.mapSelectionMappingUnavailableReason,
+                      mappingUnavailableReason: null,
                       onChanged: (value) {
                         if (_gotoError != null) {
                           setState(() => _gotoError = null);
@@ -4839,7 +4845,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   PolygonLayer? _polygonAssetLayerFor({
     required bool showPolygons,
-    required AsyncValue<List<MapPolygonAsset>>? polygonAssets,
+    required List<MapPolygonAsset>? polygonAssets,
   }) {
     if (!showPolygons) {
       _cachedPolygonAssetLayer = null;
@@ -4847,10 +4853,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return null;
     }
 
-    final assets = polygonAssets?.maybeWhen(
-      data: (value) => value,
-      orElse: () => null,
-    );
+    final assets = polygonAssets;
     if (assets == null) {
       return _cachedPolygonAssetLayer;
     }

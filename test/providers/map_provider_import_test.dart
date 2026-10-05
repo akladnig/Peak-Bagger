@@ -19,6 +19,7 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../harness/test_map_notifier.dart' show testMappingCatalog;
 
 import '../harness/test_tasmap_repository.dart';
 
@@ -65,6 +66,7 @@ void main() {
       overrides: [
         mapProvider.overrideWith(
           () => MapNotifier(
+            mappingCatalog: testMappingCatalog,
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
             overpassService: OverpassService(),
             tasmapRepository: tasmapRepository,
@@ -155,6 +157,7 @@ void main() {
       overrides: [
         mapProvider.overrideWith(
           () => MapNotifier(
+            mappingCatalog: testMappingCatalog,
             peakRepository: peakRepository,
             overpassService: OverpassService(),
             tasmapRepository: tasmapRepository,
@@ -232,6 +235,7 @@ void main() {
       overrides: [
         mapProvider.overrideWith(
           () => MapNotifier(
+            mappingCatalog: testMappingCatalog,
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
             overpassService: OverpassService(),
             tasmapRepository: tasmapRepository,
@@ -295,6 +299,7 @@ void main() {
       overrides: [
         mapProvider.overrideWith(
           () => MapNotifier(
+            mappingCatalog: testMappingCatalog,
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
             overpassService: OverpassService(),
             tasmapRepository: tasmapRepository,
@@ -357,6 +362,7 @@ void main() {
       overrides: [
         mapProvider.overrideWith(
           () => MapNotifier(
+            mappingCatalog: testMappingCatalog,
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
             overpassService: OverpassService(),
             tasmapRepository: tasmapRepository,

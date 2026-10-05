@@ -14,6 +14,7 @@ import 'package:peak_bagger/services/track_replacement_recovery_issue_repository
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_tasmap_repository.dart';
+import '../harness/test_map_notifier.dart' show testMappingCatalog;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -95,6 +96,7 @@ Future<MapNotifier> _notifier({
     overrides: [
       mapProvider.overrideWith(
         () => MapNotifier(
+          mappingCatalog: testMappingCatalog,
           peakRepository: PeakRepository.test(InMemoryPeakStorage()),
           overpassService: OverpassService(),
           tasmapRepository: tasmapRepository,

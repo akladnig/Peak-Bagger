@@ -448,23 +448,26 @@ void main() {
 
 GpxStorageDestinationResolver _testResolver() {
   return GpxStorageDestinationResolver(
-    polygonAssetRepository: PolygonAssetRepository(
+    polygonAssetRepository: PolygonAssetRepository.test(
+      paths: [
+        'Polygons/italy-nord-est.poly',
+        'Polygons/slovenia.poly',
+        'Polygons/croatia.poly',
+      ],
       assetLoader: (assetPath) async => switch (assetPath) {
-        'assets/polygons/manifest.json' =>
-          '["italy-nord-est.poly", "slovenia.poly", "croatia.poly"]',
-        'italy-nord-est.poly' => _polygonText(
+        'Polygons/italy-nord-est.poly' => _polygonText(
           west: 12,
           south: 45,
           east: 14,
           north: 47,
         ),
-        'slovenia.poly' => _polygonText(
+        'Polygons/slovenia.poly' => _polygonText(
           west: 13.8,
           south: 45.8,
           east: 15.7,
           north: 46.8,
         ),
-        'croatia.poly' => _polygonText(
+        'Polygons/croatia.poly' => _polygonText(
           west: 15.8,
           south: 45.5,
           east: 17,
