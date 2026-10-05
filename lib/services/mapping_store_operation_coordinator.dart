@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/mapping_store_resolver.dart';
 
 enum MappingStoreOperationKind {
   peakSeed,
@@ -173,40 +174,39 @@ class MappingStoreOperationFailure {
 /// Revalidates a source path immediately before the caller opens it.
 class MappingStoreOperationFileAccess {
   MappingStoreOperationFileAccess({
-    required this.rootPath,
-    required this.fileSystem,
-  });
+    required MappingCatalog catalog,
+    MappingStoreFileSystem fileSystem = const IoMappingStoreFileSystem(),
+  }) : _resolver = MappingStoreReadResolver.catalog(
+         catalog: catalog,
+         fileSystem: fileSystem,
+       );
 
-  final String rootPath;
-  final MappingStoreFileSystem fileSystem;
+  MappingStoreOperationFileAccess.test({
+    required String rootPath,
+    required MappingStoreFileSystem fileSystem,
+    required Iterable<String> paths,
+  }) : _resolver = MappingStoreReadResolver.test(
+         rootPath: rootPath,
+         fileSystem: fileSystem,
+         paths: paths,
+       );
+
+  final MappingStoreReadResolver _resolver;
 
   Future<T> open<T>({
     required String relativePath,
     required Future<T> Function(String canonicalPath) opener,
   }) async {
-    final canonicalPath = await _resolveReadablePath(relativePath);
-    return opener(canonicalPath);
-  }
-
-  Future<String> readText(String relativePath) {
-    return open(relativePath: relativePath, opener: fileSystem.readText);
-  }
-
-  Future<String> _resolveReadablePath(String relativePath) async {
-    if (!_isSafeRelativePath(relativePath)) {
-      throw MappingStoreOperationException(paths: [relativePath]);
-    }
     try {
-      final root = await fileSystem.canonicalize(rootPath);
-      final candidate = p.join(root, relativePath);
-      final target = await fileSystem.canonicalize(candidate);
-      if (!p.isWithin(root, target) || !await fileSystem.fileExists(target)) {
-        throw MappingStoreOperationException(paths: [relativePath]);
-      }
-      await fileSystem.checkReadable(target);
-      return target;
-    } on MappingStoreOperationException {
-      rethrow;
+      return await _resolver.open(relativePath: relativePath, opener: opener);
+    } on MappingStoreFailure catch (error) {
+      throw MappingStoreOperationException(paths: error.paths, cause: error);
+    }
+  }
+
+  Future<String> readText(String relativePath) async {
+    try {
+      return await _resolver.readText(relativePath);
     } on Object catch (error) {
       throw MappingStoreOperationException(paths: [relativePath], cause: error);
     }

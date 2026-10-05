@@ -22,7 +22,7 @@ class PolygonAssetRepository {
     MappingStoreFileSystem? fileSystem,
   }) : paths = catalog.polygonDisplayPaths,
        _assetLoader = MappingStoreOperationFileAccess(
-         rootPath: catalog.rootPath,
+         catalog: catalog,
          fileSystem: fileSystem ?? const IoMappingStoreFileSystem(),
        ).readText;
 

@@ -3,11 +3,10 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+export 'package:peak_bagger/services/local_topo_constants.dart';
 
 const localTileServerBaseUrlPrefsKey = 'local_tile_server_base_url';
 const localTopoCapabilitySnapshotPrefsKey = 'local_topo_capability_snapshot_v1';
-const localTopoPlaceholderTileUrl =
-    'https://local-topo.invalid/{z}/{x}/{y}.png';
 
 final localTopoRuntime = LocalTopoRuntime();
 

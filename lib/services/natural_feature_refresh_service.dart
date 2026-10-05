@@ -165,7 +165,7 @@ class NaturalFeatureRefreshService {
         return await reader(path ?? '');
       }
       return await MappingStoreOperationFileAccess(
-        rootPath: catalog!.rootPath,
+        catalog: catalog!,
         fileSystem: _fileSystem,
       ).readText(path!);
     } on MappingStoreOperationException {

@@ -271,9 +271,10 @@ void main() {
 
   test('revalidates a path immediately before it is opened', () async {
     final fileSystem = _FileSystem();
-    final access = MappingStoreOperationFileAccess(
+    final access = MappingStoreOperationFileAccess.test(
       rootPath: '/mapping',
       fileSystem: fileSystem,
+      paths: ['Peaks/tasmania.json'],
     );
 
     final content = await access.readText('Peaks/tasmania.json');

@@ -245,7 +245,7 @@ class TasmapRepository {
     final path = catalog.tasmapCatalogPath;
     try {
       final contents = await MappingStoreOperationFileAccess(
-        rootPath: catalog.rootPath,
+        catalog: catalog,
         fileSystem: const IoMappingStoreFileSystem(),
       ).readText(path);
       try {

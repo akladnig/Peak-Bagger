@@ -142,7 +142,7 @@ Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
     final routeGraphCoverageResolver = RouteGraphCoverageResolver(
       catalog: catalog,
       fileAccess: MappingStoreOperationFileAccess(
-        rootPath: catalog.rootPath,
+        catalog: catalog,
         fileSystem: const IoMappingStoreFileSystem(),
       ),
     );

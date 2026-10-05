@@ -219,7 +219,7 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
            demResolver ?? RouteElevationDemResolver(catalog: catalog),
        _datasetOpener = datasetOpener ?? const GdalDemDatasetOpener(),
        _fileAccess = MappingStoreOperationFileAccess(
-         rootPath: catalog.rootPath,
+         catalog: catalog,
          fileSystem: fileSystem ?? const IoMappingStoreFileSystem(),
        );
 

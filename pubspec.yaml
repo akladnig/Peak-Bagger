@@ -32,6 +32,7 @@ dependencies:
   html: ^0.15.6
   xml: ^6.0.0
   crypto: ^3.0.6
+  ffi: ^2.1.4
   trip_routing:
     path: /Volumes/Development/mapping/trip_routing
   flutter_map_tile_caching:

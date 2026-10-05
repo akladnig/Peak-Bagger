@@ -274,7 +274,7 @@ class PeakRegionAssetImportService {
       return reader(path);
     }
     return MappingStoreOperationFileAccess(
-      rootPath: catalog.rootPath,
+      catalog: catalog,
       fileSystem: const IoMappingStoreFileSystem(),
     ).readText(path);
   }

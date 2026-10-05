@@ -49,6 +49,10 @@ Peak Bagger also includes an in-app ObjectBox admin screen for power users. It s
 
 ## Tasmania Maintainer Workflow
 
+For Mapping data store tool permissions, no-overwrite tool-manifest bootstrap,
+and v1 retained-contract verification, see
+[`docs/mapping-data-store.md`](docs/mapping-data-store.md).
+
 For the consolidated ELVIS DEM, Tasmania Local Topo rebuild, and local stack commands, see:
 
 - `README.tasmania-elvis-local-topo.md`

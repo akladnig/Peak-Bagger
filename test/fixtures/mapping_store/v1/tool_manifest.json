@@ -1,1 +1,79 @@
-{}
+{
+  "mapping-store-provision": {
+    "command": {"executable": "dart", "arguments": ["run", "tool/mapping_store.dart", "provision-or-verify"]},
+    "inputs": [{"id": "tools", "path": "tool_manifest.json", "kind": "file", "required": true}],
+    "outputs": [], "permittedWrites": [], "overrides": []
+  },
+  "route-graph-peak-list": {
+    "command": {"executable": "dart", "arguments": ["run", "tool/route_graph_peak_list.dart", "--region", "tasmania"]},
+    "inputs": [
+      {"id": "regions", "path": "region_manifest.json", "kind": "file", "required": true},
+      {"id": "polygons", "path": "Polygons/manifest.json", "kind": "file", "required": true},
+      {"id": "highways", "path": "Highways/*.json", "kind": "glob", "required": true},
+      {"id": "geometry", "path": "Polygons/*.poly", "kind": "glob", "required": true}
+    ],
+    "outputs": [], "permittedWrites": [], "overrides": []
+  },
+  "update-region-peak-fingerprints": {
+    "command": {"executable": "dart", "arguments": ["run", "tool/update_region_peak_fingerprints.dart", "--manifest", "{input:regions}", "--output", "{output:updated-manifest}"]},
+    "inputs": [
+      {"id": "regions", "path": "region_manifest.json", "kind": "file", "required": true},
+      {"id": "peaks", "path": "Peaks/*-peaks.json", "kind": "glob", "required": true}
+    ],
+    "outputs": [{"id": "updated-manifest", "path": "region_manifest.json", "kind": "file", "required": true, "replace": true, "atomic": true}],
+    "permittedWrites": ["updated-manifest"], "overrides": []
+  },
+  "validate-region-peak-fingerprints": {
+    "command": {"executable": "dart", "arguments": ["run", "tool/validate_region_peak_fingerprints.dart", "--manifest", "{input:regions}"]},
+    "inputs": [
+      {"id": "regions", "path": "region_manifest.json", "kind": "file", "required": true},
+      {"id": "peaks", "path": "Peaks/*-peaks.json", "kind": "glob", "required": true}
+    ],
+    "outputs": [], "permittedWrites": [], "overrides": []
+  },
+  "rank-fvg-peaks": {
+    "command": {"executable": "dart", "arguments": ["run", "tool/rank_fvg_peaks.dart", "--region-key", "fvg"]},
+    "inputs": [
+      {"id": "regions", "path": "region_manifest.json", "kind": "file", "required": true},
+      {"id": "polygons", "path": "Polygons/manifest.json", "kind": "file", "required": true},
+      {"id": "peaks", "path": "Peaks/*-peaks.json", "kind": "glob", "required": true},
+      {"id": "geometry", "path": "Polygons/*.poly", "kind": "glob", "required": true}
+    ],
+    "outputs": [], "permittedWrites": [], "overrides": []
+  },
+  "slovenia-hribi-source-peak-list": {
+    "command": {"executable": "dart", "arguments": ["run", "tool/slovenia_hribi_source_peak_list.dart"]},
+    "inputs": [], "outputs": [], "permittedWrites": [], "overrides": []
+  },
+  "peak-prominence-csv": {
+    "command": {"executable": "dart", "arguments": ["run", "tool/peak_prominence_csv.dart", "validate"]},
+    "inputs": [], "outputs": [], "permittedWrites": [], "overrides": []
+  },
+  "sync-peakbagger-csv": {
+    "command": {"executable": "dart", "arguments": ["run", "tool/sync_peakbagger_csv.dart"]},
+    "inputs": [], "outputs": [], "permittedWrites": [], "overrides": []
+  },
+  "download-tasmania-thelist-dem": {
+    "command": {"executable": "dart", "arguments": ["run", "tool/download_tasmania_thelist_dem.dart", "--output-file", "{output:dem}"]},
+    "inputs": [],
+    "outputs": [{"id": "dem", "path": "DEM/tasmania_dem_25m.tif", "kind": "file", "required": true, "replace": true, "atomic": true}],
+    "permittedWrites": ["dem"], "overrides": [{"flag": "--output-file", "outputId": "dem"}]
+  },
+  "elvis-dem-runtime": {
+    "command": {"executable": "dart", "arguments": ["run", "tool/elvis_dem.dart", "build-runtime", "--output-file", "{output:runtime-dem}"]},
+    "inputs": [],
+    "outputs": [{"id": "runtime-dem", "path": "DEM/Elvis/elvis_runtime_10m.tif", "kind": "file", "required": true, "replace": true, "atomic": true}],
+    "permittedWrites": ["runtime-dem"], "overrides": []
+  },
+  "elvis-dem-topo": {
+    "command": {"executable": "dart", "arguments": ["run", "tool/elvis_dem.dart", "build-topo", "--output-dir", "{output:topo-dem}"]},
+    "inputs": [],
+    "outputs": [{"id": "topo-dem", "path": "DEM/Elvis/elvis_topo", "kind": "directory", "required": true, "replace": true, "atomic": true}],
+    "permittedWrites": ["topo-dem"], "overrides": []
+  },
+  "local-topo-rebuild": {
+    "command": {"executable": "local_topo/tasmania/scripts/rebuild_stack.sh", "arguments": ["--dem-path", "{input:dem}"]},
+    "inputs": [{"id": "dem", "path": "DEM/Elvis/elvis_topo/elvis_topo_5m.tif", "kind": "file", "required": true}],
+    "outputs": [], "permittedWrites": [], "overrides": [{"flag": "--dem-path", "inputId": "dem"}]
+  }
+}
