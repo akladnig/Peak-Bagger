@@ -17,6 +17,7 @@ import 'package:peak_bagger/models/route_waypoint.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
 import '../harness/test_tasmap_repository.dart';
+import '../harness/route_elevation_fixture.dart';
 
 void main() {
   test('route draft starts clean and clears selected map state', () async {
@@ -3279,7 +3280,9 @@ void main() {
         ),
       );
       await Future<void>.delayed(Duration.zero);
-      routePlanner.completeProbe(const RouteEndpointProbeResult(isOnTrack: false));
+      routePlanner.completeProbe(
+        const RouteEndpointProbeResult(isOnTrack: false),
+      );
       await closeLoop;
       await Future<void>.delayed(Duration.zero);
 
@@ -3490,13 +3493,15 @@ Future<MapNotifier> _buildRouteTestNotifier({
   RouteElevationSampler? routeElevationSampler,
 }) async {
   return MapNotifier(
+    mappingCatalog: elevationMappingCatalog,
     peakRepository: PeakRepository.test(InMemoryPeakStorage()),
     overpassService: OverpassService(),
     tasmapRepository: await TestTasmapRepository.create(),
     gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
     routeRepository:
         routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
-    routeElevationSampler: routeElevationSampler,
+    routeElevationSampler:
+        routeElevationSampler ?? const NoopRouteElevationSampler(),
     routePlanner: routePlanner,
     peaksBaggedRepository: PeaksBaggedRepository.test(
       InMemoryPeaksBaggedStorage(),

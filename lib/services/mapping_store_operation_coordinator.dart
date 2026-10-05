@@ -253,7 +253,7 @@ class MappingStoreOperationCoordinator extends ChangeNotifier {
     }
 
     late final Future<T> future;
-    future = Future<T>(() async {
+    future = Future<T>.microtask(() async {
       try {
         final result = await _runWithWriterLocks(writerTables, action);
         _removeFailure(key);

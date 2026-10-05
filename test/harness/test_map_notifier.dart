@@ -83,7 +83,11 @@ final testMappingCatalog = MappingCatalog(
   ],
   tasmapCatalogPath: 'Maps/tasmap50k.csv',
   naturalFeaturesCatalogPath: 'Features/tasmania_natural_features.json',
-  demSources: const {},
+  demSources: const {
+    'elvisRuntime': 'DEM/Elvis/elvis_runtime_10m.tif',
+    'thelist25m': 'DEM/tasmania_dem_25m.tif',
+    'copernicus': 'DEM/cop30_hh.tif',
+  },
   routingCoverageRegionKeys: const {
     'tasmania': ['tasmania'],
     'northeast-alps': ['fvg', 'veneto', 'slovenia'],

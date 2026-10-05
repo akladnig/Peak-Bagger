@@ -117,7 +117,7 @@ abstract final class RouteTimingConstants {
 abstract final class DemConstants {
   static const sampleSpacingMetres = 25.0;
   static const tasmaniaRegionKey = 'tasmania';
-  static const tasmaniaElvisRuntimeDemFileName = 'elvis_runtime_10m.tif';
+  static const tasmaniaElvisRuntimeSourceKey = 'elvisRuntime';
 }
 
 abstract final class RouteUI {

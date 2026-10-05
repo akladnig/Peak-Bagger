@@ -79,6 +79,7 @@ class RouteDraftGraphOverlay extends ConsumerWidget {
     );
 
     final theme = Theme.of(context);
+    final mappingFailure = ref.watch(routeDraftElevationMappingFailureProvider);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -115,6 +116,10 @@ class RouteDraftGraphOverlay extends ConsumerWidget {
                       onRetry: ref
                           .read(mapProvider.notifier)
                           .retryRouteDraftSegment,
+                      elevationMappingUnavailable: mappingFailure != null,
+                      onRetryElevation: ref
+                          .read(mapProvider.notifier)
+                          .retryRouteDraftElevationMapping,
                     ),
                   ),
                 ),
@@ -305,6 +310,8 @@ class _DistanceElevationGroup extends StatelessWidget {
     required this.routeDraftPointElevations,
     required this.onElevationProfileInteractionChanged,
     required this.onRetry,
+    required this.elevationMappingUnavailable,
+    required this.onRetryElevation,
   });
 
   final RouteDraftStage routeDraftStage;
@@ -319,6 +326,8 @@ class _DistanceElevationGroup extends StatelessWidget {
   final ValueChanged<ElevationProfileChartInteraction?>?
   onElevationProfileInteractionChanged;
   final VoidCallback onRetry;
+  final bool elevationMappingUnavailable;
+  final VoidCallback onRetryElevation;
 
   @override
   Widget build(BuildContext context) {
@@ -339,6 +348,19 @@ class _DistanceElevationGroup extends StatelessWidget {
       key: const Key('route-distance-elevation-group'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (elevationMappingUnavailable)
+          Column(
+            key: const Key('route-planning-mapping-unavailable'),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(routeDraftElevationError!),
+              FilledButton.tonal(
+                key: const Key('route-planning-mapping-unavailable-retry'),
+                onPressed: routeDraftElevationLoading ? null : onRetryElevation,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
         if (routeDraftStage == RouteDraftStage.routingSegment)
           Text(
             'Routing...',

@@ -4,8 +4,7 @@ import 'dart:developer' as developer;
 import 'dart:io' as io;
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart'
-    show debugPrint, debugPrintStack, listEquals, visibleForTesting;
+import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gdal_dart/gdal_dart.dart' show GdalException;
 import 'package:path/path.dart' as p;
@@ -1418,8 +1417,17 @@ typedef _PersistedPeakListSelectionState = ({
 });
 
 final routeElevationSamplerProvider = Provider<RouteElevationSampler>((ref) {
-  return RegionAwareRouteElevationSampler();
+  return RegionAwareRouteElevationSampler(
+    catalog: ref.watch(mappingCatalogProvider),
+  );
 });
+
+final routeDraftElevationMappingFailureProvider =
+    Provider<MappingStoreOperationFailure?>((ref) {
+      ref.watch(mappingStoreOperationRevisionProvider);
+      ref.watch(mapProvider);
+      return ref.read(mapProvider.notifier).routeDraftElevationMappingFailure;
+    });
 
 final gpxTrackRepositoryProvider = Provider<GpxTrackRepository>((ref) {
   return GpxTrackRepository(objectboxStore);
@@ -1585,7 +1593,8 @@ class MapNotifier extends Notifier<MapState> {
 
   late final GpxTrackRepository _gpxTrackRepository;
   late final RouteRepository _routeRepository;
-  late final RouteElevationSampler _routeElevationSampler;
+  RouteElevationSampler get _routeElevationSampler =>
+      _injectedRouteElevationSampler ?? ref.read(routeElevationSamplerProvider);
   late final RoutePlanner _routePlanner;
   late final PeaksBaggedRepository _peaksBaggedRepository;
   late final TrackDerivedDataPersistence _trackDerivedDataPersistence;
@@ -1744,9 +1753,6 @@ class MapNotifier extends Notifier<MapState> {
         _injectedRouteRepository ?? ref.read(routeRepositoryProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
-    _routeElevationSampler =
-        _injectedRouteElevationSampler ??
-        ref.read(routeElevationSamplerProvider);
     _routePlanner = _injectedRoutePlanner ?? ref.read(routePlannerProvider);
     _trackDerivedDataPersistence =
         _injectedTrackDerivedDataPersistence ??
@@ -5210,23 +5216,6 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
-  Future<List<double?>> _sampleRoutePointElevationsForDraft(
-    List<LatLng> points,
-  ) async {
-    try {
-      final sampled = await _routeElevationSampler.samplePointElevations(
-        points,
-      );
-      return List<double?>.generate(
-        points.length,
-        (index) => index < sampled.length ? sampled[index] : null,
-        growable: false,
-      );
-    } catch (_) {
-      return List<double?>.filled(points.length, null, growable: false);
-    }
-  }
-
   Future<void> _planRouteDraftSegment({
     required int requestId,
     required RouteDraftControlEndpoint startEndpoint,
@@ -5480,9 +5469,9 @@ class MapNotifier extends Notifier<MapState> {
       state.routeDraftCommittedPoints,
       growable: false,
     );
-    final demResolution = RouteElevationDemResolver().resolveForPoints(
-      committedPoints,
-    );
+    final demResolution = RouteElevationDemResolver(
+      catalog: mappingCatalog,
+    ).resolveForPoints(committedPoints);
     if (demResolution.kind == RouteElevationDemKind.none) {
       state = state.copyWith(
         clearRouteDraftElevationSummary: true,
@@ -5496,10 +5485,8 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     state = state.copyWith(
-      clearRouteDraftElevationSummary: true,
       routeDraftElevationLoading: true,
       clearRouteDraftElevationError: true,
-      clearRouteDraftPointElevations: true,
       routeDraftElevationRequestId: requestId,
       routeDraftGeometryVersion: geometryVersion,
     );
@@ -5518,19 +5505,109 @@ class MapNotifier extends Notifier<MapState> {
     required int requestId,
     required int geometryVersion,
   }) async {
-    final sampledPointElevations = await _sampleRoutePointElevationsForDraft(
-      points,
-    );
-    if (!_isActiveRouteDraftElevationRequest(
+    try {
+      final resolution = RouteElevationDemResolver(
+        catalog: mappingCatalog,
+      ).resolveForPoints(points);
+      final key = resolution.operationKey(
+        points: points,
+        geometryVersion: geometryVersion,
+      );
+      await _mappingStoreOperationCoordinator.run<void>(
+        key: key,
+        action: () async {
+          // Geometry can change while single-flight dispatch is queued. Skip
+          // an obsolete first read; explicit failure retries still recheck the
+          // original geometry without replacing the current draft's results.
+          if (!_isActiveRouteDraftElevationRequest(
+                requestId: requestId,
+                geometryVersion: geometryVersion,
+              ) &&
+              _mappingStoreOperationCoordinator.failureFor(key) == null) {
+            return;
+          }
+          await _readRouteDraftElevation(
+            points: points,
+            requestId: requestId,
+            geometryVersion: geometryVersion,
+            isRetry: _mappingStoreOperationCoordinator.failureFor(key) != null,
+          );
+        },
+      );
+    } on MappingStoreOperationException {
+      // The coordinator retains the original geometry/version and retry action.
+    } on RouteElevationSamplingException catch (error) {
+      _setRouteDraftElevationError(requestId, geometryVersion, error.message);
+    } on GdalException catch (error, stackTrace) {
+      developer.log(
+        'GDAL route elevation sampling failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      _setRouteDraftElevationError(
+        requestId,
+        geometryVersion,
+        RouteElevationMessages.tasmaniaDataUnavailable,
+      );
+    } catch (error) {
+      _setRouteDraftElevationError(
+        requestId,
+        geometryVersion,
+        'Failed to sample elevation: $error',
+      );
+    }
+  }
+
+  Future<void> retryRouteDraftElevationMapping() async {
+    final failure = routeDraftElevationMappingFailure;
+    if (failure != null) {
+      await _mappingStoreOperationCoordinator.retry(failure.key);
+    }
+  }
+
+  MappingStoreOperationFailure? get routeDraftElevationMappingFailure {
+    if (!state.isRouteDrafting || state.routeDraftElevationError == null) {
+      return null;
+    }
+    final resolution = RouteElevationDemResolver(
+      catalog: mappingCatalog,
+    ).resolveForPoints(state.routeDraftCommittedPoints);
+    if (resolution.kind == RouteElevationDemKind.none) {
+      return null;
+    }
+    return ref
+        .read(mappingStoreOperationCoordinatorProvider)
+        .failureFor(
+          resolution.operationKey(
+            points: state.routeDraftCommittedPoints,
+            geometryVersion: state.routeDraftGeometryVersion,
+          ),
+        );
+  }
+
+  Future<void> _readRouteDraftElevation({
+    required List<LatLng> points,
+    required int requestId,
+    required int geometryVersion,
+    required bool isRetry,
+  }) async {
+    if (_isActiveRouteDraftElevationRequest(
       requestId: requestId,
       geometryVersion: geometryVersion,
     )) {
-      return;
+      state = state.copyWith(routeDraftElevationLoading: true);
     }
-
-    state = state.copyWith(routeDraftPointElevations: sampledPointElevations);
-
     try {
+      final elevations = await _routeElevationSampler.samplePointElevations(
+        points,
+      );
+      if (!isRetry &&
+          !_isActiveRouteDraftElevationRequest(
+            requestId: requestId,
+            geometryVersion: geometryVersion,
+          )) {
+        return;
+      }
       final summary = await _routeElevationSampler.sampleRoute(
         points: points,
         requestId: requestId,
@@ -5545,56 +5622,46 @@ class MapNotifier extends Notifier<MapState> {
 
       state = state.copyWith(
         routeDraftElevationSummary: summary,
+        routeDraftPointElevations: List<double?>.generate(
+          points.length,
+          (index) => index < elevations.length ? elevations[index] : null,
+          growable: false,
+        ),
         routeDraftElevationLoading: false,
         clearRouteDraftElevationError: true,
       );
-    } on RouteElevationSamplingException catch (error) {
-      if (!_isActiveRouteDraftElevationRequest(
-        requestId: requestId,
-        geometryVersion: geometryVersion,
-      )) {
-        return;
-      }
-
-      state = state.copyWith(
-        clearRouteDraftElevationSummary: true,
-        routeDraftElevationLoading: false,
-        routeDraftElevationError: error.message,
+    } on MappingStoreOperationException catch (error) {
+      _setRouteDraftElevationError(
+        requestId,
+        geometryVersion,
+        'Route elevation is unavailable from the Mapping data store: '
+        '${error.paths.join(', ')}',
       );
-    } on GdalException catch (error, stackTrace) {
-      if (!_isActiveRouteDraftElevationRequest(
-        requestId: requestId,
-        geometryVersion: geometryVersion,
-      )) {
-        return;
-      }
-
-      developer.log(
-        'GDAL route elevation sampling failed.',
-        error: error,
-        stackTrace: stackTrace,
+      rethrow;
+    } on Object catch (error) {
+      _setRouteDraftElevationError(
+        requestId,
+        geometryVersion,
+        error is RouteElevationSamplingException
+            ? error.message
+            : 'Failed to sample elevation: $error',
       );
-      debugPrint('GDAL route elevation sampling failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
+    }
+  }
 
+  void _setRouteDraftElevationError(
+    int requestId,
+    int geometryVersion,
+    String message,
+  ) {
+    if (_isActiveRouteDraftElevationRequest(
+      requestId: requestId,
+      geometryVersion: geometryVersion,
+    )) {
       state = state.copyWith(
-        clearRouteDraftElevationSummary: true,
         routeDraftElevationLoading: false,
-        routeDraftElevationError:
-            RouteElevationMessages.tasmaniaDataUnavailable,
-      );
-    } catch (error) {
-      if (!_isActiveRouteDraftElevationRequest(
-        requestId: requestId,
-        geometryVersion: geometryVersion,
-      )) {
-        return;
-      }
-
-      state = state.copyWith(
-        clearRouteDraftElevationSummary: true,
-        routeDraftElevationLoading: false,
-        routeDraftElevationError: 'Failed to sample elevation: $error',
+        routeDraftElevationError: message,
       );
     }
   }

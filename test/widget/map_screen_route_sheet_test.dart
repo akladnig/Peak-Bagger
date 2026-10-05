@@ -18,6 +18,8 @@ import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart'
+    show mappingCatalogProvider;
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -2099,6 +2101,7 @@ Future<void> _pumpMap(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        mappingCatalogProvider.overrideWithValue(testMappingCatalog),
         mapProvider.overrideWith(() => notifier),
         routeGraphStoreProvider.overrideWithValue(_ReadyRouteGraphStore()),
         routeRepositoryProvider.overrideWithValue(effectiveRouteRepository),
