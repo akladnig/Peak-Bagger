@@ -299,7 +299,17 @@ Map<String, Object?> buildNaturalFeatureRefreshPlan(
     }
     final identity = _identity(candidate.type!, candidate.osmId!);
     if (!identities.add(identity)) {
-      throw StateError('Duplicate source OSM feature identity');
+      throw FormatException(
+        'Duplicate eligible source OSM feature identity for $identity',
+      );
+    }
+    if (source.isUnsupportedNodeOnlyRelation(candidate)) {
+      skippedCount += 1;
+      geometryErrors.add(
+        'Skipped $identity — ${candidate.name}: '
+        'node-only relation has no supported centroid geometry.',
+      );
+      continue;
     }
     final geometry = source.geometryFor(candidate, geometryErrors);
     if (geometry == null) {
@@ -352,6 +362,8 @@ class _NaturalFeatureCandidate {
 class _NaturalFeatureSource {
   _NaturalFeatureSource(this.elements) {
     final identities = <String>{};
+    final relationMembers =
+        <int, List<({String type, int ref, String role})>>{};
     for (final rawElement in elements) {
       final element = _asObject(rawElement);
       if (element == null) {
@@ -359,13 +371,31 @@ class _NaturalFeatureSource {
       }
       final type = element['type'];
       final id = _positiveId(element['id']);
+      final point = type == 'node' ? _pointFromElement(element) : null;
+      // Overpass can repeat a tagged feature as an untagged geometry skeleton.
+      // Compare geometry here; eligible-feature uniqueness is checked separately.
       if ((type == 'node' || type == 'way' || type == 'relation') &&
           id != null &&
           !identities.add('$type:$id')) {
-        throw const FormatException('Duplicate source OSM feature identity');
+        final matches = switch (type) {
+          'node' => point != null && (_nodes[id]?.sameAs(point) ?? false),
+          'way' => _sameReferences(
+            _ways[id],
+            _nodeReferences(element['nodes']),
+          ),
+          'relation' => _sameReferences(
+            relationMembers[id],
+            _relationMemberReferences(element['members']),
+          ),
+          _ => false,
+        };
+        if (!matches) {
+          throw FormatException(
+            'Conflicting source OSM geometry for $type:$id',
+          );
+        }
       }
       if (type == 'node' && id != null) {
-        final point = _pointFromElement(element);
         if (point != null) {
           _nodes[id] = point;
         }
@@ -374,6 +404,11 @@ class _NaturalFeatureSource {
         if (nodes != null) {
           _ways[id] = nodes;
         }
+      } else if (type == 'relation' && id != null) {
+        final members = _relationMemberReferences(element['members']);
+        if (members != null) {
+          relationMembers[id] = members;
+        }
       }
     }
   }
@@ -381,6 +416,12 @@ class _NaturalFeatureSource {
   final List elements;
   final Map<int, _Point> _nodes = {};
   final Map<int, List<int>> _ways = {};
+
+  static bool _sameReferences<T>(List<T>? left, List<T>? right) =>
+      left != null &&
+      right != null &&
+      left.length == right.length &&
+      left.indexed.every((entry) => right[entry.$1] == entry.$2);
 
   _NaturalFeatureCandidate? candidateFor(Object? rawElement) {
     final element = _asObject(rawElement);
@@ -413,6 +454,19 @@ class _NaturalFeatureSource {
       tag: natural == 'water' ? (water ?? 'water') : natural,
       altName: _trimmedTag(tags, 'alt_name') ?? '',
     );
+  }
+
+  bool isUnsupportedNodeOnlyRelation(_NaturalFeatureCandidate candidate) {
+    if (candidate.type != 'relation' ||
+        _trimmedTag(_asObject(candidate.element!['tags']), 'type') ==
+            'multipolygon') {
+      return false;
+    }
+    final members = _relationMemberReferences(candidate.element!['members']);
+    return members != null &&
+        members.every(
+          (member) => member.type == 'node' && _nodes.containsKey(member.ref),
+        );
   }
 
   _Point? geometryFor(
@@ -572,6 +626,32 @@ List<int>? _nodeReferences(Object? value) {
     return null;
   }
   return value.cast<int>();
+}
+
+List<({String type, int ref, String role})>? _relationMemberReferences(
+  Object? value,
+) {
+  if (value is! List || value.isEmpty) {
+    return null;
+  }
+  final references = <({String type, int ref, String role})>[];
+  for (final rawMember in value) {
+    final member = _asObject(rawMember);
+    final type = member?['type'];
+    final ref = _positiveId(member?['ref']);
+    final role = member?['role'];
+    if ((type != 'node' && type != 'way' && type != 'relation') ||
+        ref == null ||
+        (role != null && role is! String)) {
+      return null;
+    }
+    references.add((
+      type: type as String,
+      ref: ref,
+      role: (role as String?) ?? '',
+    ));
+  }
+  return references;
 }
 
 _Point? _pointFromElement(Map<Object?, Object?> element) {

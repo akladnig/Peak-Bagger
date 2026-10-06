@@ -79,6 +79,177 @@ void main() {
     expect(line['longitude'], closeTo(146.786838, 0.000001));
   });
 
+  test('skips a well-formed node-only site relation with a diagnostic', () {
+    final plan = buildNaturalFeatureRefreshPlan({
+      'sourceText': '''{"elements":[
+        {"type":"node","id":1,"lat":-42,"lon":146,"tags":{"name":"Tree","natural":"tree"}},
+        {"type":"node","id":2,"lat":-42.1,"lon":146.1},
+        {"type":"relation","id":20,"members":[{"type":"node","ref":1},{"type":"node","ref":2,"role":""}],"tags":{"name":"Sisters Hills","natural":"mountain_range","type":"site"}}
+      ]}''',
+    });
+
+    final features = plan['features']! as List<Object?>;
+    expect(features, hasLength(1));
+    expect((features.single! as Map<Object?, Object?>)['name'], 'Tree');
+    expect(plan['skippedCount'], 1);
+    expect(
+      plan['geometryErrors'],
+      contains(
+        'Skipped relation:20 — Sisters Hills: '
+        'node-only relation has no supported centroid geometry.',
+      ),
+    );
+  });
+
+  test('does not skip malformed or broken supported relation geometry', () async {
+    for (final (dependencies, members, relationType) in [
+      ('', '[]', 'site'),
+      ('', '[{"type":"node","ref":0}]', 'site'),
+      ('', '[{"type":"node","ref":999}]', 'site'),
+      (
+        '{"type":"node","id":1,"lat":91,"lon":146},',
+        '[{"type":"node","ref":1}]',
+        'site',
+      ),
+      (
+        '{"type":"node","id":1,"lat":-42,"lon":146},',
+        '[{"type":"node","ref":1,"role":1}]',
+        'site',
+      ),
+      (
+        '{"type":"node","id":1,"lat":-42,"lon":146},',
+        '[{"type":"node","ref":1}]',
+        'multipolygon',
+      ),
+      ('', '[{"type":"way","ref":10}]', 'site'),
+      (
+        '{"type":"node","id":1,"lat":-42,"lon":146},'
+            '{"type":"node","id":2,"lat":-42,"lon":146},'
+            '{"type":"way","id":10,"nodes":[1,2]},',
+        '[{"type":"way","ref":10}]',
+        'site',
+      ),
+    ]) {
+      var writes = 0;
+      await expectLater(
+        serviceFor(
+          '{"elements":[$dependencies'
+          '{"type":"node","id":90,"lat":-42,"lon":146,"tags":{"name":"Tree","natural":"tree"}},'
+          '{"type":"relation","id":20,"members":$members,"tags":{"name":"Hills","natural":"mountain_range","type":"$relationType"}}]}',
+          persistence: ({required upserts, required deletedIds}) => writes++,
+        ).refresh(),
+        throwsA(isA<MappingStoreOperationException>()),
+      );
+      expect(writes, 0);
+    }
+  });
+
+  test(
+    'rejects duplicate eligible relations even when their geometry is unsupported',
+    () async {
+      var writes = 0;
+      await expectLater(
+        serviceFor(
+          '''{"elements":[
+          {"type":"node","id":1,"lat":-42,"lon":146},
+          {"type":"relation","id":20,"members":[{"type":"node","ref":1}],"tags":{"name":"Hills","natural":"mountain_range","type":"site"}},
+          {"type":"relation","id":20,"members":[{"type":"node","ref":1}],"tags":{"name":"Hills","natural":"mountain_range","type":"site"}}
+        ]}''',
+          persistence: ({required upserts, required deletedIds}) => writes++,
+        ).refresh(),
+        throwsA(
+          isA<MappingStoreOperationException>().having(
+            (error) => error.cause,
+            'cause',
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              'Duplicate eligible source OSM feature identity for relation:20',
+            ),
+          ),
+        ),
+      );
+      expect(writes, 0);
+    },
+  );
+
+  test('retains existing OSM and Manual rows for a skipped relation', () async {
+    final directory = await Directory.systemTemp.createTemp(
+      'skipped-relation-',
+    );
+    final store = await openStore(directory: directory.path);
+    addTearDown(() async {
+      store.close();
+      await directory.delete(recursive: true);
+    });
+    final repository = NaturalFeatureRepository(store);
+    final osm = repository.save(
+      NaturalFeature(
+        name: 'Existing hills',
+        altName: 'Curated name',
+        tag: 'mountain_range',
+        latitude: -41,
+        longitude: 147,
+        osmType: 'relation',
+        osmId: 20,
+      ),
+    );
+    final manual = repository.save(
+      NaturalFeature(
+        name: 'Manual hills',
+        tag: 'mountain_range',
+        latitude: -43,
+        longitude: 145,
+        osmType: 'relation',
+        osmId: 20,
+        sourceOfTruth: 'Manual',
+      ),
+    );
+    final diagnostics = <String>[];
+    final service = NaturalFeatureRefreshService(
+      repository,
+      fileReader: (_) async => '''{"elements":[
+        {"type":"node","id":1,"lat":-42,"lon":146,"tags":{"name":"Tree","natural":"tree"}},
+        {"type":"relation","id":20,"members":[{"type":"node","ref":1}],"tags":{"name":"Sisters Hills","natural":"mountain_range","type":"site"}}
+      ]}''',
+      mgrsConverter: (_) => mgrs,
+      diagnosticLogger: diagnostics.add,
+    );
+
+    final first = await service.refresh();
+    expect(first.createdCount, 1);
+    expect(first.updatedCount, 0);
+    expect(first.skippedCount, 1);
+    final originalIds = repository
+        .getAllNaturalFeatures()
+        .map((row) => row.id)
+        .toSet();
+    final second = await service.refresh();
+    expect(second.createdCount, 0);
+    expect(second.updatedCount, 1);
+    expect(second.skippedCount, 1);
+    final rows = repository.getAllNaturalFeatures();
+    expect(rows.map((row) => row.id).toSet(), originalIds);
+    expect(rows, hasLength(3));
+    final retainedOsm = rows.singleWhere((row) => row.id == osm.id);
+    expect(retainedOsm.name, osm.name);
+    expect(retainedOsm.altName, osm.altName);
+    expect(retainedOsm.latitude, osm.latitude);
+    expect(retainedOsm.longitude, osm.longitude);
+    expect(retainedOsm.sourceRecordKey, 'OSM:relation:20');
+    final retainedManual = rows.singleWhere((row) => row.id == manual.id);
+    expect(retainedManual.name, manual.name);
+    expect(retainedManual.latitude, manual.latitude);
+    expect(retainedManual.longitude, manual.longitude);
+    expect(retainedManual.sourceRecordKey, 'Manual:relation:20');
+    expect(
+      diagnostics.where(
+        (message) => message.startsWith('Skipped relation:20 — Sisters Hills:'),
+      ),
+      hasLength(2),
+    );
+  });
+
   test(
     'preserves a Manual row while creating an OSM row with the same identity',
     () async {
@@ -141,10 +312,216 @@ void main() {
     expect(persisted, isFalse);
   });
 
+  test('rejects identical eligible features with their OSM identity', () async {
+    var writes = 0;
+    await expectLater(
+      serviceFor(
+        '''{"elements":[
+          {"type":"node","id":1,"lat":-42,"lon":146,"tags":{"name":"Tree","natural":"tree"}},
+          {"type":"node","id":1,"lat":-42,"lon":146},
+          {"type":"node","id":1,"lat":-42,"lon":146,"tags":{"name":"Tree","natural":"tree"}}
+        ]}''',
+        persistence: ({required upserts, required deletedIds}) => writes++,
+      ).refresh(),
+      throwsA(
+        isA<MappingStoreOperationException>().having(
+          (error) => error.cause,
+          'cause',
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'Duplicate eligible source OSM feature identity for node:1',
+          ),
+        ),
+      ),
+    );
+    expect(writes, 0);
+  });
+
+  test('rejects conflicting dependency geometry before any writes', () async {
+    for (final (identity, dependencies) in [
+      (
+        'node:1',
+        '{"type":"node","id":1,"lat":-42,"lon":146},'
+            '{"type":"node","id":1,"lat":-42.1,"lon":146}',
+      ),
+      (
+        'way:10',
+        '{"type":"way","id":10,"nodes":[1,2]},'
+            '{"type":"way","id":10,"nodes":[2,1]}',
+      ),
+      (
+        'relation:20',
+        '{"type":"relation","id":20,"members":[{"type":"way","ref":10,"role":"outer"}]},'
+            '{"type":"relation","id":20,"members":[{"type":"way","ref":10,"role":"inner"}]}',
+      ),
+    ]) {
+      final repository = NaturalFeatureRepository.test(
+        InMemoryNaturalFeatureStorage([_feature(id: 7)]),
+      );
+      var writes = 0;
+      await expectLater(
+        serviceFor(
+          '{"elements":['
+          '{"type":"node","id":99,"lat":-42,"lon":146,"tags":{"name":"Changed","natural":"tree"}},'
+          '$dependencies]}',
+          repository: repository,
+          persistence: ({required upserts, required deletedIds}) => writes++,
+        ).refresh(),
+        throwsA(
+          isA<MappingStoreOperationException>().having(
+            (error) => error.cause,
+            'cause',
+            isA<FormatException>().having(
+              (error) => error.message,
+              'message',
+              'Conflicting source OSM geometry for $identity',
+            ),
+          ),
+        ),
+      );
+      expect(writes, 0);
+      final preserved = repository.getAllNaturalFeatures().single;
+      expect(preserved.id, 7);
+      expect(preserved.name, 'Feature 7');
+    }
+  });
+
+  test('imports a tagged way repeated as an untagged skeleton once', () async {
+    final repository = NaturalFeatureRepository.test(
+      InMemoryNaturalFeatureStorage(),
+    );
+    final result = await serviceFor('''{"elements":[
+        {"type":"node","id":1,"lat":-42,"lon":146},
+        {"type":"node","id":2,"lat":-42.1,"lon":146.1},
+        {"type":"way","id":10,"nodes":[1,2],"tags":{"name":"Cliff","natural":"cliff"}},
+        {"type":"way","id":10,"nodes":[1,2]}
+      ]}''', repository: repository).refresh();
+
+    expect(result.createdCount, 1);
+    expect(result.skippedCount, 0);
+    final feature = repository.getAllNaturalFeatures().single;
+    expect(feature.osmId, 10);
+    expect(feature.osmType, 'way');
+    expect(feature.name, 'Cliff');
+    expect(feature.latitude, closeTo(-42.05, 0.000001));
+    expect(feature.longitude, closeTo(146.05, 0.000001));
+  });
+
+  test('accepts matching node dependencies before a tagged node', () async {
+    final repository = NaturalFeatureRepository.test(
+      InMemoryNaturalFeatureStorage(),
+    );
+    final result = await serviceFor('''{"elements":[
+        {"type":"node","id":1,"lat":-42,"lon":146},
+        {"type":"node","id":1,"lat":-42.0,"lon":146.0},
+        {"type":"node","id":1,"lat":-42,"lon":146,"tags":{"name":"Tree","natural":"tree"}}
+      ]}''', repository: repository).refresh();
+
+    expect(result.createdCount, 1);
+    expect(result.skippedCount, 0);
+    expect(repository.getAllNaturalFeatures().single.name, 'Tree');
+  });
+
+  test(
+    'refreshes skeleton pairs without changing ownership or ObjectBox IDs',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'skeleton-refresh-',
+      );
+      final store = await openStore(directory: directory.path);
+      addTearDown(() async {
+        store.close();
+        await directory.delete(recursive: true);
+      });
+      final repository = NaturalFeatureRepository(store);
+      final osm = repository.save(
+        NaturalFeature(
+          name: 'Curated cliff',
+          altName: 'Alternate cliff',
+          tag: 'old',
+          county: 'Curated county',
+          latitude: -42,
+          longitude: 146,
+          osmId: 10,
+          osmType: 'way',
+        ),
+      );
+      final manual = repository.save(
+        NaturalFeature(
+          name: 'Manual cliff',
+          tag: 'manual',
+          latitude: -41,
+          longitude: 147,
+          osmId: 10,
+          osmType: 'way',
+          sourceOfTruth: 'Manual',
+        ),
+      );
+      final omitted = repository.save(_feature(id: 0));
+      final service = serviceFor('''{"elements":[
+        {"type":"node","id":1,"lat":-42,"lon":146},
+        {"type":"node","id":2,"lat":-42.1,"lon":146.1},
+        {"type":"way","id":10,"nodes":[1,2]},
+        {"type":"way","id":10,"nodes":[1,2],"tags":{"name":"Cliff","natural":"cliff"}}
+      ]}''', repository: repository);
+
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final result = await service.refresh();
+        expect(result.createdCount, 0);
+        expect(result.updatedCount, 1);
+        final rows = repository.getAllNaturalFeatures();
+        expect(
+          rows.map((row) => row.id),
+          unorderedEquals([osm.id, manual.id, omitted.id]),
+        );
+        final updated = rows.singleWhere((row) => row.id == osm.id);
+        expect(updated.name, 'Curated cliff');
+        expect(updated.altName, 'Alternate cliff');
+        expect(updated.county, 'Curated county');
+        expect(updated.tag, 'cliff');
+        expect(updated.sourceRecordKey, 'OSM:way:10');
+        final protected = rows.singleWhere((row) => row.id == manual.id);
+        expect(protected.name, manual.name);
+        expect(protected.tag, manual.tag);
+        expect(protected.latitude, manual.latitude);
+        expect(protected.sourceRecordKey, 'Manual:way:10');
+      }
+    },
+  );
+
+  test(
+    'accepts matching relation skeletons regardless of source order',
+    () async {
+      final repository = NaturalFeatureRepository.test(
+        InMemoryNaturalFeatureStorage(),
+      );
+      final result = await serviceFor('''{"elements":[
+        {"type":"relation","id":20,"members":[{"ref":10,"type":"way"}]},
+        {"type":"relation","id":20,"members":[{"type":"way","ref":10,"role":""}],"tags":{"name":"Coast","natural":"cliff"}},
+        {"type":"way","id":10,"nodes":[1,2]},
+        {"type":"node","id":1,"lat":-42,"lon":146},
+        {"type":"node","id":2,"lat":-42.1,"lon":146.1},
+        {"type":"way","id":10,"nodes":[1,2],"tags":{"name":"Cliff","natural":"cliff"}}
+      ]}''', repository: repository).refresh();
+
+      expect(result.createdCount, 2);
+      expect(result.skippedCount, 0);
+      expect(
+        repository.getAllNaturalFeatures().map((feature) => feature.name),
+        unorderedEquals(['Coast', 'Cliff']),
+      );
+      for (final feature in repository.getAllNaturalFeatures()) {
+        expect(feature.latitude, closeTo(-42.05, 0.000001));
+        expect(feature.longitude, closeTo(146.05, 0.000001));
+      }
+    },
+  );
+
   for (final source in [
     'invalid-json',
     '{}',
-    '{"elements":[{"type":"node","id":1,"lat":-42,"lon":146},{"type":"node","id":1,"lat":-42,"lon":146}]}',
+    '{"elements":[{"type":"node","id":1,"lat":-42,"lon":146},{"type":"node","id":1,"lat":-42.1,"lon":146}]}',
     '{"elements":[{"type":"node","id":1,"lat":91,"lon":146,"tags":{"name":"Invalid","natural":"tree"}}]}',
     '{"elements":[{"type":"node","id":1,"lat":-42,"lon":146},{"type":"way","id":10,"nodes":[1],"tags":{"name":"Invalid way","natural":"cliff"}}]}',
     '{"elements":[{"type":"node","id":1,"lat":-42,"lon":146},{"type":"node","id":2,"lat":-42.1,"lon":146.1},{"type":"way","id":10,"nodes":[1,2]},{"type":"relation","id":20,"tags":{"name":"Cliff","natural":"cliff"},"members":[{"type":"way","ref":10},{"type":"node","ref":0}]}]}',

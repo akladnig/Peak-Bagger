@@ -128,6 +128,138 @@ been manually completed; deterministic automated coverage is not a substitute
 for those remaining mounted-store checks. Do not clear production user data or
 change Mapping source permissions/files to manufacture a successful result.
 
+## Mounted TasMap retry and Natural Features diagnosis — 2026-10-06
+
+The TasMap source failure above is resolved by `3e13603`
+(`fix(tasmap): allow blank parent values`). The canonical `Parent` header remains
+required, but blank values are accepted. The mounted CSV parses into **75 sheets,
+10 with blank parents**. Real-source reconciliation against temporary ObjectBox
+storage succeeded; a repeated import reported `changed == false` and retained
+every ID. Correcting a deliberately stale parent in that temporary database
+retained every ID, and the next identical import again reported no changes.
+
+Rebuilt `build/macos/Build/Products/Release/peak_bagger.app`, launched with
+temporary `CFFIXED_USER_HOME`/`HOME`, and completed Settings **Update Map Data**
+with its **Update** confirmation. The UI displayed
+**Map data updated successfully!** After quitting the verification app, a database
+readback confirmed **75 persisted TasMap rows and 10 blank parents**. The production
+database and mounted source files were not modified. Screenshots, startup logs,
+and the temporary packaged database remain at
+`/var/folders/rb/c88n7kqx4r558_c17k24kk800000gn/T/opencode/peak-bagger-tasmap-retry-ukMV6n`.
+Startup logs also contain a `Directionality.of` null-check exception before the
+ready UI; this retry does not resolve or claim clean startup logging.
+
+- Native executable SHA-256:
+  `1fb1e320413b3f9457ab15d3ef56e311030a3ae51166fa6d898dd647b5e91fc4`.
+- AOT `App.framework/App` SHA-256:
+  `7426e2cdc7c860c902a87703ae60feada7c534e4260f714eea607e61546e69b3`.
+- Mounted TasMap CSV SHA-256:
+  `3a59e442cadda3827363d497963732af4d1e5e2971cc841599ebaaf119bd1cb6`.
+
+The mounted Natural Features JSON contains **630,521 elements**, **630,344 unique
+OSM identities**, and **177 duplicated identities**, all ways appearing twice.
+For every pair, type, ID, and ordered node geometry are identical; only `tags`
+differs: a tagged feature is repeated later as an untagged skeleton. These are
+duplicate export records, not conflicting geometry or evidence of duplicate
+production ObjectBox rows. At the time of this diagnosis, the source parser rejected any repeated
+identity before reconciliation and reproduced the exact `FormatException`.
+The first repeat encountered is **`way:1527474295`, Bishop Islet**, at
+`/elements/2598` and `/elements/625540` (ID fields at source lines **204523** and
+**3971393**). Full pair records and a compact inventory of all 177 pairs are in
+`natural-feature-duplicate-report.json` and `natural-feature-duplicate-summary.json`
+under `/var/folders/rb/c88n7kqx4r558_c17k24kk800000gn/T/opencode`.
+Natural Features source SHA-256:
+`75565dfe512ec39da4d3e6e240a8599aadfd757a1c3873a02d97a14264f36158`.
+
+The final acceptance criterion remains open for the tool-manifest discrepancy,
+the other source failures, and the previously recorded reconnect/DEM checks.
+
+## Natural Features compatibility correction and packaged retry — 2026-10-06
+
+Review of Spec 0058 and `00f2591` confirmed that untagged geometry dependencies
+were not eligible Natural Feature candidates. The broad rejection of supporting
+duplicates introduced by `02e2254` was stricter than that distinction. The
+correction documented in Work Item 07 accepts compatible tagged/skeleton pairs
+while retaining candidate uniqueness and conflicting-geometry failure.
+
+The unchanged mounted source now passes all 177 compatible way pairs. The next
+failure is **`relation:8812595`, Sisters Hills**, with `type=site`,
+`natural=mountain_range`, and seven node members but no way members. Its ID is at
+source line **224752**, and its record spans lines **224750–224795**. The current
+centroid contract ignores node members, so it cannot resolve this relation.
+The mounted probe verified that this error occurs before any source-derived rows
+are written and preserves the existing temporary Manual row and ObjectBox ID.
+
+The rebuilt packaged app reproduced the same outcome through Settings
+**Refresh Natural Features**, with its background job, operation-scoped dialog,
+and the exact status cause:
+`FormatException: Malformed Natural Feature geometry for relation:8812595`.
+Screenshots `natural-refresh-started.png`, `natural-refresh-result.png`, and
+`natural-refresh-details.png`, plus `natural-retry-launch.log`, are in the
+temporary verification directory recorded above. The verification app was quit;
+no production database or Mapping source was modified. The shared system
+preference profile is not isolated by this temporary database/cache setup.
+
+- `flutter analyze --no-pub`: **no issues**.
+- Focused Natural Features suite: **46 passed**.
+- Full suite: **2,145 passed, 5 skipped**.
+- `flutter build macos --release --no-pub`: **success**.
+- Native executable SHA-256:
+  `1fb1e320413b3f9457ab15d3ef56e311030a3ae51166fa6d898dd647b5e91fc4`.
+- Updated AOT `App.framework/App` SHA-256:
+  `93e0c1f4e751a077cd366d453b1dc2af9f451e277718dce939de1c5db6fa58ab`.
+- Natural Features source SHA-256 remains
+  `75565dfe512ec39da4d3e6e240a8599aadfd757a1c3873a02d97a14264f36158`.
+
+Natural Features end-to-end success remains blocked by the unresolved relation,
+not the compatible repeated way skeletons. This correction does not change the
+all-or-nothing malformed-selected-geometry policy or claim the final mounted-store
+acceptance criterion complete.
+
+## Successful Natural Features mounted acceptance — 2026-10-06
+
+The user approved a diagnostic skip for well-formed unsupported node-only
+relations. The implemented policy and malformed-input protections are documented
+in Work Item 07 and Spec 0061. Sisters Hills is skipped without inventing a
+position, and existing OSM/Manual rows for a skipped identity are retained.
+
+The unchanged mounted source now succeeds: a temporary ObjectBox probe reported
+**2,933 created, 0 updated, 0 protected, 1 skipped**, then
+**0 created, 2,933 updated, 1 skipped** on repeat. Every ID and a pre-existing
+Manual Bishop Islet row survived. Its log is
+`/var/folders/rb/c88n7kqx4r558_c17k24kk800000gn/T/opencode/natural-feature-full-source-retry.log`.
+The full-source debug test needed a longer timeout; its two successful refreshes
+took approximately **5 minutes 17 seconds** in total. This is verification
+evidence, not a claim of optimized source-processing performance.
+
+Launched the rebuilt release bundle against the same mounted source and the
+temporary packaged database/cache directory recorded above. First-run Natural
+Features bootstrap populated the previously empty table; the subsequent Settings
+background-job refresh displayed exactly:
+**Natural features refreshed: 0 created, 2933 updated, 0 protected, 1 skipped.**
+`natural-skip-refresh-success.png` captures that status, and
+`natural-skip-launch.log` records startup. After quitting the verification app,
+database readback confirmed **2,933 persisted OSM features with unique source
+record keys**, exactly one Bishop Islet, and no Sisters Hills row with a made-up
+position. The production database and Mapping source were not modified; the
+temporary database/cache setup does not isolate the system preference profile.
+
+- Focused Natural Features suite: **50 passed**.
+- Full suite: **2,149 passed, 5 skipped**.
+- `flutter analyze --no-pub`: **no issues**.
+- `flutter build macos --release --no-pub`: **success**.
+- Native executable SHA-256:
+  `1fb1e320413b3f9457ab15d3ef56e311030a3ae51166fa6d898dd647b5e91fc4`.
+- Current AOT `App.framework/App` SHA-256:
+  `7d0ff67436563fab18db940340520b2d17bda0042a18b7eb1befe13b723e0a96`.
+- Mounted Natural Features source SHA-256 remains
+  `75565dfe512ec39da4d3e6e240a8599aadfd757a1c3873a02d97a14264f36158`.
+
+The TasMap and Natural Features source-operation blockers are now resolved.
+Keep the final acceptance criterion open for the tool-manifest discrepancy,
+Italy North West peaks, Northeast Alps highways, and the recorded reconnect/DEM
+checks; this successful flow does not imply those checks succeeded.
+
 ## Covers
 
 - User Stories: 1, 3

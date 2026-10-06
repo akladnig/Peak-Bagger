@@ -17,7 +17,8 @@ Move Natural Features bootstrap and refresh from its fixed source path to `natur
 
 - [x] Bootstrap runs only while the Natural Features table is empty; a populated table performs no source read. Pending or failed bootstrap remains unavailable rather than silently empty and retry resumes only the original operation.
 - [x] Keep `Refresh Natural Features`, `refresh-natural-features-tile`, and `natural-feature-refresh-status`; refresh reads `naturalFeatures.catalog` through the Mapping boundary and remains a background job.
-- [x] Treat malformed JSON, a missing `elements` list, duplicate source identities, or malformed selected candidates as all-or-nothing operation failures before ObjectBox writes. Documented ineligible records are diagnostic-only skips.
+- [x] Treat malformed JSON, a missing `elements` list, duplicate eligible source identities, conflicting repeated geometry, or malformed selected candidates as all-or-nothing operation failures before ObjectBox writes. Accept compatible repeated geometry dependencies and tagged/untagged-skeleton pairs in either source order. Documented ineligible records are diagnostic-only skips.
+- [x] Skip a well-formed non-multipolygon relation containing only valid, resolvable node members as unsupported centroid geometry; increment skipped count, report identity/name/reason, and retain existing OSM/Manual rows. Malformed references, missing/invalid nodes, node-only multipolygons, broken supported geometry, and duplicate eligible unsupported relations remain all-or-nothing failures.
 - [x] Persist source keys including ownership, OSM type, and positive OSM ID, for example `OSM:node:123` and `Manual:node:123`; Manual and OSM rows with the same OSM identity coexist. Refresh updates or creates only OSM rows, preserves Manual rows, and retains OSM rows absent from the source.
 - [x] Migrate legacy duplicate OSM rows by retaining the lowest positive ObjectBox ID and transactionally merging/removing duplicates during reconciliation without touching a Manual row.
 - [x] A failed bootstrap or refresh preserves prior usable rows and uses `natural-features-mapping-unavailable` with `natural-features-mapping-unavailable-retry` after dialog dismissal.
@@ -123,6 +124,90 @@ Repository saves assign the canonical ownership/type/ID key. Generated property
 - Remaining risk: the mounted source is not accessed in automated tests. Settings
   background-job handoff and the shared failure dialog are covered by separate
   production Settings widget tests.
+
+## Compatible geometry-dependency correction — 2026-10-06
+
+The earlier review's requirement to reject every supporting identity is superseded.
+Spec 0058 distinguished eligible feature candidates from untagged geometry
+dependencies; `02e2254` broadened that check and rejected the mounted export's
+177 tagged-way/untagged-skeleton pairs despite their identical node geometry.
+
+Dependency indexing now accepts agreeing node coordinates, ordered way-node
+references, and ordered relation-member type/reference/role tuples. Empty and
+absent relation roles are equivalent. Tags and export metadata do not define
+geometry; tagged/skeleton source order does not affect the result. Duplicate
+eligible candidates still fail even when identical, and conflicting or invalid
+repeated geometry fails before any writes. Error causes include the OSM identity.
+Manual ownership, stored duplicate migration, and atomic reconciliation remain
+in force.
+
+Regression coverage exercises compatible node/way/relation dependencies,
+tagged/skeleton ordering, identical eligible duplicates, and conflicting geometry
+with no writes and preserved stored records. The previously rejected identical
+untagged-node fixture is replaced with an actually conflicting coordinate fixture.
+
+The mounted-source retry now passes dependency indexing but fails at
+`relation:8812595`, **Sisters Hills**: its `type=site`,
+`natural=mountain_range` relation has seven node members and no way members.
+The established centroid contract ignores node members, leaving no resolvable
+geometry. This remains an all-or-nothing source failure under Spec 0061; this
+correction does not add a node-member centroid or restore Spec 0058's geometry
+skip behavior.
+
+Verification:
+
+- Focused Natural Features service/repository/admin/provider/widget/robot suite:
+  **46 passed**.
+- Full suite: `flutter test --no-pub --reporter=failures-only` — **2,145 passed,
+  5 skipped**.
+- `flutter analyze --no-pub`: **no issues**.
+- `flutter build macos --release --no-pub`: **success**.
+- Temporary mounted-source probe: **pass**, specifically confirming the 177
+  skeleton pairs no longer fail validation, `relation:8812595` is the new failure,
+  and a previously stored Manual row and its ObjectBox ID survive with no new rows.
+- Packaged Settings refresh reproduced that same geometry error, rather than the
+  duplicate-identity error; see Work Item 12 for screenshots and bundle identity.
+
+## Approved unsupported-geometry skip — 2026-10-06
+
+The subsequent user decision approves a narrow exception for well-formed
+node-only relations, superseding the remaining Sisters Hills blocker above.
+Candidate identity checks still run before this skip. A relation must be
+non-multipolygon, have a non-empty list of typed node members with positive
+references and valid optional string roles, and resolve every referenced node
+to finite in-range coordinates. It is then counted once as skipped, with its
+identity, name, and unsupported-centroid reason reported through diagnostics.
+The refresh continues with supported features and retains existing rows for
+the skipped identity. No node-position averaging or malformed-geometry fallback
+is added.
+
+Regression tests verify the diagnostic/count, persistence of supported features,
+OSM/Manual row and ID preservation across repeated refreshes, and no writes for
+malformed references, missing/invalid nodes, node-only multipolygons, broken
+supported way geometry, or duplicate eligible unsupported relations.
+
+The unchanged mounted snapshot now refreshes successfully against a temporary
+ObjectBox database: **2,933 created, 0 updated, 0 protected, 1 skipped**.
+A repeat refresh reports **0 created, 2,933 updated, 1 skipped**, preserving every
+ObjectBox ID and a pre-existing Manual Bishop Islet row. The mounted source is
+not rewritten. The explicit diagnostic is
+`Skipped relation:8812595 — Sisters Hills: node-only relation has no supported centroid geometry.`
+
+Final verification of the approved skip:
+
+- Focused Natural Features service/repository/admin/provider/widget/robot suite:
+  **50 passed**.
+- Full suite: `flutter test --no-pub --reporter=failures-only` — **2,149 passed,
+  5 skipped**.
+- `flutter analyze --no-pub`: **no issues**.
+- `flutter build macos --release --no-pub`: **success**.
+- Mounted-source temporary ObjectBox probe: **pass**; both complete refreshes
+  succeeded with the counts above and retained all IDs and the Manual row.
+- Packaged first-run bootstrap populated 2,933 OSM rows. Settings refresh then
+  reported **0 created, 2,933 updated, 0 protected, 1 skipped**. Post-quit database
+  readback verified 2,933 unique source-record keys, one Bishop Islet record, and
+  no invented Sisters Hills position. See Work Item 12 for bundle identity and
+  screenshots. The production database and mounted source were not changed.
 
 ## Covers
 

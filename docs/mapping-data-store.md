@@ -53,6 +53,23 @@ changed rows retain their ObjectBox IDs, new rows are inserted, and rows absent
 from the authoritative CSV are deleted. Clearing a previously populated parent
 counts as a content change.
 
+Natural Features retains Spec 0058's distinction between eligible tagged features
+and geometry dependencies. A tagged feature repeated as an untagged skeleton is
+accepted when its geometry agrees, in either source order. Matching repeated
+dependency nodes, ways, and relations do not create additional features or count
+as skipped candidates. Geometry comparison uses coordinates, ordered node
+references, or ordered member type/reference/role tuples; absent and empty roles
+are equivalent. Duplicate eligible features and conflicting or invalid repeated
+geometry fail the operation before ObjectBox writes.
+
+Well-formed non-multipolygon Natural Feature relations whose members are all
+valid, resolvable nodes are skipped as unsupported centroid geometry. Each
+increments the refresh's skipped count and emits a diagnostic containing its
+OSM identity, name, and reason; existing OSM and Manual rows for that identity
+are retained. Missing/invalid members or nodes, node-only multipolygons, and
+broken supported geometry still fail before writes. No averaged node position
+or centroid fallback is introduced.
+
 ## Maintainer tool contracts
 
 Each Mapping tool ID is declared in the v1 `tool_manifest.json` fixture. Named
