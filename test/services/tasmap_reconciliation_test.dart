@@ -76,6 +76,38 @@ void main() {
       expect(preserved.name, original.name);
       expect(preserved.parentSeries, original.parentSeries);
     });
+
+    test(
+      'clears a changed parent in place and leaves unchanged sheets intact',
+      () async {
+        final changed = _map(parent: 'old');
+        final unchanged = _map(name: 'Banks Strait', parent: '');
+        store.box<Tasmap50k>().putMany([changed, unchanged]);
+        final contents = _csv(
+          rows: [
+            _row(parent: ''),
+            _row(name: 'Banks Strait', parent: '   '),
+          ],
+        );
+
+        final result = await repository.reconcileCsvContents(contents);
+
+        expect(result.changed, isTrue);
+        expect(repository.mapCount, 2);
+        expect(repository.getMapById(changed.id)!.parentSeries, isEmpty);
+        expect(repository.getMapById(unchanged.id)!.name, unchanged.name);
+        expect(repository.getMapById(unchanged.id)!.parentSeries, isEmpty);
+        expect(result.selectionRetargets, isEmpty);
+
+        final repeated = await repository.reconcileCsvContents(contents);
+
+        expect(repeated.changed, isFalse);
+        expect(
+          repository.getAllMaps().map((map) => map.id),
+          unorderedEquals([changed.id, unchanged.id]),
+        );
+      },
+    );
   });
 }
 

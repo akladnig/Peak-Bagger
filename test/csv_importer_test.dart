@@ -93,6 +93,18 @@ void main() {
       expect(result.maps.single.parentSeries, 'Parent, quoted');
     });
 
+    for (final parent in ['', '   ']) {
+      test('accepts a blank Parent value "$parent"', () {
+        final result = CsvImporter.importFromContents(
+          'Series,Name,Parent,MGRS,eastingMin,eastingMax,northingMin,northingMax,mgrsMid,eastingMid,northingMid,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12\n'
+          'TQ08,Wellington,$parent,EN,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,,,,,\n',
+        );
+
+        expect(result.importedCount, 1);
+        expect(result.maps.single.parentSeries, isEmpty);
+      });
+    }
+
     test('rejects duplicate, unknown, and incomplete headers', () {
       const row =
           'TQ08,Wellington,8312,EN,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,,,,,';

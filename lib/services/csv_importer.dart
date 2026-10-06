@@ -112,13 +112,7 @@ class CsvImporter {
       for (var index = 0; index < headers.length; index++)
         headers[index]: index < row.length ? row[index].toString().trim() : '',
     };
-    for (final header in const [
-      'Series',
-      'Name',
-      'Parent',
-      'MGRS',
-      'mgrsMid',
-    ]) {
+    for (final header in const ['Series', 'Name', 'MGRS', 'mgrsMid']) {
       if (data[header]!.isEmpty) {
         return _invalid(rowNumber, 'missing $header');
       }

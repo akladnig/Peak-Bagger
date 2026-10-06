@@ -46,6 +46,13 @@ The former `lib/services/overpass_service.dart` is retired. The generated
 catalog tool/output are also retired; the validated manifest pair is the only
 runtime authority.
 
+The TasMap CSV retains the canonical `Parent` header, but its values may be
+blank and are stored as an empty `parentSeries`. Reconciliation matches sheets
+by trimmed, case-insensitive `(Series, Name)`: unchanged rows are not written,
+changed rows retain their ObjectBox IDs, new rows are inserted, and rows absent
+from the authoritative CSV are deleted. Clearing a previously populated parent
+counts as a content change.
+
 ## Maintainer tool contracts
 
 Each Mapping tool ID is declared in the v1 `tool_manifest.json` fixture. Named
