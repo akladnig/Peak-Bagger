@@ -22,25 +22,23 @@ import 'package:peak_bagger/widgets/tasmap_polygon_label.dart';
 import '../core/constants.dart';
 import '../theme.dart';
 
-String mapTileUrl(Basemap basemap) {
+String mapTileUrl(Basemap basemap, {required MappingCatalog catalog}) {
   if (basemap == Basemap.tracestrack) {
-    final tileUrl = regionManifestCatalog.basemapByKey(basemap.name)?.tileUrl;
+    final tileUrl = catalog.basemapByKey(basemap.name)?.tileUrl;
     if (tileUrl == null || !hasTracestrackApiKey) {
-      return regionManifestCatalog
-          .basemapByKey(Basemap.openstreetmap.name)!
-          .tileUrl;
+      return catalog.basemapByKey(Basemap.openstreetmap.name)!.tileUrl;
     }
 
     return '$tileUrl?key=${Uri.encodeQueryComponent(tracestrackApiKey)}';
   }
 
   if (basemap == Basemap.mapyCz) {
-    final fallback = mapTileUrl(Basemap.tracestrack);
+    final fallback = mapTileUrl(Basemap.tracestrack, catalog: catalog);
     if (!hasMapyCzApiKey) {
       return fallback;
     }
 
-    final tileUrl = regionManifestCatalog.basemapByKey(basemap.name)?.tileUrl;
+    final tileUrl = catalog.basemapByKey(basemap.name)?.tileUrl;
     if (tileUrl == null) {
       return fallback;
     }
@@ -61,8 +59,8 @@ String mapTileUrl(Basemap basemap) {
         localTopoPlaceholderTileUrl;
   }
 
-  return regionManifestCatalog.basemapByKey(basemap.name)?.tileUrl ??
-      regionManifestCatalog.basemapByKey(Basemap.tracestrack.name)!.tileUrl;
+  return catalog.basemapByKey(basemap.name)?.tileUrl ??
+      catalog.basemapByKey(Basemap.tracestrack.name)!.tileUrl;
 }
 
 Map<String, String> mapTileHeaders(Basemap basemap) {
@@ -102,6 +100,7 @@ TileProvider buildNetworkTileProviderForBasemap(Basemap basemap) {
 
 TileLayer buildBasemapTileLayer(
   Basemap basemap, {
+  required MappingCatalog catalog,
   TileProvider? tileProvider,
   String? userAgentPackageName,
 }) {
@@ -110,13 +109,13 @@ TileLayer buildBasemapTileLayer(
 
   return userAgentPackageName == null
       ? TileLayer(
-          urlTemplate: mapTileUrl(basemap),
-          maxNativeZoom: _maxNativeZoomForBasemap(basemap),
+          urlTemplate: mapTileUrl(basemap, catalog: catalog),
+          maxNativeZoom: _maxNativeZoomForBasemap(basemap, catalog),
           tileProvider: resolvedTileProvider,
         )
       : TileLayer(
-          urlTemplate: mapTileUrl(basemap),
-          maxNativeZoom: _maxNativeZoomForBasemap(basemap),
+          urlTemplate: mapTileUrl(basemap, catalog: catalog),
+          maxNativeZoom: _maxNativeZoomForBasemap(basemap, catalog),
           tileProvider: resolvedTileProvider,
           userAgentPackageName: userAgentPackageName,
         );
@@ -150,10 +149,8 @@ TileLayer? buildStandaloneOverlayTileLayer({
   );
 }
 
-int _maxNativeZoomForBasemap(Basemap basemap) {
-  final manifestMaxZoom = regionManifestCatalog
-      .basemapByKey(basemap.name)
-      ?.maxZoom;
+int _maxNativeZoomForBasemap(Basemap basemap, MappingCatalog catalog) {
+  final manifestMaxZoom = catalog.basemapByKey(basemap.name)?.maxZoom;
   return switch (basemap) {
     Basemap.localTopo when manifestMaxZoom != null => manifestMaxZoom,
     _ => 19,

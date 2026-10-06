@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
@@ -753,6 +754,7 @@ void main() {
       repository: fixture.repository,
       peakRepository: fixture.peakRepository,
       overrides: [
+        ...mappingCatalogTestOverrides,
         _immediatePeakListsSummaryRefreshSchedulerOverride,
         peakListRegionFilterProvider.overrideWith(
           _ItalyNordEstOnlyPeakListRegionFilterNotifier.new,
@@ -779,6 +781,7 @@ void main() {
       repository: fixture.repository,
       peakRepository: fixture.peakRepository,
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
           scheduler.call,
         ),
@@ -818,6 +821,7 @@ void main() {
         repository: fixture.repository,
         peakRepository: fixture.peakRepository,
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
             scheduler.call,
           ),
@@ -935,6 +939,7 @@ void main() {
         repository: fixture.repository,
         peakRepository: fixture.peakRepository,
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
             scheduler.call,
           ),
@@ -1372,6 +1377,7 @@ void main() {
       ),
       peaksBaggedRepository: peaksBaggedRepository,
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
           scheduler.call,
         ),
@@ -1443,6 +1449,7 @@ void main() {
         ]),
       ),
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
           scheduler.call,
         ),
@@ -1490,6 +1497,7 @@ void main() {
       peakRepository: peakRepository,
       peaksBaggedRepository: peaksBaggedRepository,
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
           scheduler.call,
         ),
@@ -1909,6 +1917,7 @@ void main() {
         ),
         mapNotifier: mapNotifier,
         overrides: [
+          ...mappingCatalogTestOverrides,
           gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
         ],
       );
@@ -2020,6 +2029,7 @@ void main() {
         peaksBaggedRepository: peaksBaggedRepository,
         mapNotifier: mapNotifier,
         overrides: [
+          ...mappingCatalogTestOverrides,
           gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
         ],
       );
@@ -2177,6 +2187,7 @@ void main() {
         ]),
       ),
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
           _StaticPeakListMiniMapClusterDisplayOnNotifier.new,
         ),
@@ -2219,6 +2230,7 @@ void main() {
         ]),
       ),
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
           _StaticPeakListMiniMapClusterDisplayOnNotifier.new,
         ),
@@ -2262,6 +2274,7 @@ void main() {
           ]),
         ),
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
             _StaticPeakListMiniMapClusterDisplayOffNotifier.new,
           ),
@@ -2312,6 +2325,7 @@ void main() {
         ),
         mapNotifier: mapNotifier,
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
             _StaticPeakListMiniMapClusterDisplayOnNotifier.new,
           ),
@@ -2437,6 +2451,7 @@ void main() {
         InMemoryPeaksBaggedStorage(),
       ),
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
           scheduler.call,
         ),
@@ -2565,6 +2580,7 @@ void main() {
           InMemoryPeaksBaggedStorage(),
         ),
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
             scheduler.call,
           ),
@@ -2646,6 +2662,7 @@ void main() {
           InMemoryPeaksBaggedStorage(),
         ),
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
             scheduler.call,
           ),
@@ -2749,6 +2766,7 @@ void main() {
           InMemoryPeaksBaggedStorage(),
         ),
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
             scheduler.call,
           ),
@@ -2867,6 +2885,7 @@ void main() {
           InMemoryPeaksBaggedStorage(),
         ),
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListMutationRepositoryProvider.overrideWithValue(
             failingMutationRepository,
           ),
@@ -3189,7 +3208,10 @@ void main() {
       tester,
       filePicker: TestPeakListFilePicker(),
       repository: repository,
-      overrides: [_immediatePeakListsSummaryRefreshSchedulerOverride],
+      overrides: [
+        ...mappingCatalogTestOverrides,
+        _immediatePeakListsSummaryRefreshSchedulerOverride,
+      ],
     );
 
     expect(
@@ -3850,6 +3872,7 @@ void main() {
           ]),
         ),
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListMiniMapClusterDisplaySettingsProvider.overrideWith(
             _StaticPeakListMiniMapClusterDisplayOnNotifier.new,
           ),
@@ -4812,6 +4835,7 @@ void main() {
       filePicker: TestPeakListFilePicker(),
       repository: repository,
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
           scheduler.call,
         ),
@@ -5252,6 +5276,7 @@ void main() {
       peakRepository: peakRepository,
     );
     final service = PeakListImportService(
+      catalog: testMappingCatalog,
       peakRepository: peakRepository,
       peakListRepository: repository,
       csvLoader: (_) async => _appOwnedCsv([
@@ -5339,6 +5364,7 @@ void main() {
     final peakRepository = PeakRepository.test(InMemoryPeakStorage());
     final repository = PeakListRepository.test(InMemoryPeakListStorage());
     final service = PeakListImportService(
+      catalog: testMappingCatalog,
       peakRepository: peakRepository,
       peakListRepository: repository,
       csvLoader: (_) async =>
@@ -5391,6 +5417,7 @@ void main() {
     final peakRepository = PeakRepository.test(InMemoryPeakStorage());
     final repository = PeakListRepository.test(InMemoryPeakListStorage());
     final service = PeakListImportService(
+      catalog: testMappingCatalog,
       peakRepository: peakRepository,
       peakListRepository: repository,
       csvLoader: (_) async => _appOwnedCsv([
@@ -5477,6 +5504,10 @@ Future<void> _pumpPeakListsApp(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides.where(
+          (entry) =>
+              !overrides.any((override) => override.origin == entry.origin),
+        ),
         mapProvider.overrideWith(
           () =>
               mapNotifier ??
@@ -5553,6 +5584,10 @@ Future<void> _pumpPeakListsScreen(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides.where(
+          (entry) =>
+              !overrides.any((override) => override.origin == entry.origin),
+        ),
         mapProvider.overrideWith(
           () =>
               mapNotifier ??

@@ -34,19 +34,6 @@ String resolveBushwalkingRoutesPath({String? bushwalkingRoot}) {
   return p.join(bushwalkingRoot ?? resolveBushwalkingRoot(), 'Routes');
 }
 
-/// Legacy maintainer-tool workspace only. Runtime DEM reads use MappingCatalog.
-/// Retained until the DEM preparation tools complete their manifest cutover.
-String resolveTasmaniaDemRoot({String? homeDirectory}) {
-  final home = homeDirectory ?? Platform.environment['HOME'];
-  if (home == null || home.isEmpty) {
-    throw StateError(
-      'HOME is unavailable; cannot resolve the Tasmania DEM root.',
-    );
-  }
-
-  return p.join(home, 'DEM', 'Tasmania');
-}
-
 String? _resolveHomeDirectory() {
   final home = Platform.environment['HOME'];
   if (home != null && home.isNotEmpty) {

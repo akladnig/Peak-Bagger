@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -28,6 +29,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -84,6 +86,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
@@ -126,6 +129,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
@@ -186,6 +190,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
@@ -251,6 +256,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
@@ -308,6 +314,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -359,6 +366,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -397,6 +405,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -436,6 +445,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
@@ -485,6 +495,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
@@ -560,6 +571,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -608,6 +620,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -663,6 +676,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _DerivedPeakMapNotifier(
               MapState(
@@ -727,6 +741,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -789,6 +804,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
@@ -821,6 +837,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -931,5 +948,5 @@ class _DerivedPeakMapNotifier extends MapNotifier {
   final MapState initialState;
 
   @override
-  MapState build() => initialState;
+  MapState build() => initialState.copyWith(catalog: mappingCatalog);
 }

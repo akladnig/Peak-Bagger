@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'dart:developer' as developer;
 import 'package:flutter/gestures.dart'
     show
@@ -3523,6 +3524,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                       ),
                                       children: [
                                         buildBasemapTileLayer(
+                                          catalog: ref.read(
+                                            mappingCatalogProvider,
+                                          ),
                                           mapScene.basemap,
                                           userAgentPackageName:
                                               'com.peak_bagger.app',
@@ -4189,7 +4193,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                     mappingStoreOperationCoordinatorProvider,
                                   )
                                   .retry(naturalFeatureAvailability.retryKey!),
-                        availableRegions: buildMapSearchRegionOptions(),
+                        availableRegions: buildMapSearchRegionOptions(
+                          ref.read(mappingCatalogProvider),
+                        ),
                         onChanged: (value) {
                           ref
                               .read(mapProvider.notifier)
@@ -4909,6 +4915,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final mapState = ref.read(mapProvider);
     final point = mapState.cursorPoint ?? mapState.center;
     final availableBasemaps = basemapsForDrawer(
+      catalog: ref.read(mappingCatalogProvider),
       point: point,
       visibleBounds: mapState.visibleBounds,
     );
@@ -4918,7 +4925,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     if (!availableBasemapKeys.contains(mapState.basemap.name) &&
         !(mapState.basemap == Basemap.localTopo &&
-            !isLocalTopoAvailableForBounds(mapState.visibleBounds))) {
+            !isLocalTopoAvailableForBounds(
+              mapState.visibleBounds,
+              catalog: ref.read(mappingCatalogProvider),
+            ))) {
       ref.read(mapProvider.notifier).setBasemap(Basemap.tracestrack);
     }
 
@@ -4927,6 +4937,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
           .map((basemap) => basemap.key)
           .toList(growable: false);
       _basemapDrawerShowOverlays = isTasmaniaOverlayEligible(
+        catalog: ref.read(mappingCatalogProvider),
         point: point,
         visibleBounds: mapState.visibleBounds,
       );
@@ -4944,6 +4955,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     return basemap != Basemap.localTopo &&
         snapshot != null &&
         isTasmaniaOverlayEligible(
+          catalog: ref.read(mappingCatalogProvider),
           point: point,
           visibleBounds: visibleBounds,
           snapshot: snapshot,

@@ -1,4 +1,7 @@
 import 'dart:io';
+import 'dart:convert';
+import 'package:peak_bagger/services/mapping_store_core.dart';
+import 'mapping_tool_support.dart';
 
 import 'package:peak_bagger/services/route_graph_peak_list_generation_service.dart';
 
@@ -44,7 +47,30 @@ Future<int> runRouteGraphPeakListTool({
     return 1;
   }
 
-  final resolvedService = service ?? RouteGraphPeakListGenerationService();
+  late final RouteGraphPeakListGenerationService resolvedService;
+  try {
+    if (service != null) {
+      resolvedService = service;
+    } else {
+      final resolver = await openMappingTool('route-graph-peak-list');
+      await resolver.validateInputs();
+      final manifest = await resolver.readInputText('regions');
+      final polygons = await resolver.readInputText('polygons');
+      validateMappingManifestPair(
+        jsonDecode(manifest) as Object,
+        jsonDecode(polygons) as Object,
+      );
+      if (invocation.outputPath case final path?) {
+        await resolver.requireNonStorePath(path);
+      }
+      resolvedService = RouteGraphPeakListGenerationService(
+        mappingTextReader: resolver.readDeclaredText,
+      );
+    }
+  } on Object catch (error) {
+    stderrLine(_errorMessage(error));
+    return 1;
+  }
   if (invocation.showHelp) {
     try {
       final supportedRegions = await resolvedService.supportedRegionKeys();

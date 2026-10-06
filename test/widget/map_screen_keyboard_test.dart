@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -699,6 +700,7 @@ Future<void> _pumpMapApp(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => TestMapNotifier(state)),
         routeGraphStoreProvider.overrideWithValue(TestReadyRouteGraphStore()),
         peakListRepositoryProvider.overrideWithValue(
@@ -730,6 +732,7 @@ Future<void> _pumpMapAppWithNotifier(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => notifier),
         routeGraphStoreProvider.overrideWithValue(TestReadyRouteGraphStore()),
         peakListRepositoryProvider.overrideWithValue(
@@ -763,6 +766,7 @@ Future<void> _pumpRawMapScreen(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => TestMapNotifier(state)),
         routeGraphStoreProvider.overrideWithValue(TestReadyRouteGraphStore()),
         peakListRepositoryProvider.overrideWithValue(

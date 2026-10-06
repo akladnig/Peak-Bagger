@@ -5,6 +5,8 @@ import 'dart:io';
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/services/mapping_store_core.dart';
+export 'package:peak_bagger/services/mapping_store_core.dart'
+    show requireNonMappingPath;
 import 'package:peak_bagger/services/mapping_tool_manifest.dart';
 
 typedef MappingToolProcessRunner =
@@ -115,6 +117,68 @@ class MappingToolResolver {
   final Map<String, String> _environment;
   bool _running = false;
 
+  Future<void> validateInputs() async {
+    for (final input in contract.inputs.values) {
+      await _inputPaths(input, input.path);
+    }
+  }
+
+  /// Read one declared file (including a member of a declared glob) by its
+  /// manifest-relative identity. Canonical validation is repeated for each open.
+  Future<List<int>> readDeclaredBytes(String relative) async {
+    if (!isSafeMappingStorePath(relative)) {
+      throw ArgumentError('Unsafe input: $relative');
+    }
+    final declared = contract.inputs.values.any(
+      (input) => switch (input.kind) {
+        MappingToolPathKind.file => input.path == relative,
+        MappingToolPathKind.directory => relative.startsWith('${input.path}/'),
+        MappingToolPathKind.glob => _globExpression(
+          input.path,
+        ).hasMatch(relative),
+      },
+    );
+    if (!declared) {
+      throw StateError(
+        'Undeclared Mapping input: ${contract.toolId}:$relative',
+      );
+    }
+    final path = await _store.target(relative, required: true);
+    await _store.requireKind(path, MappingToolPathKind.file);
+    return File(path).readAsBytes();
+  }
+
+  Future<String> readDeclaredText(String relative) async =>
+      utf8.decode(await readDeclaredBytes(relative));
+
+  Future<void> validateOverrides(Map<String, String> overrides) async {
+    for (final entry in overrides.entries) {
+      final override = contract.overrides[entry.key];
+      if (override == null) {
+        throw ArgumentError('Undeclared override: ${entry.key}');
+      }
+      final declaration = (override.output
+          ? contract.outputs
+          : contract.inputs)[override.id]!;
+      validateToolPath(entry.value, declaration.kind);
+      if (override.output) {
+        final target = await _store.outputTarget(entry.value);
+        if (!declaration.replace &&
+            await FileSystemEntity.type(target) !=
+                FileSystemEntityType.notFound) {
+          throw FileSystemException('Replacement forbidden', entry.value);
+        }
+      } else {
+        await _inputPaths(declaration, entry.value);
+      }
+    }
+  }
+
+  /// Non-store adapters must reject a store target even when the mount is
+  /// temporarily absent. Existing ancestors are resolved to catch symlink aliases.
+  Future<void> requireNonStorePath(String path) =>
+      requireNonMappingPath(path, rootPath: _store.root);
+
   Future<String> readInputText(String id, {String? child}) =>
       openInput(id, child: child, opener: (path) => File(path).readAsString());
 
@@ -154,6 +218,13 @@ class MappingToolResolver {
   Future<ProcessResult> execute({
     Map<String, String> overrides = const {},
   }) async {
+    if (contract.permittedWrites.any(
+      (id) => !contract.arguments.contains('{output:$id}'),
+    )) {
+      throw StateError(
+        '${contract.toolId} is an in-process writer. Invoke its CLI directly or use writeOutputs; nesting it in execute would bypass the outer staging contract.',
+      );
+    }
     late ProcessResult result;
     await _withOutputs(overrides, (outputs, inputPaths) async {
       final arguments = <String>[];
@@ -182,6 +253,19 @@ class MappingToolResolver {
         );
       }
     });
+    return result;
+  }
+
+  /// Inventoried orchestration options remain non-store argv; every Mapping
+  /// operand is a typed declared reference, expanded solely at this boundary.
+  Future<ProcessResult> runProcess(
+    List<Object> arguments, {
+    Map<String, String> overrides = const {},
+  }) async {
+    late ProcessResult result;
+    await writeOutputs((outputs) async {
+      result = await outputs.runProcess(contract.executable, arguments);
+    }, overrides: overrides);
     return result;
   }
 
@@ -268,6 +352,126 @@ class MappingToolResolver {
               : temporary.path,
         );
       }
+      outputs._copy = (id, source, child) async {
+        await requireNonStorePath(source);
+        final stage = stages[id];
+        if (stage == null) throw StateError('Unauthorized output: $id');
+        if ((child != null) !=
+            (stage.declaration.kind == MappingToolPathKind.directory)) {
+          throw ArgumentError('Directory copies require a child.');
+        }
+        if (child != null) validateToolPath(child, MappingToolPathKind.file);
+        final path = child == null
+            ? stage.stagedPath
+            : p.join(stage.stagedPath, child);
+        await _rejectLinksBetween(stage.stagedPath, path);
+        await Directory(p.dirname(path)).create(recursive: true);
+        await File(source).copy(path);
+      };
+      outputs._run = (executable, arguments) async {
+        if (executable != contract.executable ||
+            arguments.length < contract.arguments.length) {
+          throw StateError(
+            'Subprocess must use ${contract.toolId} command executable and declared argv prefix.',
+          );
+        }
+        for (var index = 0; index < contract.arguments.length; index++) {
+          final expected = contract.arguments[index];
+          final placeholder = mappingToolPlaceholder.firstMatch(expected);
+          final supplied = arguments[index];
+          final matches = placeholder == null
+              ? supplied is String && supplied == expected
+              : placeholder[1] == 'input'
+              ? supplied is MappingToolInputPath &&
+                    supplied.id == placeholder[2]
+              : supplied is MappingToolOutputPath &&
+                    supplied.id == placeholder[2];
+          if (!matches) {
+            throw StateError(
+              'Undeclared subprocess argument at ${contract.toolId}:$index.',
+            );
+          }
+        }
+        // Inventory-whitelisted orchestration options are non-store literals.
+        // A declared input cannot be substituted into an output position, or
+        // appended where an executable could interpret it as a write target.
+        if (arguments
+            .skip(contract.arguments.length)
+            .any((argument) => argument is! String)) {
+          throw StateError(
+            'Additional orchestration arguments must be non-store literals.',
+          );
+        }
+        await requireNonStorePath(executable);
+        final argv = <String>[];
+        for (final argument in arguments) {
+          if (argument is MappingToolInputPath) {
+            final input = contract.inputs[argument.id];
+            if (input == null) {
+              throw StateError('Unauthorized subprocess input: ${argument.id}');
+            }
+            argv.addAll(
+              await _inputPaths(
+                input,
+                replaced['{input:${input.id}}'] ?? input.path,
+              ),
+            );
+          } else if (argument is MappingToolOutputPath) {
+            final stage = stages[argument.id];
+            if (stage == null) {
+              throw StateError(
+                'Unauthorized subprocess output: ${argument.id}',
+              );
+            }
+            final child = argument.child;
+            if (child != null) {
+              if (stage.declaration.kind != MappingToolPathKind.directory) {
+                throw ArgumentError('File output has no child.');
+              }
+              validateToolPath(child, MappingToolPathKind.file);
+            } else if (stage.declaration.kind ==
+                MappingToolPathKind.directory) {
+              throw ArgumentError(
+                'A raster subprocess requires an output file child.',
+              );
+            }
+            final path = child == null
+                ? stage.stagedPath
+                : p.join(stage.stagedPath, child);
+            await _rejectLinksBetween(stage.stagedPath, path);
+            await Directory(p.dirname(path)).create(recursive: true);
+            argv.add(path);
+          } else if (argument is String) {
+            final operand = argument.startsWith('--') && argument.contains('=')
+                ? argument.substring(argument.indexOf('=') + 1)
+                : argument;
+            final uri = Uri.tryParse(operand);
+            await requireNonStorePath(
+              uri?.scheme == 'file' ? uri!.toFilePath() : operand,
+            );
+            argv.add(argument);
+          } else {
+            throw ArgumentError(
+              'Process arguments must be strings or declared output references.',
+            );
+          }
+        }
+        final result = await _runner(
+          executable,
+          List.unmodifiable(argv),
+          _repositoryRoot,
+          _environment,
+        );
+        if (result.exitCode != 0) {
+          throw ProcessException(
+            executable,
+            argv,
+            '${result.stderr}',
+            result.exitCode,
+          );
+        }
+        return result;
+      };
       await action(outputs, inputPaths);
       for (final stage in stages.values) {
         await stage.validate(_store);
@@ -338,10 +542,39 @@ class MappingToolResolver {
   }
 }
 
+class MappingToolInputPath {
+  const MappingToolInputPath(this.id);
+  final String id;
+}
+
+class MappingToolOutputPath {
+  const MappingToolOutputPath(this.id, {this.child});
+  final String id;
+  final String? child;
+}
+
 class MappingToolOutputs {
   MappingToolOutputs._(this._stages);
   final Map<String, _OutputStage> _stages;
   bool _active = true;
+  Future<ProcessResult> Function(String, List<Object>)? _run;
+  Future<void> Function(String, String, String?)? _copy;
+
+  /// Stream a prepared non-store artifact into resolver-owned staging.
+  Future<void> copyNonStoreFile(String id, String source, {String? child}) {
+    if (!_active || _copy == null) {
+      throw StateError('Inactive output capability.');
+    }
+    return _copy!(id, source, child);
+  }
+
+  /// Only the resolver expands Mapping output references into staging paths.
+  Future<ProcessResult> runProcess(String executable, List<Object> arguments) {
+    if (!_active || _run == null) {
+      throw StateError('Inactive output capability.');
+    }
+    return _run!(executable, arguments);
+  }
 
   Future<void> writeText(String id, String contents, {String? child}) =>
       writeBytes(id, utf8.encode(contents), child: child);

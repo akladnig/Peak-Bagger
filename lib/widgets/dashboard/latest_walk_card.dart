@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:latlong2/latlong.dart';
@@ -241,7 +243,7 @@ class _LatestWalkContent extends StatelessWidget {
   }
 }
 
-class _LatestWalkMiniMap extends StatelessWidget {
+class _LatestWalkMiniMap extends ConsumerWidget {
   const _LatestWalkMiniMap({
     required this.summary,
     required this.showPeakInfo,
@@ -253,7 +255,7 @@ class _LatestWalkMiniMap extends StatelessWidget {
   final ValueChanged<int>? onOpenTrack;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final track = summary.track!;
     final points = summary.points;
     final trackPeaks = track.peaks.toList(growable: false);
@@ -296,7 +298,10 @@ class _LatestWalkMiniMap extends StatelessWidget {
                 options: options,
                 children: [
                   TileLayer(
-                    urlTemplate: mapTileUrl(Basemap.openstreetmap),
+                    urlTemplate: mapTileUrl(
+                      Basemap.openstreetmap,
+                      catalog: ref.watch(mappingCatalogProvider),
+                    ),
                     userAgentPackageName: 'com.peak_bagger.app',
                     tileProvider: buildLatestWalkTileProvider(
                       cacheAvailable:

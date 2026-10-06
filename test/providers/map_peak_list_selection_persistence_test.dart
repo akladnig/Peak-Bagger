@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -8,7 +9,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import '../harness/retired_overpass.dart';
 import 'package:peak_bagger/services/peak_list_import_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -32,6 +33,7 @@ void main() {
       final tasmapRepository = await TestTasmapRepository.create();
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(
               InMemoryPeakListStorage([
@@ -83,6 +85,7 @@ void main() {
     final tasmapRepository = await TestTasmapRepository.create();
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(
             InMemoryPeakListStorage([
@@ -132,6 +135,7 @@ void main() {
     final tasmapRepository = await TestTasmapRepository.create();
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(
             InMemoryPeakListStorage([
@@ -188,6 +192,7 @@ void main() {
       final tasmapRepository = await TestTasmapRepository.create();
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
@@ -226,6 +231,7 @@ void main() {
   test('import runner bumps revision and reconciles selected list', () async {
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => _InitialStateMapNotifier(
             MapState(
@@ -262,6 +268,7 @@ void main() {
     () async {
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _InitialStateMapNotifier(
               MapState(
@@ -302,6 +309,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => _InitialStateMapNotifier(
             MapState(
@@ -338,6 +346,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -379,6 +388,7 @@ void main() {
     ProviderContainer buildContainer() {
       return ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => MapNotifier(
               peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -454,6 +464,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _InitialStateMapNotifier(
               MapState(
@@ -499,6 +510,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _InitialStateMapNotifier(
               MapState(
@@ -592,6 +604,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _InitialStateMapNotifier(
               MapState(
@@ -674,6 +687,7 @@ void main() {
       final tasmapRepository = await TestTasmapRepository.create();
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(
               InMemoryPeakListStorage([
@@ -737,6 +751,7 @@ void main() {
       final tasmapRepository = await TestTasmapRepository.create();
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
@@ -785,6 +800,7 @@ void main() {
       final tasmapRepository = await TestTasmapRepository.create();
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(
               InMemoryPeakListStorage([
@@ -930,6 +946,7 @@ String _sortedRegionIdsJson(Map<String, Set<int>> idsByRegion) {
 class _FakeImportService extends PeakListImportService {
   _FakeImportService()
     : super(
+        catalog: testMappingCatalog,
         peakRepository: PeakRepository.test(InMemoryPeakStorage()),
         peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
       );

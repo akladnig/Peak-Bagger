@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'mapping_catalog_fixture.dart';
+export 'mapping_catalog_fixture.dart' show testMappingCatalog;
 
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
@@ -9,7 +11,6 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
-import 'package:peak_bagger/services/mapping_data_store.dart';
 
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
@@ -41,58 +42,6 @@ typedef _SearchPopupCriteria = ({
   MapSearchSort sort,
   MapSearchGroup group,
 });
-
-final testMappingCatalog = MappingCatalog(
-  rootPath: '/test',
-  regions: [
-    for (final region in regionManifestCatalog.allRegions())
-      MappingCatalogRegion(
-        key: region.key,
-        name: region.name,
-        shortName: region.shortName,
-        priority: region.priority,
-        showInPeakList: region.showInPeakList == true,
-        polyPaths: const [],
-        polygons: region.polygons,
-        basemapKeys: region.basemapKeys,
-        mapSet: region.mapSet,
-        peakListFilterAliases: region.peakListFilterAliases,
-        routingCoverage: switch (region.key) {
-          'tasmania' => 'tasmania',
-          'fvg' || 'veneto' || 'slovenia' => 'northeast-alps',
-          _ => null,
-        },
-        seedOnStartup: false,
-        composite: region.key == 'italy',
-        peaks: const [],
-        highways: const [],
-        fingerprint: null,
-      ),
-  ],
-  basemaps: [
-    for (final basemap in regionManifestCatalogData.basemaps)
-      MappingCatalogBasemap(
-        key: basemap.key,
-        name: basemap.name,
-        tileUrl: basemap.tileUrl,
-        attribution: basemap.attribution,
-        maxZoom: basemap.maxZoom,
-        coveragePolygonPaths: const [],
-        coveragePolygons: basemap.coveragePolygons,
-      ),
-  ],
-  tasmapCatalogPath: 'Maps/tasmap50k.csv',
-  naturalFeaturesCatalogPath: 'Features/tasmania_natural_features.json',
-  demSources: const {
-    'elvisRuntime': 'DEM/Elvis/elvis_runtime_10m.tif',
-    'thelist25m': 'DEM/tasmania_dem_25m.tif',
-    'copernicus': 'DEM/cop30_hh.tif',
-  },
-  routingCoverageRegionKeys: const {
-    'tasmania': ['tasmania'],
-    'northeast-alps': ['fvg', 'veneto', 'slovenia'],
-  },
-);
 
 class TestMapNotifier extends MapNotifier {
   TestMapNotifier(
@@ -128,6 +77,10 @@ class TestMapNotifier extends MapNotifier {
        super(mappingCatalog: mappingCatalog ?? testMappingCatalog);
 
   final MapState initialState;
+
+  @override
+  set state(MapState value) =>
+      super.state = value.copyWith(catalog: value.catalog ?? mappingCatalog);
   final String rescanStatus;
   final String? rescanWarning;
   final String? rescanSnackbarMessage;
@@ -267,7 +220,7 @@ class TestMapNotifier extends MapNotifier {
     ref.listen<int>(peaksBaggedRevisionProvider, (previous, next) {
       refreshPeakInfoPopupContent();
     });
-    return initialState;
+    return initialState.copyWith(catalog: mappingCatalog);
   }
 
   @override
@@ -1093,6 +1046,7 @@ class TestMapNotifier extends MapNotifier {
 
   MapSearchService _buildSearchPopupService() {
     return MapSearchService(
+      catalog: testMappingCatalog,
       peakRepository:
           peakRepository ??
           PeakRepository.test(InMemoryPeakStorage(state.peaks)),

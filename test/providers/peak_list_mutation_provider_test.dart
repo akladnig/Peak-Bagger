@@ -2,6 +2,7 @@
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/peak.dart';
@@ -35,6 +36,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => _InitialStateMapNotifier(
             MapState(
@@ -102,6 +104,7 @@ void main() {
         items: const [PeakListItem(peakOsmId: 99, points: 9)],
       );
       final importService = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: repository,
         csvLoader: (_) async =>
@@ -113,6 +116,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _InitialStateMapNotifier(
               MapState(
@@ -182,6 +186,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => mapNotifier),
           peakRepositoryProvider.overrideWithValue(peakRepository),
           peakListRepositoryProvider.overrideWithValue(repository),

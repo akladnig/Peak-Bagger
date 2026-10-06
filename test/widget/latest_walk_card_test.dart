@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +11,10 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/widgets/dashboard/latest_walk_card.dart';
+
+Future<void> _pumpReady(WidgetTester tester, Widget child) => tester.pumpWidget(
+  ProviderScope(overrides: mappingCatalogTestOverrides, child: child),
+);
 
 void main() {
   test(
@@ -28,7 +34,8 @@ void main() {
   testWidgets('renders empty placeholder when no usable track exists', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    await _pumpReady(
+      tester,
       const MaterialApp(
         home: Scaffold(
           body: SizedBox(
@@ -63,7 +70,8 @@ void main() {
       ),
     ];
 
-    await tester.pumpWidget(
+    await _pumpReady(
+      tester,
       MaterialApp(
         home: Scaffold(
           body: SizedBox(
@@ -139,7 +147,8 @@ void main() {
       ),
     ];
 
-    await tester.pumpWidget(
+    await _pumpReady(
+      tester,
       MaterialApp(
         home: Scaffold(
           body: SizedBox(
@@ -181,7 +190,8 @@ void main() {
   });
 
   testWidgets('paginates tracks with next disabled at latest', (tester) async {
-    await tester.pumpWidget(
+    await _pumpReady(
+      tester,
       MaterialApp(
         home: Scaffold(
           body: SizedBox(
@@ -264,7 +274,8 @@ void main() {
   });
 
   testWidgets('renders peak markers for correlated peaks', (tester) async {
-    await tester.pumpWidget(
+    await _pumpReady(
+      tester,
       MaterialApp(
         home: Scaffold(
           body: SizedBox(
@@ -306,7 +317,8 @@ void main() {
   });
 
   testWidgets('frames one-point tracks with default zoom', (tester) async {
-    await tester.pumpWidget(
+    await _pumpReady(
+      tester,
       MaterialApp(
         home: Scaffold(
           body: SizedBox(
@@ -336,7 +348,8 @@ void main() {
   });
 
   testWidgets('frames multi-point tracks with bounds fit', (tester) async {
-    await tester.pumpWidget(
+    await _pumpReady(
+      tester,
       MaterialApp(
         home: Scaffold(
           body: SizedBox(
@@ -367,7 +380,8 @@ void main() {
   testWidgets('adds extra bounds padding when peak info is shown', (
     tester,
   ) async {
-    await tester.pumpWidget(
+    await _pumpReady(
+      tester,
       MaterialApp(
         home: Scaffold(
           body: SizedBox(

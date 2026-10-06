@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
@@ -139,6 +140,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -262,6 +264,7 @@ ProviderContainer _buildContainer({
 }) {
   return ProviderContainer(
     overrides: [
+      ...mappingCatalogTestOverrides,
       mapProvider.overrideWith(
         () => TestMapNotifier(
           MapState(

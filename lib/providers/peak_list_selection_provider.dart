@@ -12,6 +12,7 @@ import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/services/fab_colour_resolver.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/widgets/map_rebuild_debug_counters.dart';
 
 const _tasmaniaPeakOwnershipPriority = <String, int>{
@@ -52,6 +53,7 @@ final peakListSelectionRefreshSchedulerProvider =
     });
 
 typedef _PeakListSelectionRefreshInputs = ({
+  MappingCatalog catalog,
   PeakListSelectionMode peakListSelectionMode,
   Set<int> selectedPeakListIds,
   Map<String, Set<int>> pinnedPeakListIdsByRegion,
@@ -88,6 +90,7 @@ final _peakListSelectionRefreshInputsProvider =
       );
 
       return (
+        catalog: ref.watch(mappingCatalogProvider),
         peakListSelectionMode: peakListSelectionMode,
         selectedPeakListIds: selectedPeakListIds,
         pinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion,
@@ -186,6 +189,7 @@ class PeakViewportSelectionData {
 }
 
 PeakViewportSelectionData buildPeakViewportSelectionData({
+  required MappingCatalog catalog,
   required PeakListSelectionMode peakListSelectionMode,
   required Set<int> selectedPeakListIds,
   required Map<String, Set<int>> pinnedPeakListIdsByRegion,
@@ -197,6 +201,7 @@ PeakViewportSelectionData buildPeakViewportSelectionData({
 }) {
   final derivedState = _buildDerivedState(
     inputs: (
+      catalog: catalog,
       peakListSelectionMode: peakListSelectionMode,
       selectedPeakListIds: selectedPeakListIds,
       pinnedPeakListIdsByRegion: pinnedPeakListIdsByRegion,
@@ -280,10 +285,14 @@ _PeakListSelectionDerivedState _buildDerivedState({
   };
   final peaksById = {for (final peak in inputs.peaks) peak.osmId: peak};
   final visibilityLookup = _PeakListMembershipLookup(repo: repo);
-  final visibleRegionKeys = visibleRegionKeysForBounds(inputs.visibleBounds);
+  final visibleRegionKeys = visibleRegionKeysForBounds(
+    inputs.visibleBounds,
+    catalog: inputs.catalog,
+  );
   final hasResolvedVisibleBounds = inputs.visibleBounds != null;
   final peakRegionKeysByOsmId = {
-    for (final peak in inputs.peaks) peak.osmId: canonicalPeakRegionKey(peak),
+    for (final peak in inputs.peaks)
+      peak.osmId: canonicalPeakRegionKey(peak, catalog: inputs.catalog),
   };
   final visibilityStateByPeakListId = _buildPeakListVisibilityStateByPeakListId(
     inputs: inputs,
@@ -563,6 +572,7 @@ Map<int, _PeakListVisibilityState> _buildPeakListVisibilityStateByPeakListId({
     final appliesToVisibleRegions = peakListAppliesToVisibleRegions(
       peakList,
       visibleRegionKeys,
+      catalog: inputs.catalog,
       visibleBounds: inputs.visibleBounds,
       peaks: inputs.peaks,
       peakRegionKeysByOsmId: peakRegionKeysByOsmId,

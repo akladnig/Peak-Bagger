@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/manifest_priority.dart';
-import 'package:peak_bagger/services/mapping_data_store.dart';
 
 import '../harness/route_graph_mapping_harness.dart';
 import '../harness/mapping_coverage_fixture.dart';

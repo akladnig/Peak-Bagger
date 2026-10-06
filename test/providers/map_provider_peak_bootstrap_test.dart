@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -9,8 +10,6 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/manifest_priority.dart';
-import 'package:peak_bagger/services/mapping_data_store.dart'
-    show MappingCatalog, MappingCatalogRegion;
 import 'package:peak_bagger/services/migration_marker_store.dart';
 import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
@@ -79,7 +78,10 @@ void main() {
         loadTracksOnBuild: false,
       );
       final container = ProviderContainer(
-        overrides: [mapProvider.overrideWith(() => notifier)],
+        overrides: [
+          ...mappingCatalogTestOverrides,
+          mapProvider.overrideWith(() => notifier),
+        ],
       );
       addTearDown(container.dispose);
 
@@ -153,6 +155,7 @@ void main() {
     );
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => notifier),
         peakListRepositoryProvider.overrideWithValue(peakListRepository),
       ],

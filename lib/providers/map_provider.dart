@@ -648,6 +648,10 @@ class GpxImportProgress {
 typedef GpxImportProgressCallback = void Function(GpxImportProgress progress);
 
 class MapState {
+  final MappingCatalog? catalog;
+  MappingCatalog get requiredCatalog =>
+      catalog ??
+      (throw StateError('MapState requires the ready-scope MappingCatalog.'));
   final LatLng center;
   final double zoom;
   final Basemap basemap;
@@ -758,6 +762,7 @@ class MapState {
   final int cameraRequestSerial;
 
   const MapState({
+    this.catalog,
     required this.center,
     required this.zoom,
     required this.basemap,
@@ -914,9 +919,9 @@ class MapState {
       );
 
   Set<String> get visibleMapSet =>
-      regionManifestCatalog.mapSetForBounds(_gridCapabilityBounds);
+      requiredCatalog.mapSetForBounds(_gridCapabilityBounds);
 
-  Set<String> get _centerMapSet => regionManifestCatalog.mapSetForBounds(
+  Set<String> get _centerMapSet => requiredCatalog.mapSetForBounds(
     LatLngBounds(
       LatLng(
         center.latitude - _gridCapabilityFallbackDelta,
@@ -1000,6 +1005,7 @@ class MapState {
   LatLngBounds? get cameraRequestBounds => pendingCameraRequest?.bounds;
 
   MapState copyWith({
+    MappingCatalog? catalog,
     LatLng? center,
     double? zoom,
     Basemap? basemap,
@@ -1145,6 +1151,7 @@ class MapState {
     bool clearGotoMgrs = false,
   }) {
     return MapState(
+      catalog: catalog ?? this.catalog,
       center: center ?? this.center,
       zoom: zoom ?? this.zoom,
       basemap: basemap ?? this.basemap,
@@ -1817,6 +1824,7 @@ class MapNotifier extends Notifier<MapState> {
       }),
     );
     return MapState(
+      catalog: mappingCatalog,
       center: MapConstants.defaultCenter,
       zoom: MapConstants.defaultZoom,
       basemap: Basemap.tracestrack,
@@ -1831,6 +1839,7 @@ class MapNotifier extends Notifier<MapState> {
 
   MapSearchService get _mapSearchService {
     return _mapSearchServiceCache ??= MapSearchService(
+      catalog: mappingCatalog,
       peakRepository: _peakRepository,
       gpxTrackRepository: _gpxTrackRepository,
       routeRepository: _routeRepository,
@@ -2461,7 +2470,7 @@ class MapNotifier extends Notifier<MapState> {
         );
         incomingMoved = true;
       } catch (_) {
-        return _rollbackReplacement(
+        return await _rollbackReplacement(
           operations: operations,
           sourcePath: item.sourcePath,
           destinationPath: destinationPath,
@@ -6005,6 +6014,7 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     final regionKeys = memberRegionKeysForPeakList(
+      catalog: mappingCatalog,
       peakList: peakList,
       peaks: state.peaks,
       itemsLoader: loadItems,
@@ -6154,7 +6164,7 @@ class MapNotifier extends Notifier<MapState> {
     if (bounds == null) {
       return const <String>{};
     }
-    return visibleRegionKeysForBounds(bounds);
+    return visibleRegionKeysForBounds(bounds, catalog: mappingCatalog);
   }
 
   _VisibleRegionPeakListSnapshot? _snapshotForVisibleRegionKeys(
@@ -6206,6 +6216,7 @@ class MapNotifier extends Notifier<MapState> {
                 final peakList = peakListsById[peakListId];
                 return peakList != null &&
                     peakListAppliesToVisibleRegions(
+                      catalog: mappingCatalog,
                       peakList,
                       visibleRegionKeys,
                       visibleBounds: state.visibleBounds,
@@ -6258,6 +6269,7 @@ class MapNotifier extends Notifier<MapState> {
             final peakList = peakListsById[peakListId];
             return peakList != null &&
                 peakListAppliesToVisibleRegions(
+                  catalog: mappingCatalog,
                   peakList,
                   visibleRegionKeys,
                   visibleBounds: state.visibleBounds,
@@ -6353,7 +6365,10 @@ class MapNotifier extends Notifier<MapState> {
     if (bounds == null) {
       return;
     }
-    final visibleRegionKeys = visibleRegionKeysForBounds(bounds);
+    final visibleRegionKeys = visibleRegionKeysForBounds(
+      bounds,
+      catalog: mappingCatalog,
+    );
     if (visibleRegionKeys.isEmpty) {
       return;
     }
@@ -6388,6 +6403,7 @@ class MapNotifier extends Notifier<MapState> {
       }
 
       final validPeakListIds = renderablePeakListIdsForVisibleRegions(
+        catalog: mappingCatalog,
         peakLists: peakLists,
         selectedPeakListIds: state.selectedPeakListIds,
         visibleRegionKeys: visibleRegionKeys,
@@ -8562,7 +8578,7 @@ class MapNotifier extends Notifier<MapState> {
       return null;
     }
 
-    final visibleRegions = regionManifestCatalog.regionsForBounds(bounds);
+    final visibleRegions = mappingCatalog.regionsForBounds(bounds);
     if (visibleRegions.length != 1) {
       return null;
     }

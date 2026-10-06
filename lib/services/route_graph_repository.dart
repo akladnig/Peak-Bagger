@@ -381,7 +381,7 @@ class InMemoryRouteGraphStorage implements RouteGraphStorage {
     List<RouteGraphWayIndex> wayIndexRows = const [],
     List<RouteGraphTrailDisplayChunk> trailDisplayChunks = const [],
   }) : _metadata = metadata ?? RouteGraphImportMetadata() {
-    final suppliedManifests = [if (manifest != null) manifest, ...manifests];
+    final suppliedManifests = [?manifest, ...manifests];
     final coverageKeys = suppliedManifests
         .map((entry) => entry.routingCoverageKey)
         .where((key) => key.isNotEmpty)

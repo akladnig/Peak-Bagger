@@ -58,7 +58,9 @@ class GpxStorageDestinationResolver {
       }
     }
 
-    return _fallbackDestination(point);
+    // A ready catalog is the sole geometry authority. The legacy user-import
+    // test adapter may still provide its own standalone destination behavior.
+    return mappingCatalog == null ? _fallbackDestination(point) : null;
   }
 
   Future<List<MapPolygonAsset>> _loadPolygonAssets() async {

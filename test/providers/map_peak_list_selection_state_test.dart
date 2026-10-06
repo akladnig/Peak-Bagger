@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -7,7 +8,7 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import '../harness/retired_overpass.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -19,6 +20,7 @@ void main() {
   test('toggling last specific list off enters none', () {
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => _InitialStateMapNotifier(
             MapState(
@@ -46,6 +48,7 @@ void main() {
   test('turning all peaks off restores remembered selection', () {
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => _InitialStateMapNotifier(
             MapState(
@@ -75,6 +78,7 @@ void main() {
   test('turning all peaks on captures current specific selection', () {
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => _InitialStateMapNotifier(
             MapState(
@@ -105,6 +109,7 @@ void main() {
   test('toggling a specific list while all peaks active replaces snapshot', () {
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => _InitialStateMapNotifier(
             MapState(
@@ -136,6 +141,7 @@ void main() {
     () {
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _InitialStateMapNotifier(
               MapState(
@@ -182,6 +188,7 @@ void main() {
       final tasmapRepository = await TestTasmapRepository.create();
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(
               InMemoryPeakListStorage([
@@ -249,6 +256,7 @@ void main() {
     () {
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _InitialStateMapNotifier(
               MapState(
@@ -288,6 +296,7 @@ void main() {
       final tasmapRepository = await TestTasmapRepository.create();
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(
               InMemoryPeakListStorage([
@@ -355,6 +364,7 @@ void main() {
       final tasmapRepository = await TestTasmapRepository.create();
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(
               InMemoryPeakListStorage([
@@ -450,6 +460,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _InitialStateMapNotifier(
               MapState(
@@ -557,6 +568,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _InitialStateMapNotifier(
               MapState(
@@ -609,6 +621,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _InitialStateMapNotifier(
               MapState(

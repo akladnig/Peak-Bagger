@@ -1,5 +1,6 @@
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/core/constants.dart';
@@ -72,7 +73,11 @@ void main() {
     () async {
       final tasmapRepository = await TestTasmapRepository.create();
       final service = MapSearchService(
-        peakRepository: PeakRepository.test(_ThrowingPeakStorage()),
+        catalog: testMappingCatalog,
+        peakRepository: PeakRepository.test(
+          _ThrowingPeakStorage(),
+          catalog: testMappingCatalog,
+        ),
         gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
         routeRepository: RouteRepository.test(InMemoryRouteStorage()),
         tasmapRepository: tasmapRepository,
@@ -445,7 +450,9 @@ void main() {
   test('peak enrichment runs only for the requested page window', () async {
     final tasmapRepository = _CountingTasmapRepository();
     final service = MapSearchService(
+      catalog: testMappingCatalog,
       peakRepository: PeakRepository.test(
+        catalog: testMappingCatalog,
         InMemoryPeakStorage(
           List.generate(
             30,
@@ -906,7 +913,11 @@ void main() {
   test('popup peak search uses the popup-specific repository seam', () async {
     final tasmapRepository = await TestTasmapRepository.create();
     final service = MapSearchService(
-      peakRepository: PeakRepository.test(_PopupOnlyPeakStorage()),
+      catalog: testMappingCatalog,
+      peakRepository: PeakRepository.test(
+        _PopupOnlyPeakStorage(),
+        catalog: testMappingCatalog,
+      ),
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: RouteRepository.test(InMemoryRouteStorage()),
       tasmapRepository: tasmapRepository,
@@ -1106,7 +1117,11 @@ Future<MapSearchService> _service({
 }) async {
   final tasmapRepository = await TestTasmapRepository.create(maps: maps);
   return MapSearchService(
-    peakRepository: PeakRepository.test(InMemoryPeakStorage(peaks)),
+    catalog: testMappingCatalog,
+    peakRepository: PeakRepository.test(
+      InMemoryPeakStorage(peaks),
+      catalog: testMappingCatalog,
+    ),
     gpxTrackRepository: GpxTrackRepository.test(
       InMemoryGpxTrackStorage(tracks),
     ),

@@ -141,8 +141,14 @@ class TileCacheService {
     return uri.replace(pathSegments: segments).toString();
   }
 
-  static String transformUrl(Basemap basemap, int z, int x, int y) {
-    final url = mapTileUrl(basemap);
+  static String transformUrl(
+    Basemap basemap,
+    int z,
+    int x,
+    int y, {
+    required MappingCatalog catalog,
+  }) {
+    final url = mapTileUrl(basemap, catalog: catalog);
     if (basemap == Basemap.tasmapTopo ||
         basemap == Basemap.tasmap50k ||
         basemap == Basemap.tasmap25k) {
@@ -178,6 +184,7 @@ class TileCacheService {
   }
 
   static Future<void> ensureLowZoomWarmup({
+    required MappingCatalog catalog,
     TileCacheDownloadStarter? downloadStarter,
     Future<SharedPreferences> Function()? sharedPreferencesLoader,
   }) {
@@ -187,6 +194,7 @@ class TileCacheService {
     }
 
     final future = _ensureLowZoomWarmupInternal(
+      catalog: catalog,
       downloadStarter: downloadStarter ?? _startWarmupDownload,
       sharedPreferencesLoader:
           sharedPreferencesLoader ?? SharedPreferences.getInstance,
@@ -200,6 +208,7 @@ class TileCacheService {
   }
 
   static Future<void> _ensureLowZoomWarmupInternal({
+    required MappingCatalog catalog,
     required TileCacheDownloadStarter downloadStarter,
     required Future<SharedPreferences> Function() sharedPreferencesLoader,
   }) async {
@@ -216,6 +225,7 @@ class TileCacheService {
           region: buildLowZoomTileCacheWarmupRegion(
             options: buildBasemapTileLayer(
               basemap,
+              catalog: catalog,
               userAgentPackageName: 'com.peak_bagger.app',
             ),
           ),

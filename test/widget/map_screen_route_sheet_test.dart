@@ -6,6 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -18,8 +19,6 @@ import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
-import 'package:peak_bagger/services/mapping_data_store.dart'
-    show mappingCatalogProvider;
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -28,7 +27,7 @@ import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import '../harness/retired_overpass.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/widgets/route_marker.dart';
 import 'package:peak_bagger/widgets/map_route_bottom_sheet.dart';
@@ -496,7 +495,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [mapProvider.overrideWith(() => notifier)],
+        overrides: [
+          ...mappingCatalogTestOverrides,
+          mapProvider.overrideWith(() => notifier),
+        ],
         child: const MaterialApp(
           home: Scaffold(
             body: Center(
@@ -564,7 +566,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [mapProvider.overrideWith(() => notifier)],
+        overrides: [
+          ...mappingCatalogTestOverrides,
+          mapProvider.overrideWith(() => notifier),
+        ],
         child: const MaterialApp(
           home: Scaffold(
             body: Center(
@@ -610,7 +615,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [mapProvider.overrideWith(() => notifier)],
+        overrides: [
+          ...mappingCatalogTestOverrides,
+          mapProvider.overrideWith(() => notifier),
+        ],
         child: const MaterialApp(
           home: Scaffold(
             body: Center(
@@ -2101,7 +2109,7 @@ Future<void> _pumpMap(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
-        mappingCatalogProvider.overrideWithValue(testMappingCatalog),
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => notifier),
         routeGraphStoreProvider.overrideWithValue(_ReadyRouteGraphStore()),
         routeRepositoryProvider.overrideWithValue(effectiveRouteRepository),

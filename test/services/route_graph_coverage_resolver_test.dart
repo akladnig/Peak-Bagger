@@ -9,7 +9,7 @@ void main() {
     () async {
       final resolver = RouteGraphCoverageResolver(
         assetLoader: _loader({
-          'assets/region_manifest.json': jsonEncode({
+          'region_manifest.json': jsonEncode({
             'routingCoverages': {
               'tasmania': {'displayName': 'Tasmania'},
               'northeast-alps': {'displayName': 'Northeast Alps'},
@@ -17,28 +17,28 @@ void main() {
             'late': {
               'priority': '2.1',
               'routingCoverage': 'northeast-alps',
-              'highways': ['assets/highways/z.json', 'assets/highways/a.json'],
+              'highways': ['Highways/z.json', 'Highways/a.json'],
             },
             'early': {
               'priority': '1.2',
               'routingCoverage': 'northeast-alps',
-              'highways': ['assets/highways/b.json'],
+              'highways': ['Highways/b.json'],
             },
             'tas': {
               'priority': '1.1',
               'routingCoverage': 'tasmania',
-              'highways': ['assets/highways/tas.json'],
+              'highways': ['Highways/tas.json'],
             },
             'legacy': {
-              'highways': ['assets/highways/legacy.json'],
+              'highways': ['Highways/legacy.json'],
             },
             'composite': {
               'composite': true,
               'routingCoverage': 'tasmania',
-              'highways': ['assets/highways/composite.json'],
+              'highways': ['Highways/composite.json'],
             },
           }),
-          'assets/highways/tas.json': _overpass([
+          'Highways/tas.json': _overpass([
             {'type': 'node', 'id': 1, 'lat': -42.0, 'lon': 146.0},
             {'type': 'node', 'id': 2, 'lat': -42.01, 'lon': 146.01},
             {
@@ -48,13 +48,13 @@ void main() {
               'tags': {'highway': 'path'},
             },
           ]),
-          'assets/highways/a.json': _overpass([
+          'Highways/a.json': _overpass([
             {'type': 'node', 'id': 4, 'lat': 1.0, 'lon': 2.0},
           ]),
-          'assets/highways/b.json': _overpass([
+          'Highways/b.json': _overpass([
             {'type': 'node', 'id': 3, 'lat': 1, 'lon': 2},
           ]),
-          'assets/highways/z.json': _overpass([
+          'Highways/z.json': _overpass([
             {
               'type': 'way',
               'id': 5,
@@ -79,7 +79,7 @@ void main() {
         inputs[1].definition.sourceRegions[1].sourceAssets.map(
           (asset) => asset.path,
         ),
-        ['assets/highways/a.json', 'assets/highways/z.json'],
+        ['Highways/a.json', 'Highways/z.json'],
       );
       expect(inputs[0].acceptedWayCount, 1);
       expect(inputs[0].sourceHash, hasLength(64));
@@ -94,13 +94,13 @@ void main() {
       'tasmania': {
         'priority': '1.1',
         'routingCoverage': 'tasmania',
-        'highways': ['assets/highways/tas.json'],
+        'highways': ['Highways/tas.json'],
       },
     };
-    final assets = {'assets/highways/tas.json': _overpass([])};
+    final assets = {'Highways/tas.json': _overpass([])};
     final first = await RouteGraphCoverageResolver(
       assetLoader: _loader({
-        'assets/region_manifest.json': jsonEncode(manifest),
+        'region_manifest.json': jsonEncode(manifest),
         ...assets,
       }),
     ).resolve();
@@ -109,7 +109,7 @@ void main() {
     };
     final second = await RouteGraphCoverageResolver(
       assetLoader: _loader({
-        'assets/region_manifest.json': jsonEncode(manifest),
+        'region_manifest.json': jsonEncode(manifest),
         ...assets,
       }),
     ).resolve();
@@ -124,7 +124,7 @@ void main() {
         return expectLater(
           RouteGraphCoverageResolver(
             assetLoader: _loader({
-              'assets/region_manifest.json': jsonEncode(manifest),
+              'region_manifest.json': jsonEncode(manifest),
               ...assets,
             }),
           ).resolve(),
@@ -139,7 +139,7 @@ void main() {
         'tasmania': {
           'priority': '1.1',
           'routingCoverage': 'tasmania',
-          'highways': ['assets/highways/tas.json'],
+          'highways': ['Highways/tas.json'],
         },
       };
       await expectInvalid(
@@ -148,14 +148,14 @@ void main() {
           'other': {
             'priority': '1.2',
             'routingCoverage': 'missing',
-            'highways': ['assets/highways/tas.json'],
+            'highways': ['Highways/tas.json'],
           },
         },
-        {'assets/highways/tas.json': _overpass([])},
+        {'Highways/tas.json': _overpass([])},
       );
       await expectInvalid(
         {...base, 'metadata': 'not a region'},
-        {'assets/highways/tas.json': _overpass([])},
+        {'Highways/tas.json': _overpass([])},
       );
       await expectInvalid({
         ...base,
@@ -164,9 +164,9 @@ void main() {
           'highways': ['assets\\highways\\tas.json'],
         },
       }, const {});
-      await expectInvalid(base, {'assets/highways/tas.json': '[]'});
+      await expectInvalid(base, {'Highways/tas.json': '[]'});
       await expectInvalid(base, {
-        'assets/highways/tas.json': _overpass([
+        'Highways/tas.json': _overpass([
           {'type': 'node', 'id': 1},
           {'id': 1, 'type': 'node', 'lat': 1},
         ]),
@@ -179,17 +179,17 @@ void main() {
     () async {
       final resolver = RouteGraphCoverageResolver(
         assetLoader: _loader({
-          'assets/region_manifest.json': jsonEncode({
+          'region_manifest.json': jsonEncode({
             'routingCoverages': {
               'tasmania': {'displayName': 'Tasmania'},
             },
             'tasmania': {
               'priority': '1.1',
               'routingCoverage': 'tasmania',
-              'highways': ['assets/highways/a.json', 'assets/highways/b.json'],
+              'highways': ['Highways/a.json', 'Highways/b.json'],
             },
           }),
-          'assets/highways/a.json': _overpass([
+          'Highways/a.json': _overpass([
             {'type': 'node', 'id': 1, 'lat': 1.0, 'lon': 2.0},
             {'type': 'node', 'id': 2, 'lat': 1.01, 'lon': 2.01},
             {
@@ -205,7 +205,7 @@ void main() {
               'tags': {'highway': 'path', 'area': 'yes'},
             },
           ]),
-          'assets/highways/b.json': _overpass([
+          'Highways/b.json': _overpass([
             {'lon': 2, 'id': 1, 'type': 'node', 'lat': 1},
           ]),
         }),

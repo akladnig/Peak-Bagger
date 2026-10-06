@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -187,22 +188,20 @@ void main() {
     (tester) async {
       SharedPreferences.setMockInitialValues({});
 
-    final robot = DashboardRobot(tester);
-    final peakListRepository = PeakListRepository.test(
-      InMemoryPeakListStorage([
-        PeakList(peakListId: 2, name: 'Broken List'),
-      ]),
-    );
-    final container = await _createContainer(
-      notifier: TestMapNotifier(
-        const MapState(
+      final robot = DashboardRobot(tester);
+      final peakListRepository = PeakListRepository.test(
+        InMemoryPeakListStorage([PeakList(peakListId: 2, name: 'Broken List')]),
+      );
+      final container = await _createContainer(
+        notifier: TestMapNotifier(
+          const MapState(
             center: LatLng(-41.5, 146.5),
             zoom: 12,
             basemap: Basemap.tracestrack,
+          ),
         ),
-      ),
-      peakListRepository: peakListRepository,
-    );
+        peakListRepository: peakListRepository,
+      );
       addTearDown(container.dispose);
 
       await robot.pumpApp(container: container);
@@ -566,12 +565,14 @@ Future<ProviderContainer> _createContainer({
 
   return ProviderContainer(
     overrides: [
+      ...mappingCatalogTestOverrides,
       mapProvider.overrideWith(() => notifier),
       peakRepositoryProvider.overrideWithValue(
         PeakRepository.test(InMemoryPeakStorage(peaks)),
       ),
       peakListRepositoryProvider.overrideWithValue(
-        peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
+        peakListRepository ??
+            PeakListRepository.test(InMemoryPeakListStorage()),
       ),
       peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
       tasmapRepositoryProvider.overrideWithValue(

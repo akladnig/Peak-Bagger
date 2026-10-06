@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../harness/mapping_catalog_fixture.dart';
 import 'package:flutter/widgets.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
@@ -40,14 +41,13 @@ class PeakListPinsRobot {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           peakListRepositoryProvider.overrideWithValue(
             _peakListRepositoryWithItems([
               PeakList(name: 'Alpha', region: 'tasmania')..peakListId = 1,
-              PeakList(
-                name: 'Bravo',
-                region: 'new-south-wales',
-              )..peakListId = 2,
+              PeakList(name: 'Bravo', region: 'new-south-wales')
+                ..peakListId = 2,
             ]),
           ),
           tasmapRepositoryProvider.overrideWithValue(tasmapRepository),

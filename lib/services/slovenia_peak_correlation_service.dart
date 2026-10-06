@@ -2,7 +2,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/geo.dart';
 import 'package:peak_bagger/services/peak_source.dart';
-import 'package:peak_bagger/services/region_manifest_catalog.dart';
+import 'package:peak_bagger/services/mapping_store_core.dart';
 import 'package:peak_bagger/services/slovenia_hribi_source_peak_list_service.dart';
 
 const List<String> sloveniaRankedPeakListCsvHeader = [
@@ -126,7 +126,7 @@ class SloveniaPeakCorrelationOutput {
 class SloveniaPeakCorrelationService {
   const SloveniaPeakCorrelationService({
     required this.peakSource,
-    this.canonicalRegionResolver = const SloveniaCanonicalRegionResolver(),
+    required this.canonicalRegionResolver,
   });
 
   final PeakSource peakSource;
@@ -349,7 +349,9 @@ class SloveniaPeakCorrelationService {
 }
 
 class SloveniaCanonicalRegionResolver {
-  const SloveniaCanonicalRegionResolver();
+  const SloveniaCanonicalRegionResolver({required this.catalog});
+
+  final MappingCatalog catalog;
 
   static const _aggregateRegionKeys = {
     'italy',
@@ -418,12 +420,12 @@ class SloveniaCanonicalRegionResolver {
     );
   }
 
-  List<RegionManifestRegionData> candidateRegionsForPoint(LatLng point) {
-    return regionManifestCatalog.regionsForPointByPriority(point);
+  List<MappingCatalogRegion> candidateRegionsForPoint(LatLng point) {
+    return catalog.regionsForPointByPriority(point);
   }
 
-  List<RegionManifestRegionData> highestPriorityCandidateRegions(
-    List<RegionManifestRegionData> candidates,
+  List<MappingCatalogRegion> highestPriorityCandidateRegions(
+    List<MappingCatalogRegion> candidates,
   ) {
     if (candidates.isEmpty) {
       return const [];

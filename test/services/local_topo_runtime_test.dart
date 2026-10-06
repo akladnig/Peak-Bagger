@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/screens/map_screen_layers.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
@@ -12,7 +13,7 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     registerLocalTopoRegionKeyValidator(
-      (regionKey) => regionManifestCatalog.regionByKey(regionKey) != null,
+      (regionKey) => testMappingCatalog.regionByKey(regionKey) != null,
     );
     localTopoRuntime.resetForTesting();
   });
@@ -247,8 +248,17 @@ void main() {
     'Local Topo stays unavailable until restore and uses runtime URL after it',
     () async {
       expect(isBasemapAvailable(Basemap.localTopo), isFalse);
-      expect(mapTileUrl(Basemap.localTopo), localTopoPlaceholderTileUrl);
-      expect(buildBasemapTileLayer(Basemap.localTopo).maxNativeZoom, 18);
+      expect(
+        mapTileUrl(Basemap.localTopo, catalog: testMappingCatalog),
+        localTopoPlaceholderTileUrl,
+      );
+      expect(
+        buildBasemapTileLayer(
+          Basemap.localTopo,
+          catalog: testMappingCatalog,
+        ).maxNativeZoom,
+        18,
+      );
 
       final snapshot = LocalTopoCapabilitySnapshot(
         baseUrl: Uri.parse('http://127.0.0.1:8090'),
@@ -264,15 +274,24 @@ void main() {
 
       expect(isBasemapAvailable(Basemap.localTopo), isTrue);
       expect(
-        mapTileUrl(Basemap.localTopo),
+        mapTileUrl(Basemap.localTopo, catalog: testMappingCatalog),
         'http://127.0.0.1:8090/tasmania/local-topo/{z}/{x}/{y}.png',
       );
-      expect(buildBasemapTileLayer(Basemap.localTopo).maxNativeZoom, 18);
+      expect(
+        buildBasemapTileLayer(
+          Basemap.localTopo,
+          catalog: testMappingCatalog,
+        ).maxNativeZoom,
+        18,
+      );
 
       await localTopoRuntime.saveBaseUrl(Uri.parse('http://127.0.0.1:8091'));
 
       expect(localTopoRuntime.hasCapabilitySnapshot, isFalse);
-      expect(mapTileUrl(Basemap.localTopo), localTopoPlaceholderTileUrl);
+      expect(
+        mapTileUrl(Basemap.localTopo, catalog: testMappingCatalog),
+        localTopoPlaceholderTileUrl,
+      );
     },
   );
 }

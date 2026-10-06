@@ -1,5 +1,6 @@
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
@@ -36,7 +37,10 @@ void main() {
         ),
       );
       final container = ProviderContainer(
-        overrides: [mapProvider.overrideWith(() => notifier)],
+        overrides: [
+          ...mappingCatalogTestOverrides,
+          mapProvider.overrideWith(() => notifier),
+        ],
       );
       addTearDown(container.dispose);
 
@@ -74,7 +78,10 @@ void main() {
         ),
       );
       final container = ProviderContainer(
-        overrides: [mapProvider.overrideWith(() => notifier)],
+        overrides: [
+          ...mappingCatalogTestOverrides,
+          mapProvider.overrideWith(() => notifier),
+        ],
       );
       addTearDown(container.dispose);
 
@@ -109,7 +116,10 @@ void main() {
         routeRepository: routeRepository,
       );
       final container = ProviderContainer(
-        overrides: [mapProvider.overrideWith(() => notifier)],
+        overrides: [
+          ...mappingCatalogTestOverrides,
+          mapProvider.overrideWith(() => notifier),
+        ],
       );
       addTearDown(container.dispose);
 
@@ -139,6 +149,7 @@ void main() {
     );
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => notifier),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
       ],
@@ -165,7 +176,10 @@ void main() {
       ),
     );
     final container = ProviderContainer(
-      overrides: [mapProvider.overrideWith(() => notifier)],
+      overrides: [
+        ...mappingCatalogTestOverrides,
+        mapProvider.overrideWith(() => notifier),
+      ],
     );
     addTearDown(container.dispose);
 
@@ -194,6 +208,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         ],
@@ -263,6 +278,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         ],
@@ -375,6 +391,7 @@ void main() {
     );
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => notifier),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
       ],

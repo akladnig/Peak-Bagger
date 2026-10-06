@@ -70,13 +70,11 @@ class RouteGraphImportBatchConfigurationFailure
 /// Owns the one process-wide route-graph batch so callers cannot overlap imports.
 class RouteGraphImportCoordinator extends ChangeNotifier {
   RouteGraphImportCoordinator({
-    required RouteGraphCoverageResolver coverageResolver,
-    required RouteGraphImportService importService,
-    required RouteGraphRepository repository,
+    required this._coverageResolver,
+    required this._importService,
+    required this._repository,
     this.mappingOperationCoordinator,
-  }) : _coverageResolver = coverageResolver,
-       _importService = importService,
-       _repository = repository;
+  });
 
   final RouteGraphCoverageResolver _coverageResolver;
   final RouteGraphImportService _importService;

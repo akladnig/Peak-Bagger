@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -9,7 +10,7 @@ import 'package:peak_bagger/providers/peak_correlation_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import '../harness/retired_overpass.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
@@ -19,64 +20,83 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
-  test('removes only the selected peak correlation and refreshes map state', () async {
-    final selectedTrack = _track(id: 1, peakOsmIds: [10, 20]);
-    final otherTrack = _track(id: 2, peakOsmIds: [10]);
-    final tracks = GpxTrackRepository.test(
-      InMemoryGpxTrackStorage([selectedTrack, otherTrack]),
-    );
-    final bagged = PeaksBaggedRepository.test(
-      InMemoryPeaksBaggedStorage([
-        PeaksBagged(baggedId: 4, gpxId: 1, peakId: 10),
-        PeaksBagged(baggedId: 5, gpxId: 1, peakId: 20),
-        PeaksBagged(baggedId: 9, gpxId: 2, peakId: 10),
-      ]),
-    );
-    final container = await _container(tracks: tracks, bagged: bagged);
-    addTearDown(container.dispose);
-    final notifier = container.read(mapProvider.notifier);
-    notifier.state = _state([selectedTrack, otherTrack]);
+  test(
+    'removes only the selected peak correlation and refreshes map state',
+    () async {
+      final selectedTrack = _track(id: 1, peakOsmIds: [10, 20]);
+      final otherTrack = _track(id: 2, peakOsmIds: [10]);
+      final tracks = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([selectedTrack, otherTrack]),
+      );
+      final bagged = PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 4, gpxId: 1, peakId: 10),
+          PeaksBagged(baggedId: 5, gpxId: 1, peakId: 20),
+          PeaksBagged(baggedId: 9, gpxId: 2, peakId: 10),
+        ]),
+      );
+      final container = await _container(tracks: tracks, bagged: bagged);
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = _state([selectedTrack, otherTrack]);
 
-    await notifier.removePeakCorrelation(trackId: 1, peakOsmId: 10);
+      await notifier.removePeakCorrelation(trackId: 1, peakOsmId: 10);
 
-    expect(tracks.findById(1)!.peaks.map((peak) => peak.osmId), [20]);
-    expect(tracks.findById(2)!.peaks.map((peak) => peak.osmId), [10]);
-    expect(
-      bagged.getAll().map((row) => (row.baggedId, row.gpxId, row.peakId)),
-      [(5, 1, 20), (9, 2, 10)],
-    );
-    expect(container.read(mapProvider).tracks[0].peaks.map((peak) => peak.osmId), [20]);
-    expect(container.read(mapProvider).selectedTrackId, 1);
-    expect(notifier.correlatedPeakIds, {10, 20});
-    expect(container.read(peaksBaggedRevisionProvider), 1);
-  });
+      expect(tracks.findById(1)!.peaks.map((peak) => peak.osmId), [20]);
+      expect(tracks.findById(2)!.peaks.map((peak) => peak.osmId), [10]);
+      expect(
+        bagged.getAll().map((row) => (row.baggedId, row.gpxId, row.peakId)),
+        [(5, 1, 20), (9, 2, 10)],
+      );
+      expect(
+        container.read(mapProvider).tracks[0].peaks.map((peak) => peak.osmId),
+        [20],
+      );
+      expect(container.read(mapProvider).selectedTrackId, 1);
+      expect(notifier.correlatedPeakIds, {10, 20});
+      expect(container.read(peaksBaggedRevisionProvider), 1);
+    },
+  );
 
-  test('treats an already-absent persisted pair as a successful refresh', () async {
-    final persistedTrack = _track(id: 1, peakOsmIds: [20]);
-    final tracks = GpxTrackRepository.test(
-      InMemoryGpxTrackStorage([persistedTrack]),
-    );
-    final bagged = PeaksBaggedRepository.test(
-      InMemoryPeaksBaggedStorage([
-        PeaksBagged(baggedId: 5, gpxId: 1, peakId: 20),
-      ]),
-    );
-    final container = await _container(tracks: tracks, bagged: bagged);
-    addTearDown(container.dispose);
-    final notifier = container.read(mapProvider.notifier);
-    notifier.state = _state([_track(id: 1, peakOsmIds: [10, 20])]);
+  test(
+    'treats an already-absent persisted pair as a successful refresh',
+    () async {
+      final persistedTrack = _track(id: 1, peakOsmIds: [20]);
+      final tracks = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([persistedTrack]),
+      );
+      final bagged = PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 5, gpxId: 1, peakId: 20),
+        ]),
+      );
+      final container = await _container(tracks: tracks, bagged: bagged);
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = _state([
+        _track(id: 1, peakOsmIds: [10, 20]),
+      ]);
 
-    await notifier.removePeakCorrelation(trackId: 1, peakOsmId: 10);
+      await notifier.removePeakCorrelation(trackId: 1, peakOsmId: 10);
 
-    expect(tracks.findById(1)!.peaks.map((peak) => peak.osmId), [20]);
-    expect(
-      bagged.getAll().map((row) => (row.baggedId, row.gpxId, row.peakId)),
-      [(5, 1, 20)],
-    );
-    expect(container.read(mapProvider).tracks.single.peaks.map((peak) => peak.osmId), [20]);
-    expect(container.read(mapProvider).selectedTrackId, 1);
-    expect(container.read(peaksBaggedRevisionProvider), 1);
-  });
+      expect(tracks.findById(1)!.peaks.map((peak) => peak.osmId), [20]);
+      expect(
+        bagged.getAll().map((row) => (row.baggedId, row.gpxId, row.peakId)),
+        [(5, 1, 20)],
+      );
+      expect(
+        container
+            .read(mapProvider)
+            .tracks
+            .single
+            .peaks
+            .map((peak) => peak.osmId),
+        [20],
+      );
+      expect(container.read(mapProvider).selectedTrackId, 1);
+      expect(container.read(peaksBaggedRevisionProvider), 1);
+    },
+  );
 
   for (final failure in TrackDerivedDataPersistenceFailure.values) {
     test('retains the exact persisted data when $failure fails', () async {
@@ -116,89 +136,94 @@ void main() {
     });
   }
 
-  test('remains absent after repository reload and derived-history sync', () async {
-    final trackStorage = InMemoryGpxTrackStorage([
-      _track(id: 1, peakOsmIds: [10, 20]),
-      _track(id: 2, peakOsmIds: [10]),
-    ]);
-    final baggedStorage = InMemoryPeaksBaggedStorage([
-      PeaksBagged(baggedId: 4, gpxId: 1, peakId: 10),
-      PeaksBagged(baggedId: 5, gpxId: 1, peakId: 20),
-      PeaksBagged(baggedId: 9, gpxId: 2, peakId: 10),
-    ]);
-    final tracks = GpxTrackRepository.test(trackStorage);
-    final bagged = PeaksBaggedRepository.test(baggedStorage);
-    final container = await _container(tracks: tracks, bagged: bagged);
-    addTearDown(container.dispose);
-    final notifier = container.read(mapProvider.notifier);
-    notifier.state = _state(tracks.getAllTracks());
+  test(
+    'remains absent after repository reload and derived-history sync',
+    () async {
+      final trackStorage = InMemoryGpxTrackStorage([
+        _track(id: 1, peakOsmIds: [10, 20]),
+        _track(id: 2, peakOsmIds: [10]),
+      ]);
+      final baggedStorage = InMemoryPeaksBaggedStorage([
+        PeaksBagged(baggedId: 4, gpxId: 1, peakId: 10),
+        PeaksBagged(baggedId: 5, gpxId: 1, peakId: 20),
+        PeaksBagged(baggedId: 9, gpxId: 2, peakId: 10),
+      ]);
+      final tracks = GpxTrackRepository.test(trackStorage);
+      final bagged = PeaksBaggedRepository.test(baggedStorage);
+      final container = await _container(tracks: tracks, bagged: bagged);
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = _state(tracks.getAllTracks());
 
-    await notifier.removePeakCorrelation(trackId: 1, peakOsmId: 10);
+      await notifier.removePeakCorrelation(trackId: 1, peakOsmId: 10);
 
-    final reloadedTracks = GpxTrackRepository.test(trackStorage);
-    final reloadedBagged = PeaksBaggedRepository.test(baggedStorage);
-    await reloadedBagged.syncFromTracks(reloadedTracks.getAllTracks());
-    final reloadedContainer = await _container(
-      tracks: reloadedTracks,
-      bagged: reloadedBagged,
-    );
-    addTearDown(reloadedContainer.dispose);
-    final reloadedNotifier = reloadedContainer.read(mapProvider.notifier);
-    reloadedNotifier.state = _state(reloadedTracks.getAllTracks());
+      final reloadedTracks = GpxTrackRepository.test(trackStorage);
+      final reloadedBagged = PeaksBaggedRepository.test(baggedStorage);
+      await reloadedBagged.syncFromTracks(reloadedTracks.getAllTracks());
+      final reloadedContainer = await _container(
+        tracks: reloadedTracks,
+        bagged: reloadedBagged,
+      );
+      addTearDown(reloadedContainer.dispose);
+      final reloadedNotifier = reloadedContainer.read(mapProvider.notifier);
+      reloadedNotifier.state = _state(reloadedTracks.getAllTracks());
 
-    expect(reloadedTracks.findById(1)!.peaks.map((peak) => peak.osmId), [20]);
-    expect(reloadedTracks.findById(2)!.peaks.map((peak) => peak.osmId), [10]);
-    expect(
-      reloadedBagged.getAll().map((row) => (row.gpxId, row.peakId)),
-      [(1, 20), (2, 10)],
-    );
-    expect(reloadedNotifier.correlatedPeakIds, {10, 20});
-  });
+      expect(reloadedTracks.findById(1)!.peaks.map((peak) => peak.osmId), [20]);
+      expect(reloadedTracks.findById(2)!.peaks.map((peak) => peak.osmId), [10]);
+      expect(reloadedBagged.getAll().map((row) => (row.gpxId, row.peakId)), [
+        (1, 20),
+        (2, 10),
+      ]);
+      expect(reloadedNotifier.correlatedPeakIds, {10, 20});
+    },
+  );
 
-  test('explicit selected-track recalculation can restore an eligible pair', () async {
-    SharedPreferences.setMockInitialValues({
-      peakCorrelationDistanceKey: 100,
-      peakCorrelationElevationKey: 20,
-    });
-    final peak = Peak(
-      osmId: 99,
-      name: 'Eligible peak',
-      latitude: -42,
-      longitude: 146,
-      elevation: 100,
-    );
-    final selectedTrack = GpxTrack(
+  test(
+    'explicit selected-track recalculation can restore an eligible pair',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        peakCorrelationDistanceKey: 100,
+        peakCorrelationElevationKey: 20,
+      });
+      final peak = Peak(
+        osmId: 99,
+        name: 'Eligible peak',
+        latitude: -42,
+        longitude: 146,
+        elevation: 100,
+      );
+      final selectedTrack = GpxTrack(
         gpxTrackId: 1,
         contentHash: 'track-1',
         trackName: 'Track 1',
         gpxFile: _eligibleCorrelationGpx,
         peakCorrelationProcessed: true,
-      )
-      ..peaks.add(peak);
-    final tracks = GpxTrackRepository.test(
-      InMemoryGpxTrackStorage([selectedTrack]),
-    );
-    final bagged = PeaksBaggedRepository.test(
-      InMemoryPeaksBaggedStorage([
-        PeaksBagged(baggedId: 4, gpxId: 1, peakId: 99),
-      ]),
-    );
-    final container = await _container(
-      tracks: tracks,
-      bagged: bagged,
-      peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
-    );
-    addTearDown(container.dispose);
-    final notifier = container.read(mapProvider.notifier);
-    notifier.state = _state([selectedTrack]);
+      )..peaks.add(peak);
+      final tracks = GpxTrackRepository.test(
+        InMemoryGpxTrackStorage([selectedTrack]),
+      );
+      final bagged = PeaksBaggedRepository.test(
+        InMemoryPeaksBaggedStorage([
+          PeaksBagged(baggedId: 4, gpxId: 1, peakId: 99),
+        ]),
+      );
+      final container = await _container(
+        tracks: tracks,
+        bagged: bagged,
+        peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+      );
+      addTearDown(container.dispose);
+      final notifier = container.read(mapProvider.notifier);
+      notifier.state = _state([selectedTrack]);
 
-    await notifier.removePeakCorrelation(trackId: 1, peakOsmId: 99);
-    final result = await notifier.recalculateSelectedTrackStatistics(1);
+      await notifier.removePeakCorrelation(trackId: 1, peakOsmId: 99);
+      final result = await notifier.recalculateSelectedTrackStatistics(1);
 
-    expect(result, isNotNull);
-    expect(tracks.findById(1)!.peaks.map((peak) => peak.osmId), [99]);
-    expect(bagged.getAll().map((row) => (row.gpxId, row.peakId)), [(1, 99)]);
-  });
+      expect(result, isNotNull);
+      expect(tracks.findById(1)!.peaks.map((peak) => peak.osmId), [99]);
+      expect(bagged.getAll().map((row) => (row.gpxId, row.peakId)), [(1, 99)]);
+    },
+  );
 }
 
 Future<ProviderContainer> _container({
@@ -210,6 +235,7 @@ Future<ProviderContainer> _container({
   final tasmapRepository = await TestTasmapRepository.create();
   return ProviderContainer(
     overrides: [
+      ...mappingCatalogTestOverrides,
       mapProvider.overrideWith(
         () => MapNotifier(
           peakRepository:
@@ -272,9 +298,7 @@ List<String> _trackSnapshots(Iterable<GpxTrack> tracks) {
 }
 
 List<(int, int, int)> _rowSnapshots(Iterable<PeaksBagged> rows) {
-  return [
-    for (final row in rows) (row.baggedId, row.gpxId, row.peakId),
-  ];
+  return [for (final row in rows) (row.baggedId, row.gpxId, row.peakId)];
 }
 
 const _eligibleCorrelationGpx = '''

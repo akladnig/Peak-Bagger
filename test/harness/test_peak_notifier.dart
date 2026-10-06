@@ -19,7 +19,7 @@ class TestPeakNotifier extends MapNotifier {
   int reloadPeakMarkersCallCount = 0;
 
   @override
-  MapState build() => initialState;
+  MapState build() => initialState.copyWith(catalog: mappingCatalog);
 
   @override
   Future<void> reloadPeakMarkers() async {

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:csv/csv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/peak_source.dart';
@@ -429,6 +430,7 @@ SloveniaHribiSourcePeakListService _service({
   required Directory cacheDir,
 }) {
   return SloveniaHribiSourcePeakListService(
+    catalog: testMappingCatalog,
     pageLoader: pageLoader,
     peakSource: peakSource,
     outputDirectoryResolver: () => tempDir,

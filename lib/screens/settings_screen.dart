@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -179,7 +180,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               key: const Key('refresh-route-graph-tile'),
               leading: const Icon(Icons.route),
               title: const Text('Refresh Route Graph'),
-              subtitle: const Text('Refresh Route Graph Overpass Data'),
+              subtitle: const Text(
+                'Refresh route graphs from Mapping data store',
+              ),
               trailing: _isRefreshingRouteGraph
                   ? const SizedBox(
                       width: 20,
@@ -597,7 +600,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 leading: const Icon(Icons.format_shapes),
                 title: const Text('Show Polygons'),
                 subtitle: const Text(
-                  'Display polygon assets from assets/polygons',
+                  'Display polygons from Mapping data store',
                 ),
                 trailing: Switch(
                   key: const Key('show-polygons-switch'),
@@ -2524,6 +2527,7 @@ class _TileCacheSettingsScreenState
         if (!mounted) return;
 
         final tileLayer = buildBasemapTileLayer(
+          catalog: ref.read(mappingCatalogProvider),
           basemap,
           userAgentPackageName: 'com.peak_bagger.app',
         );

@@ -63,7 +63,7 @@ void main() {
       final parsed = MappingToolManifest.parse(
         await _fixture('tool_manifest.json'),
       );
-      expect(parsed.tools, hasLength(12));
+      expect(parsed.tools, hasLength(13));
       expect(
         parsed
             .requireTool('update-region-peak-fingerprints')

@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -80,6 +81,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               const MapState(
@@ -204,6 +206,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -264,6 +267,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -354,6 +358,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -403,6 +408,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -463,6 +469,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -554,6 +561,7 @@ void main() {
         SharedPreferences.setMockInitialValues({});
         final container = ProviderContainer(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(
               () => TestMapNotifier(
                 MapState(
@@ -642,6 +650,7 @@ void main() {
         );
         final container = ProviderContainer(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(() => notifier),
             peakListRepositoryProvider.overrideWithValue(
               PeakListRepository.test(InMemoryPeakListStorage()),
@@ -750,6 +759,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               const MapState(
@@ -821,6 +831,7 @@ Future<void> _pumpDashboard(WidgetTester tester, Size size) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides,
         peaksBaggedRepositoryProvider.overrideWithValue(
           PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
         ),

@@ -1154,7 +1154,7 @@ class GpxImporter {
       if (firstPoint == null) {
         return null;
       }
-      return _resolveTrackDestination(firstPoint);
+      return await _resolveTrackDestination(firstPoint);
     } catch (_) {
       return null;
     }

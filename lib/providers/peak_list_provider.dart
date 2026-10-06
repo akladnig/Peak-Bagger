@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -38,6 +39,7 @@ final peaksBaggedRevisionProvider =
 
 final peakListImportServiceProvider = Provider<PeakListImportService>((ref) {
   return PeakListImportService(
+    catalog: ref.watch(mappingCatalogProvider),
     peakRepository: ref.watch(peakRepositoryProvider),
     peakListRepository: ref.watch(peakListMutationRepositoryProvider),
   );

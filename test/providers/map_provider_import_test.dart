@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -13,13 +14,12 @@ import 'package:peak_bagger/services/gpx_importer.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import '../harness/retired_overpass.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../harness/test_map_notifier.dart' show testMappingCatalog;
 
 import '../harness/test_tasmap_repository.dart';
 
@@ -64,6 +64,7 @@ void main() {
     final repository = TestWritableGpxTrackRepository();
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             mappingCatalog: testMappingCatalog,
@@ -155,6 +156,7 @@ void main() {
     );
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             mappingCatalog: testMappingCatalog,
@@ -233,6 +235,7 @@ void main() {
     final tasmapRepository = await TestTasmapRepository.create();
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             mappingCatalog: testMappingCatalog,
@@ -297,6 +300,7 @@ void main() {
     final routeRepository = RouteRepository.test(InMemoryRouteStorage());
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             mappingCatalog: testMappingCatalog,
@@ -360,6 +364,7 @@ void main() {
     final routeRepository = RouteRepository.test(InMemoryRouteStorage());
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             mappingCatalog: testMappingCatalog,
@@ -420,6 +425,7 @@ void main() {
     final tasmapRepository = await TestTasmapRepository.create();
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -548,8 +554,8 @@ const _nonTasmanianTrackGpx = '''
   <trk>
     <name>Outside Tasmania</name>
     <trkseg>
-      <trkpt lat="-30.0" lon="150.0"><time>2024-01-15T08:00:00Z</time></trkpt>
-      <trkpt lat="-30.1" lon="150.1"><time>2024-01-15T09:00:00Z</time></trkpt>
+      <trkpt lat="0.0" lon="0.0"><time>2024-01-15T08:00:00Z</time></trkpt>
+      <trkpt lat="0.1" lon="0.1"><time>2024-01-15T09:00:00Z</time></trkpt>
     </trkseg>
   </trk>
 </gpx>

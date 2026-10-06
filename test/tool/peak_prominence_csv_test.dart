@@ -30,11 +30,11 @@ void main() {
     );
   }
 
-  test('validates the default csv path when asked', () async {
+  test('validates an explicit user csv path', () async {
     final exitCode = await runPeakProminenceCsvTool(
-      args: ['validate'],
+      args: ['validate', '--csv-path', 'input.csv'],
       csvReader: (path) async {
-        expect(path, './assets/all-peaks-sorted-p100.csv');
+        expect(path, 'input.csv');
         return '1,2,3,4,5,6\n0,0,0,0,0,0';
       },
       stdoutWriter: stdoutLines.add,
@@ -85,9 +85,9 @@ void main() {
 
   test('returns a non-zero exit code after a write failure', () async {
     final exitCode = await runPeakProminenceCsvTool(
-      args: const ['import'],
+      args: const ['import', 'input.csv'],
       importRunner: (csvPath, dryRun) async {
-        expect(csvPath, './assets/all-peaks-sorted-p100.csv');
+        expect(csvPath, 'input.csv');
         expect(dryRun, isFalse);
         return buildResult(writeFailureCount: 1);
       },

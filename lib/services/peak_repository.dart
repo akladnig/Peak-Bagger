@@ -820,18 +820,32 @@ class InMemoryPeakStorage implements PeakStorage {
 }
 
 class PeakRepository implements PeakSource {
-  PeakRepository(Store store, {required this._peakListRewritePort})
-    : _storage = ObjectBoxPeakStorage(store),
-      _store = store;
+  PeakRepository(
+    Store store, {
+    required this._peakListRewritePort,
+    required MappingCatalog catalog,
+  }) : _storage = ObjectBoxPeakStorage(store),
+       // Keep the production constructor's catalog parameter non-nullable.
+       // ignore: prefer_initializing_formals
+       _catalog = catalog,
+       _store = store;
 
   PeakRepository.test(
     PeakStorage storage, {
     PeakListRewritePort? peakListRewritePort,
+    this._catalog,
   }) : _storage = storage,
        _store = null,
        _peakListRewritePort = peakListRewritePort ?? _NoopPeakListRewritePort();
 
+  /// Store-isolated maintainer workflows that never perform catalog searches.
+  PeakRepository.userDataOnly(Store store, {required this._peakListRewritePort})
+    : _storage = ObjectBoxPeakStorage(store),
+      _store = store,
+      _catalog = null;
+
   final PeakStorage _storage;
+  final MappingCatalog? _catalog;
   final Store? _store;
   final PeakListRewritePort _peakListRewritePort;
 
@@ -861,6 +875,7 @@ class PeakRepository implements PeakSource {
   }
 
   List<Peak> searchPopupPeakCandidates({
+    MappingCatalog? catalog,
     required String query,
     required MapSearchSort sort,
     String? regionKey,
@@ -876,7 +891,11 @@ class PeakRepository implements PeakSource {
     final seenIds = <String>{};
 
     void addCandidate(Peak peak) {
-      if (!_peakMatchesPopupRegion(peak, regionKey: regionKey)) {
+      if (!_peakMatchesPopupRegion(
+        peak,
+        regionKey: regionKey,
+        catalog: catalog,
+      )) {
         return;
       }
       final resultId = _popupPeakResultId(peak);
@@ -925,16 +944,22 @@ class PeakRepository implements PeakSource {
 
   String _popupPeakResultId(Peak peak) => '${peak.osmId}';
 
-  bool _peakMatchesPopupRegion(Peak peak, {required String? regionKey}) {
+  bool _peakMatchesPopupRegion(
+    Peak peak, {
+    required String? regionKey,
+    MappingCatalog? catalog,
+  }) {
     if (regionKey == null) {
       return true;
     }
+    final activeCatalog = catalog ?? _requireCatalog;
     final resolvedRegionKey =
-        regionManifestCatalog.regionKeyForPoint(
+        activeCatalog.regionKeyForPoint(
           LatLng(peak.latitude, peak.longitude),
         ) ??
         peak.region;
     return peakMatchesSearchRegion(
+      catalog: activeCatalog,
       storedPeakRegionKey: peak.region,
       resolvedRegionKey: resolvedRegionKey,
       filterRegionKey: regionKey,
@@ -942,6 +967,12 @@ class PeakRepository implements PeakSource {
   }
 
   bool _queryCouldMatchElevation(String query) => RegExp(r'\d').hasMatch(query);
+
+  MappingCatalog get _requireCatalog =>
+      _catalog ??
+      (throw StateError(
+        'PeakRepository requires an injected MappingCatalog for region search.',
+      ));
 
   Peak? findByOsmId(int osmId) {
     return _storage.getByOsmId(osmId);

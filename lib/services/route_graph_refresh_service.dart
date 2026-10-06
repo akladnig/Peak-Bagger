@@ -12,10 +12,7 @@ class RouteGraphRefreshResult {
 }
 
 class RouteGraphRefreshService {
-  RouteGraphRefreshService(
-    this._store, {
-    RouteGraphImportCoordinator? coordinator,
-  }) : _coordinator = coordinator;
+  RouteGraphRefreshService(this._store, {this._coordinator});
 
   final RouteGraphStore _store;
   final RouteGraphImportCoordinator? _coordinator;

@@ -1,7 +1,7 @@
 # Mapping Data Store Contract Inventory
 
-Recovered from `nas-migration` commit `a1222df` (Work Item 01), with the resolver
-and current runtime boundary added in Work Item 11.
+Recovered from `nas-migration` commit `a1222df` (Work Item 01), with resolver
+authorization from Work Item 11 and the maintainer/runtime cutover from Work Item 12.
 
 ## Ownership and rules
 
@@ -40,7 +40,7 @@ Mapping writes are permitted.
 | `lib/services/tasmap_repository.dart` <!-- inventory:lib/services/tasmap_repository.dart --> | `tasmap.catalog = Maps/tasmap50k.csv`; sheet records are user data. Legacy explicit CSV reads are non-store import adapters. |
 | `lib/services/route_elevation_sampler.dart` <!-- inventory:lib/services/route_elevation_sampler.dart --> | `demSources.elvisRuntime = DEM/Elvis/elvis_runtime_10m.tif`; GDAL dataset open is a trusted opaque binary adapter; host GDAL/PROJ probes are non-store dependency checks. |
 | `lib/services/tile_cache_service.dart` <!-- inventory:lib/services/tile_cache_service.dart --> | User offline tile cache only, no Mapping I/O. |
-| `lib/services/import_path_helpers.dart` <!-- inventory:lib/services/import_path_helpers.dart --> | Bushwalking user paths; legacy `~/DEM/Tasmania` helper retires during maintainer cutover. |
+| `lib/services/import_path_helpers.dart` <!-- inventory:lib/services/import_path_helpers.dart --> | Bushwalking user paths only. The home-directory DEM helper is retired. |
 
 The former `lib/services/overpass_service.dart` is retired. The generated
 catalog tool/output are also retired; the validated manifest pair is the only
@@ -48,27 +48,30 @@ runtime authority.
 
 ## Maintainer tool contracts
 
-Each stable tool ID is declared in the v1 `tool_manifest.json` fixture. The
-legacy entrypoints are migrated in Work Item 12; fixture command arguments
-that add staged-output flags define that cutover contract. External/user
+Each Mapping tool ID is declared in the v1 `tool_manifest.json` fixture. Named
+capabilities are loaded before Mapping source reads or publication. Required
+inputs are validated before source processing or subprocess execution. External/user
 overrides listed here are handled by explicit non-store adapters, not by
 relaxing Mapping-store resolver rules. Mapping overrides are safe relative
 paths targeting one declared placeholder only.
 
 | Entrypoint / command | Inputs, outputs, retained overrides and write policy |
 | --- | --- |
-| `tool/convert_osm_boundary_to_poly.sh --polygon <veneto\|fvg\|emilia-romagna\|trentino-alto-adige\|all>` <!-- inventory:tool/convert_osm_boundary_to_poly.sh --> | Retire `assets/polygons/osm-boundaries/{veneto_poly.geojson,fvg.geojson.gz,emilia-romagna.geojson.gz,taa.geojson.gz}`. External boundary sources; `build/polygon-conversion/<polygon>` is review/report output. Retain `--output-dir`, simplification/buffer settings, `--keep-work`. No Mapping writes. **Non-Dart: store-isolated**; a future store promotion needs a separate declared output. |
+| `tool/convert_osm_boundary_to_poly.sh --polygon <veneto\|fvg\|emilia-romagna\|trentino-alto-adige\|all>` <!-- inventory:tool/convert_osm_boundary_to_poly.sh --> | Retired `assets/polygons/osm-boundaries/{veneto_poly.geojson,fvg.geojson.gz,emilia-romagna.geojson.gz,taa.geojson.gz}`. External snapshots default to `/Volumes/Development/overpass_turbo/exports/osm-boundaries`; explicit `--source-dir` is non-store. `build/polygon-conversion/<polygon>` is review/report output. Retain `--output-dir`, simplification/buffer settings, `--keep-work`. Both operands are checked through `non_store_paths.dart`, including source symlinks, before use. No Mapping writes. **Non-Dart: store-isolated**; store promotion needs a separate declared output. |
 | `dart run tool/route_graph_peak_list.dart` <!-- inventory:tool/route_graph_peak_list.dart --> | ID `route-graph-peak-list`: regional/polygon manifests, `Highways/*.json`, `Polygons/*.poly`. Default `--region tasmania`; user input `~/Documents/Bushwalking/Features/peaks.csv`; user output `~/Documents/Bushwalking/Peak_Lists/<canonical-region>-route-graph-peak-list.csv`. Retain `--region`, `--output`; no Mapping writes. |
-| `./peak_prominence_csv.sh validate\|import [--dry-run] [--csv-path PATH]` <!-- inventory:tool/peak_prominence_csv.dart --> | ID `peak-prominence-csv`: retire `assets/all-peaks-sorted-p100.csv`; retain an explicit user CSV override or positional CSV. Preview `tool/peak-prominence-objectbox-preview.csv` and `logs/prominence*.log` are reports; ObjectBox is user data. No Mapping reads/writes after cutover. |
-| `dart run tool/update_region_peak_fingerprints.dart` <!-- inventory:tool/update_region_peak_fingerprints.dart --> | ID `update-region-peak-fingerprints`: `region_manifest.json`, `Peaks/*-peaks.json`; only declared Mapping write is atomic replacement of `region_manifest.json`. Resolver-owned `--manifest` and `--output` arguments, no user Mapping override. |
-| `dart run tool/validate_region_peak_fingerprints.dart` <!-- inventory:tool/validate_region_peak_fingerprints.dart --> | ID `validate-region-peak-fingerprints`: same manifest and peak inputs; resolver-owned `--manifest`; no writes/overrides. |
+| `./peak_prominence_csv.sh validate\|import [--dry-run] --csv-path PATH` <!-- inventory:tool/peak_prominence_csv.dart --> | ID `peak-prominence-csv`: retired `assets/all-peaks-sorted-p100.csv`; an explicit non-store user CSV or positional CSV is required. Preview `tool/peak-prominence-objectbox-preview.csv` and `logs/prominence*.log` are reports; ObjectBox is user data. **Dart: store-isolated**, no Mapping reads/writes; user path guard runs before access. |
+| `dart run tool/update_region_peak_fingerprints.dart` <!-- inventory:tool/update_region_peak_fingerprints.dart --> | ID `update-region-peak-fingerprints`: `region_manifest.json`, `Peaks/*-peaks.json`; the shared regional parser validates the manifest before hashing. Only Mapping write is atomic replacement of `region_manifest.json` through the in-process output capability. No CLI overrides. |
+| `dart run tool/validate_region_peak_fingerprints.dart` <!-- inventory:tool/validate_region_peak_fingerprints.dart --> | ID `validate-region-peak-fingerprints`: same manifest and peak inputs, shared parser; no writes/overrides. |
 | `tool/region_peak_fingerprint_support.dart` <!-- inventory:tool/region_peak_fingerprint_support.dart --> | Shared support, no standalone command. Retire `assets/region_manifest.json` reads/writes; use the invoking fingerprint tool's capability. |
-| `dart run tool/slovenia_hribi_source_peak_list.dart` <!-- inventory:tool/slovenia_hribi_source_peak_list.dart --> | ID `slovenia-hribi-source-peak-list`: Hribi external pages, user source `/Users/adrian/Documents/Bushwalking/Features/peaks.csv`; retire default `assets/peaks` report output. Ranked/review/repair/state files are reports, web results are cache. Retain `--output-dir`, `--peaks-csv`, `--source-of-truth`, `--repair-list`, `--refresh-cache`, `--tie-window-meters` (default `10m`). No Mapping write permission: this produces CSV reports, not an Overpass JSON source snapshot. |
-| `dart run tool/sync_peakbagger_csv.dart [CSV]` <!-- inventory:tool/sync_peakbagger_csv.dart --> | ID `sync-peakbagger-csv`: `peak-bagger-peak-data.csv`, sibling `-lat-lon.csv` and ObjectBox are user data; `logs/import.log`/`PEAKBAGGER_PROGRESS_FILE` are reports; PeakBagger lookup is external. Retain positional CSV, `--create-unmatched-peaks`, `--name`, `--elevation`, `--tolerance`, `--rows`. No Mapping I/O. |
+| `dart run tool/slovenia_hribi_source_peak_list.dart` <!-- inventory:tool/slovenia_hribi_source_peak_list.dart --> | ID `slovenia-hribi-source-peak-list`: manifest pair and declared polygon geometry drive canonical region correlation; Hribi pages are external, user CSV defaults to `/Users/adrian/Documents/Bushwalking/Features/peaks.csv`. Retired `assets/peaks` output; default reports are `build/slovenia-peak-reports`. Ranked/review/repair/state files are reports, web results are cache. Retain `--output-dir`, `--peaks-csv`, `--source-of-truth`, `--repair-list`, `--refresh-cache`, `--tie-window-meters` (default `10m`). User/report/cache targets reject Mapping paths, including symlinks. No Mapping writes. |
+| `dart run tool/sync_peakbagger_csv.dart [CSV]` <!-- inventory:tool/sync_peakbagger_csv.dart --> | ID `sync-peakbagger-csv`: `peak-bagger-peak-data.csv`, sibling `-lat-lon.csv` and ObjectBox are user data; `logs/import.log`/`PEAKBAGGER_PROGRESS_FILE` are reports; PeakBagger lookup is external. Retain positional CSV, `--create-unmatched-peaks`, `--name`, `--elevation`, `--tolerance`, `--rows`. **Dart: store-isolated**, every selected CSV/report operand is checked as non-store before I/O. |
 | `dart run tool/rank_fvg_peaks.dart` <!-- inventory:tool/rank_fvg_peaks.dart --> | ID `rank-fvg-peaks`: manifest pair, `Peaks/*-peaks.json`, `Polygons/*.poly`; retire all `assets/peaks/...`/`assets/polygons/veneto.poly` inputs. `.cache/<region>-peak-ranker` is cache; `<region>-top-peaks.{json,csv}`/`lesser_<region>_peaks.csv` are reports. DuckDuckGo/Jina/Nominatim are external. Retain `--region-key` (default `fvg`), `--top`, `--max-candidates`, `--delay-ms`, `--cache-dir`, `--output-json`, `--output-csv`, `--output-lesser-csv`, `--second-pass-only`, `--offline`, `--refresh-cache`; no Mapping writes. |
-| `dart run tool/download_tasmania_thelist_dem.dart` <!-- inventory:tool/download_tasmania_thelist_dem.dart --> | ID `download-tasmania-thelist-dem`: theLIST manifest/ZIPs are external, `raw_zips/`, `extracted/`, `rasters.txt`, VRT are temporary/cache (legacy root `~/DEM/Tasmania/thelist_25m`). Only Mapping write is `DEM/tasmania_dem_25m.tif`, atomic. Retain external workspace `--output-dir`, `--list-only`, `--skip-merge`; staged artifact uses `--output-file`, whose declared Mapping override remains store-relative. |
-| `./elvis_dem.sh validate-source\|build-runtime\|build-topo\|build-all [--validate]` <!-- inventory:tool/elvis_dem.dart --> <!-- inventory:elvis_dem.sh --> | IDs `elvis-dem-runtime`, `elvis-dem-topo`. Raw source is `/Volumes/Media/Elvis/tas-elvis/elevation/2m-dem/z55/mosaics/Tasmania_Statewide_2m_DEM_14-08-2021.tif` (external). Mapping writes: atomic `DEM/Elvis/elvis_runtime_10m.tif` and staged snapshot `DEM/Elvis/elvis_topo` (including `elvis_topo_5m.tif`). Metadata, hillshade previews and `elvis_reports/` are reports; legacy root `~/DEM/Tasmania` and `tool/elvis_dem_manifest.json` retire. Binary environment override only; source path is a test seam. **Non-Dart wrapper: store-isolated**, delegates to the named Dart capabilities. |
-| `dart run tool/generate_region_manifest_catalog.dart` <!-- inventory:tool/generate_region_manifest_catalog.dart --> | Retired tool and generated `lib/generated/region_manifest_catalog.g.dart`; remove in Work Item 12. No Mapping write permission. |
+| `dart run tool/download_tasmania_thelist_dem.dart` <!-- inventory:tool/download_tasmania_thelist_dem.dart --> | ID `download-tasmania-thelist-dem`: external theLIST manifest/ZIPs; workspace defaults to `build/dem/thelist_25m`, checked as non-store. `raw_zips/`, `extracted/`, `rasters.txt`, VRT are temporary/cache. Only Mapping write is atomic `DEM/tasmania_dem_25m.tif`; GDAL receives a typed, resolver-expanded staged output. Retain `--output-dir`, `--list-only`, `--skip-merge`, and store-relative `--output-file`. The command descriptor is the GDAL publication step; orchestration prepares the external VRT first. |
+| `./elvis_dem.sh validate-source\|build-runtime\|build-topo\|build-all [--validate]` <!-- inventory:tool/elvis_dem.dart --> <!-- inventory:elvis_dem.sh --> | IDs `elvis-dem-runtime`, `elvis-dem-topo`. Raw source is `/Volumes/Media/Elvis/tas-elvis/elevation/2m-dem/z55/mosaics/Tasmania_Statewide_2m_DEM_14-08-2021.tif` (external). Preparation, metadata, previews and reports default to checked non-store `build/dem/elvis`. Mapping writes: streaming resolver-owned staging then atomic `DEM/Elvis/elvis_runtime_10m.tif` and snapshot `DEM/Elvis/elvis_topo/elvis_topo_5m.tif`. Legacy home DEM root and `tool/elvis_dem_manifest.json` are retired. Binary environment override only; source/workspace/publisher injection is test-only. **Non-Dart wrapper: store-isolated**, delegates to named Dart capabilities from repository cwd. |
+| `tool/mapping_tool_support.dart` <!-- inventory:tool/mapping_tool_support.dart --> | Shared named-capability and catalog assembly, no standalone command. Uses the production schema parser, declared reads, and repository-root cwd. No additional permissions. |
+| `dart run tool/local_topo_rebuild.dart` <!-- inventory:tool/local_topo_rebuild.dart --> | IDs `local-topo-rebuild` / `local-topo-rebuild-external`; selected Mapping inputs are resolver-expanded only. Named `thelist` and `copernicus` use `demSources`; default `elvis-topo` uses the tool's `dem` declaration. `--dem-path` is store-relative; `--external-dem-path` is a distinct absolute non-store adapter. Worker flags are parsed/whitelisted; no Mapping writes. |
+| `tool/non_store_paths.dart PATH...` <!-- inventory:tool/non_store_paths.dart --> | Store-isolated validation bridge for shell external/cache/report operands. Reads only path metadata through the shared boundary, grants no Mapping content or write permissions, and needs no tool-manifest entry. |
+| `tool/publish_thelist_dem.sh` <!-- inventory:tool/publish_thelist_dem.sh --> | **Non-Dart: resolver-validated paths only**. Internal GDAL publication worker receives the staged Mapping output as its first operand and a checked non-store VRT as its second (default `build/dem/thelist_25m/tasmania_dem_25m.vrt`). No Mapping input or final-target path construction; PAM sidecars are disabled. |
 | `dart run tool/mapping_store.dart provision-or-verify` <!-- inventory:tool/mapping_store.dart --> | ID `mapping-store-provision`: shared parser reads runtime pair and named `tools` input `tool_manifest.json`; fixtures are version-controlled non-store input. No Mapping writes. Bootstrap is a separate restricted capability. |
 
 ## Local Topo non-Dart classification
@@ -80,6 +83,7 @@ resolver; no `LOCAL_TOPO_*_DEM_TIF` or `~/DEM/Tasmania` Mapping fallback.
 | Entrypoint | Defaults, overrides and classification |
 | --- | --- |
 | `local_topo/tasmania/scripts/rebuild_stack.sh` <!-- inventory:local_topo/tasmania/scripts/rebuild_stack.sh --> | **Resolver-validated paths only**, ID `local-topo-rebuild`: default `DEM/Elvis/elvis_topo/elvis_topo_5m.tif`; `--dem-path` may substitute only its declared input. Named source choices use `demSources`/tool declaration; an explicit non-store external override is a separate adapter. Defaults manual mode, `elvis-topo`, prerender enabled. Retain `--mode`, `--dry-run`, `--skip-prerender`, `--force-source-refresh`, `--dem-source`. Geofabrik/local OSM is external; stack MBTiles/contours/hillshade/static tiles/source metadata are cache/report. No Mapping writes. |
+| `local_topo/tasmania/scripts/rebuild_stack_worker.sh` <!-- inventory:local_topo/tasmania/scripts/rebuild_stack_worker.sh --> | **Resolver-validated paths only**. Internal argv worker; reads only the selected canonical DEM operand passed by the Dart resolver, checks prepared EPSG:28355 data, and writes stack-local cache/report outputs. No named-source environment or home-directory fallback. |
 | `local_topo/tasmania/scripts/manual_refresh.sh` <!-- inventory:local_topo/tasmania/scripts/manual_refresh.sh --> | **Resolver-validated paths only**, wrapper forwarding rebuild options with `--mode manual`. |
 | `local_topo/tasmania/scripts/scheduled_refresh.sh` <!-- inventory:local_topo/tasmania/scripts/scheduled_refresh.sh --> | **Resolver-validated paths only**, wrapper forwarding rebuild options with `--mode scheduled`. |
 | `local_topo/tasmania/scripts/_common.sh` <!-- inventory:local_topo/tasmania/scripts/_common.sh --> | **Resolver-validated paths only** for named DEMs. Stack-local `runtime`, `input`, `output`, `input/osm/tasmania-latest.osm.pbf`, Planetiler/PostGIS/MBTiles/tile/metadata paths are cache/temporary/report; retain non-store `LOCAL_TOPO_*` overrides. |
@@ -127,6 +131,11 @@ difference is printed with its JSON Pointer and both values. Other differences,
 including tool commands/permissions, fail. It never overwrites Mapping data.
 Both commands use the fixed mounted root and work in standalone Dart.
 
+An existing tool manifest with stale IDs/permissions must be reviewed against the
+v1 fixture and provisioned by the maintainer before cutover verification. Bootstrap
+never overwrites it. `provision-or-verify` reports the discrepancy and does not
+repair or mutate source data.
+
 Tool `command` contains `executable` and string-array `arguments`. Only exact
 `{input:id}`/`{output:id}` arguments expand. `inputs` have `id`, `path`, `kind`,
 `required`; `outputs` additionally require boolean `replace` and `atomic`.
@@ -138,6 +147,18 @@ executable with the repository root as cwd and a captured inherited environment.
 File outputs are staged siblings and published atomically. Directory outputs
 are validated staged snapshots, reject symlinks, atomically publish each file,
 then delete stale files. There is no whole-directory atomicity guarantee.
+
+In-process writers (fingerprints and ELVIS) invoke their CLI directly and use
+`writeOutputs`; `execute` rejects a writer without output placeholders before
+dispatch so a nested self-publishing process cannot bypass outer staging. GDAL
+publication uses typed `MappingToolOutputPath` operands; Local Topo uses typed
+`MappingToolInputPath` operands. Literal, option-assignment, and file-URI arguments
+are checked as non-store before subprocess dispatch. The resolver owns argv,
+cwd, inherited environment, canonical path checks, streaming copy, and publication.
+Subprocess adapters also enforce the declared command executable and argv prefix:
+typed inputs cannot occupy output slots or be appended as implicit write targets.
+Only inventory-whitelisted, checked non-store orchestration literals follow that
+prefix (for example Local Topo mode flags or the external preparation VRT).
 
 ## Direct-I/O boundary and cutover gate
 
@@ -160,12 +181,24 @@ Explicit **non-store adapter allowlist** (does not authorize Mapping paths):
 - `route_graph_peak_list_generation_service.dart`: user peak CSV and report I/O.
 - `slovenia_hribi_source_peak_list_service.dart`, `peak_prominence_preview_export_service.dart`,
   `peakbagger_csv_sync_service.dart`: user CSV/report/web-cache adapters.
+- `tool/peak_prominence_csv.dart`: guarded explicit user CSV only.
+- `tool/sync_peakbagger_csv.dart`: guarded user CSV and report paths only.
+- `tool/rank_fvg_peaks.dart`: checked cache/report files only; Mapping sources
+  always use resolver reads.
+- `tool/download_tasmania_thelist_dem.dart`: checked external preparation workspace;
+  GDAL publication goes through the resolver's output subprocess adapter.
+- `tool/elvis_dem.dart`: checked external raw source, preparation workspace,
+  provenance/preview/report operations; the resolver streams prepared artifacts
+  into the declared Mapping outputs.
+- `tool/slovenia_hribi_source_peak_list.dart`: construction of a checked non-store
+  report directory only; catalog geometry reads go through the resolver.
 
-Work Item 12 owns migration of the inventoried legacy Dart and Local Topo tools
-and removal of the generator. Source guards freeze the legacy Dart tools' I/O
-call counts during this intermediate slice and reject new direct I/O in runtime
-Mapping readers. Cutover must remove that explicit transitional list, not expand
-the non-store adapter allowlist to accommodate Mapping reads/writes.
+There is no transitional Mapping I/O allowlist. Source guards permit only these
+named non-store adapters, freeze their direct-I/O call sites, and reject Mapping
+contracts or generated-catalog dependencies in runtime/tools. The generator,
+generated output, `veneto.poly` ranking input, and peak-prominence default CSV are
+retired. Veneto ranking fails explicitly until its region has declared geometry;
+it never opens the retired repository polygon. Local Overpass remains snapshot-only.
 
 Retire every `assets/highways`, `assets/peaks`, `assets/polygons`,
 `assets/region_manifest.json`, `assets/tasmap50k.csv`, `veneto.poly`, and

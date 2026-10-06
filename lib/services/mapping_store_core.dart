@@ -597,8 +597,77 @@ class MappingDataStoreCore {
       }
     }
 
+    return _composeCatalog(
+      preflightResult.root,
+      preflightResult._manifest,
+      preflightResult.polygonDisplayPaths,
+      polygonsByPath,
+    );
+  }
+
+  /// Maintainer/test schema entrypoint. Callers own authorized geometry reads;
+  /// this never performs I/O or substitutes for runtime preflight.
+  static MappingCatalog catalogFromManifestTexts({
+    required String rootPath,
+    required String regionManifestText,
+    required String polygonManifestText,
+    required Map<String, String> polygonTexts,
+  }) {
+    final failures = <String>[];
+    Object decode(String text, String path) {
+      try {
+        return jsonDecode(text) as Object;
+      } on Object {
+        throw MappingStoreFailure([path]);
+      }
+    }
+
+    final manifest = _parseRegionManifest(
+      decode(regionManifestText, _regionManifestPath),
+      failures,
+    );
+    final allowlist = _parsePolygonManifest(
+      decode(polygonManifestText, _polygonManifestPath),
+      failures,
+    );
+    if (manifest == null || allowlist == null) {
+      throw MappingStoreFailure(failures);
+    }
+    final requiredPaths = {
+      for (final region in manifest.regions) ...region.polyPaths,
+      for (final basemap in manifest.basemapsByKey.values)
+        ...basemap.coveragePolygonPaths,
+    };
+    final geometry = <String, List<LatLng>>{};
+    for (final path in requiredPaths) {
+      if (!allowlist.contains(path)) {
+        failures.add('$_polygonManifestPath#/${_escapePointer(path)}');
+        continue;
+      }
+      final text = polygonTexts[path];
+      if (text == null) {
+        failures.add(path);
+        continue;
+      }
+      final parsed = parsePolygonText(text);
+      if (!parsed.isSuccess) {
+        failures.add(path);
+        continue;
+      }
+      geometry[path] = parsed.polygon!.vertices;
+    }
+    if (failures.isNotEmpty) throw MappingStoreFailure(failures);
+    return _composeCatalog(rootPath, manifest, allowlist, geometry);
+  }
+
+  static MappingCatalog _composeCatalog(
+    String root,
+    _MappingStoreManifest manifest,
+    Set<String> polygonPaths,
+    Map<String, List<LatLng>> polygonsByPath,
+  ) {
     final basemaps = [
-      for (final basemap in preflightResult._manifest.basemapsByKey.values)
+      for (final basemap in manifest.basemapsByKey.values)
         MappingCatalogBasemap(
           key: basemap.key,
           name: basemap.name,
@@ -622,7 +691,7 @@ class MappingDataStoreCore {
       ),
     ];
     final regions = [
-      for (final region in preflightResult._manifest.regions)
+      for (final region in manifest.regions)
         MappingCatalogRegion(
           key: region.key,
           name: region.name,
@@ -647,16 +716,14 @@ class MappingDataStoreCore {
         ),
     ];
     return MappingCatalog(
-      rootPath: preflightResult.root,
-      polygonDisplayPaths: preflightResult.polygonDisplayPaths,
+      rootPath: root,
+      polygonDisplayPaths: polygonPaths,
       regions: regions,
       basemaps: basemaps,
-      tasmapCatalogPath: preflightResult._manifest.tasmapCatalogPath,
-      naturalFeaturesCatalogPath:
-          preflightResult._manifest.naturalFeaturesCatalogPath,
-      demSources: preflightResult._manifest.demSources,
-      routingCoverageRegionKeys:
-          preflightResult._manifest.routingCoverageRegionKeys,
+      tasmapCatalogPath: manifest.tasmapCatalogPath,
+      naturalFeaturesCatalogPath: manifest.naturalFeaturesCatalogPath,
+      demSources: manifest.demSources,
+      routingCoverageRegionKeys: manifest.routingCoverageRegionKeys,
     );
   }
 
@@ -1362,6 +1429,32 @@ bool isSafeMappingStorePath(String value) {
   );
 }
 
+/// Non-store adapters cannot acquire Mapping source permissions by accepting
+/// an arbitrary file path, including a symlink or a temporarily absent mount.
+Future<void> requireNonMappingPath(
+  String path, {
+  String rootPath = mappingStoreRootPath,
+}) async {
+  final root = await Directory(rootPath).exists()
+      ? await Directory(rootPath).resolveSymbolicLinks()
+      : p.normalize(p.absolute(rootPath));
+  var ancestor = p.normalize(p.absolute(path));
+  final original = ancestor;
+  while (await FileSystemEntity.type(ancestor, followLinks: false) ==
+      FileSystemEntityType.notFound) {
+    final parent = p.dirname(ancestor);
+    if (parent == ancestor) break;
+    ancestor = parent;
+  }
+  final canonical = await File(ancestor).resolveSymbolicLinks();
+  final resolved = p.normalize(
+    p.join(canonical, p.relative(original, from: ancestor)),
+  );
+  if (resolved == root || p.isWithin(root, resolved)) {
+    throw ArgumentError('Non-store adapter cannot access Mapping data: $path');
+  }
+}
+
 bool _isSafePath(String value) =>
     value != mappingToolManifestPath && isSafeMappingStorePath(value);
 
@@ -1382,6 +1475,12 @@ void validateMappingManifestPair(Object region, Object polygons) {
       }
     }
   }
+  if (failures.isNotEmpty) throw MappingStoreFailure(failures);
+}
+
+void validateMappingRegionManifest(Object region) {
+  final failures = <String>[];
+  _parseRegionManifest(region, failures);
   if (failures.isNotEmpty) throw MappingStoreFailure(failures);
 }
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'dart:developer' as developer;
 import 'dart:math' as math;
 import 'dart:ui' show PointerDeviceKind;
@@ -3843,7 +3844,10 @@ class _MiniPeakMapState extends ConsumerState<_MiniPeakMap> {
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate: mapTileUrl(Basemap.openstreetmap),
+                        urlTemplate: mapTileUrl(
+                          Basemap.openstreetmap,
+                          catalog: ref.watch(mappingCatalogProvider),
+                        ),
                         userAgentPackageName: 'com.peak_bagger.app',
                         tileProvider: buildPeakListMiniMapTileProvider(
                           cacheAvailable:
@@ -4135,6 +4139,7 @@ class _PeakListsDerivedRefreshKey {
 
 class _PeakListsDerivedBaseDataKey {
   const _PeakListsDerivedBaseDataKey({
+    required this.catalog,
     required this.peakListRepository,
     required this.peakRepository,
     required this.peaksBaggedRepository,
@@ -4143,6 +4148,7 @@ class _PeakListsDerivedBaseDataKey {
     required this.peaksBaggedRevision,
   });
 
+  final MappingCatalog catalog;
   final PeakListRepository peakListRepository;
   final PeakRepository peakRepository;
   final PeaksBaggedRepository peaksBaggedRepository;
@@ -4151,7 +4157,8 @@ class _PeakListsDerivedBaseDataKey {
   final int peaksBaggedRevision;
 
   bool matches(_PeakListsDerivedBaseDataKey other) {
-    return identical(peakListRepository, other.peakListRepository) &&
+    return identical(catalog, other.catalog) &&
+        identical(peakListRepository, other.peakListRepository) &&
         identical(peakRepository, other.peakRepository) &&
         identical(peaksBaggedRepository, other.peaksBaggedRepository) &&
         peakRevision == other.peakRevision &&
@@ -4240,7 +4247,9 @@ _PeakListsDerivedBaseData _resolvePeakListsDerivedBaseData({
         in itemsByPeakListId[peakListId] ?? const <PeakListItem>[]) {
       peakRegionKeysByOsmId.putIfAbsent(item.peakOsmId, () {
         final peak = peaksById[item.peakOsmId];
-        return peak == null ? null : canonicalPeakRegionKey(peak);
+        return peak == null
+            ? null
+            : canonicalPeakRegionKey(peak, catalog: baseDataKey.catalog);
       });
     }
   }
@@ -4269,6 +4278,7 @@ _PeakListsDerivedSnapshot _buildPeakListsDerivedSnapshot({
 }) {
   final baseData = _resolvePeakListsDerivedBaseData(
     baseDataKey: _PeakListsDerivedBaseDataKey(
+      catalog: state.ref.read(mappingCatalogProvider),
       peakListRepository: peakListRepository,
       peakRepository: peakRepository,
       peaksBaggedRepository: peaksBaggedRepository,
@@ -4286,6 +4296,7 @@ _PeakListsDerivedSnapshot _buildPeakListsDerivedSnapshot({
     final applies = peakListAppliesToVisibleRegions(
       peakList,
       selectedRegionKeys,
+      catalog: state.ref.read(mappingCatalogProvider),
       peaks: baseData.peaksById.values,
       peakRegionKeysByOsmId: baseData.peakRegionKeysByOsmId,
       itemsLoader: (peakList) =>

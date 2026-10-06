@@ -23,7 +23,7 @@ import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
 import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import '../../harness/retired_overpass.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -150,7 +150,7 @@ class MapRouteRobot {
       ),
     );
     await tester.pump();
-    _mapNotifier.state = initialState;
+    _mapNotifier.state = initialState.copyWith(catalog: testMappingCatalog);
   }
 
   Future<void> openMap() async {

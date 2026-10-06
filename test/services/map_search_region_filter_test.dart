@@ -1,11 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:peak_bagger/services/map_search_region_filter.dart';
 
 void main() {
   test(
     'search region options come only from manifest showInPeakList regions',
     () {
-      final options = buildMapSearchRegionOptions();
+      final options = buildMapSearchRegionOptions(testMappingCatalog);
 
       expect(
         options.map((option) => option.key).toList(growable: false),
@@ -18,10 +19,19 @@ void main() {
   );
 
   test('search region labels use manifest compact names', () {
-    expect(mapSearchRegionLabel('tasmania'), 'Tas');
-    expect(mapSearchRegionLabel('italy-nord-est'), 'Italy NE');
-    expect(mapSearchRegionLabel('fvg'), 'FVG');
-    expect(mapSearchRegionLabel('slovenia'), 'Slovenia');
+    expect(
+      mapSearchRegionLabel('tasmania', catalog: testMappingCatalog),
+      'Tas',
+    );
+    expect(
+      mapSearchRegionLabel('italy-nord-est', catalog: testMappingCatalog),
+      'Italy NE',
+    );
+    expect(mapSearchRegionLabel('fvg', catalog: testMappingCatalog), 'FVG');
+    expect(
+      mapSearchRegionLabel('slovenia', catalog: testMappingCatalog),
+      'Slovenia',
+    );
   });
 
   test(
@@ -29,6 +39,7 @@ void main() {
     () {
       expect(
         peakMatchesSearchRegion(
+          catalog: testMappingCatalog,
           storedPeakRegionKey: 'fvg',
           resolvedRegionKey: 'italy-nord-est',
           filterRegionKey: 'italy-nord-est',
@@ -37,6 +48,7 @@ void main() {
       );
       expect(
         peakMatchesSearchRegion(
+          catalog: testMappingCatalog,
           storedPeakRegionKey: 'veneto',
           resolvedRegionKey: 'italy-nord-est',
           filterRegionKey: 'italy-nord-est',
@@ -49,6 +61,7 @@ void main() {
   test('child region filters stay exact for peaks', () {
     expect(
       peakMatchesSearchRegion(
+        catalog: testMappingCatalog,
         storedPeakRegionKey: 'fvg',
         resolvedRegionKey: 'italy-nord-est',
         filterRegionKey: 'fvg',
@@ -57,6 +70,7 @@ void main() {
     );
     expect(
       peakMatchesSearchRegion(
+        catalog: testMappingCatalog,
         storedPeakRegionKey: 'veneto',
         resolvedRegionKey: 'italy-nord-est',
         filterRegionKey: 'fvg',
@@ -65,6 +79,7 @@ void main() {
     );
     expect(
       peakMatchesSearchRegion(
+        catalog: testMappingCatalog,
         storedPeakRegionKey: 'italy-nord-est',
         resolvedRegionKey: 'italy-nord-est',
         filterRegionKey: 'fvg',
@@ -76,6 +91,7 @@ void main() {
   test('non-peak child filters roll up through manifest aliases', () {
     expect(
       nonPeakMatchesSearchRegion(
+        catalog: testMappingCatalog,
         resolvedRegionKey: 'italy-nord-est',
         filterRegionKey: 'fvg',
       ),
@@ -83,6 +99,7 @@ void main() {
     );
     expect(
       nonPeakMatchesSearchRegion(
+        catalog: testMappingCatalog,
         resolvedRegionKey: 'slovenia',
         filterRegionKey: 'fvg',
       ),

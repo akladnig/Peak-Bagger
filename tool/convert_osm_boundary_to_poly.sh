@@ -3,7 +3,7 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
-boundaries_dir="assets/polygons/osm-boundaries"
+boundaries_dir="/Volumes/Development/overpass_turbo/exports/osm-boundaries"
 
 polygon=""
 output_dir=""
@@ -25,6 +25,7 @@ Polygon selection:
                               trentino-alto-adige, or all (required)
 
 Options:
+      --source-dir <path>    Non-store external boundary snapshot directory.
   -o, --output-dir <path>    Destination directory. Defaults to
                               build/polygon-conversion/<polygon>.
       --simplify-meters <n>  Topology-preserving simplification tolerance.
@@ -43,8 +44,8 @@ Examples:
   tool/convert_osm_boundary_to_poly.sh --polygon fvg --simplify-meters 350 \
     --outward-buffer-meters 800
 
-The script never writes to assets/polygons. Review the generated GeoJSON and
-.poly files before copying selected outputs into the app assets.
+The script reads external snapshots and writes review reports only. Promotion
+into the Mapping data store requires a separately declared maintainer tool.
 EOF
 }
 
@@ -61,6 +62,11 @@ is_positive_number() {
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --source-dir)
+      require_value "$1" "${2:-}"
+      boundaries_dir="$2"
+      shift
+      ;;
     -p|--polygon|--region)
       require_value "$1" "${2:-}"
       polygon="$2"
@@ -174,6 +180,7 @@ elif [[ "$output_dir" != /* ]]; then
   output_dir="$repo_root/$output_dir"
 fi
 
+dart run "$repo_root/tool/non_store_paths.dart" "$boundaries_dir" "$output_dir"
 mkdir -p "$output_dir"
 work_dir="$(mktemp -d "${TMPDIR:-/tmp}/peak-bagger-polygons.XXXXXX")"
 
@@ -195,8 +202,9 @@ convert_polygon() {
   local candidate_path
 
   source="$(source_for_polygon "$selected_polygon")"
-  if [ ! -f "$repo_root/$source" ]; then
-    printf 'Missing source boundary: %s\n' "$repo_root/$source" >&2
+  dart run "$repo_root/tool/non_store_paths.dart" "$source"
+  if [ ! -f "$source" ]; then
+    printf 'Missing source boundary: %s\n' "$source" >&2
     exit 1
   fi
 
@@ -265,4 +273,4 @@ for selected_polygon in "${selected_polygons[@]}"; do
   convert_polygon "$selected_polygon"
 done
 
-printf 'Review candidates in %s before copying files into assets/polygons.\n' "$output_dir"
+printf 'Review candidates in %s; Mapping promotion requires a declared tool.\n' "$output_dir"

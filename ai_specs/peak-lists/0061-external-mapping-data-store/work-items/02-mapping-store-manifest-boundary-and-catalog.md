@@ -29,7 +29,7 @@ Add `test/fixtures/mapping_store/v1/region_manifest.json`, `Polygons/manifest.js
 - [x] Build required geometry through a versioned macOS app-support `MappingCatalogCache`; reuse entries only when schema version, manifest hash, relative path, size, modified time, and content hash match. Corrupt/missing/changed entries are reparsed; cache read/delete/replacement-write failures are non-blocking after valid source parsing.
 - [x] Unit and provider tests cover all parser, path, fixture, cache, manifest, routing, basemap, map-set, symlink, JSON Pointer, and no-source-content-read contracts in Testing Strategy items 1, 9, 10, and 13.
 
-## Prerequisite review — 2026-10-05
+## Prerequisite review — 2026-10-05 (resolved)
 
 **Incomplete runtime integration; blocks Work Item 12.** The checked parser,
 filesystem, fixture, and cache criteria above do not establish completion of
@@ -55,6 +55,28 @@ Complete constructor/provider injection for every runtime consumer, consolidate
 the app-owned `Basemap`, and add behavioral tests showing ready-scope manifest
 metadata and geometry govern these consumers without a generated fallback.
 Work Item 12 can then remove the generator/output and their tests as specified.
+
+### Resolution — 2026-10-06
+
+The runtime integration gap is closed during the approved Work Item 12 execution.
+All former global-catalog consumers now receive ready-scope `MappingCatalog`
+metadata through constructors, providers, or explicit function arguments.
+`region_manifest_catalog.dart` contains map operations over that immutable
+catalog, with no generated `part`, global data, or enum. `Basemap` is the single
+app-owned enum in the pure-Dart Mapping boundary. Map URLs, basemap availability,
+region options/filtering, search, peak-list import/visibility, Slovenia correlation,
+and Local Topo validation use the injected catalog. Ready GPX destination lookup
+does not use the legacy standalone test adapter's geographic fallback.
+
+`test/unit/mapping_catalog_map_operations_test.dart` permanently covers the
+formerly failing empty-catalog provider probe, a changed injected tile URL,
+manifest priority/geometry, and scoped access. Test harness metadata comes from
+the v1 fixtures through the shared parser with deterministic synthetic geometry;
+no generated data or mounted store is needed. The generator/output and obsolete
+generated-catalog tests are retired in Work Item 12, with a named source guard.
+
+Verification: `flutter analyze` is clean; full suite **2,136 passed, 5 skipped**;
+`flutter build macos --release` succeeds.
 
 ## Covers
 

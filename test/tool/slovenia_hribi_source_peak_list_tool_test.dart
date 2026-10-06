@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:csv/csv.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/geo.dart';
@@ -22,6 +23,7 @@ void main() {
 
   test('prints help', () async {
     final exitCode = await runSloveniaHribiSourcePeakListTool(
+      catalog: testMappingCatalog,
       args: const ['--help'],
       stdoutWriter: stdoutLines.add,
       stderrWriter: stderrLines.add,
@@ -44,6 +46,7 @@ void main() {
       addTearDown(() => tempDir.deleteSync(recursive: true));
 
       final exitCode = await runSloveniaHribiSourcePeakListTool(
+        catalog: testMappingCatalog,
         args: ['--output-dir', tempDir.path],
         pageLoader: (uri) async => _pages()[uri.toString()]!,
         peakSourceLoader: () async => InMemoryPeakSource([
@@ -73,6 +76,7 @@ void main() {
     final service = _CapturingRunService();
 
     final exitCode = await runSloveniaHribiSourcePeakListTool(
+      catalog: testMappingCatalog,
       args: const ['--source-of-truth', 'hribi', '--tie-window-meters', '0'],
       service: service,
       stdoutWriter: stdoutLines.add,
@@ -112,6 +116,7 @@ void main() {
       var loaderCallCount = 0;
 
       final exitCode = await runSloveniaHribiSourcePeakListTool(
+        catalog: testMappingCatalog,
         args: ['--output-dir', tempDir.path, '--source-of-truth', 'hribi'],
         pageLoader: (uri) async => _pages()[uri.toString()]!,
         peakSourceLoader: () async {
@@ -173,6 +178,7 @@ void main() {
     };
 
     final service = SloveniaHribiSourcePeakListService(
+      catalog: testMappingCatalog,
       pageLoader: (uri) async => pages[uri.toString()]!,
       peakSource: InMemoryPeakSource([
         Peak(
@@ -205,6 +211,7 @@ void main() {
     );
 
     final exitCode = await runSloveniaHribiSourcePeakListTool(
+      catalog: testMappingCatalog,
       args: ['--output-dir', tempDir.path, '--source-of-truth', 'hribi'],
       service: service,
       stdoutWriter: stdoutLines.add,
@@ -255,6 +262,7 @@ void main() {
     ).move(triglavBase);
 
     final exitCode = await runSloveniaHribiSourcePeakListTool(
+      catalog: testMappingCatalog,
       args: ['--output-dir', tempDir.path, '--source-of-truth', 'hribi'],
       pageLoader: (uri) async => _pages()[uri.toString()]!,
       peakSourceLoader: () async => InMemoryPeakSource([
@@ -331,6 +339,7 @@ void main() {
     ).move(triglavBase);
 
     final exitCode = await runSloveniaHribiSourcePeakListTool(
+      catalog: testMappingCatalog,
       args: [
         '--output-dir',
         tempDir.path,
@@ -404,6 +413,7 @@ void main() {
 
   test('fails on unknown flags', () async {
     final exitCode = await runSloveniaHribiSourcePeakListTool(
+      catalog: testMappingCatalog,
       args: const ['--nope'],
       stdoutWriter: stdoutLines.add,
       stderrWriter: stderrLines.add,
@@ -456,6 +466,7 @@ void main() {
     addTearDown(() => tempDir.deleteSync(recursive: true));
 
     final service = SloveniaHribiSourcePeakListService(
+      catalog: testMappingCatalog,
       pageLoader: (_) async => throw StateError('should not fetch'),
       peakSource: InMemoryPeakSource(),
       outputDirectoryResolver: () => tempDir,
@@ -463,6 +474,7 @@ void main() {
     );
 
     final exitCode = await runSloveniaHribiSourcePeakListTool(
+      catalog: testMappingCatalog,
       args: ['--repair-list', '--output-dir', tempDir.path],
       service: service,
       stdoutWriter: stdoutLines.add,
@@ -523,7 +535,11 @@ class _TrackingPeakSource implements PeakSource {
 
 class _CapturingRunService extends SloveniaHribiSourcePeakListService {
   _CapturingRunService()
-    : super(pageLoader: (_) async => '', peakSource: InMemoryPeakSource());
+    : super(
+        catalog: testMappingCatalog,
+        pageLoader: (_) async => '',
+        peakSource: InMemoryPeakSource(),
+      );
 
   String? capturedSourceOfTruth;
   int? capturedTieWindowMeters;

@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/providers/local_topo_overlay_settings_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
-import 'package:peak_bagger/services/mapping_data_store.dart'
-    show MappingCatalogBasemap;
 
 import '../core/constants.dart';
 import 'drawer_outline_button.dart';

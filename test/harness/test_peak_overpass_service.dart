@@ -1,6 +1,6 @@
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:peak_bagger/models/peak.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import 'retired_overpass.dart';
 
 class TestPeakOverpassService extends OverpassService {
   TestPeakOverpassService({List<Peak> peaks = const [], this.error})

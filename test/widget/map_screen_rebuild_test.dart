@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
@@ -95,6 +96,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(InMemoryPeakListStorage()),
@@ -153,6 +155,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(
               () => TestMapNotifier(
                 MapState(
@@ -233,6 +236,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(
               () => TestMapNotifier(
                 MapState(
@@ -441,6 +445,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(InMemoryPeakListStorage()),
@@ -505,6 +510,7 @@ void main() {
     );
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => notifier),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(
@@ -554,6 +560,7 @@ Future<void> _pumpMapApp(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => TestMapNotifier(state)),
         peakListRepositoryProvider.overrideWithValue(
           peakListRepository ??

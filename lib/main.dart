@@ -119,6 +119,7 @@ Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
       ObjectBoxPeakDeleteGuardSource(initializedStore),
     );
     final peakRepository = PeakRepository(
+      catalog: catalog,
       initializedStore,
       peakListRewritePort: peakListRewritePort,
     );
@@ -204,7 +205,7 @@ Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
         child: App(router: router),
       );
     };
-    unawaited(TileCacheService.ensureLowZoomWarmup());
+    unawaited(TileCacheService.ensureLowZoomWarmup(catalog: catalog));
   } catch (_) {
     store?.close();
     rethrow;

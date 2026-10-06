@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -189,6 +190,7 @@ void main() {
     await _pumpApp(
       tester,
       overrides: [
+        ...mappingCatalogTestOverrides,
         bootstrappedBackgroundJobsPreferencesProvider.overrideWithValue(prefs),
       ],
     );
@@ -221,6 +223,10 @@ Future<void> _pumpApp(WidgetTester tester, {List overrides = const []}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides.where(
+          (entry) =>
+              !overrides.any((override) => override.origin == entry.origin),
+        ),
         mapProvider.overrideWith(
           () => TestMapNotifier(
             MapState(

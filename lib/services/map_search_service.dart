@@ -28,6 +28,7 @@ class MapSearchService {
   };
 
   MapSearchService({
+    required this.catalog,
     required this._peakRepository,
     required this._gpxTrackRepository,
     required this._routeRepository,
@@ -38,6 +39,7 @@ class MapSearchService {
   });
 
   final PeakRepository _peakRepository;
+  final MappingCatalog catalog;
   final GpxTrackRepository _gpxTrackRepository;
   final RouteRepository _routeRepository;
   final TasmapRepository _tasmapRepository;
@@ -170,6 +172,7 @@ class MapSearchService {
   }) {
     final peaks = _peakRepository
         .searchPopupPeakCandidates(
+          catalog: catalog,
           query: query,
           sort: sort,
           regionKey: regionKey,
@@ -275,6 +278,7 @@ class MapSearchService {
     final regionData = _regionForPoint(anchor, fallbackRegionKey: peak.region);
     final resolvedRegionKey = regionData?.key ?? peak.region;
     if (!peakMatchesSearchRegion(
+      catalog: catalog,
       storedPeakRegionKey: peak.region,
       resolvedRegionKey: resolvedRegionKey,
       filterRegionKey: regionKey,
@@ -286,7 +290,10 @@ class MapSearchService {
       storedPeakRegionKey: peak.region,
       resolvedRegionKey: resolvedRegionKey,
     );
-    final displayRegionName = mapSearchRegionLabel(displayRegionKey);
+    final displayRegionName = mapSearchRegionLabel(
+      displayRegionKey,
+      catalog: catalog,
+    );
     final subtitle = _joinSummaryParts([mapName, displayRegionName]);
     return MapSearchResult.peak(
       id: '${peak.osmId}',
@@ -311,6 +318,7 @@ class MapSearchService {
     }
     final regionData = _regionForPoint(anchor);
     if (!nonPeakMatchesSearchRegion(
+      catalog: catalog,
       resolvedRegionKey: regionData?.key,
       filterRegionKey: regionKey,
     )) {
@@ -341,6 +349,7 @@ class MapSearchService {
     }
     final regionData = _regionForPoint(anchor);
     if (!nonPeakMatchesSearchRegion(
+      catalog: catalog,
       resolvedRegionKey: regionData?.key,
       filterRegionKey: regionKey,
     )) {
@@ -374,6 +383,7 @@ class MapSearchService {
     final anchor = LatLng(naturalFeature.latitude, naturalFeature.longitude);
     final regionData = _regionForPoint(anchor);
     if (!nonPeakMatchesSearchRegion(
+      catalog: catalog,
       resolvedRegionKey: regionData?.key,
       filterRegionKey: regionKey,
     )) {
@@ -406,6 +416,7 @@ class MapSearchService {
     }
     final regionData = _regionForPoint(anchor);
     if (!nonPeakMatchesSearchRegion(
+      catalog: catalog,
       resolvedRegionKey: regionData?.key,
       filterRegionKey: regionKey,
     )) {
@@ -428,6 +439,7 @@ class MapSearchService {
   }) {
     final regionData = _regionForPoint(candidate.anchor);
     if (!nonPeakMatchesSearchRegion(
+      catalog: catalog,
       resolvedRegionKey: regionData?.key,
       filterRegionKey: regionKey,
     )) {
@@ -518,14 +530,15 @@ class MapSearchService {
     LatLng point, {
     String? fallbackRegionKey,
   }) {
-    final region = regionManifestCatalog.regionForPoint(point);
+    final region = catalog.regionForPoint(point);
     if (region != null) {
-      return region;
+      final broaderKey = catalog.peakListFilterRegionKey(region.key);
+      return catalog.regionByKey(broaderKey ?? region.key) ?? region;
     }
     if (fallbackRegionKey == null) {
       return null;
     }
-    return regionManifestCatalog.regionByKey(fallbackRegionKey);
+    return catalog.regionByKey(fallbackRegionKey);
   }
 
   String _joinSummaryParts(Iterable<String?> parts) {
@@ -691,6 +704,7 @@ class MapSearchService {
     var offset = 0;
     while (true) {
       final peaks = _peakRepository.searchPopupPeakCandidates(
+        catalog: catalog,
         query: query,
         sort: sort,
         regionKey: regionKey,
@@ -781,7 +795,8 @@ class MapSearchService {
 
   String _peakDisplayRegionName(Peak peak) {
     final displayRegionKey = _peakDisplayRegionKey(peak);
-    return mapSearchRegionLabel(displayRegionKey) ?? 'Unknown Region';
+    return mapSearchRegionLabel(displayRegionKey, catalog: catalog) ??
+        'Unknown Region';
   }
 
   String? _displayRegionKeyForPeak({
@@ -789,7 +804,7 @@ class MapSearchService {
     required String? resolvedRegionKey,
   }) {
     if (storedPeakRegionKey != null) {
-      final broaderRegionKey = regionManifestCatalog.peakListFilterRegionKey(
+      final broaderRegionKey = catalog.peakListFilterRegionKey(
         storedPeakRegionKey,
       );
       if (broaderRegionKey != null && broaderRegionKey != storedPeakRegionKey) {

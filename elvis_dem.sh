@@ -2,6 +2,7 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$script_dir"
 
 if [ -n "${PEAK_BAGGER_ELVIS_DEM_TOOL_BINARY:-}" ]; then
   exec "${PEAK_BAGGER_ELVIS_DEM_TOOL_BINARY}" "$@"

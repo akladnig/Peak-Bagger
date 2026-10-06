@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
@@ -18,6 +19,7 @@ void main() {
   test('canonicalPeakRegionKey prefers stored peak region over geometry', () {
     expect(
       canonicalPeakRegionKey(
+        catalog: testMappingCatalog,
         Peak(
           osmId: 1,
           name: 'Stored Region Peak',
@@ -35,6 +37,7 @@ void main() {
     () {
       expect(
         canonicalPeakRegionKey(
+          catalog: testMappingCatalog,
           Peak(
             osmId: 2,
             name: 'Geometry Region Peak',
@@ -64,6 +67,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -105,6 +109,7 @@ void main() {
     () {
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -170,6 +175,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -241,6 +247,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               MapState(
@@ -313,6 +320,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _TestMapNotifier(
               MapState(
@@ -355,6 +363,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _TestMapNotifier(
               MapState(
@@ -396,6 +405,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _TestMapNotifier(
               MapState(
@@ -449,6 +459,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _TestMapNotifier(
               MapState(
@@ -521,6 +532,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _TestMapNotifier(
               MapState(
@@ -571,6 +583,7 @@ void main() {
 
       expect(
         renderablePeakListIds(
+          catalog: testMappingCatalog,
           peakLists: peakLists,
           selectedPeakListIds: {7, 8, 10, 11},
           currentRegionKey: 'tasmania',
@@ -591,6 +604,7 @@ void main() {
 
       expect(
         renderablePeakListIdsForVisibleRegions(
+          catalog: testMappingCatalog,
           peakLists: peakLists,
           selectedPeakListIds: {7, 8, 9},
           visibleRegionKeys: {'tasmania', 'new-south-wales'},
@@ -631,6 +645,7 @@ void main() {
 
       expect(
         renderablePeakListIdsForVisibleRegions(
+          catalog: testMappingCatalog,
           peakLists: peakLists,
           selectedPeakListIds: {7},
           visibleRegionKeys: {'tasmania'},
@@ -641,6 +656,7 @@ void main() {
       );
       expect(
         renderablePeakListIdsForVisibleRegions(
+          catalog: testMappingCatalog,
           peakLists: peakLists,
           selectedPeakListIds: {7},
           visibleRegionKeys: {'new-south-wales'},
@@ -677,6 +693,7 @@ void main() {
 
       expect(
         renderablePeakListIdsForVisibleRegions(
+          catalog: testMappingCatalog,
           peakLists: [saved],
           selectedPeakListIds: {saved.peakListId},
           visibleRegionKeys: {'tasmania'},
@@ -723,6 +740,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => _TestMapNotifier(
               MapState(

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/providers/local_topo_overlay_outage_provider.dart';
 import 'package:peak_bagger/providers/local_topo_overlay_settings_provider.dart';
@@ -61,6 +62,7 @@ void main() {
 
       final failing = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           localTopoOverlaySettingsPreferencesLoaderProvider.overrideWithValue(
             () => Future<SharedPreferences>.error(StateError('storage failed')),
           ),

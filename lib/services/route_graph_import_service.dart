@@ -4,7 +4,6 @@ import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:peak_bagger/models/route_graph_chunk.dart';
@@ -91,7 +90,11 @@ class RouteGraphImportService {
     RouteGraphCoverageResolver? coverageResolver,
     this.assetPath,
     this.schemaVersion = _schemaVersion,
-  }) : _assetLoader = assetLoader ?? rootBundle.loadString,
+  }) : _assetLoader =
+           assetLoader ??
+           ((_) => Future<String>.error(
+             StateError('An explicit test source loader is required.'),
+           )),
        _generationPreparer =
            generationPreparer ?? _prepareGenerationInBackground,
        _coverageResolver =

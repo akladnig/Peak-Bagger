@@ -30,7 +30,7 @@ class RouteGraphCoverageResolver {
     }
   }
 
-  static const defaultManifestAssetPath = 'assets/region_manifest.json';
+  static const defaultManifestAssetPath = 'region_manifest.json';
   static const routingCoveragesKey = 'routingCoverages';
 
   final RouteGraphCoverageAssetLoader? _assetLoader;
@@ -646,16 +646,7 @@ Map<String, Object?> _stringKeyedMap(
 }
 
 bool _isCanonicalAssetPath(String path) {
-  if (!path.startsWith('assets/') ||
-      path.startsWith('/') ||
-      path.endsWith('/')) {
-    return false;
-  }
-  final segments = path.split('/');
-  return !path.contains('\\') &&
-      segments.every(
-        (segment) => segment.isNotEmpty && segment != '.' && segment != '..',
-      );
+  return !path.startsWith('assets/') && isSafeMappingStorePath(path);
 }
 
 String? _osmIdentity(Object? element) {
