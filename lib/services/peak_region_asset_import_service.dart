@@ -7,6 +7,7 @@ import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_region_import_marker_store.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/peak_source_precedence.dart';
 
 typedef PeakRegionSourceReader = Future<String> Function(String relativePath);
 typedef PeakRegionMgrsConverter = PeakMgrsComponents Function(LatLng location);
@@ -160,11 +161,34 @@ class PeakRegionAssetImportService {
         throw MappingStoreOperationException(paths: paths);
       }
     }
+    final shadowedIds = <int>{};
+    for (final preferredKey
+        in preferredPeakSourceRegions[region.key] ?? const <String>[]) {
+      final preferred = catalog.regionByKey(preferredKey);
+      if (preferred != null && _isCatalogRegionSeedable(preferred)) {
+        final preferredIds = <int>{};
+        for (final path in preferred.peaks) {
+          final result = await _loadCatalogRegionSource(
+            region: preferred,
+            path: path,
+          );
+          for (final peak in result.peaks) {
+            if (!preferredIds.add(peak.osmId)) {
+              throw MappingStoreOperationException(paths: preferred.peaks);
+            }
+          }
+        }
+        shadowedIds.addAll(ids.intersection(preferredIds));
+      }
+    }
+    imported.removeWhere((peak) => shadowedIds.contains(peak.osmId));
+    skipped += shadowedIds.length;
     try {
       await peakRepository.reconcileOsmRegion(
         regionKey: region.key,
         fingerprint: region.fingerprint!,
         incomingPeaks: imported,
+        retainedOsmIds: shadowedIds,
         validRegionKeys: catalog.regions
             .map((candidate) => candidate.key)
             .toSet(),

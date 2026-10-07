@@ -7,6 +7,47 @@ import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/startup_shell.dart';
 
 void main() {
+  testWidgets(
+    'production root supplies startup context and hands off at ready',
+    (tester) async {
+      final coordinator = _PendingStartupCoordinator();
+      var readyAppBuilds = 0;
+      await tester.pumpWidget(
+        StartupShell(
+          coordinator: coordinator,
+          readyBuilder: (_) {
+            readyAppBuilds++;
+            return const MaterialApp(home: Text('ready app'));
+          },
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text('Checking Mapping data store...'), findsOneWidget);
+      expect(readyAppBuilds, 0);
+
+      coordinator.setState(StartupState.initializing);
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Initializing...'), findsOneWidget);
+
+      coordinator.complete(StartupResult.unavailable(['region_manifest.json']));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.text('Mapping data store unavailable'), findsOneWidget);
+      expect(find.text('region_manifest.json'), findsOneWidget);
+      expect(readyAppBuilds, 0);
+
+      coordinator.retryResult = StartupResult.ready(_catalog);
+      await tester.tap(
+        find.byKey(const Key('mapping-store-unavailable-retry')),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.text('ready app'), findsOneWidget);
+      expect(find.byType(MaterialApp), findsOneWidget);
+    },
+  );
+
   testWidgets('checking is non-interactive and does not construct ready app', (
     tester,
   ) async {
@@ -231,15 +272,18 @@ class _PendingStartupCoordinator implements StartupCoordinator {
     StartupState.checking,
   );
   final _result = Completer<StartupResult>();
+  StartupResult? retryResult;
 
   @override
   ValueListenable<StartupState> get state => _state;
 
   void setState(StartupState state) => _state.value = state;
 
+  void complete(StartupResult result) => _result.complete(result);
+
   @override
   Future<StartupResult> start() => _result.future;
 
   @override
-  Future<StartupResult> retry() => _result.future;
+  Future<StartupResult> retry() async => retryResult ?? await _result.future;
 }

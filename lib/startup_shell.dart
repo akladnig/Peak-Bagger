@@ -155,18 +155,20 @@ class _StartupShellState extends State<StartupShell> {
   @override
   Widget build(BuildContext context) {
     final result = _result;
-    if (result == null && _state == StartupState.initializing) {
-      return const _StartupStatus(message: 'Initializing...');
+    if (_state == StartupState.ready && result != null) {
+      return widget.readyBuilder(result.catalog!);
     }
-    if (result == null || _state == StartupState.checking) {
-      return const _StartupStatus(message: 'Checking Mapping data store...');
-    }
-    return switch (_state) {
+    // Production mounts this shell directly with runApp. Startup scaffolds need
+    // their own Material context before the ready app creates its routed root.
+    final home = switch (_state) {
+      StartupState.checking => const _StartupStatus(
+        message: 'Checking Mapping data store...',
+      ),
       StartupState.unsupportedPlatform => _UnsupportedPlatform(
         onQuit: widget.onQuit,
       ),
       StartupState.unavailable => _UnavailableStore(
-        paths: result.pathFailures,
+        paths: result!.pathFailures,
         onRetry: () => _run(retry: true),
         onQuit: widget.onQuit,
       ),
@@ -174,14 +176,18 @@ class _StartupShellState extends State<StartupShell> {
         message: 'Initializing...',
       ),
       StartupState.initializationFailed => _InitializationFailed(
-        diagnostic: result.diagnostic ?? 'Unknown initialization failure.',
+        diagnostic: result?.diagnostic ?? 'Unknown initialization failure.',
         onQuit: widget.onQuit,
       ),
-      StartupState.ready => widget.readyBuilder(result.catalog!),
-      StartupState.checking => const _StartupStatus(
+      StartupState.ready => const _StartupStatus(
         message: 'Checking Mapping data store...',
       ),
     };
+    return MaterialApp(
+      title: 'Peak Bagger',
+      debugShowCheckedModeBanner: false,
+      home: home,
+    );
   }
 }
 

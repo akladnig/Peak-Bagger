@@ -72,6 +72,26 @@ or centroid fallback is introduced.
 
 ## Maintainer tool contracts
 
+Approved source precedence is explicit and narrow:
+
+- Peak source ownership follows **NE over NW** and **NE over Slovenia over
+  Croatia**. NW and Slovenia validate their full sources against current NE
+  sources; Croatia validates against current NE and Slovenia sources. Skip
+  overlapping identities once per losing region, independently of import order.
+  Existing OSM-owned losing rows transfer to a preferred owner with their IDs and
+  user fields preserved; retain them until that succeeds. User-owned/unowned rows
+  and unrelated-region conflicts remain protected. The shared
+  `preferredPeakSourceRegions` policy governs both filtering and transfers.
+  Source snapshots are not changed to implement this policy.
+- Within Northeast Alps, **FVG wins over Slovenia** for conflicting complete OSM
+  elements, including ways and supporting nodes. This is independent of source
+  order, retains Slovenia-only elements, and emits conflict-resolution diagnostics.
+  Conflicting repeats within one region and conflicts involving Veneto or other
+  regions still fail. Validate retained selected geometry before graph writes.
+  The hash payload includes `sourceMergePolicy: fvg-over-slovenia-v1` and every
+  full source snapshot. Usable bootstrap still reads no highway source; manual
+  refresh resolves current snapshots with this policy.
+
 Each Mapping tool ID is declared in the v1 `tool_manifest.json` fixture. Named
 capabilities are loaded before Mapping source reads or publication. Required
 inputs are validated before source processing or subprocess execution. External/user
@@ -159,6 +179,26 @@ An existing tool manifest with stale IDs/permissions must be reviewed against th
 v1 fixture and provisioned by the maintainer before cutover verification. Bootstrap
 never overwrites it. `provision-or-verify` reports the discrepancy and does not
 repair or mutate source data.
+
+If the existing manifest is an empty `{}` placeholder, review and explicitly
+provision the **complete** `test/fixtures/mapping_store/v1/tool_manifest.json`.
+It declares 13 named tools; adding only `mapping-store-provision` is insufficient
+for retained-contract verification. Keep a backup outside Mapping and stage the
+replacement beside its target for a same-filesystem atomic rename:
+
+```sh
+# Run from the repository root, after reviewing the fixture's capabilities.
+cp /Volumes/Services/Mapping/tool_manifest.json /tmp/peak-bagger-tool_manifest.before.json
+cp test/fixtures/mapping_store/v1/tool_manifest.json /Volumes/Services/Mapping/.tool_manifest.json.reviewed
+mv /Volumes/Services/Mapping/.tool_manifest.json.reviewed /Volumes/Services/Mapping/tool_manifest.json
+dart run tool/mapping_store.dart provision-or-verify
+```
+
+This is an explicit maintainer replacement of a reviewed existing contract;
+bootstrap still refuses to overwrite a conflicting file. The app ignores this
+manifest. Source snapshots and the runtime manifest pair are not replaced by
+these commands. If verification reports another mismatch, inspect that mismatch
+before provisioning any further file.
 
 Tool `command` contains `executable` and string-array `arguments`. Only exact
 `{input:id}`/`{output:id}` arguments expand. `inputs` have `id`, `path`, `kind`,

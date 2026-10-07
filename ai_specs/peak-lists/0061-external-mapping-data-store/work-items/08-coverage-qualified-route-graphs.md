@@ -21,7 +21,7 @@ Migrate route-graph source resolution to `MappingCatalog` and make all persisted
 - [x] Immediately exclude legacy rows without `routingCoverageKey` from every read, delete them across all route-graph row tables in one transaction, then independently rebuild only declared coverages lacking usable qualified generations.
 - [x] A usable coverage reads no highway source and stays available if its source later becomes unreadable. Failed/incomplete/orphaned coverage data may read and import; a failed manual refresh preserves the coverage's prior usable generation.
 - [x] Resolve a route segment only when both endpoints resolve to exactly one identical coverage. Zero, multiple, or different coverages are ordinary route-unavailable results; only an unavailable resolved coverage enters Mapping failure flow. Use `route-planning-mapping-unavailable` and `route-planning-mapping-unavailable-retry` after dismissal.
-- [x] Validate complete source input before ObjectBox writes: malformed selected candidates fail without writes; documented non-candidates are diagnostic skips; canonically identical repeated OSM elements merge and conflicting identities fail.
+- [x] Validate complete retained source input before ObjectBox writes: malformed selected candidates fail without writes; documented non-candidates are diagnostic skips; canonically identical repeated OSM elements merge. Apply Spec requirement 32's approved complete-element FVG-over-Slovenia precedence in Northeast Alps; other conflicts and conflicting repeats within a source region fail.
 - [x] Add unit/repository/provider/widget/robot/concurrency coverage for every generation, row key, source, coverage resolution, legacy migration, retention, unavailable/retry, and cross-coverage isolation contract. Run `dart run build_runner build --delete-conflicting-outputs` and review generated ObjectBox changes.
 
 ## Verification — 2026-10-05
@@ -141,13 +141,31 @@ coverage retries.
   preparation, import, ObjectBox persistence, and routing behavior have separate
   service/repository coverage in the passing full suite.
 
+## Approved FVG/Slovenia precedence — 2026-10-07
+
+L11 permits complete FVG OSM elements to win over conflicting Slovenia elements
+in Northeast Alps. One provenance-aware merger handles both resolver modes and
+both source orders. It preserves complete FVG ways/supporting nodes, retains
+Slovenia-only records, logs precedence decisions, and still rejects same-region
+inconsistent repeats or conflicts involving a third region. Final selected-way
+validation remains before ObjectBox writes. The full source hash includes the
+explicit merge-policy revision and all snapshots, including losing records.
+
+The unchanged mounted sources resolved into **8,343,986 merged elements** and
+**558,284 accepted ways**. All **52 diagnosed conflicts** retained the exact FVG
+records. A real temporary ObjectBox import committed a usable generation with
+**4,081 chunks, 7,780,038 nodes, 558,284 edges/ways**. Resolve and import together
+took approximately **6 minutes** in the full-source Flutter-test probe. Source
+files and the ObjectBox schema remain unchanged. Packaged final acceptance
+evidence is recorded in Work Item 12.
+
 ## Covers
 
 - User Stories: 1, 2
-- Requirements: 5, 9, 11, 19, 21, 25-27
-- Technical Decisions: 2, 4, 9, 11, 15-18, 28
-- Testing Strategy: 3-4, 9-13, 16
-- Interview Ledger: L1, L3, L5, L9, L10
+- Requirements: 5, 9, 11, 19, 21, 25-27, 32
+- Technical Decisions: 2, 4, 9, 11, 15-18, 28, 31
+- Testing Strategy: 3-4, 9-13, 16-17
+- Interview Ledger: L1, L3, L5, L9-L11
 
 ## Blocked by
 02-mapping-store-manifest-boundary-and-catalog.md

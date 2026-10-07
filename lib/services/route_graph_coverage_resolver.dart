@@ -103,8 +103,8 @@ class RouteGraphCoverageResolver {
 
       final resolvedSources = <RouteGraphCoverageSourceRegion>[];
       final hashSourceRegions = <Object?>[];
-      final mergedElements = <Object?>[];
-      final identities = <String, String>{};
+      final merger = _CoverageElementMerger(definition.key);
+      final mergedElements = merger.elements;
       final unavailableFootprint = <RouteGraphFootprintBound>[];
 
       for (final sourceRegion in sourceRegions) {
@@ -127,23 +127,7 @@ class RouteGraphCoverageResolver {
           hashSourceAssets.add({'path': sourcePath, 'overpass': overpass});
 
           for (final element in overpass['elements']! as List<Object?>) {
-            final canonicalElement = canonicalJsonValue(element);
-            final identity = _osmIdentity(canonicalElement);
-            if (identity != null) {
-              final encoded = canonicalJsonEncode(canonicalElement);
-              final existing = identities[identity];
-              if (existing != null) {
-                if (existing != encoded) {
-                  throw FormatException(
-                    'Routing coverage ${definition.key} has conflicting '
-                    'OSM element $identity.',
-                  );
-                }
-                continue;
-              }
-              identities[identity] = encoded;
-            }
-            mergedElements.add(canonicalElement);
+            merger.add(element, sourceRegion.key);
           }
         }
         resolvedSources.add(
@@ -167,6 +151,8 @@ class RouteGraphCoverageResolver {
       );
       final hashPayload = <String, Object?>{
         'routingCoverageKey': definition.key,
+        if (definition.key == 'northeast-alps')
+          'sourceMergePolicy': _CoverageElementMerger.precedencePolicy,
         'sourceRegions': hashSourceRegions,
       };
       validateSelectedRouteGraphWays(mergedElements);
@@ -250,8 +236,8 @@ class RouteGraphCoverageResolver {
     }
     final sources = <RouteGraphCoverageSourceRegion>[];
     final hashSourceRegions = <Object?>[];
-    final mergedElements = <Object?>[];
-    final identities = <String, String>{};
+    final merger = _CoverageElementMerger(definition.key);
+    final mergedElements = merger.elements;
     final unavailableFootprint = <RouteGraphFootprintBound>[];
     final regionKeys = catalog.routingCoverageRegionKeys[definition.key];
     if (regionKeys == null || regionKeys.isEmpty) {
@@ -290,22 +276,7 @@ class RouteGraphCoverageResolver {
         final bound = _nodeCoordinateBound(overpass['elements']! as List);
         if (bound != null) unavailableFootprint.add(bound);
         for (final element in overpass['elements']! as List<Object?>) {
-          final canonicalElement = canonicalJsonValue(element);
-          final identity = _osmIdentity(canonicalElement);
-          if (identity != null) {
-            final encoded = canonicalJsonEncode(canonicalElement);
-            final existing = identities[identity];
-            if (existing != null) {
-              if (existing != encoded) {
-                throw FormatException(
-                  'Routing coverage ${definition.key} has conflicting OSM element $identity.',
-                );
-              }
-              continue;
-            }
-            identities[identity] = encoded;
-          }
-          mergedElements.add(canonicalElement);
+          merger.add(element, region.key);
         }
       }
       if (unavailableFootprint.isEmpty) {
@@ -339,6 +310,8 @@ class RouteGraphCoverageResolver {
             utf8.encode(
               canonicalJsonEncode({
                 'routingCoverageKey': definition.key,
+                if (definition.key == 'northeast-alps')
+                  'sourceMergePolicy': _CoverageElementMerger.precedencePolicy,
                 'sourceRegions': hashSourceRegions,
               }),
             ),
@@ -457,6 +430,80 @@ class RouteGraphCoverageResolver {
     }
     return overpass;
   }
+}
+
+/// Only the explicitly approved FVG/Slovenia overlap has a source winner.
+/// Keep duplicate provenance so precedence cannot hide conflicting repeats
+/// within one source region or a conflict with a third region.
+class _CoverageElementMerger {
+  _CoverageElementMerger(this.coverageKey);
+
+  static const precedencePolicy = 'fvg-over-slovenia-v1';
+  final String coverageKey;
+  final elements = <Object?>[];
+  final _identities = <String, ({String json, String regionKey, int index})>{};
+  final _duplicateSources = <String, Map<String, String>>{};
+
+  void add(Object? element, String regionKey) {
+    final identity = _osmIdentity(element);
+    if (identity == null) {
+      elements.add(element);
+      return;
+    }
+    final encoded = canonicalJsonEncode(element);
+    final existing = _identities[identity];
+    if (existing == null) {
+      _identities[identity] = (
+        json: encoded,
+        regionKey: regionKey,
+        index: elements.length,
+      );
+      elements.add(element);
+      return;
+    }
+    final variants = _duplicateSources.putIfAbsent(
+      identity,
+      () => {existing.regionKey: existing.json},
+    );
+    final sameRegion = variants[regionKey];
+    if (sameRegion != null && sameRegion != encoded) _conflict(identity);
+    variants[regionKey] = encoded;
+    if (existing.json == encoded) {
+      if (regionKey == 'fvg') {
+        _identities[identity] = (
+          json: encoded,
+          regionKey: regionKey,
+          index: existing.index,
+        );
+      }
+      return;
+    }
+    final fvg = variants['fvg'];
+    if (coverageKey != 'northeast-alps' ||
+        fvg == null ||
+        !variants.containsKey('slovenia') ||
+        variants.entries.any(
+          (entry) => entry.key != 'slovenia' && entry.value != fvg,
+        )) {
+      _conflict(identity);
+    }
+    if (regionKey == 'fvg') {
+      elements[existing.index] = element;
+      _identities[identity] = (
+        json: encoded,
+        regionKey: regionKey,
+        index: existing.index,
+      );
+    }
+    developer.log(
+      'Retained FVG $identity over conflicting Slovenia record.',
+      name: 'RouteGraphCoverageResolver',
+    );
+  }
+
+  Never _conflict(String identity) => throw FormatException(
+    'Routing coverage $coverageKey has conflicting OSM element $identity.',
+  );
 }
 
 RouteGraphFootprintBound _footprintForPolygon(List<LatLng> polygon) {

@@ -14,6 +14,7 @@ import 'package:peak_bagger/services/peak_list_derived_data.dart';
 import 'package:peak_bagger/services/map_search_region_filter.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:peak_bagger/services/peak_source.dart';
+import 'package:peak_bagger/services/peak_source_precedence.dart';
 
 import '../core/number_formatters.dart';
 import '../objectbox.g.dart';
@@ -1193,6 +1194,7 @@ class PeakRepository implements PeakSource {
     required String fingerprint,
     required List<Peak> incomingPeaks,
     required Set<String> validRegionKeys,
+    Set<int> retainedOsmIds = const {},
   }) async {
     final existing = _storage.getAll();
     final incomingByOsmId = <int, Peak>{};
@@ -1214,7 +1216,11 @@ class PeakRepository implements PeakSource {
       if (previous.sourceOfTruth != Peak.sourceOfTruthOsm ||
           previous.region == null ||
           !validRegionKeys.contains(previous.region) ||
-          previous.region != regionKey) {
+          (previous.region != regionKey &&
+              !(preferredPeakSourceRegions[previous.region]?.contains(
+                    regionKey,
+                  ) ??
+                  false))) {
         throw StateError(
           'OSM identity ${incoming.osmId} cannot be imported for $regionKey.',
         );
@@ -1227,7 +1233,8 @@ class PeakRepository implements PeakSource {
       if (incoming == null) {
         final isMissingOwnedOsm =
             previous.sourceOfTruth == Peak.sourceOfTruthOsm &&
-            previous.region == regionKey;
+            previous.region == regionKey &&
+            !retainedOsmIds.contains(previous.osmId);
         if (!isMissingOwnedOsm) {
           reconciled.add(previous);
         }

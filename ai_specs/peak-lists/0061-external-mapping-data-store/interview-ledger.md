@@ -104,3 +104,23 @@ Question: How should Northeast Alps routing coverage handle Slovenia?
 Answer: Preserve FVG, Veneto, and Slovenia coverage. Treat `Highways/slovenia-highways.json` as an available required source.
 
 Decision: The external data preflight requires the Slovenia highway export for Northeast Alps routing coverage.
+
+### L11
+
+Status: current
+
+Question: How should the diagnosed NE/NW peak overlap and FVG/Slovenia highway conflicts be resolved?
+
+Answer: The tool manifest is complete. When a peak appears in both Italy North East and Italy North West, use the NE peak and skip NW. FVG takes precedence over Slovenia for conflicting highway identities so the graph can proceed.
+
+Decision: Resolve NE/NW peak ownership from the current validated NE source, independent of import order; count overlapping NW records as skips. Permit an OSM-owned NW record to transfer to NE during reconciliation while retaining its ObjectBox ID and user-maintained fields. Preserve a skipped existing NW record until NE successfully reconciles it. For Northeast Alps, retain the complete FVG OSM element over a conflicting Slovenia element, including supporting nodes, regardless of source order. Other source-region conflicts and conflicting repeats within one region remain failures. Keep all three routing source regions and all source snapshots; record the merge-policy revision in the coverage source hash.
+
+### L12
+
+Status: current
+
+Question: Should NE also take precedence over Slovenia, and Slovenia take precedence over Croatia?
+
+Answer: YES.
+
+Decision: Extend peak source precedence to NE > Slovenia > Croatia, in addition to NE > NW. Validate current preferred sources and skip their identities in losing sources regardless of import order; retain skipped legacy OSM rows until successful winner reconciliation can transfer them with IDs/user fields intact. The chain also resolves three-source overlaps directly to NE, counting one skip per losing region. Keep unrelated ownership conflicts, malformed-source atomicity, and user-owned/unowned protections unchanged.
