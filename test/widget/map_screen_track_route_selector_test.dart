@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -463,6 +464,7 @@ Future<void> _pumpRawMapScreen(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => notifier),
         routeRepositoryProvider.overrideWithValue(routeRepository),
         peakListRepositoryProvider.overrideWithValue(

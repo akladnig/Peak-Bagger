@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'dart:developer' as developer;
 import 'package:flutter/gestures.dart'
     show
@@ -26,9 +27,11 @@ import 'package:peak_bagger/models/peak_ownership_ring_segment.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/drive_eta_provider.dart';
 import 'package:peak_bagger/providers/polygon_assets_provider.dart';
+import 'package:peak_bagger/widgets/map_selection_mapping_unavailable.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/mapping_store_operation_provider.dart';
 import 'package:peak_bagger/providers/local_topo_overlay_settings_provider.dart';
 import 'package:peak_bagger/providers/local_topo_overlay_outage_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
@@ -2589,11 +2592,17 @@ class _MapScreenState extends ConsumerState<MapScreen>
   @override
   Widget build(BuildContext context) {
     MapRebuildDebugCounters.recordRouteRootBuild();
+    final peakListDrawerEntries = ref.watch(mapPeakListDrawerEntriesProvider);
+    final naturalFeatureAvailability = ref.watch(
+      naturalFeatureAvailabilityProvider,
+    );
     final routeChrome = ref.watch(
       mapProvider.select(
         (state) => (
           endDrawerMode: state.endDrawerMode,
           showPeakSearch: state.showPeakSearch,
+          peakSearchMappingUnavailableReason:
+              state.peakSearchMappingUnavailableReason,
           searchResults: state.searchPopupResults,
           searchQuery: state.searchPopupQuery,
           searchPopupTrackDateRange: state.searchPopupTrackDateRange,
@@ -2605,6 +2614,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
           searchGroup: state.searchPopupGroup,
           showGotoInput: state.showGotoInput,
           mapSuggestions: state.mapSuggestions,
+          mapSelectionMappingUnavailableReason:
+              state.mapSelectionMappingUnavailableReason,
           showInfoPopup: state.showInfoPopup,
           infoMapName: state.infoMapName,
           infoMgrs: state.infoMgrs,
@@ -2819,7 +2830,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                 basemapKeys: _basemapDrawerBasemapKeys ?? const [],
                 showOverlays: _basemapDrawerShowOverlays,
               ),
-              EndDrawerMode.peakLists => const MapPeakListsDrawer(),
+              EndDrawerMode.peakLists => MapPeakListsDrawer(
+                visiblePeakLists: peakListDrawerEntries,
+              ),
               EndDrawerMode.tracksRoutes => const MapTracksRoutesDrawer(),
             },
             onEndDrawerChanged: (isOpen) {
@@ -2895,8 +2908,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     final showPolygons = ref.watch(
                       showPolygonsSettingsProvider,
                     );
+                    if (showPolygons) ref.watch(polygonAssetsProvider);
                     final polygonAssets = showPolygons
-                        ? ref.watch(polygonAssetsProvider)
+                        ? ref.watch(polygonDisplayStateProvider).polygons
                         : null;
                     final shouldBuildPeakViewport =
                         mapScene.showPeaks &&
@@ -3510,6 +3524,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                       ),
                                       children: [
                                         buildBasemapTileLayer(
+                                          catalog: ref.read(
+                                            mappingCatalogProvider,
+                                          ),
                                           mapScene.basemap,
                                           userAgentPackageName:
                                               'com.peak_bagger.app',
@@ -4123,6 +4140,11 @@ class _MapScreenState extends ConsumerState<MapScreen>
                   onDropMarker: _showDropMarkerPopupForCurrentLocation,
                   onShowFavourites: _toggleFavouritesPopup,
                 ),
+                const Positioned(
+                  left: 16,
+                  top: 16,
+                  child: MapSelectionMappingUnavailable(),
+                ),
                 if (routeChrome.isRouteDrafting)
                   const Positioned(
                     key: Key('route-controls-overlay-root'),
@@ -4146,7 +4168,34 @@ class _MapScreenState extends ConsumerState<MapScreen>
                         selectedRegionKey: routeChrome.searchRegionKey,
                         sort: routeChrome.searchSort,
                         group: routeChrome.searchGroup,
-                        availableRegions: buildMapSearchRegionOptions(),
+                        mappingUnavailableReason:
+                            routeChrome.peakSearchMappingUnavailableReason,
+                        onRetryMapping:
+                            routeChrome.peakSearchMappingUnavailableReason ==
+                                null
+                            ? null
+                            : () => ref
+                                  .read(mapProvider.notifier)
+                                  .retryPeakSearchMapping(),
+                        naturalFeaturesUnavailableReason:
+                            routeChrome.searchCategories.length == 1 &&
+                                routeChrome.searchCategories.contains(
+                                  MapSearchCategory.natural,
+                                ) &&
+                                !naturalFeatureAvailability.isAvailable
+                            ? naturalFeatureAvailability.reason
+                            : null,
+                        onRetryNaturalFeatures:
+                            naturalFeatureAvailability.retryKey == null
+                            ? null
+                            : () => ref
+                                  .read(
+                                    mappingStoreOperationCoordinatorProvider,
+                                  )
+                                  .retry(naturalFeatureAvailability.retryKey!),
+                        availableRegions: buildMapSearchRegionOptions(
+                          ref.read(mappingCatalogProvider),
+                        ),
                         onChanged: (value) {
                           ref
                               .read(mapProvider.notifier)
@@ -4235,6 +4284,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
                       controller: _gotoController,
                       errorText: _gotoError,
                       mapSuggestions: routeChrome.mapSuggestions,
+                      mappingUnavailableReason: null,
                       onChanged: (value) {
                         if (_gotoError != null) {
                           setState(() => _gotoError = null);
@@ -4262,6 +4312,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                             .read(mapProvider.notifier)
                             .setGotoInputVisible(false);
                       },
+                      onRetryMapping: () => ref
+                          .read(mapProvider.notifier)
+                          .retryMapSelectionMapping(),
                     ),
                   ),
                 if (routeChrome.showInfoPopup)
@@ -4800,7 +4853,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   PolygonLayer? _polygonAssetLayerFor({
     required bool showPolygons,
-    required AsyncValue<List<MapPolygonAsset>>? polygonAssets,
+    required List<MapPolygonAsset>? polygonAssets,
   }) {
     if (!showPolygons) {
       _cachedPolygonAssetLayer = null;
@@ -4808,10 +4861,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
       return null;
     }
 
-    final assets = polygonAssets?.maybeWhen(
-      data: (value) => value,
-      orElse: () => null,
-    );
+    final assets = polygonAssets;
     if (assets == null) {
       return _cachedPolygonAssetLayer;
     }
@@ -4865,6 +4915,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final mapState = ref.read(mapProvider);
     final point = mapState.cursorPoint ?? mapState.center;
     final availableBasemaps = basemapsForDrawer(
+      catalog: ref.read(mappingCatalogProvider),
       point: point,
       visibleBounds: mapState.visibleBounds,
     );
@@ -4874,7 +4925,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     if (!availableBasemapKeys.contains(mapState.basemap.name) &&
         !(mapState.basemap == Basemap.localTopo &&
-            !isLocalTopoAvailableForBounds(mapState.visibleBounds))) {
+            !isLocalTopoAvailableForBounds(
+              mapState.visibleBounds,
+              catalog: ref.read(mappingCatalogProvider),
+            ))) {
       ref.read(mapProvider.notifier).setBasemap(Basemap.tracestrack);
     }
 
@@ -4883,6 +4937,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
           .map((basemap) => basemap.key)
           .toList(growable: false);
       _basemapDrawerShowOverlays = isTasmaniaOverlayEligible(
+        catalog: ref.read(mappingCatalogProvider),
         point: point,
         visibleBounds: mapState.visibleBounds,
       );
@@ -4900,6 +4955,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     return basemap != Basemap.localTopo &&
         snapshot != null &&
         isTasmaniaOverlayEligible(
+          catalog: ref.read(mappingCatalogProvider),
           point: point,
           visibleBounds: visibleBounds,
           snapshot: snapshot,

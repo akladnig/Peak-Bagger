@@ -234,7 +234,8 @@ void main() {
 GpxImporter _planImporter(Directory root) {
   return GpxImporter(
     tracksFolder: '${root.path}/Tracks',
-    polygonAssetRepository: PolygonAssetRepository(
+    polygonAssetRepository: PolygonAssetRepository.test(
+      paths: [],
       assetLoader: (_) async => throw Exception('No polygon assets'),
     ),
   );

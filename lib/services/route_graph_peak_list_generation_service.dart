@@ -6,7 +6,9 @@ import 'package:path/path.dart' as p;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/geo.dart';
 import 'package:peak_bagger/services/manifest_priority.dart';
-import 'package:peak_bagger/services/peak_list_csv_export_service.dart';
+import 'package:peak_bagger/services/peak_list_csv_format.dart';
+import 'package:peak_bagger/services/mapping_store_core.dart'
+    show requireNonMappingPath;
 
 typedef RouteGraphPeakListTextReader = Future<String> Function(String path);
 typedef RouteGraphPeakListPathResolver = String Function();
@@ -23,6 +25,7 @@ class IoRouteGraphPeakListFileSystem implements RouteGraphPeakListFileSystem {
 
   @override
   Future<void> deleteIfExists(String path) async {
+    await requireNonMappingPath(path);
     final file = File(path);
     if (await file.exists()) {
       await file.delete();
@@ -30,16 +33,22 @@ class IoRouteGraphPeakListFileSystem implements RouteGraphPeakListFileSystem {
   }
 
   @override
-  Future<bool> directoryExists(String path) => Directory(path).exists();
-
-  @override
-  Future<void> rename(String sourcePath, String destinationPath) {
-    return File(sourcePath).rename(destinationPath);
+  Future<bool> directoryExists(String path) async {
+    await requireNonMappingPath(path);
+    return Directory(path).exists();
   }
 
   @override
-  Future<void> writeText(String path, String contents) {
-    return File(path).writeAsString(contents);
+  Future<void> rename(String sourcePath, String destinationPath) async {
+    await requireNonMappingPath(sourcePath);
+    await requireNonMappingPath(destinationPath);
+    await File(sourcePath).rename(destinationPath);
+  }
+
+  @override
+  Future<void> writeText(String path, String contents) async {
+    await requireNonMappingPath(path);
+    await File(path).writeAsString(contents);
   }
 }
 
@@ -67,11 +76,14 @@ class RouteGraphPeakListGenerationResult {
 class RouteGraphPeakListGenerationService {
   RouteGraphPeakListGenerationService({
     RouteGraphPeakListTextReader? textReader,
+    RouteGraphPeakListTextReader? mappingTextReader,
     RouteGraphPeakListFileSystem? fileSystem,
     RouteGraphPeakListPathResolver? homeDirectoryResolver,
     RouteGraphPeakListPathResolver? repositoryRootResolver,
     RouteGraphPeakListPathResolver? tempSuffixResolver,
   }) : _textReader = textReader ?? _readText,
+       _mappingTextReader =
+           mappingTextReader ?? textReader ?? _unconfiguredMappingReader,
        _fileSystem = fileSystem ?? const IoRouteGraphPeakListFileSystem(),
        _homeDirectoryResolver = homeDirectoryResolver ?? _resolveHomeDirectory,
        _repositoryRootResolver =
@@ -106,11 +118,12 @@ class RouteGraphPeakListGenerationService {
     'sourceOfTruth',
   ];
 
-  static const _manifestAssetPath = 'assets/region_manifest.json';
+  static const _manifestAssetPath = 'region_manifest.json';
   static const _thresholdMeters = 50.0;
   static const _distanceToleranceMeters = 1e-6;
 
   final RouteGraphPeakListTextReader _textReader;
+  final RouteGraphPeakListTextReader _mappingTextReader;
   final RouteGraphPeakListFileSystem _fileSystem;
   final RouteGraphPeakListPathResolver _homeDirectoryResolver;
   final RouteGraphPeakListPathResolver _repositoryRootResolver;
@@ -128,7 +141,7 @@ class RouteGraphPeakListGenerationService {
     final peaks = await _loadPeaks(sourcePath);
     final segments = <_RouteGraphSegment>[];
     for (final highwayPath in resolvedRegion.highwayPaths) {
-      final path = p.join(repositoryRoot, highwayPath);
+      final path = highwayPath;
       segments.addAll(await _loadHighwaySegments(path, resolvedRegion.key));
     }
 
@@ -153,11 +166,11 @@ class RouteGraphPeakListGenerationService {
         matchedOsmIds.remove(sourcePeak.peak.osmId);
       }
     }
-    matched.sort(PeakListCsvExportService.comparePeaksForCsv);
+    matched.sort(PeakListCsvFormat.comparePeaksForCsv);
     final csvText = const CsvEncoder(lineDelimiter: '\n').convert([
-      PeakListCsvExportService.csvHeaders,
+      PeakListCsvFormat.csvHeaders,
       ...matched.map(
-        (peak) => PeakListCsvExportService.csvRowForPeak(peak, points: 1),
+        (peak) => PeakListCsvFormat.csvRowForPeak(peak, points: 1),
       ),
     ]);
 
@@ -188,11 +201,8 @@ class RouteGraphPeakListGenerationService {
   Future<Map<String, _ManifestRegion>> _loadManifest(
     String repositoryRoot,
   ) async {
-    final manifestPath = p.join(repositoryRoot, _manifestAssetPath);
-    final rawJson = await _readRequiredText(
-      manifestPath,
-      'Could not read region manifest at $manifestPath',
-    );
+    const manifestPath = _manifestAssetPath;
+    final rawJson = await _mappingTextReader(manifestPath);
     try {
       final decoded = jsonDecode(rawJson);
       if (decoded is! Map) {
@@ -200,7 +210,12 @@ class RouteGraphPeakListGenerationService {
       }
       final regions = <String, _ManifestRegion>{};
       for (final entry in decoded.entries) {
-        if (entry.key == 'routingCoverages') {
+        if (const {
+          'tasmap',
+          'naturalFeatures',
+          'demSources',
+          'routingCoverages',
+        }.contains(entry.key)) {
           continue;
         }
         if (entry.key is! String || entry.value is! Map) {
@@ -441,10 +456,7 @@ class RouteGraphPeakListGenerationService {
     String path,
     String selectedRegion,
   ) async {
-    final text = await _readRequiredText(
-      path,
-      'Could not read highway data for region $selectedRegion at $path',
-    );
+    final text = await _mappingTextReader(path);
     try {
       final decoded = jsonDecode(text);
       if (decoded is! Map || decoded['elements'] is! List) {
@@ -658,7 +670,13 @@ double? _jsonCoordinate(Object? value, double min, double max) {
 
 String _normalize(String value) => value.trim().toLowerCase();
 
-Future<String> _readText(String path) => File(path).readAsString();
+Future<String> _readText(String path) async {
+  await requireNonMappingPath(path);
+  return File(path).readAsString();
+}
+
+Future<String> _unconfiguredMappingReader(String path) =>
+    throw StateError('A manifest-backed Mapping reader is required for $path.');
 
 String _resolveHomeDirectory() {
   final home =

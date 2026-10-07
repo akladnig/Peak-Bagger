@@ -2,6 +2,7 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
@@ -359,6 +360,7 @@ Future<void> _pumpMap(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () =>
               TestMapNotifier(state, waypointsRepository: waypointsRepository),

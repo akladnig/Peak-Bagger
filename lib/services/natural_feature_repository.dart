@@ -12,7 +12,10 @@ abstract class NaturalFeatureStorage {
 
   bool remove(int id);
 
-  void putAllAtomically(List<NaturalFeature> naturalFeatures);
+  void reconcileAtomically({
+    required List<NaturalFeature> upserts,
+    required List<int> deletedIds,
+  });
 }
 
 enum NaturalFeatureWriteFailure { afterFirstWrite }
@@ -39,10 +42,16 @@ class ObjectBoxNaturalFeatureStorage implements NaturalFeatureStorage {
   bool remove(int id) => _box.remove(id);
 
   @override
-  void putAllAtomically(List<NaturalFeature> naturalFeatures) {
+  void reconcileAtomically({
+    required List<NaturalFeature> upserts,
+    required List<int> deletedIds,
+  }) {
     _store.runInTransaction(TxMode.write, () {
-      for (var index = 0; index < naturalFeatures.length; index++) {
-        _box.put(naturalFeatures[index]);
+      for (final id in deletedIds) {
+        _box.remove(id);
+      }
+      for (var index = 0; index < upserts.length; index++) {
+        _box.put(upserts[index]);
         if (failureForTest == NaturalFeatureWriteFailure.afterFirstWrite &&
             index == 0) {
           throw StateError(
@@ -93,6 +102,14 @@ class InMemoryNaturalFeatureStorage implements NaturalFeatureStorage {
 
   @override
   int put(NaturalFeature naturalFeature) {
+    if (naturalFeature.sourceRecordKey != null &&
+        _naturalFeatures.any(
+          (existing) =>
+              existing.id != naturalFeature.id &&
+              existing.sourceRecordKey == naturalFeature.sourceRecordKey,
+        )) {
+      throw StateError('Duplicate Natural Feature source identity.');
+    }
     if (naturalFeature.id == 0) {
       naturalFeature.id = _nextId++;
     } else if (naturalFeature.id >= _nextId) {
@@ -116,12 +133,18 @@ class InMemoryNaturalFeatureStorage implements NaturalFeatureStorage {
   }
 
   @override
-  void putAllAtomically(List<NaturalFeature> naturalFeatures) {
+  void reconcileAtomically({
+    required List<NaturalFeature> upserts,
+    required List<int> deletedIds,
+  }) {
     final previousFeatures = List<NaturalFeature>.from(_naturalFeatures);
     final previousNextId = _nextId;
     try {
-      for (var index = 0; index < naturalFeatures.length; index++) {
-        put(naturalFeatures[index]);
+      for (final id in deletedIds) {
+        remove(id);
+      }
+      for (var index = 0; index < upserts.length; index++) {
+        put(upserts[index]);
         if (failureForTest == NaturalFeatureWriteFailure.afterFirstWrite &&
             index == 0) {
           throw StateError(
@@ -153,9 +176,12 @@ class NaturalFeatureRepository {
   NaturalFeature? findByOsmIdentity({
     required String osmType,
     required int osmId,
+    String ownership = 'OSM',
   }) {
     for (final naturalFeature in _storage.getAll()) {
-      if (naturalFeature.osmType == osmType && naturalFeature.osmId == osmId) {
+      if (naturalFeature.sourceOfTruth == ownership &&
+          naturalFeature.osmType == osmType &&
+          naturalFeature.osmId == osmId) {
         return naturalFeature;
       }
     }
@@ -163,12 +189,21 @@ class NaturalFeatureRepository {
   }
 
   NaturalFeature save(NaturalFeature naturalFeature) {
+    final key =
+        '${naturalFeature.sourceOfTruth}:${naturalFeature.osmType}:${naturalFeature.osmId}';
+    naturalFeature.sourceKey = key;
+    naturalFeature.sourceRecordKey = key;
     naturalFeature.id = _storage.put(naturalFeature);
     return naturalFeature;
   }
 
-  void upsertAllAtomically(List<NaturalFeature> naturalFeatures) {
-    _storage.putAllAtomically(naturalFeatures);
+  bool isEmpty() => _storage.getAll().isEmpty;
+
+  void reconcileAtomically({
+    required List<NaturalFeature> upserts,
+    required List<int> deletedIds,
+  }) {
+    _storage.reconcileAtomically(upserts: upserts, deletedIds: deletedIds);
   }
 
   bool delete(int id) => _storage.remove(id);

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:peak_bagger/services/mapping_store_core.dart';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -703,6 +704,7 @@ class SloveniaHribiSourcePeakListException implements Exception {
 
 class SloveniaHribiSourcePeakListService {
   SloveniaHribiSourcePeakListService({
+    required MappingCatalog catalog,
     SloveniaHribiSourcePageLoader? pageLoader,
     http.Client? httpClient,
     PeakSource? peakSource,
@@ -716,6 +718,7 @@ class SloveniaHribiSourcePeakListService {
     Directory Function()? cacheDirectoryResolver,
     SloveniaHribiSourceProgressCallback? onProgress,
   }) : this._(
+         catalog: catalog,
          htmlParser: htmlParser,
          normalizer: normalizer,
          rangeConfigurations: rangeConfigurations,
@@ -731,6 +734,7 @@ class SloveniaHribiSourcePeakListService {
        );
 
   SloveniaHribiSourcePeakListService._({
+    required this.catalog,
     required this.htmlParser,
     required this.normalizer,
     required this.rangeConfigurations,
@@ -745,6 +749,7 @@ class SloveniaHribiSourcePeakListService {
        _basePageLoader = pageLoader ?? _buildDefaultPageLoader(httpClient);
 
   final SloveniaHribiSourcePeakListHtmlParser htmlParser;
+  final MappingCatalog catalog;
   final SloveniaHribiSourcePeakListNormalizer normalizer;
   final List<SloveniaHribiSourceRangeConfig> rangeConfigurations;
   final Directory Function() _outputDirectoryResolver;
@@ -761,7 +766,11 @@ class SloveniaHribiSourcePeakListService {
     String? sourceOfTruth,
   }) async {
     try {
-      final latestSnapshot = _loadLatestSnapshot(requireRepairFile: repairList);
+      await requireNonMappingPath(_outputDirectoryResolver().path);
+      await requireNonMappingPath(_cacheDirectoryResolver().path);
+      final latestSnapshot = await _loadLatestSnapshot(
+        requireRepairFile: repairList,
+      );
       if (repairList && latestSnapshot == null) {
         throw const SloveniaHribiSourcePeakListException(
           'No repair file found. Run a normal crawl first.',
@@ -783,6 +792,9 @@ class SloveniaHribiSourcePeakListService {
           .toList(growable: false);
       final correlationOutput = SloveniaPeakCorrelationService(
         peakSource: _peakSource,
+        canonicalRegionResolver: SloveniaCanonicalRegionResolver(
+          catalog: catalog,
+        ),
       ).correlate(rows: normalizedRows, tieWindowMeters: tieWindowMeters);
       final csvText = _buildRankedCsvText(correlationOutput.canonicalRows);
       final reviewText = _buildReviewCsvText(correlationOutput.reviewRows);
@@ -847,6 +859,9 @@ class SloveniaHribiSourcePeakListService {
         tieWindowMeters: tieWindowMeters,
       );
 
+      for (final path in [csvPath, reviewPath, repairPath, statePath]) {
+        await requireNonMappingPath(path);
+      }
       await File(csvPath).writeAsString(csvText);
       await File(reviewPath).writeAsString(reviewText);
       await File(repairPath).writeAsString(repairText);
@@ -1314,7 +1329,9 @@ class SloveniaHribiSourcePeakListService {
   }
 
   static Directory _defaultOutputDirectoryResolver() {
-    return Directory(p.join(Directory.current.path, 'assets', 'peaks'));
+    return Directory(
+      p.join(Directory.current.path, 'build', 'slovenia-peak-reports'),
+    );
   }
 
   static Directory _defaultCacheDirectoryResolver() {
@@ -1360,9 +1377,9 @@ class SloveniaHribiSourcePeakListService {
     return maxVersion + 1;
   }
 
-  _SloveniaHribiSourcePeakListSnapshot? _loadLatestSnapshot({
+  Future<_SloveniaHribiSourcePeakListSnapshot?> _loadLatestSnapshot({
     required bool requireRepairFile,
-  }) {
+  }) async {
     final outputDirectory = _outputDirectoryResolver();
     if (!outputDirectory.existsSync()) {
       return null;
@@ -1415,6 +1432,9 @@ class SloveniaHribiSourcePeakListService {
         outputDirectory.path,
         '$sloveniaRankedPeakListBaseName-V$version.state.json',
       );
+      for (final path in [csvPath, reviewPath, repairPath, statePath]) {
+        await requireNonMappingPath(path);
+      }
       if (!File(csvPath).existsSync() ||
           !File(reviewPath).existsSync() ||
           !File(statePath).existsSync()) {
@@ -1500,11 +1520,13 @@ class SloveniaHribiSourcePeakListService {
 
   Future<String> _loadPage(Uri uri, {required bool refreshCache}) async {
     final cacheFile = _cacheFileForUri(uri);
+    await requireNonMappingPath(cacheFile.path);
     if (!refreshCache && cacheFile.existsSync()) {
       return cacheFile.readAsStringSync();
     }
 
     final response = await _basePageLoader(uri);
+    await requireNonMappingPath(cacheFile.path);
     cacheFile.parent.createSync(recursive: true);
     cacheFile.writeAsStringSync(response);
     return response;

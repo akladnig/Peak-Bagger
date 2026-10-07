@@ -1,13 +1,14 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_managed_file_operations.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import '../harness/retired_overpass.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/track_replacement_recovery_issue_repository.dart';
@@ -93,8 +94,10 @@ Future<MapNotifier> _notifier({
   final tasmapRepository = await TestTasmapRepository.create();
   final container = ProviderContainer(
     overrides: [
+      ...mappingCatalogTestOverrides,
       mapProvider.overrideWith(
         () => MapNotifier(
+          mappingCatalog: testMappingCatalog,
           peakRepository: PeakRepository.test(InMemoryPeakStorage()),
           overpassService: OverpassService(),
           tasmapRepository: tasmapRepository,

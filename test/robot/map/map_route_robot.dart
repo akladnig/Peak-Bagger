@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
@@ -18,9 +19,11 @@ import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
+import 'package:peak_bagger/providers/show_polygons_settings_provider.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import '../../harness/retired_overpass.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -33,6 +36,7 @@ import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import '../../harness/test_tasmap_repository.dart';
+import '../../harness/test_map_notifier.dart' show testMappingCatalog;
 
 class MapRouteRobot {
   MapRouteRobot(
@@ -106,6 +110,7 @@ class MapRouteRobot {
     _tasmapRepository = await TestTasmapRepository.create();
     router = createRouter();
     _mapNotifier = MapNotifier(
+      mappingCatalog: testMappingCatalog,
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: _tasmapRepository,
@@ -126,6 +131,7 @@ class MapRouteRobot {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          mappingCatalogProvider.overrideWithValue(testMappingCatalog),
           mapProvider.overrideWith(() => _mapNotifier),
           routeGraphReadinessProvider.overrideWith(
             () => _ReadyRouteGraphReadinessNotifier(),
@@ -140,11 +146,11 @@ class MapRouteRobot {
           tasmapRepositoryProvider.overrideWithValue(_tasmapRepository),
           ...providerOverrides,
         ],
-        child: const App(),
+        child: App(router: router),
       ),
     );
     await tester.pump();
-    _mapNotifier.state = initialState;
+    _mapNotifier.state = initialState.copyWith(catalog: testMappingCatalog);
   }
 
   Future<void> openMap() async {
@@ -152,6 +158,56 @@ class MapRouteRobot {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));
+  }
+
+  Future<void> showPolygonBoundaries() async {
+    final readyContainer = container();
+    router.go('/settings');
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('show-polygons-tile')),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const Key('settings-scrollable')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.ensureVisible(find.byKey(const Key('show-polygons-tile')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('show-polygons-switch')));
+    await tester.pumpAndSettle();
+    expect(readyContainer.read(showPolygonsSettingsProvider), isTrue);
+    await openMap();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> dismissMappingFailure() async {
+    await tester.tap(find.byKey(const Key('mapping-store-failure-dismiss')));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> retryMapSelectionMapping() async {
+    await tester.tap(
+      find.byKey(const Key('map-selection-mapping-unavailable-retry')),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  void expectPolygonGeometryVisible() {
+    expect(find.byKey(const Key('asset-polygon-layer')), findsOneWidget);
+  }
+
+  void expectMapSelectionUnavailable({required bool unavailable}) {
+    expect(
+      find.byKey(const Key('map-selection-mapping-unavailable')),
+      unavailable ? findsOneWidget : findsNothing,
+    );
+    expect(
+      find.byKey(const Key('map-selection-mapping-unavailable-retry')),
+      unavailable ? findsOneWidget : findsNothing,
+    );
   }
 
   Future<void> enterRouteMode() async {
@@ -181,6 +237,12 @@ class MapRouteRobot {
 
   Future<void> tapRoutePoint(Offset offset) async {
     await tester.tapAt(tester.getCenter(mapInteractionRegion) + offset);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> selectMapLocation(Offset offset) async {
+    await tapRoutePoint(offset);
+    await tester.tap(find.byKey(const Key('map-tap-action-drop-marker')));
     await tester.pumpAndSettle();
   }
 
@@ -540,8 +602,24 @@ class TrailRouteGraphStore
             minLon: 146.0,
             maxLat: -41.0,
             maxLon: 147.0,
-            elementCount: 0,
-            payloadJson: '{"elements":[]}',
+            elementCount: points.length + 1,
+            payloadJson: jsonEncode({
+              'elements': [
+                for (var i = 0; i < points.length; i++)
+                  {
+                    'type': 'node',
+                    'id': i + 1,
+                    'lat': points[i].latitude,
+                    'lon': points[i].longitude,
+                  },
+                {
+                  'type': 'way',
+                  'id': 10,
+                  'nodes': [for (var i = 0; i < points.length; i++) i + 1],
+                  'tags': {'highway': 'path'},
+                },
+              ],
+            }),
           ),
         ],
         wayIndexRows: const [],

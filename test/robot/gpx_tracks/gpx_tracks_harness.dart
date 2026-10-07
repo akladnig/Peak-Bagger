@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../harness/mapping_catalog_fixture.dart';
 import 'package:peak_bagger/main.dart' as app_main;
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/gpx_importer.dart';
@@ -32,7 +33,15 @@ class GpxTracksHarness {
 
     app_main.objectboxStore = await openStore(directory: storeDir.path);
 
-    final container = ProviderContainer(overrides: overrides);
+    final container = ProviderContainer(
+      overrides: [
+        ...mappingCatalogTestOverrides.where(
+          (entry) =>
+              !overrides.any((override) => override.origin == entry.origin),
+        ),
+        ...overrides,
+      ],
+    );
     return GpxTracksHarness(
       container: container,
       storeDir: storeDir,

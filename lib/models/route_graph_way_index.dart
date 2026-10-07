@@ -12,6 +12,9 @@ class RouteGraphWayIndex {
   int generation;
 
   @Index()
+  String routingCoverageKey;
+
+  @Index()
   String chunkKey;
 
   @Index()
@@ -53,6 +56,7 @@ class RouteGraphWayIndex {
     this.id = 0,
     required this.recordKey,
     required this.generation,
+    this.routingCoverageKey = '',
     required this.chunkKey,
     required this.osmWayId,
     this.highway,
@@ -69,17 +73,19 @@ class RouteGraphWayIndex {
   });
 
   static String recordKeyFor({
+    String routingCoverageKey = '',
     required int generation,
     required String chunkKey,
     required int osmWayId,
   }) {
-    return '$generation|$chunkKey|$osmWayId';
+    return '$routingCoverageKey|$generation|$chunkKey|$osmWayId';
   }
 
   RouteGraphWayIndex copyWith({
     int? id,
     String? recordKey,
     int? generation,
+    String? routingCoverageKey,
     String? chunkKey,
     int? osmWayId,
     String? highway,
@@ -98,6 +104,7 @@ class RouteGraphWayIndex {
       id: id ?? this.id,
       recordKey: recordKey ?? this.recordKey,
       generation: generation ?? this.generation,
+      routingCoverageKey: routingCoverageKey ?? this.routingCoverageKey,
       chunkKey: chunkKey ?? this.chunkKey,
       osmWayId: osmWayId ?? this.osmWayId,
       highway: highway ?? this.highway,

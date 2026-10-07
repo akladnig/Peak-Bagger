@@ -1,6 +1,6 @@
 # Peak Bagger
 
-Peak Bagger is a local-first hiking and peak bagging app for planning trips, importing walks, and tracking summit progress on an interactive map.
+Peak Bagger is a macOS-only, local-first hiking and peak bagging app for planning trips, importing walks, and tracking summit progress on an interactive map.
 
 Built for serious walkers and peak-list chasers, it combines GPX import, route planning, summit tracking, offline map support, and personal progress management in one workflow. Instead of splitting your data across mapping apps, spreadsheets, and track viewers, Peak Bagger keeps peaks, tracks, routes, and list progress together on your device.
 
@@ -41,13 +41,17 @@ Peak lists turn summit tracking into structured goals. Users can create named li
 
 ### Settings
 
-Settings includes both normal preferences and maintenance tools. It covers theme selection, map labels and polygon toggles, OpenRouteService API key management, GPX filtering and peak-correlation tuning, offline tile downloads, CSV export, and rebuild or reset operations for map, route, peak, and track data.
+Settings includes theme selection, map labels and polygon toggles, OpenRouteService API key management, GPX filtering and peak-correlation tuning, offline tile downloads, CSV export, and updates for map, route, peak, Natural Features, and track data. `Update Peak Data` and `Update Map Data` reconcile the manifest-declared Mapping sources into local ObjectBox data.
 
 ### ObjectBox Admin
 
 Peak Bagger also includes an in-app ObjectBox admin screen for power users. It supports inspecting stored entities, searching rows, viewing schema and data, editing peaks and routes, exporting GPX from stored tracks, deleting records, and sending selected data back to the main map.
 
 ## Tasmania Maintainer Workflow
+
+For Mapping data store tool permissions, no-overwrite tool-manifest bootstrap,
+and v1 retained-contract verification, see
+[`docs/mapping-data-store.md`](docs/mapping-data-store.md).
 
 For the consolidated ELVIS DEM, Tasmania Local Topo rebuild, and local stack commands, see:
 
@@ -75,9 +79,9 @@ Named peak lists provide another layer of progress tracking, helping users manag
 
 ## Offline And Regional Support
 
-Offline support is a real part of the app experience. Users can initialize local tile caching, download basemap tiles by area and zoom range, skip tiles that already exist, and clear cached tiles later when needed.
+Offline support is a real part of the app experience. Users can initialize local tile caching, download basemap tiles by area and zoom range, skip tiles that already exist, and clear cached tiles later when needed. These user-managed tiles live in the macOS application-support cache, outside the Mapping data store.
 
-Regional support is driven by bundled assets and manifests, so available basemaps and related map behavior can adapt by area. Tasmania currently has the richest support, with additional regional asset coverage including New South Wales, Slovenia, Croatia, and Italy.
+Regional support is driven by `/Volumes/Services/Mapping/region_manifest.json` and `Polygons/manifest.json`, read from the fixed mounted Mapping data store. Only called UI icons are bundled. The unsandboxed app preflights the manifest pair before opening ObjectBox or the main UI; an unavailable store shows its exact affected paths with `Retry` and `Quit`. The app does not download, repair, or write Mapping source files and never queries Overpass. GDAL/PROJ remain host dependencies, opened lazily for route elevation and not bundled. Tasmania currently has the richest support, with additional regional coverage including New South Wales, Slovenia, Croatia, and Italy.
 
 The Mapy.cz tourist basemap uses Mapy's official tile API and is only enabled when the app is built with `--dart-define=MAPY_CZ_API_KEY=<your-key>`.
 

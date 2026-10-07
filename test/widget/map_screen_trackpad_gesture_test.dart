@@ -2,6 +2,7 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
@@ -296,7 +297,10 @@ double _zoomReadoutValue(WidgetTester tester) {
 Future<void> _pumpMapApp(WidgetTester tester, MapState state) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [mapProvider.overrideWith(() => TestMapNotifier(state))],
+      overrides: [
+        ...mappingCatalogTestOverrides,
+        mapProvider.overrideWith(() => TestMapNotifier(state)),
+      ],
       child: const App(),
     ),
   );

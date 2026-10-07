@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -119,8 +120,9 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
 
   @override
   LocalTopoSettingsState build() {
+    final catalog = ref.watch(mappingCatalogProvider);
     registerLocalTopoRegionKeyValidator(
-      (regionKey) => regionManifestCatalog.regionByKey(regionKey) != null,
+      (regionKey) => catalog.regionByKey(regionKey) != null,
     );
     unawaited(_hydrate());
     return const LocalTopoSettingsState();
@@ -371,6 +373,7 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
   ) {
     return isLocalTopoAvailableForBounds(
       ref.read(mapProvider).visibleBounds,
+      catalog: ref.read(mappingCatalogProvider),
       snapshot: snapshot,
     );
   }

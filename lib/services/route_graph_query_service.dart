@@ -57,6 +57,9 @@ class RouteGraphQueryService implements NamedRouteGraphWaySearch {
   String? selectExactlyOneActiveCoverage(LatLng point) =>
       _repository.selectExactlyOneActiveCoverage(point);
 
+  bool hasUsableCoverage(String key) =>
+      _repository.hasUsableActiveGenerationFor(key);
+
   String? selectExactlyOneUnavailableCoverage(LatLng point) =>
       _repository.selectExactlyOneUnavailableCoverage(point);
 

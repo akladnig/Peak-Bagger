@@ -4,7 +4,6 @@ import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
-import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 
 import 'package:peak_bagger/models/route_graph_chunk.dart';
@@ -91,12 +90,24 @@ class RouteGraphImportService {
     RouteGraphCoverageResolver? coverageResolver,
     this.assetPath,
     this.schemaVersion = _schemaVersion,
-  }) : _assetLoader = assetLoader ?? rootBundle.loadString,
+  }) : _assetLoader =
+           assetLoader ??
+           ((_) => Future<String>.error(
+             StateError('An explicit test source loader is required.'),
+           )),
        _generationPreparer =
            generationPreparer ?? _prepareGenerationInBackground,
        _coverageResolver =
            coverageResolver ??
-           RouteGraphCoverageResolver(assetLoader: assetLoader);
+           RouteGraphCoverageResolver(
+             assetLoader:
+                 assetLoader ??
+                 (_) => Future<String>.error(
+                   StateError(
+                     'A MappingCatalog route-graph resolver is required.',
+                   ),
+                 ),
+           );
 
   static const _schemaVersion = 'route-graph-v5';
 
@@ -209,11 +220,15 @@ class RouteGraphImportService {
           'Route graph coverage has no accepted route graph ways.',
         );
       }
-      final nextGeneration = await _repository.reserveGeneration();
       final preparedMap = Map<String, Object?>.from(
-        await _generationPreparer(rawJson, schemaVersion, nextGeneration),
+        await _generationPreparer(rawJson, schemaVersion, 1),
       )..['sourceHash'] = resolvedSourceHash;
-      final prepared = _preparedGenerationFromMap(preparedMap);
+      final nextGeneration = await _repository.reserveGeneration();
+      final prepared = _qualifyPreparedGeneration(
+        _preparedGenerationFromMap(preparedMap),
+        routingCoverageKey: routingCoverageKey,
+        generation: nextGeneration,
+      );
       if (prepared.chunks.isEmpty) {
         throw const RouteGraphLoadException(
           'Route graph coverage has no prepared chunks.',
@@ -277,6 +292,60 @@ class RouteGraphImportService {
   }
 }
 
+RouteGraphPreparedGeneration _qualifyPreparedGeneration(
+  RouteGraphPreparedGeneration prepared, {
+  required String routingCoverageKey,
+  required int generation,
+}) {
+  return RouteGraphPreparedGeneration(
+    generation: generation,
+    sourceHash: prepared.sourceHash,
+    schemaVersion: prepared.schemaVersion,
+    importedAt: prepared.importedAt,
+    chunkCount: prepared.chunks.length,
+    nodeCount: prepared.nodeCount,
+    edgeCount: prepared.edgeCount,
+    chunks: [
+      for (final row in prepared.chunks)
+        row.copyWith(
+          generation: generation,
+          routingCoverageKey: routingCoverageKey,
+          recordKey: RouteGraphChunk.recordKeyFor(
+            routingCoverageKey: routingCoverageKey,
+            generation: generation,
+            chunkKey: row.chunkKey,
+          ),
+        ),
+    ],
+    wayIndexRows: [
+      for (final row in prepared.wayIndexRows)
+        row.copyWith(
+          generation: generation,
+          routingCoverageKey: routingCoverageKey,
+          recordKey: RouteGraphWayIndex.recordKeyFor(
+            routingCoverageKey: routingCoverageKey,
+            generation: generation,
+            chunkKey: row.chunkKey,
+            osmWayId: row.osmWayId,
+          ),
+        ),
+    ],
+    trailDisplayChunks: [
+      for (final row in prepared.trailDisplayChunks)
+        row.copyWith(
+          generation: generation,
+          routingCoverageKey: routingCoverageKey,
+          recordKey: RouteGraphTrailDisplayChunk.recordKeyFor(
+            routingCoverageKey: routingCoverageKey,
+            generation: generation,
+            cacheZoom: row.cacheZoom,
+            chunkKey: row.chunkKey,
+          ),
+        ),
+    ],
+  );
+}
+
 Future<Map<String, Object?>> _prepareGenerationInBackground(
   String rawJson,
   String schemaVersion,
@@ -303,11 +372,10 @@ Map<String, Object?> _prepareGeneration(
   if (elements is! List) {
     throw const RouteGraphLoadException('Expected top-level "elements" list.');
   }
+  validateSelectedRouteGraphWays(elements.cast<Object?>());
 
   final nodeMap = <int, Map<String, dynamic>>{};
   final wayMaps = <Map<String, dynamic>>[];
-  var nodeCount = 0;
-  var edgeCount = 0;
 
   for (final element in elements) {
     if (element is! Map) {
@@ -327,7 +395,6 @@ Map<String, Object?> _prepareGeneration(
           ..['id'] = id
           ..['lat'] = lat
           ..['lon'] = lon;
-        nodeCount += 1;
         break;
       case 'way':
         final tags = typed['tags'];
@@ -336,13 +403,15 @@ Map<String, Object?> _prepareGeneration(
             tags['area'] != 'yes' &&
             tags['place'] != 'square') {
           wayMaps.add(typed);
-          edgeCount += 1;
         }
         break;
     }
   }
 
   final prepared = _buildChunksAndWayIndexRows(nodeMap, wayMaps, generation);
+  final counts = routeGraphPayloadCounts(
+    prepared.chunks.map((row) => row['payloadJson'] as String),
+  );
 
   return {
     'generation': generation,
@@ -350,8 +419,8 @@ Map<String, Object?> _prepareGeneration(
     'schemaVersion': schemaVersion,
     'importedAtMillis': DateTime.now().toUtc().millisecondsSinceEpoch,
     'chunkCount': prepared.chunks.length,
-    'nodeCount': nodeCount,
-    'edgeCount': edgeCount,
+    'nodeCount': counts.nodes,
+    'edgeCount': counts.ways,
     'chunks': prepared.chunks,
     'wayIndexRows': prepared.wayIndexRows,
     'trailDisplayChunks': prepared.trailDisplayChunks,

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../../harness/mapping_catalog_fixture.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -74,6 +75,7 @@ void main() {
       repository: peakListRepository,
       peakRepository: peakRepository,
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
           scheduler.call,
         ),
@@ -161,6 +163,7 @@ void main() {
       ),
       surfaceSize: const Size(1600, 900),
       overrides: [
+        ...mappingCatalogTestOverrides,
         gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
       ],
     );
@@ -366,6 +369,7 @@ void main() {
       filePicker: TestPeakListFilePicker(),
       repository: peakListRepository,
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
           scheduler.call,
         ),
@@ -429,6 +433,7 @@ void main() {
       peakRepository: peakRepository,
       peaksBaggedRepository: peaksBaggedRepository,
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
           scheduler.call,
         ),
@@ -492,6 +497,7 @@ void main() {
       'GpxTrack': const [],
     };
     final importService = PeakListImportService(
+      catalog: testMappingCatalog,
       peakRepository: peakRepository,
       peakListRepository: peakListRepository,
       csvLoader: (_) async =>
@@ -543,6 +549,7 @@ void main() {
       },
       importRunner: importRunner,
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
           scheduler.call,
         ),
@@ -620,6 +627,7 @@ void main() {
       peakRepository: peakRepository,
     );
     final importService = PeakListImportService(
+      catalog: testMappingCatalog,
       peakRepository: peakRepository,
       peakListRepository: peakListRepository,
       csvLoader: (_) async =>
@@ -700,6 +708,7 @@ void main() {
       peakRepository: peakRepository,
     );
     final importService = PeakListImportService(
+      catalog: testMappingCatalog,
       peakRepository: peakRepository,
       peakListRepository: peakListRepository,
       csvLoader: (_) async => _appOwnedCsv([
@@ -861,6 +870,7 @@ void main() {
       repository: peakListRepository,
       peakRepository: peakRepository,
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakListsSummaryRefreshSchedulerProvider.overrideWithValue(
           scheduler.call,
         ),

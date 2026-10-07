@@ -7,6 +7,8 @@ import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/manifest_priority.dart';
 import 'package:peak_bagger/services/peak_info_content_resolver.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -112,6 +114,7 @@ void main() {
       peak: peak,
       peakListRepository: peakListRepository,
       tasmapRepository: tasmapRepository,
+      mappingCatalog: _catalog,
       peaksBaggedRepository: peaksBaggedRepository,
       gpxTrackRepository: gpxTrackRepository,
     );
@@ -141,6 +144,7 @@ void main() {
       ),
       peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
       tasmapRepository: await TestTasmapRepository.create(),
+      mappingCatalog: _catalog,
       peaksBaggedRepository: PeaksBaggedRepository.test(
         InMemoryPeaksBaggedStorage(),
       ),
@@ -160,6 +164,7 @@ void main() {
       ),
       peakListRepository: PeakListRepository.test(InMemoryPeakListStorage()),
       tasmapRepository: await TestTasmapRepository.create(),
+      mappingCatalog: _catalog,
       peaksBaggedRepository: PeaksBaggedRepository.test(
         _ThrowingPeaksBaggedStorage(),
       ),
@@ -169,6 +174,42 @@ void main() {
     expect(content.ascentRows, isEmpty);
   });
 }
+
+final _catalog = MappingCatalog(
+  rootPath: '/test',
+  regions: [
+    MappingCatalogRegion(
+      key: 'tasmania',
+      name: 'Tasmania',
+      shortName: 'Tas',
+      priority: const ManifestPriority([1]),
+      showInPeakList: true,
+      polyPaths: const [],
+      polygons: const [
+        [
+          LatLng(-45, 145),
+          LatLng(-45, 149),
+          LatLng(-41, 149),
+          LatLng(-41, 145),
+        ],
+      ],
+      basemapKeys: const [],
+      mapSet: const [],
+      peakListFilterAliases: const [],
+      routingCoverage: null,
+      seedOnStartup: false,
+      composite: false,
+      peaks: const [],
+      highways: const [],
+      fingerprint: null,
+    ),
+  ],
+  basemaps: const [],
+  tasmapCatalogPath: 'Maps/tasmap50k.csv',
+  naturalFeaturesCatalogPath: 'Features/tasmania_natural_features.json',
+  demSources: const {},
+  routingCoverageRegionKeys: const {},
+);
 
 Tasmap50k _polygonMap({
   required int id,

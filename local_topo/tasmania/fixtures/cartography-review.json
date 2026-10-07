@@ -96,7 +96,7 @@
     "tasmania-openstreetmap-contours-martin": {
       "variantExpectations": [
         "acts as the supported manual contour-cartography verification path for Tasmania Local Topo preview work",
-        "keeps the committed OpenStreetMap comparison style aligned with the canonical 50 m and 100 m contour-tier behavior"
+        "keeps the committed OpenStreetMap comparison style aligned with the canonical readable contour-label and standing-water masking behavior"
       ],
       "tiles": [
         {
@@ -107,7 +107,8 @@
           "expectations": [
             "50 m contour and 100 m contour tiers are both visible and the 100 m contour reads as the stronger emphasized line",
             "minor contour line styling is still delayed and does not yet appear at this zoom",
-            "the tile reads as terrain-first contour cartography rather than a dense minor-contour mesh"
+            "targeted standing-water polygon interiors such as Lake St Clair do not show contour lines and water naming remains visible above the fill",
+            "contours remain visible on land right up to the shoreline so the tile still reads as terrain-first contour cartography rather than a dense minor-contour mesh"
           ]
         },
         {
@@ -118,7 +119,9 @@
           "expectations": [
             "50 m contour and 100 m contour labels are both present using the existing '<elev> m' format",
             "minor contour line styling is now visible behind the emphasized 50 m contour and 100 m contour tiers",
-            "contour labels follow line direction instead of flipping to stay viewport-upright"
+            "contour labels stay readable rather than rendering upside-down from the attempted 180 degree flip",
+            "targeted standing-water polygon interiors do not show contour lines or contour labels inside Lake St Clair overlaps",
+            "contours and contour labels remain visible on adjacent land up to the shoreline"
           ]
         }
       ]

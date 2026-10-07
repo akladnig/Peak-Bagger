@@ -4,8 +4,7 @@ import 'dart:developer' as developer;
 import 'dart:io' as io;
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart'
-    show debugPrint, debugPrintStack, listEquals, visibleForTesting;
+import 'package:flutter/foundation.dart' show listEquals, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gdal_dart/gdal_dart.dart' show GdalException;
 import 'package:path/path.dart' as p;
@@ -33,15 +32,16 @@ import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/services/item_visibility_backfill_service.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart'
+    show MappingCatalog, mappingCatalogProvider;
 import 'package:peak_bagger/services/map_search_service.dart';
 import 'package:peak_bagger/services/gpx_track_repair_service.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_list_derived_data.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
-import 'package:peak_bagger/services/peak_refresh_result.dart';
-import 'package:peak_bagger/services/peak_refresh_service.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
+import 'package:peak_bagger/providers/mapping_store_operation_provider.dart';
 import 'package:peak_bagger/services/peak_info_content_resolver.dart';
 import 'package:peak_bagger/services/peak_list_visibility.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -49,7 +49,6 @@ import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
-import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
 import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
@@ -649,6 +648,10 @@ class GpxImportProgress {
 typedef GpxImportProgressCallback = void Function(GpxImportProgress progress);
 
 class MapState {
+  final MappingCatalog? catalog;
+  MappingCatalog get requiredCatalog =>
+      catalog ??
+      (throw StateError('MapState requires the ready-scope MappingCatalog.'));
   final LatLng center;
   final double zoom;
   final Basemap basemap;
@@ -701,6 +704,7 @@ class MapState {
   final List<Peak> peaks;
   final LatLngBounds? visibleBounds;
   final bool isLoadingPeaks;
+  final String? peakSearchMappingUnavailableReason;
   final List<Peak> searchResults;
   final String searchQuery;
   final List<MapSearchResult> searchPopupResults;
@@ -715,6 +719,7 @@ class MapState {
   final MapSearchGroup searchPopupGroup;
   final List<Peak> selectedPeaks;
   final Tasmap50k? selectedMap;
+  final String? mapSelectionMappingUnavailableReason;
   final TasmapDisplayMode tasmapDisplayMode;
   final MapGridVisibility gridVisibility;
   final PeakVisibilityMode peakVisibilityMode;
@@ -757,6 +762,7 @@ class MapState {
   final int cameraRequestSerial;
 
   const MapState({
+    this.catalog,
     required this.center,
     required this.zoom,
     required this.basemap,
@@ -809,6 +815,7 @@ class MapState {
     this.peaks = const [],
     this.visibleBounds,
     this.isLoadingPeaks = false,
+    this.peakSearchMappingUnavailableReason,
     this.searchResults = const [],
     this.searchQuery = '',
     this.searchPopupResults = const [],
@@ -823,6 +830,7 @@ class MapState {
     this.searchPopupGroup = MapSearchGroup.none,
     this.selectedPeaks = const [],
     this.selectedMap,
+    this.mapSelectionMappingUnavailableReason,
     this.tasmapDisplayMode = TasmapDisplayMode.none,
     MapGridVisibility? gridVisibility,
     this.peakVisibilityMode = PeakVisibilityMode.showPeakClusters,
@@ -911,9 +919,9 @@ class MapState {
       );
 
   Set<String> get visibleMapSet =>
-      regionManifestCatalog.mapSetForBounds(_gridCapabilityBounds);
+      requiredCatalog.mapSetForBounds(_gridCapabilityBounds);
 
-  Set<String> get _centerMapSet => regionManifestCatalog.mapSetForBounds(
+  Set<String> get _centerMapSet => requiredCatalog.mapSetForBounds(
     LatLngBounds(
       LatLng(
         center.latitude - _gridCapabilityFallbackDelta,
@@ -997,6 +1005,7 @@ class MapState {
   LatLngBounds? get cameraRequestBounds => pendingCameraRequest?.bounds;
 
   MapState copyWith({
+    MappingCatalog? catalog,
     LatLng? center,
     double? zoom,
     Basemap? basemap,
@@ -1056,6 +1065,8 @@ class MapState {
     bool? syncEnabled,
     List<Peak>? peaks,
     bool? isLoadingPeaks,
+    String? peakSearchMappingUnavailableReason,
+    bool clearPeakSearchMappingUnavailableReason = false,
     List<Peak>? searchResults,
     String? searchQuery,
     List<MapSearchResult>? searchPopupResults,
@@ -1074,6 +1085,8 @@ class MapState {
     LatLngBounds? visibleBounds,
     Tasmap50k? selectedMap,
     bool clearSelectedMap = false,
+    String? mapSelectionMappingUnavailableReason,
+    bool clearMapSelectionMappingUnavailableReason = false,
     TasmapDisplayMode? tasmapDisplayMode,
     MapGridVisibility? gridVisibility,
     PeakVisibilityMode? peakVisibilityMode,
@@ -1138,6 +1151,7 @@ class MapState {
     bool clearGotoMgrs = false,
   }) {
     return MapState(
+      catalog: catalog ?? this.catalog,
       center: center ?? this.center,
       zoom: zoom ?? this.zoom,
       basemap: basemap ?? this.basemap,
@@ -1222,6 +1236,11 @@ class MapState {
       peaks: peaks ?? this.peaks,
       visibleBounds: visibleBounds ?? this.visibleBounds,
       isLoadingPeaks: isLoadingPeaks ?? this.isLoadingPeaks,
+      peakSearchMappingUnavailableReason:
+          clearPeakSearchMappingUnavailableReason
+          ? null
+          : (peakSearchMappingUnavailableReason ??
+                this.peakSearchMappingUnavailableReason),
       searchResults: searchResults ?? this.searchResults,
       searchQuery: searchQuery ?? this.searchQuery,
       searchPopupResults: searchPopupResults ?? this.searchPopupResults,
@@ -1245,6 +1264,11 @@ class MapState {
       searchPopupGroup: searchPopupGroup ?? this.searchPopupGroup,
       selectedPeaks: selectedPeaks ?? this.selectedPeaks,
       selectedMap: clearSelectedMap ? null : (selectedMap ?? this.selectedMap),
+      mapSelectionMappingUnavailableReason:
+          clearMapSelectionMappingUnavailableReason
+          ? null
+          : (mapSelectionMappingUnavailableReason ??
+                this.mapSelectionMappingUnavailableReason),
       tasmapDisplayMode: tasmapDisplayMode ?? this.tasmapDisplayMode,
       gridVisibility: gridVisibility ?? this.gridVisibility,
       peakVisibilityMode: peakVisibilityMode ?? this.peakVisibilityMode,
@@ -1399,8 +1423,24 @@ typedef _PersistedPeakListSelectionState = ({
 });
 
 final routeElevationSamplerProvider = Provider<RouteElevationSampler>((ref) {
-  return RegionAwareRouteElevationSampler();
+  return RegionAwareRouteElevationSampler(
+    catalog: ref.watch(mappingCatalogProvider),
+  );
 });
+
+final routeDraftElevationMappingFailureProvider =
+    Provider<MappingStoreOperationFailure?>((ref) {
+      ref.watch(mappingStoreOperationRevisionProvider);
+      ref.watch(mapProvider);
+      return ref.read(mapProvider.notifier).routeDraftElevationMappingFailure;
+    });
+
+final routeDraftGraphMappingFailureProvider =
+    Provider<MappingStoreOperationFailure?>((ref) {
+      ref.watch(mappingStoreOperationRevisionProvider);
+      ref.watch(mapProvider);
+      return ref.read(mapProvider.notifier).routeDraftGraphMappingFailure;
+    });
 
 final gpxTrackRepositoryProvider = Provider<GpxTrackRepository>((ref) {
   return GpxTrackRepository(objectboxStore);
@@ -1486,8 +1526,9 @@ class MapNotifier extends Notifier<MapState> {
   _PersistedPeakListSelectionState? _hiddenPeakListSelectionPersistenceState;
 
   MapNotifier({
+    MappingCatalog? mappingCatalog,
     PeakRepository? peakRepository,
-    OverpassService? overpassService,
+    Object? overpassService,
     TasmapRepository? tasmapRepository,
     GpxTrackRepository? gpxTrackRepository,
     RouteRepository? routeRepository,
@@ -1504,8 +1545,8 @@ class MapNotifier extends Notifier<MapState> {
     this._loadPositionOnBuild = true,
     this._loadPeaksOnBuild = true,
     this._loadTracksOnBuild = true,
-  }) : _injectedPeakRepository = peakRepository,
-       _injectedOverpassService = overpassService,
+  }) : _injectedMappingCatalog = mappingCatalog,
+       _injectedPeakRepository = peakRepository,
        _injectedTasmapRepository = tasmapRepository,
        _injectedGpxTrackRepository = gpxTrackRepository,
        _injectedRouteRepository = routeRepository,
@@ -1521,8 +1562,8 @@ class MapNotifier extends Notifier<MapState> {
        _injectedPeakRegionAssetImportService = peakRegionAssetImportService,
        _injectedNamedWaySearch = namedWaySearch;
 
+  final MappingCatalog? _injectedMappingCatalog;
   final PeakRepository? _injectedPeakRepository;
-  final OverpassService? _injectedOverpassService;
   final TasmapRepository? _injectedTasmapRepository;
   final GpxTrackRepository? _injectedGpxTrackRepository;
   final RouteRepository? _injectedRouteRepository;
@@ -1542,13 +1583,31 @@ class MapNotifier extends Notifier<MapState> {
   final bool _loadTracksOnBuild;
 
   late final PeakRepository _peakRepository;
-  late final PeakRefreshService _peakRefreshService;
-  late final PeakRegionAssetImportService _peakRegionAssetImportService;
+  PeakRegionAssetImportService? _resolvedPeakRegionAssetImportService;
+  late final MappingStoreOperationCoordinator _mappingStoreOperationCoordinator;
+  MappingStoreOperationKey? _failedPeakMappingOperation;
   MapSearchService? _mapSearchServiceCache;
   late final TasmapRepository _tasmapRepository;
+  MappingCatalog? _resolvedMappingCatalog;
+
+  MappingCatalog get mappingCatalog {
+    final injected = _injectedMappingCatalog;
+    if (injected != null) {
+      return injected;
+    }
+    final resolved = _resolvedMappingCatalog;
+    if (resolved != null) {
+      return resolved;
+    }
+    final catalog = ref.read(mappingCatalogProvider);
+    _resolvedMappingCatalog = catalog;
+    return catalog;
+  }
+
   late final GpxTrackRepository _gpxTrackRepository;
   late final RouteRepository _routeRepository;
-  late final RouteElevationSampler _routeElevationSampler;
+  RouteElevationSampler get _routeElevationSampler =>
+      _injectedRouteElevationSampler ?? ref.read(routeElevationSamplerProvider);
   late final RoutePlanner _routePlanner;
   late final PeaksBaggedRepository _peaksBaggedRepository;
   late final TrackDerivedDataPersistence _trackDerivedDataPersistence;
@@ -1577,50 +1636,70 @@ class MapNotifier extends Notifier<MapState> {
       // has been configured (for example, isolated route-draft tests).
       return const _RouteCoverageSelection.unscoped();
     }
-    final startCoverage = queryService.selectExactlyOneActiveCoverage(start);
-    final endCoverage = queryService.selectExactlyOneActiveCoverage(end);
-    if (startCoverage != null && startCoverage == endCoverage) {
-      return _RouteCoverageSelection.active(startCoverage);
-    }
-
-    final startUnavailable = queryService.selectExactlyOneUnavailableCoverage(
-      start,
-    );
-    final endUnavailable = queryService.selectExactlyOneUnavailableCoverage(
-      end,
-    );
-    if (startUnavailable != null && startUnavailable == endUnavailable) {
-      RouteGraphCoverageImportState? importState;
-      try {
-        for (final candidate in ref.read(
-          routeGraphCoverageImportStateProvider,
-        )) {
-          if (candidate.routingCoverageKey == startUnavailable) {
-            importState = candidate;
-            break;
-          }
-        }
-      } catch (_) {
-        // A repository can be present before its coordinator provider is.
-      }
-      final displayName = importState?.displayName ?? startUnavailable;
-      final loading =
-          importState?.status == RouteGraphCoverageImportStatus.queued ||
-          importState?.status == RouteGraphCoverageImportStatus.importing;
-      return _RouteCoverageSelection.rejected(
-        loading
-            ? 'Routing data for $displayName is still loading.'
-            : 'Routing data for $displayName is unavailable. Use Refresh Route Graph to retry.',
+    final startCoverage = mappingCatalog.routingCoverageForPoint(start);
+    final endCoverage = mappingCatalog.routingCoverageForPoint(end);
+    if (startCoverage == null || startCoverage != endCoverage) {
+      return const _RouteCoverageSelection.rejected(
+        'Routing is unavailable outside routing coverage.',
       );
     }
-    return const _RouteCoverageSelection.rejected(
-      'Routing is unavailable outside routing coverage.',
+    return queryService.hasUsableCoverage(startCoverage)
+        ? _RouteCoverageSelection.active(startCoverage)
+        : _RouteCoverageSelection.unavailable(
+            startCoverage,
+            'Routing data for $startCoverage is unavailable.',
+          );
+  }
+
+  MappingStoreOperationKey? _routeGraphMappingKey;
+
+  MappingStoreOperationFailure? get routeDraftGraphMappingFailure =>
+      !state.isRouteDrafting ||
+          state.routeDraftError == null ||
+          _routeGraphMappingKey == null
+      ? null
+      : _mappingStoreOperationCoordinator.failureFor(_routeGraphMappingKey!);
+
+  Future<void> retryRouteDraftGraphMapping() async {
+    final failure = routeDraftGraphMappingFailure;
+    if (failure == null) return;
+    await _mappingStoreOperationCoordinator.retry(failure.key);
+    if (_mappingStoreOperationCoordinator.failureFor(failure.key) == null &&
+        ref.mounted) {
+      _routeGraphMappingKey = null;
+      retryRouteDraftSegment();
+    }
+  }
+
+  Future<_RouteCoverageSelection> _ensureRouteCoverage(
+    LatLng start,
+    LatLng end,
+  ) async {
+    final selection = _routeCoverageFor(start, end);
+    if (selection.isEligible || selection.routingCoverageKey == null) {
+      return selection;
+    }
+    final key = MappingStoreOperationKey.routeGraphBootstrap(
+      selection.routingCoverageKey!,
     );
+    try {
+      await ref
+          .read(routeGraphImportCoordinatorProvider)
+          .ensureCoverage(selection.routingCoverageKey!);
+      _routeGraphMappingKey = null;
+      return _routeCoverageFor(start, end);
+    } on MappingStoreOperationException catch (error) {
+      _routeGraphMappingKey = key;
+      return _RouteCoverageSelection.unavailable(
+        selection.routingCoverageKey!,
+        error.toString(),
+      );
+    }
   }
 
   bool _rejectRouteGraphOperationIfNeeded(LatLng start, LatLng end) {
     final selection = _routeCoverageFor(start, end);
-    if (selection.isEligible) {
+    if (selection.isEligible || selection.routingCoverageKey != null) {
       return false;
     }
     state = state.copyWith(
@@ -1647,8 +1726,17 @@ class MapNotifier extends Notifier<MapState> {
 
   String mapNameForMgrs(String mgrsText) {
     try {
+      final repository = tasmapRepository;
+      final sheetName = resolveSheetMapNameForMgrs(
+        tasmapRepository: repository,
+        mgrsText: mgrsText,
+      );
+      if (sheetName != null) {
+        return sheetName;
+      }
       return resolveMapNameForMgrs(
-        tasmapRepository: tasmapRepository,
+        tasmapRepository: repository,
+        mappingCatalog: mappingCatalog,
         mgrsText: mgrsText,
       ).displayName;
     } catch (_) {
@@ -1658,11 +1746,28 @@ class MapNotifier extends Notifier<MapState> {
 
   String mapNameForPoint(LatLng point) {
     try {
+      final repository = tasmapRepository;
+      final sheetName = resolveSheetMapNameForPoint(
+        tasmapRepository: repository,
+        point: point,
+      );
+      if (sheetName != null) {
+        return sheetName;
+      }
       return resolveMapNameForPoint(
-        tasmapRepository: tasmapRepository,
+        tasmapRepository: repository,
+        mappingCatalog: mappingCatalog,
         point: point,
       ).displayName;
     } catch (_) {
+      try {
+        final region = mappingCatalog.regionForPoint(point);
+        if (region != null) {
+          return formatRegionDisplayName(region.key);
+        }
+      } catch (_) {
+        // Test notifiers can intentionally bypass MapNotifier.build().
+      }
       return 'Unknown';
     }
   }
@@ -1673,10 +1778,6 @@ class MapNotifier extends Notifier<MapState> {
   MapState build() {
     _peakRepository =
         _injectedPeakRepository ?? ref.read(peakRepositoryProvider);
-    _peakRefreshService = PeakRefreshService(
-      _injectedOverpassService ?? ref.read(overpassServiceProvider),
-      _peakRepository,
-    );
     _tasmapRepository =
         _injectedTasmapRepository ?? ref.read(tasmapRepositoryProvider);
     _gpxTrackRepository =
@@ -1685,9 +1786,6 @@ class MapNotifier extends Notifier<MapState> {
         _injectedRouteRepository ?? ref.read(routeRepositoryProvider);
     _peaksBaggedRepository =
         _injectedPeaksBaggedRepository ?? PeaksBaggedRepository(objectboxStore);
-    _routeElevationSampler =
-        _injectedRouteElevationSampler ??
-        ref.read(routeElevationSamplerProvider);
     _routePlanner = _injectedRoutePlanner ?? ref.read(routePlannerProvider);
     _trackDerivedDataPersistence =
         _injectedTrackDerivedDataPersistence ??
@@ -1717,14 +1815,16 @@ class MapNotifier extends Notifier<MapState> {
       migrationMarkerStore: _migrationMarkerStore,
     );
     _prefsLoader = ref.read(mapPreferencesLoaderProvider);
-    _peakRegionAssetImportService =
-        _injectedPeakRegionAssetImportService ?? PeakRegionAssetImportService();
+    _mappingStoreOperationCoordinator = ref.read(
+      mappingStoreOperationCoordinatorProvider,
+    );
     unawaited(
       Future<void>(() async {
         await _runStartupLoad();
       }),
     );
     return MapState(
+      catalog: mappingCatalog,
       center: MapConstants.defaultCenter,
       zoom: MapConstants.defaultZoom,
       basemap: Basemap.tracestrack,
@@ -1739,6 +1839,7 @@ class MapNotifier extends Notifier<MapState> {
 
   MapSearchService get _mapSearchService {
     return _mapSearchServiceCache ??= MapSearchService(
+      catalog: mappingCatalog,
       peakRepository: _peakRepository,
       gpxTrackRepository: _gpxTrackRepository,
       routeRepository: _routeRepository,
@@ -1794,6 +1895,20 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
+  PeakRegionAssetImportService get _peakRegionAssetImportService {
+    final injected = _injectedPeakRegionAssetImportService;
+    if (injected != null) {
+      return injected;
+    }
+    final resolved = _resolvedPeakRegionAssetImportService;
+    if (resolved != null) {
+      return resolved;
+    }
+    final service = ref.read(peakRegionImportServiceProvider);
+    _resolvedPeakRegionAssetImportService = service;
+    return service;
+  }
+
   Future<void> _backfillItemVisibility() async {
     try {
       final changed = await _itemVisibilityBackfillService
@@ -1829,25 +1944,71 @@ class MapNotifier extends Notifier<MapState> {
   Future<void> _loadPeaks() async {
     state = state.copyWith(isLoadingPeaks: true);
     try {
-      final importResult = await _peakRegionAssetImportService.syncOnStartup(
+      final importResult = await _loadPeakRegions();
+      final changed = await _peakRegionAssetImportService.backfillStoredPeaks(
         peakRepository: _peakRepository,
       );
-      final changed = await _peakRefreshService.backfillStoredPeaks();
       if (importResult.hasChanges || changed) {
         ref.read(peakRevisionProvider.notifier).increment();
       }
+      _failedPeakMappingOperation = null;
       state = state.copyWith(
         peaks: _peakRepository.getAllPeaks(),
         isLoadingPeaks: false,
         clearError: true,
+        clearPeakSearchMappingUnavailableReason: true,
       );
       reconcileSelectedPeakList();
+    } on MappingStoreOperationException catch (error) {
+      state = state.copyWith(
+        peaks: _peakRepository.getAllPeaks(),
+        isLoadingPeaks: false,
+        error: 'Failed to load peaks: $error',
+        peakSearchMappingUnavailableReason: error.toString(),
+      );
     } catch (e) {
       state = state.copyWith(
+        peaks: _peakRepository.getAllPeaks(),
         isLoadingPeaks: false,
         error: 'Failed to load peaks: $e',
       );
     }
+  }
+
+  Future<PeakRegionAssetImportResult> _loadPeakRegions() async {
+    final wasEmpty = _peakRepository.isEmpty();
+    await _peakRegionAssetImportService.migrateLegacyFingerprints(
+      peakRepository: _peakRepository,
+    );
+    if (!wasEmpty) {
+      return const PeakRegionAssetImportResult(
+        importedRegions: [],
+        importedPeakCount: 0,
+        skippedPeakCount: 0,
+      );
+    }
+
+    final results = <PeakRegionAssetImportResult>[];
+    for (final regionKey
+        in _peakRegionAssetImportService.seedableRegionKeys()) {
+      final operationKey = MappingStoreOperationKey.peakSeed(regionKey);
+      try {
+        results.add(
+          await _mappingStoreOperationCoordinator.run(
+            key: operationKey,
+            writerTables: const ['Peak', 'PeakRegionFingerprint'],
+            action: () => _peakRegionAssetImportService.seedRegion(
+              peakRepository: _peakRepository,
+              regionKey: regionKey,
+            ),
+          ),
+        );
+      } on MappingStoreOperationException {
+        _failedPeakMappingOperation = operationKey;
+        rethrow;
+      }
+    }
+    return _combinePeakRegionImportResults(results);
   }
 
   Future<void> _loadTracks() async {
@@ -1980,7 +2141,7 @@ class MapNotifier extends Notifier<MapState> {
           if (track.gpxTrackId != 0) track.gpxTrackId: _cloneTrack(track),
       };
       final surfaceNotifications = resetExisting || state.tracks.isNotEmpty;
-      final importer = GpxImporter();
+      final importer = GpxImporter(mappingCatalog: mappingCatalog);
       final filterConfig = await ref.read(gpxFilterSettingsProvider.future);
       final result = await importer.importTracks(
         includeTasmaniaFolder: includeTasmaniaFolder,
@@ -2119,7 +2280,7 @@ class MapNotifier extends Notifier<MapState> {
         reportProgress(currentFileName: p.basename(orderedPaths.first));
       }
 
-      final importer = GpxImporter();
+      final importer = GpxImporter(mappingCatalog: mappingCatalog);
       final plan = await importer.planSelectiveImport(
         paths: pathToEditedNames.keys.toList(),
         pathToEditedNames: pathToEditedNames,
@@ -2309,7 +2470,7 @@ class MapNotifier extends Notifier<MapState> {
         );
         incomingMoved = true;
       } catch (_) {
-        return _rollbackReplacement(
+        return await _rollbackReplacement(
           operations: operations,
           sourcePath: item.sourcePath,
           destinationPath: destinationPath,
@@ -2452,7 +2613,7 @@ class MapNotifier extends Notifier<MapState> {
     state = state.copyWith(isLoadingTracks: true, clearTrackImportError: true);
     final operations =
         _injectedManagedFileOperations ??
-        IoGpxManagedFileOperations(GpxImporter());
+        IoGpxManagedFileOperations(GpxImporter(mappingCatalog: mappingCatalog));
     try {
       if (operations.fileExists(issue.destinationPath)) {
         await operations.restoreIncomingFile(
@@ -2503,7 +2664,7 @@ class MapNotifier extends Notifier<MapState> {
     );
 
     try {
-      final importer = GpxImporter();
+      final importer = GpxImporter(mappingCatalog: mappingCatalog);
       final addedItems = <GpxRouteImportItem>[];
       var errorCount = 0;
       final totalCount = pathToEditedNames.length;
@@ -3983,6 +4144,7 @@ class MapNotifier extends Notifier<MapState> {
     if (state.isRouteDrafting) {
       return;
     }
+    _routeGraphMappingKey = null;
 
     _routeDraftUndoStack.clear();
     _routeDraftRedoStack.clear();
@@ -4431,10 +4593,24 @@ class MapNotifier extends Notifier<MapState> {
       routeDraftNextMarkerId: state.routeDraftNextMarkerId + 1,
     );
 
-    final selection = _routeCoverageFor(
+    var selection = _routeCoverageFor(
       committedPoints.last,
       committedPoints.first,
     );
+    if (!selection.isEligible) {
+      selection = await _ensureRouteCoverage(
+        committedPoints.last,
+        committedPoints.first,
+      );
+    }
+    if (!selection.isEligible) {
+      state = state.copyWith(
+        routeDraftStage: RouteDraftStage.segmentFailure,
+        routeDraftError: selection.message,
+        routeDraftFailureKind: RoutePlanningFailureKind.routeGraphLoad,
+      );
+      return;
+    }
     final result = selection.routingCoverageKey == null
         ? await _routePlanner.planCloseLoopResult(
             currentPoint: committedPoints.last,
@@ -4983,6 +5159,7 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void cancelRouteDraft() {
+    _routeGraphMappingKey = null;
     if (!state.isRouteDrafting) {
       return;
     }
@@ -5090,23 +5267,6 @@ class MapNotifier extends Notifier<MapState> {
     }
   }
 
-  Future<List<double?>> _sampleRoutePointElevationsForDraft(
-    List<LatLng> points,
-  ) async {
-    try {
-      final sampled = await _routeElevationSampler.samplePointElevations(
-        points,
-      );
-      return List<double?>.generate(
-        points.length,
-        (index) => index < sampled.length ? sampled[index] : null,
-        growable: false,
-      );
-    } catch (_) {
-      return List<double?>.filled(points.length, null, growable: false);
-    }
-  }
-
   Future<void> _planRouteDraftSegment({
     required int requestId,
     required RouteDraftControlEndpoint startEndpoint,
@@ -5114,14 +5274,26 @@ class MapNotifier extends Notifier<MapState> {
     _RouteDraftSnapshot? duplicateNoOpSnapshot,
     _RouteDraftHistoryState? duplicateNoOpHistoryState,
   }) async {
-    final selection = _routeCoverageFor(startEndpoint.point, endEndpoint.point);
+    var selection = _routeCoverageFor(startEndpoint.point, endEndpoint.point);
+    if (!selection.isEligible) {
+      selection = await _ensureRouteCoverage(
+        startEndpoint.point,
+        endEndpoint.point,
+      );
+    }
+    if (!_isActiveRouteDraftRequest(requestId)) return;
     if (!selection.isEligible) {
       _setRouteDraftControlState(
         controlEndpoints: state.routeDraftControlEndpoints,
-        stage: RouteDraftStage.awaitingNextPoint,
+        stage: selection.routingCoverageKey == null
+            ? RouteDraftStage.awaitingNextPoint
+            : RouteDraftStage.segmentFailure,
         provisionalPoints: const [],
         offTrackProbeActive: state.routeDraftOffTrackProbeActive,
         routeDraftError: selection.message,
+        routeDraftFailureKind: selection.routingCoverageKey == null
+            ? RoutePlanningFailureKind.generic
+            : RoutePlanningFailureKind.routeGraphLoad,
       );
       return;
     }
@@ -5360,9 +5532,9 @@ class MapNotifier extends Notifier<MapState> {
       state.routeDraftCommittedPoints,
       growable: false,
     );
-    final demResolution = RouteElevationDemResolver().resolveForPoints(
-      committedPoints,
-    );
+    final demResolution = RouteElevationDemResolver(
+      catalog: mappingCatalog,
+    ).resolveForPoints(committedPoints);
     if (demResolution.kind == RouteElevationDemKind.none) {
       state = state.copyWith(
         clearRouteDraftElevationSummary: true,
@@ -5376,10 +5548,8 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     state = state.copyWith(
-      clearRouteDraftElevationSummary: true,
       routeDraftElevationLoading: true,
       clearRouteDraftElevationError: true,
-      clearRouteDraftPointElevations: true,
       routeDraftElevationRequestId: requestId,
       routeDraftGeometryVersion: geometryVersion,
     );
@@ -5398,19 +5568,109 @@ class MapNotifier extends Notifier<MapState> {
     required int requestId,
     required int geometryVersion,
   }) async {
-    final sampledPointElevations = await _sampleRoutePointElevationsForDraft(
-      points,
-    );
-    if (!_isActiveRouteDraftElevationRequest(
+    try {
+      final resolution = RouteElevationDemResolver(
+        catalog: mappingCatalog,
+      ).resolveForPoints(points);
+      final key = resolution.operationKey(
+        points: points,
+        geometryVersion: geometryVersion,
+      );
+      await _mappingStoreOperationCoordinator.run<void>(
+        key: key,
+        action: () async {
+          // Geometry can change while single-flight dispatch is queued. Skip
+          // an obsolete first read; explicit failure retries still recheck the
+          // original geometry without replacing the current draft's results.
+          if (!_isActiveRouteDraftElevationRequest(
+                requestId: requestId,
+                geometryVersion: geometryVersion,
+              ) &&
+              _mappingStoreOperationCoordinator.failureFor(key) == null) {
+            return;
+          }
+          await _readRouteDraftElevation(
+            points: points,
+            requestId: requestId,
+            geometryVersion: geometryVersion,
+            isRetry: _mappingStoreOperationCoordinator.failureFor(key) != null,
+          );
+        },
+      );
+    } on MappingStoreOperationException {
+      // The coordinator retains the original geometry/version and retry action.
+    } on RouteElevationSamplingException catch (error) {
+      _setRouteDraftElevationError(requestId, geometryVersion, error.message);
+    } on GdalException catch (error, stackTrace) {
+      developer.log(
+        'GDAL route elevation sampling failed.',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      _setRouteDraftElevationError(
+        requestId,
+        geometryVersion,
+        RouteElevationMessages.tasmaniaDataUnavailable,
+      );
+    } catch (error) {
+      _setRouteDraftElevationError(
+        requestId,
+        geometryVersion,
+        'Failed to sample elevation: $error',
+      );
+    }
+  }
+
+  Future<void> retryRouteDraftElevationMapping() async {
+    final failure = routeDraftElevationMappingFailure;
+    if (failure != null) {
+      await _mappingStoreOperationCoordinator.retry(failure.key);
+    }
+  }
+
+  MappingStoreOperationFailure? get routeDraftElevationMappingFailure {
+    if (!state.isRouteDrafting || state.routeDraftElevationError == null) {
+      return null;
+    }
+    final resolution = RouteElevationDemResolver(
+      catalog: mappingCatalog,
+    ).resolveForPoints(state.routeDraftCommittedPoints);
+    if (resolution.kind == RouteElevationDemKind.none) {
+      return null;
+    }
+    return ref
+        .read(mappingStoreOperationCoordinatorProvider)
+        .failureFor(
+          resolution.operationKey(
+            points: state.routeDraftCommittedPoints,
+            geometryVersion: state.routeDraftGeometryVersion,
+          ),
+        );
+  }
+
+  Future<void> _readRouteDraftElevation({
+    required List<LatLng> points,
+    required int requestId,
+    required int geometryVersion,
+    required bool isRetry,
+  }) async {
+    if (_isActiveRouteDraftElevationRequest(
       requestId: requestId,
       geometryVersion: geometryVersion,
     )) {
-      return;
+      state = state.copyWith(routeDraftElevationLoading: true);
     }
-
-    state = state.copyWith(routeDraftPointElevations: sampledPointElevations);
-
     try {
+      final elevations = await _routeElevationSampler.samplePointElevations(
+        points,
+      );
+      if (!isRetry &&
+          !_isActiveRouteDraftElevationRequest(
+            requestId: requestId,
+            geometryVersion: geometryVersion,
+          )) {
+        return;
+      }
       final summary = await _routeElevationSampler.sampleRoute(
         points: points,
         requestId: requestId,
@@ -5425,56 +5685,46 @@ class MapNotifier extends Notifier<MapState> {
 
       state = state.copyWith(
         routeDraftElevationSummary: summary,
+        routeDraftPointElevations: List<double?>.generate(
+          points.length,
+          (index) => index < elevations.length ? elevations[index] : null,
+          growable: false,
+        ),
         routeDraftElevationLoading: false,
         clearRouteDraftElevationError: true,
       );
-    } on RouteElevationSamplingException catch (error) {
-      if (!_isActiveRouteDraftElevationRequest(
-        requestId: requestId,
-        geometryVersion: geometryVersion,
-      )) {
-        return;
-      }
-
-      state = state.copyWith(
-        clearRouteDraftElevationSummary: true,
-        routeDraftElevationLoading: false,
-        routeDraftElevationError: error.message,
+    } on MappingStoreOperationException catch (error) {
+      _setRouteDraftElevationError(
+        requestId,
+        geometryVersion,
+        'Route elevation is unavailable from the Mapping data store: '
+        '${error.paths.join(', ')}',
       );
-    } on GdalException catch (error, stackTrace) {
-      if (!_isActiveRouteDraftElevationRequest(
-        requestId: requestId,
-        geometryVersion: geometryVersion,
-      )) {
-        return;
-      }
-
-      developer.log(
-        'GDAL route elevation sampling failed.',
-        error: error,
-        stackTrace: stackTrace,
+      rethrow;
+    } on Object catch (error) {
+      _setRouteDraftElevationError(
+        requestId,
+        geometryVersion,
+        error is RouteElevationSamplingException
+            ? error.message
+            : 'Failed to sample elevation: $error',
       );
-      debugPrint('GDAL route elevation sampling failed: $error');
-      debugPrintStack(stackTrace: stackTrace);
+      rethrow;
+    }
+  }
 
+  void _setRouteDraftElevationError(
+    int requestId,
+    int geometryVersion,
+    String message,
+  ) {
+    if (_isActiveRouteDraftElevationRequest(
+      requestId: requestId,
+      geometryVersion: geometryVersion,
+    )) {
       state = state.copyWith(
-        clearRouteDraftElevationSummary: true,
         routeDraftElevationLoading: false,
-        routeDraftElevationError:
-            RouteElevationMessages.tasmaniaDataUnavailable,
-      );
-    } catch (error) {
-      if (!_isActiveRouteDraftElevationRequest(
-        requestId: requestId,
-        geometryVersion: geometryVersion,
-      )) {
-        return;
-      }
-
-      state = state.copyWith(
-        clearRouteDraftElevationSummary: true,
-        routeDraftElevationLoading: false,
-        routeDraftElevationError: 'Failed to sample elevation: $error',
+        routeDraftElevationError: message,
       );
     }
   }
@@ -5764,6 +6014,7 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     final regionKeys = memberRegionKeysForPeakList(
+      catalog: mappingCatalog,
       peakList: peakList,
       peaks: state.peaks,
       itemsLoader: loadItems,
@@ -5913,7 +6164,7 @@ class MapNotifier extends Notifier<MapState> {
     if (bounds == null) {
       return const <String>{};
     }
-    return visibleRegionKeysForBounds(bounds);
+    return visibleRegionKeysForBounds(bounds, catalog: mappingCatalog);
   }
 
   _VisibleRegionPeakListSnapshot? _snapshotForVisibleRegionKeys(
@@ -5965,6 +6216,7 @@ class MapNotifier extends Notifier<MapState> {
                 final peakList = peakListsById[peakListId];
                 return peakList != null &&
                     peakListAppliesToVisibleRegions(
+                      catalog: mappingCatalog,
                       peakList,
                       visibleRegionKeys,
                       visibleBounds: state.visibleBounds,
@@ -6017,6 +6269,7 @@ class MapNotifier extends Notifier<MapState> {
             final peakList = peakListsById[peakListId];
             return peakList != null &&
                 peakListAppliesToVisibleRegions(
+                  catalog: mappingCatalog,
                   peakList,
                   visibleRegionKeys,
                   visibleBounds: state.visibleBounds,
@@ -6112,7 +6365,10 @@ class MapNotifier extends Notifier<MapState> {
     if (bounds == null) {
       return;
     }
-    final visibleRegionKeys = visibleRegionKeysForBounds(bounds);
+    final visibleRegionKeys = visibleRegionKeysForBounds(
+      bounds,
+      catalog: mappingCatalog,
+    );
     if (visibleRegionKeys.isEmpty) {
       return;
     }
@@ -6147,6 +6403,7 @@ class MapNotifier extends Notifier<MapState> {
       }
 
       final validPeakListIds = renderablePeakListIdsForVisibleRegions(
+        catalog: mappingCatalog,
         peakLists: peakLists,
         selectedPeakListIds: state.selectedPeakListIds,
         visibleRegionKeys: visibleRegionKeys,
@@ -6975,16 +7232,24 @@ class MapNotifier extends Notifier<MapState> {
 
       final startEndpoint = rebuiltEndpoints[index];
       final endEndpoint = rebuiltEndpoints[index + 1];
-      final selection = _routeCoverageFor(
-        startEndpoint.point,
-        endEndpoint.point,
-      );
+      var selection = _routeCoverageFor(startEndpoint.point, endEndpoint.point);
       if (!selection.isEligible) {
+        selection = await _ensureRouteCoverage(
+          startEndpoint.point,
+          endEndpoint.point,
+        );
+      }
+      if (!selection.isEligible) {
+        if (!_isActiveRouteDraftRequest(requestId)) return;
         state = state.copyWith(
-          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+          routeDraftStage: selection.routingCoverageKey == null
+              ? RouteDraftStage.awaitingNextPoint
+              : RouteDraftStage.segmentFailure,
           routeDraftProvisionalPoints: const [],
           routeDraftError: selection.message,
-          routeDraftFailureKind: RoutePlanningFailureKind.generic,
+          routeDraftFailureKind: selection.routingCoverageKey == null
+              ? RoutePlanningFailureKind.generic
+              : RoutePlanningFailureKind.routeGraphLoad,
         );
         return;
       }
@@ -7468,8 +7733,21 @@ class MapNotifier extends Notifier<MapState> {
 
     // Check for map name only (no digits = no coordinates)
     if (!RegExp(r'[0-9]').hasMatch(trimmed)) {
+      final unavailableReason = _tasmapMappingUnavailableReason();
+      if (unavailableReason != null) {
+        state = state.copyWith(
+          mapSuggestions: [],
+          mapSearchQuery: trimmed,
+          mapSelectionMappingUnavailableReason: unavailableReason,
+        );
+        return (null, unavailableReason);
+      }
       final maps = _tasmapRepository.searchMaps(trimmed);
-      state = state.copyWith(mapSuggestions: maps, mapSearchQuery: trimmed);
+      state = state.copyWith(
+        mapSuggestions: maps,
+        mapSearchQuery: trimmed,
+        clearMapSelectionMappingUnavailableReason: true,
+      );
 
       if (maps.isEmpty) {
         return (null, "No maps found matching '$trimmed'");
@@ -7972,11 +8250,55 @@ class MapNotifier extends Notifier<MapState> {
 
   void searchMapSuggestions(String query) {
     if (query.isEmpty) {
-      state = state.copyWith(mapSuggestions: [], mapSearchQuery: '');
+      state = state.copyWith(
+        mapSuggestions: [],
+        mapSearchQuery: '',
+        clearMapSelectionMappingUnavailableReason: true,
+      );
+      return;
+    }
+    final unavailableReason = _tasmapMappingUnavailableReason();
+    if (unavailableReason != null) {
+      state = state.copyWith(
+        mapSuggestions: [],
+        mapSearchQuery: query,
+        mapSelectionMappingUnavailableReason: unavailableReason,
+      );
       return;
     }
     final maps = _tasmapRepository.searchMaps(query);
-    state = state.copyWith(mapSuggestions: maps, mapSearchQuery: query);
+    state = state.copyWith(
+      mapSuggestions: maps,
+      mapSearchQuery: query,
+      clearMapSelectionMappingUnavailableReason: true,
+    );
+  }
+
+  String? _tasmapMappingUnavailableReason() {
+    final tasmap = ref.read(tasmapStateProvider);
+    if (tasmap.error != null && _tasmapRepository.isEmpty()) {
+      return tasmap.error;
+    }
+    if (tasmap.isLoading && _tasmapRepository.isEmpty()) {
+      return 'TasMap data is loading from the Mapping data store.';
+    }
+    return null;
+  }
+
+  Future<void> retryMapSelectionMapping() async {
+    const operation = MappingStoreOperationKey.tasmapBootstrap();
+    await _mappingStoreOperationCoordinator.retry(operation);
+    final hasFailure = _mappingStoreOperationCoordinator.failures.any(
+      (failure) => failure.key == operation,
+    );
+    state = state.copyWith(
+      mapSuggestions: const [],
+      clearMapSelectionMappingUnavailableReason: !hasFailure,
+      mapSelectionMappingUnavailableReason: hasFailure
+          ? _tasmapMappingUnavailableReason() ??
+                'TasMap data remains unavailable.'
+          : null,
+    );
   }
 
   void selectMap(Tasmap50k map) {
@@ -8003,6 +8325,27 @@ class MapNotifier extends Notifier<MapState> {
       mapSearchQuery: '',
       clearGotoMgrs: true,
     );
+  }
+
+  /// Rehydrates a selected sheet after a TasMap reconciliation preserves or
+  /// retargets its ObjectBox identity.
+  void reconcileTasmapSelection(Map<int, int> selectionRetargets) {
+    final selected = state.selectedMap;
+    if (selected == null) {
+      return;
+    }
+    final selectedId = selectionRetargets[selected.id] ?? selected.id;
+    final refreshed = _tasmapRepository.getMapById(selectedId);
+    if (refreshed == null) {
+      state = state.copyWith(
+        clearSelectedMap: true,
+        tasmapDisplayMode: state.gridVisibility == MapGridVisibility.hidden
+            ? TasmapDisplayMode.none
+            : TasmapDisplayMode.overlay,
+      );
+      return;
+    }
+    state = state.copyWith(selectedMap: refreshed);
   }
 
   void clearSearchResultSelection() {
@@ -8235,7 +8578,7 @@ class MapNotifier extends Notifier<MapState> {
       return null;
     }
 
-    final visibleRegions = regionManifestCatalog.regionsForBounds(bounds);
+    final visibleRegions = mappingCatalog.regionsForBounds(bounds);
     if (visibleRegions.length != 1) {
       return null;
     }
@@ -8483,35 +8826,110 @@ class MapNotifier extends Notifier<MapState> {
     reconcileSelectedPeakList();
   }
 
-  Future<PeakRefreshResult> refreshPeaks({
-    String region = Peak.defaultRegion,
-    LatLngBounds? bounds,
-  }) async {
+  Future<PeakRegionAssetImportResult> updatePeaks() async {
     state = state.copyWith(isLoadingPeaks: true, clearError: true);
     try {
-      final result = await _peakRefreshService.refreshPeaks(
-        region: region,
-        bounds: bounds,
-      );
-      ref.read(peakRevisionProvider.notifier).increment();
+      final results = <PeakRegionAssetImportResult>[];
+      for (final regionKey
+          in _peakRegionAssetImportService.changedSeedableRegionKeys(
+            peakRepository: _peakRepository,
+          )) {
+        final operationKey = MappingStoreOperationKey.peakUpdate(regionKey);
+        try {
+          results.add(
+            await _mappingStoreOperationCoordinator.run(
+              key: operationKey,
+              writerTables: const ['Peak', 'PeakRegionFingerprint'],
+              action: () => _peakRegionAssetImportService.updateRegion(
+                peakRepository: _peakRepository,
+                regionKey: regionKey,
+              ),
+            ),
+          );
+        } on MappingStoreOperationException {
+          _failedPeakMappingOperation = operationKey;
+          rethrow;
+        }
+      }
+      final result = _combinePeakRegionImportResults(results);
+      if (result.hasChanges) {
+        ref.read(peakRevisionProvider.notifier).increment();
+      }
+      _failedPeakMappingOperation = null;
       final peaks = _peakRepository.getAllPeaks();
       final refreshedPeakInfo = _refreshedPeakInfo(peaks);
       state = state.copyWith(
         peaks: peaks,
         isLoadingPeaks: false,
         clearError: true,
+        clearPeakSearchMappingUnavailableReason: true,
         peakInfo: refreshedPeakInfo,
         clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
       );
       reconcileSelectedPeakList();
       return result;
+    } on MappingStoreOperationException catch (error) {
+      state = state.copyWith(
+        isLoadingPeaks: false,
+        error: 'Failed to update peaks: $error',
+        peakSearchMappingUnavailableReason: error.toString(),
+      );
+      rethrow;
     } catch (e) {
       state = state.copyWith(
         isLoadingPeaks: false,
-        error: 'Failed to refresh peaks: $e',
+        error: 'Failed to update peaks: $e',
       );
       rethrow;
     }
+  }
+
+  Future<void> retryPeakSearchMapping() async {
+    final operationKey = _failedPeakMappingOperation;
+    if (operationKey == null ||
+        state.peakSearchMappingUnavailableReason == null) {
+      return;
+    }
+    state = state.copyWith(isLoadingPeaks: true, clearError: true);
+    await _mappingStoreOperationCoordinator.retry(operationKey);
+    if (_mappingStoreOperationCoordinator.failures.any(
+      (failure) => failure.key == operationKey,
+    )) {
+      state = state.copyWith(isLoadingPeaks: false);
+      return;
+    }
+
+    final peaks = _peakRepository.getAllPeaks();
+    final refreshedPeakInfo = _refreshedPeakInfo(peaks);
+    state = state.copyWith(
+      peaks: peaks,
+      isLoadingPeaks: false,
+      clearError: true,
+      clearPeakSearchMappingUnavailableReason: true,
+      peakInfo: refreshedPeakInfo,
+      clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
+    );
+    _failedPeakMappingOperation = null;
+    ref.read(peakRevisionProvider.notifier).increment();
+    reconcileSelectedPeakList();
+  }
+
+  PeakRegionAssetImportResult _combinePeakRegionImportResults(
+    List<PeakRegionAssetImportResult> results,
+  ) {
+    return PeakRegionAssetImportResult(
+      importedRegions: [
+        for (final result in results) ...result.importedRegions,
+      ],
+      importedPeakCount: results.fold(
+        0,
+        (count, result) => count + result.importedPeakCount,
+      ),
+      skippedPeakCount: results.fold(
+        0,
+        (count, result) => count + result.skippedPeakCount,
+      ),
+    );
   }
 
   Set<int> _refreshCorrelatedPeakIds(Iterable<GpxTrack> tracks) {
@@ -8550,6 +8968,7 @@ class MapNotifier extends Notifier<MapState> {
         peak: peak,
         peakListRepository: ref.read(peakListRepositoryProvider),
         tasmapRepository: ref.read(tasmapRepositoryProvider),
+        mappingCatalog: mappingCatalog,
         peaksBaggedRepository: _readPeaksBaggedRepository(),
         gpxTrackRepository: _readGpxTrackRepository(),
       );
@@ -8599,6 +9018,11 @@ class _RouteCoverageSelection {
 
   const _RouteCoverageSelection.rejected(this.message)
     : routingCoverageKey = null;
+
+  const _RouteCoverageSelection.unavailable(
+    this.routingCoverageKey,
+    this.message,
+  );
 
   final String? routingCoverageKey;
   final String? message;

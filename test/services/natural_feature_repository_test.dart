@@ -76,10 +76,7 @@ void main() {
 
     expect(repository.delete(feature.id), isTrue);
     expect(repository.findById(feature.id), isNull);
-    expect(
-      repository.findByOsmIdentity(osmType: 'way', osmId: 456),
-      isNull,
-    );
+    expect(repository.findByOsmIdentity(osmType: 'way', osmId: 456), isNull);
 
     final recreated = repository.save(
       NaturalFeature(
@@ -119,5 +116,28 @@ void main() {
 
     expect(naturalFeature.id, isNonZero);
     expect(store.box<NaturalFeature>().get(naturalFeature.id), isNotNull);
+  });
+
+  test('ObjectBox enforces ownership-qualified source identity', () async {
+    final directory = await Directory.systemTemp.createTemp('feature-identity');
+    final store = await openStore(directory: directory.path);
+    addTearDown(() async {
+      store.close();
+      await directory.delete(recursive: true);
+    });
+    NaturalFeature feature(String ownership) => NaturalFeature(
+      name: ownership,
+      tag: 'tree',
+      latitude: -42,
+      longitude: 146,
+      osmId: 1,
+      osmType: 'node',
+      sourceOfTruth: ownership,
+    );
+    final box = store.box<NaturalFeature>();
+    box.put(feature('OSM'));
+    box.put(feature('Manual'));
+    expect(() => box.put(feature('OSM')), throwsA(anything));
+    expect(box.count(), 2);
   });
 }

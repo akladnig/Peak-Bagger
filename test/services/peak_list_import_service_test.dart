@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/peak.dart';
@@ -37,6 +38,7 @@ void main() {
           peakRepository: peakRepository,
         );
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -85,6 +87,7 @@ void main() {
           peakRepository: peakRepository,
         );
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -128,7 +131,9 @@ void main() {
         expect(storedList.maxLat, 46.4084);
         expect(storedList.minLng, 13.0475);
         expect(storedList.maxLng, 13.0475);
-        expect(_storedMemberships(peakListRepository, storedList.name), [(101, 1)]);
+        expect(_storedMemberships(peakListRepository, storedList.name), [
+          (101, 1),
+        ]);
       },
     );
 
@@ -156,6 +161,7 @@ void main() {
       );
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -189,7 +195,10 @@ void main() {
       expect(secondCreatedPeak?.rating, 4.8);
       expect(secondCreatedPeak?.difficulty, 'EEA');
       expect(secondCreatedPeak?.notes, 'High summit');
-      expect(_storedMemberships(peakListRepository, storedList.name), [(-8, 1), (-9, 1)]);
+      expect(_storedMemberships(peakListRepository, storedList.name), [
+        (-8, 1),
+        (-9, 1),
+      ]);
     });
 
     test('ranked csv blank values keep existing stored fields', () async {
@@ -216,6 +225,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -245,35 +255,39 @@ void main() {
       expect(storedPeak?.sourceOfTruth, 'FVG');
     });
 
-    test('ranked csv import avoids repeated full peak scans for item resolution', () async {
-      final peak = _buildPeak(
-        osmId: 101,
-        name: 'Monte Amariana',
-        elevation: 1906,
-        latitude: 46.4084,
-        longitude: 13.0475,
-      );
-      final peakStorage = _TrackingPeakStorage([peak]);
-      final peakRepository = PeakRepository.test(peakStorage);
-      final peakListRepository = _emptyPeakListRepository(peakRepository);
-      final service = PeakListImportService(
-        peakRepository: peakRepository,
-        peakListRepository: peakListRepository,
-        csvLoader: (_) async =>
-            'name,altName,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,sourceOfTruth\n'
-            'Monte Amariana,Monte A.,101,4.35,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble,HRIBI\n',
-        importRootLoader: () async => '/tmp/Bushwalking',
-        logWriter: (logPath, entries) async {},
-      );
+    test(
+      'ranked csv import avoids repeated full peak scans for item resolution',
+      () async {
+        final peak = _buildPeak(
+          osmId: 101,
+          name: 'Monte Amariana',
+          elevation: 1906,
+          latitude: 46.4084,
+          longitude: 13.0475,
+        );
+        final peakStorage = _TrackingPeakStorage([peak]);
+        final peakRepository = PeakRepository.test(peakStorage);
+        final peakListRepository = _emptyPeakListRepository(peakRepository);
+        final service = PeakListImportService(
+          catalog: testMappingCatalog,
+          peakRepository: peakRepository,
+          peakListRepository: peakListRepository,
+          csvLoader: (_) async =>
+              'name,altName,osmId,rating,elevation,prominence,latitude,longitude,country,region,range,county,difficulty,viaFerrata,notes,sourceOfTruth\n'
+              'Monte Amariana,Monte A.,101,4.35,1906,544,46.4084,13.0475,Italy,Friuli Venezia Giulia,Carnic Alps,Udine,EE,Optional,Ridge scramble,HRIBI\n',
+          importRootLoader: () async => '/tmp/Bushwalking',
+          logWriter: (logPath, entries) async {},
+        );
 
-      await service.importPeakList(
-        listName: 'FVG Ranked',
-        csvPath: '/tmp/fvg-ranked.csv',
-      );
+        await service.importPeakList(
+          listName: 'FVG Ranked',
+          csvPath: '/tmp/fvg-ranked.csv',
+        );
 
-      expect(peakStorage.getByOsmIdCallCount, greaterThan(0));
-      expect(peakStorage.getAllCallCount, lessThanOrEqualTo(2));
-    });
+        expect(peakStorage.getByOsmIdCallCount, greaterThan(0));
+        expect(peakStorage.getAllCallCount, lessThanOrEqualTo(2));
+      },
+    );
 
     test('ranked csv internal region keys fail atomically', () async {
       final peak = _buildPeak(
@@ -286,6 +300,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -333,6 +348,7 @@ void main() {
       );
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -369,6 +385,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -410,6 +427,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -444,6 +462,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage());
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -472,6 +491,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage());
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -509,6 +529,7 @@ void main() {
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
         final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -544,6 +565,7 @@ void main() {
         InMemoryPeakListStorage(),
       );
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -596,6 +618,7 @@ void main() {
         );
         final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -645,6 +668,7 @@ void main() {
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
         final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -683,6 +707,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -706,6 +731,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage());
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -728,10 +754,9 @@ void main() {
       expect(createdPeak.osmId, lessThan(0));
       expect(createdPeak.name, 'Missing Peak');
       expect(createdPeak.sourceOfTruth, Peak.sourceOfTruthHwc);
-      expect(
-        _singleStoredMemberships(peakListRepository),
-        [(createdPeak.osmId, 1)],
-      );
+      expect(_singleStoredMemberships(peakListRepository), [
+        (createdPeak.osmId, 1),
+      ]);
     });
 
     test(
@@ -757,6 +782,7 @@ void main() {
           northing: coords.northing,
         );
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -807,6 +833,7 @@ void main() {
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
         final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -849,6 +876,7 @@ void main() {
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
         final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -890,6 +918,7 @@ void main() {
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
         final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -922,6 +951,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -960,6 +990,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -987,7 +1018,7 @@ void main() {
       expect(storedPeak?.easting, peak.easting);
       expect(storedPeak?.northing, peak.northing);
       expect(storedPeak?.sourceOfTruth, Peak.sourceOfTruthHwc);
-        expect(_singleStoredMemberships(peakListRepository), [(101, 3)]);
+      expect(_singleStoredMemberships(peakListRepository), [(101, 3)]);
     });
 
     test(
@@ -1019,6 +1050,7 @@ void main() {
         );
         final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -1070,6 +1102,7 @@ void main() {
         );
         final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -1101,10 +1134,10 @@ void main() {
         final createdPeak = peakRepository.getAllPeaks().firstWhere(
           (peak) => peak.name == 'Missing Peak',
         );
-        expect(
-          _singleStoredMemberships(peakListRepository),
-          [(101, 3), (createdPeak.osmId, 1)],
-        );
+        expect(_singleStoredMemberships(peakListRepository), [
+          (101, 3),
+          (createdPeak.osmId, 1),
+        ]);
       },
     );
 
@@ -1119,9 +1152,14 @@ void main() {
           longitude: 145.97754,
         );
         final coords = _csvCoordinatesFromPeak(peak);
-        final createPeakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-        final peakListRepository = _emptyPeakListRepository(createPeakRepository);
+        final createPeakRepository = PeakRepository.test(
+          InMemoryPeakStorage([peak]),
+        );
+        final peakListRepository = _emptyPeakListRepository(
+          createPeakRepository,
+        );
         final createService = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: createPeakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -1136,8 +1174,11 @@ void main() {
           csvPath: '/tmp/create.csv',
         );
 
-        final updatePeakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
+        final updatePeakRepository = PeakRepository.test(
+          InMemoryPeakStorage([peak]),
+        );
         final updateService = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: updatePeakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -1176,6 +1217,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -1204,6 +1246,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -1233,6 +1276,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -1263,6 +1307,7 @@ void main() {
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
         final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async =>
@@ -1300,6 +1345,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -1379,6 +1425,7 @@ void main() {
         );
         final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async => _appOwnedCsv([
@@ -1455,10 +1502,12 @@ void main() {
         expect(updatedSyntheticPeak?.name, 'Synthetic Imported');
         expect(updatedSyntheticPeak?.difficulty, 'T4');
         expect(importedList?.region, Peak.defaultRegion);
-        expect(
-          _storedMemberships(peakListRepository, importedList!.name),
-          [(101, 7), (202, 2), (101, 5), (-7, 9)],
-        );
+        expect(_storedMemberships(peakListRepository, importedList!.name), [
+          (101, 7),
+          (202, 2),
+          (101, 5),
+          (-7, 9),
+        ]);
       },
     );
 
@@ -1510,6 +1559,7 @@ void main() {
         final rowB = _appOwnedCsvRowForPeak(createdTemplateB, points: 5)
           ..['osmId'] = '';
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async => _appOwnedCsv([rowA, rowB]),
@@ -1538,10 +1588,10 @@ void main() {
         expect(createdPeakB?.name, 'Created Beta');
         expect(createdPeakB?.difficulty, 'T4');
         expect(createdPeakB?.osmId, -9);
-        expect(
-          _storedMemberships(peakListRepository, importedList!.name),
-          [(-8, 2), (-9, 5)],
-        );
+        expect(_storedMemberships(peakListRepository, importedList!.name), [
+          (-8, 2),
+          (-9, 5),
+        ]);
       },
     );
 
@@ -1618,6 +1668,7 @@ void main() {
             'sourceOfTruth': '',
           });
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async => _appOwnedCsv([existingRow, createdRow]),
@@ -1668,10 +1719,10 @@ void main() {
         expect(createdPeak?.verified, isFalse);
         expect(createdPeak?.sourceOfTruth, Peak.sourceOfTruthOsm);
 
-        expect(
-          _storedMemberships(peakListRepository, importedList!.name),
-          [(101, 4), (202, 2)],
-        );
+        expect(_storedMemberships(peakListRepository, importedList!.name), [
+          (101, 4),
+          (202, 2),
+        ]);
       },
     );
 
@@ -1692,6 +1743,7 @@ void main() {
           points: 3,
         )..['duration'] = 'soon';
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async => _appOwnedCsv([badRow]),
@@ -1727,15 +1779,16 @@ void main() {
         longitude: 145.97754,
       ).copyWith(region: 'old-peak-region');
       final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
-        final peakListRepository = _peakListRepository(
-          peakLists: [
-            PeakList(name: 'Existing Import', region: 'italy-nord-est')
-              ..peakListId = 1,
-          ],
-          peakRepository: peakRepository,
-          memberships: const [(peakListId: 1, peakOsmId: 101, points: 1)],
-        );
+      final peakListRepository = _peakListRepository(
+        peakLists: [
+          PeakList(name: 'Existing Import', region: 'italy-nord-est')
+            ..peakListId = 1,
+        ],
+        peakRepository: peakRepository,
+        memberships: const [(peakListId: 1, peakOsmId: 101, points: 1)],
+      );
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async => _appOwnedCsv([
@@ -1761,7 +1814,9 @@ void main() {
         peakListRepository.findByName('Existing Import')?.region,
         Peak.defaultRegion,
       );
-        expect(_storedMemberships(peakListRepository, 'Existing Import'), [(101, 4)]);
+      expect(_storedMemberships(peakListRepository, 'Existing Import'), [
+        (101, 4),
+      ]);
     });
 
     test('app-owned export import left pads short grid components', () async {
@@ -1774,6 +1829,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage());
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async => _appOwnedCsv([
@@ -1834,6 +1890,7 @@ void main() {
         final peakRepository = PeakRepository.test(InMemoryPeakStorage([peak]));
         final peakListRepository = _emptyPeakListRepository(peakRepository);
         final service = PeakListImportService(
+          catalog: testMappingCatalog,
           peakRepository: peakRepository,
           peakListRepository: peakListRepository,
           csvLoader: (_) async => _appOwnedCsv([
@@ -1901,6 +1958,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage());
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -1932,6 +1990,7 @@ void main() {
       final peakRepository = PeakRepository.test(InMemoryPeakStorage());
       final peakListRepository = _emptyPeakListRepository(peakRepository);
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -2092,8 +2151,11 @@ PeakListRepository _peakListRepository({
   PeakRepository? peakRepository,
   List<({int peakListId, int peakOsmId, int points})> memberships = const [],
 }) {
-  final listsById = {for (final peakList in peakLists) peakList.peakListId: peakList};
-  final repository = peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
+  final listsById = {
+    for (final peakList in peakLists) peakList.peakListId: peakList,
+  };
+  final repository =
+      peakRepository ?? PeakRepository.test(InMemoryPeakStorage());
   return PeakListRepository.test(
     InMemoryPeakListStorage(peakLists),
     peakRepository: repository,

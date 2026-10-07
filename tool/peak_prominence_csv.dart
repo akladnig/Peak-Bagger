@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:peak_bagger/services/mapping_tool_resolver.dart';
 
 import 'package:flutter/widgets.dart';
 import 'package:peak_bagger/objectbox.g.dart';
@@ -6,7 +7,7 @@ import 'package:peak_bagger/services/peak_prominence_csv_service.dart';
 import 'package:peak_bagger/services/peak_prominence_import_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
-const String _defaultCsvPath = './assets/all-peaks-sorted-p100.csv';
+const String _defaultCsvPath = '';
 
 enum _PeakProminenceCommand { validate, importData }
 
@@ -24,10 +25,8 @@ class _PeakProminenceInvocation {
   final bool showHelp;
 }
 
-typedef PeakProminenceImportRunner = Future<PeakProminenceImportResult> Function(
-  String csvPath,
-  bool dryRun,
-);
+typedef PeakProminenceImportRunner =
+    Future<PeakProminenceImportResult> Function(String csvPath, bool dryRun);
 
 void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,10 +42,10 @@ Future<int> runPeakProminenceCsvTool({
   void Function(String message)? stdoutWriter,
   void Function(String message)? stderrWriter,
 }) async {
-  final stdoutLine = stdoutWriter ??
-      ((String message) => stdout.writeln(message));
-  final stderrLine = stderrWriter ??
-      ((String message) => stderr.writeln(message));
+  final stdoutLine =
+      stdoutWriter ?? ((String message) => stdout.writeln(message));
+  final stderrLine =
+      stderrWriter ?? ((String message) => stderr.writeln(message));
   final parser = csvService ?? const PeakProminenceCsvService();
   final reader = csvReader ?? ((String path) => File(path).readAsString());
 
@@ -63,8 +62,16 @@ Future<int> runPeakProminenceCsvTool({
     stdoutLine(_usage());
     return 0;
   }
+  if (invocation.csvPath.trim().isEmpty) {
+    stderrLine(
+      'An explicit user CSV is required: --csv-path PATH or a positional CSV path.',
+    );
+    return 1;
+  }
+  await requireNonMappingPath(invocation.csvPath);
 
-  if (invocation.command == _PeakProminenceCommand.validate && invocation.dryRun) {
+  if (invocation.command == _PeakProminenceCommand.validate &&
+      invocation.dryRun) {
     stderrLine('--dry-run can only be used with import mode');
     return 1;
   }
@@ -73,7 +80,9 @@ Future<int> runPeakProminenceCsvTool({
     try {
       final contents = await reader(invocation.csvPath);
       final document = parser.parse(contents);
-      stdoutLine('Validated ${document.rows.length} rows from ${invocation.csvPath}');
+      stdoutLine(
+        'Validated ${document.rows.length} rows from ${invocation.csvPath}',
+      );
       return 0;
     } on Object catch (error) {
       stderrLine(error.toString());
@@ -107,7 +116,7 @@ PeakProminenceImportRunner _defaultImportRunner(
 ) {
   return (String csvPath, bool dryRun) async {
     final store = await openStore();
-    final repository = PeakRepository(
+    final repository = PeakRepository.userDataOnly(
       store,
       peakListRewritePort: ObjectBoxPeakListRewritePort(store),
     );
@@ -207,7 +216,7 @@ Usage:
   ./peak_prominence_csv.sh import [--dry-run] [--csv-path PATH]
 
 Defaults:
-  csv-path: $_defaultCsvPath
+  csv-path: required explicit user CSV (no Mapping-store input)
   dry-run preview: ./tool/peak-prominence-objectbox-preview.csv
   log paths:
     ./logs/prominence.log

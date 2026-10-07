@@ -1,13 +1,13 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:gdal_dart/gdal_dart.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:path/path.dart' as p;
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/services/geo.dart';
-import 'package:peak_bagger/services/import_path_helpers.dart';
-import 'package:peak_bagger/services/region_manifest_catalog.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 
 const _distance = Distance();
 
@@ -123,11 +123,27 @@ abstract interface class DemDatasetOpener {
 }
 
 class GdalDemDatasetOpener implements DemDatasetOpener {
-  const GdalDemDatasetOpener();
+  const GdalDemDatasetOpener({
+    this.libraryPathResolver = GdalDemDataset.resolveGdalLibraryPath,
+    this.libraryLoader = _loadGdal,
+  });
+
+  final String? Function() libraryPathResolver;
+  final Gdal Function(String? libraryPath) libraryLoader;
+
+  static Gdal _loadGdal(String? libraryPath) => Gdal(libraryPath: libraryPath);
 
   @override
   Future<DemDataset> open(String datasetPath) async {
-    return GdalDemDataset.open(datasetPath);
+    // Resolving/loading the host library is deliberately deferred to this open.
+    // Source open/parse failures below remain Mapping-store failures.
+    late final Gdal gdal;
+    try {
+      gdal = libraryLoader(libraryPathResolver());
+    } on Object {
+      throw const RouteElevationSamplingException.tasmaniaDataUnavailable();
+    }
+    return GdalDemDataset.open(datasetPath, gdal: gdal);
   }
 }
 
@@ -136,29 +152,44 @@ enum RouteElevationDemKind { none, tasmaniaElvisRuntime }
 class RouteElevationDemResolution {
   const RouteElevationDemResolution.none()
     : kind = RouteElevationDemKind.none,
-      datasetPath = null;
+      sourceKey = null,
+      relativePath = null;
 
-  const RouteElevationDemResolution.tasmaniaElvisRuntime(this.datasetPath)
-    : kind = RouteElevationDemKind.tasmaniaElvisRuntime;
+  const RouteElevationDemResolution.tasmaniaElvisRuntime(this.relativePath)
+    : kind = RouteElevationDemKind.tasmaniaElvisRuntime,
+      sourceKey = DemConstants.tasmaniaElvisRuntimeSourceKey;
 
   final RouteElevationDemKind kind;
-  final String? datasetPath;
+  final String? sourceKey;
+  final String? relativePath;
+
+  MappingStoreOperationKey operationKey({
+    required List<LatLng> points,
+    required int geometryVersion,
+  }) => MappingStoreOperationKey.demRead(
+    demSourceKey: sourceKey!,
+    routeGeometryIdentity: jsonEncode([
+      for (final point in points)
+        [
+          point.latitude == 0 ? 0.0 : point.latitude,
+          point.longitude == 0 ? 0.0 : point.longitude,
+        ],
+    ]),
+    geometryVersion: '$geometryVersion',
+  );
 }
 
 typedef RegionKeyForPointResolver = String? Function(LatLng point);
-typedef TasmaniaDemRootResolver = String Function();
 
 class RouteElevationDemResolver {
   RouteElevationDemResolver({
+    required MappingCatalog catalog,
     RegionKeyForPointResolver? regionKeyForPoint,
-    TasmaniaDemRootResolver? tasmaniaDemRootResolver,
-  }) : _regionKeyForPoint =
-           regionKeyForPoint ?? regionManifestCatalog.regionKeyForPoint,
-       _tasmaniaDemRootResolver =
-           tasmaniaDemRootResolver ?? resolveTasmaniaDemRoot;
+  }) : _catalog = catalog,
+       _regionKeyForPoint = regionKeyForPoint ?? catalog.regionKeyForPoint;
 
+  final MappingCatalog _catalog;
   final RegionKeyForPointResolver _regionKeyForPoint;
-  final TasmaniaDemRootResolver _tasmaniaDemRootResolver;
 
   RouteElevationDemResolution resolveForPoints(List<LatLng> points) {
     final allPointsInTasmania =
@@ -171,30 +202,30 @@ class RouteElevationDemResolver {
       return const RouteElevationDemResolution.none();
     }
 
-    try {
-      final tasmaniaDemRoot = _tasmaniaDemRootResolver();
-      return RouteElevationDemResolution.tasmaniaElvisRuntime(
-        p.join(tasmaniaDemRoot, DemConstants.tasmaniaElvisRuntimeDemFileName),
-      );
-    } catch (_) {
-      throw const RouteElevationSamplingException.tasmaniaDataUnavailable();
-    }
+    return RouteElevationDemResolution.tasmaniaElvisRuntime(
+      _catalog.demSources[DemConstants.tasmaniaElvisRuntimeSourceKey]!,
+    );
   }
 }
 
 class RegionAwareRouteElevationSampler implements RouteElevationSampler {
   RegionAwareRouteElevationSampler({
+    required MappingCatalog catalog,
     RouteElevationDemResolver? demResolver,
     DemDatasetOpener? datasetOpener,
-    bool Function(String path)? fileExists,
+    MappingStoreFileSystem? fileSystem,
     this._sampleSpacingMetres = DemConstants.sampleSpacingMetres,
-  }) : _demResolver = demResolver ?? RouteElevationDemResolver(),
+  }) : _demResolver =
+           demResolver ?? RouteElevationDemResolver(catalog: catalog),
        _datasetOpener = datasetOpener ?? const GdalDemDatasetOpener(),
-       _fileExists = fileExists ?? ((path) => File(path).existsSync());
+       _fileAccess = MappingStoreOperationFileAccess(
+         catalog: catalog,
+         fileSystem: fileSystem ?? const IoMappingStoreFileSystem(),
+       );
 
   final RouteElevationDemResolver _demResolver;
   final DemDatasetOpener _datasetOpener;
-  final bool Function(String path) _fileExists;
+  final MappingStoreOperationFileAccess _fileAccess;
   final double _sampleSpacingMetres;
 
   final Map<String, Future<DemDataset>> _datasetFutures = {};
@@ -222,7 +253,7 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
     final sampledElevations = <double>[];
 
     for (final point in densifiedPoints) {
-      sampledElevations.add(dataset.sampleElevation(point) ?? 0);
+      sampledElevations.add(_sampleElevation(dataset, point, resolution) ?? 0);
     }
 
     return _buildSummary(
@@ -246,26 +277,51 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
 
     final dataset = await _openDataset(resolution);
     return points
-        .map((point) => dataset.sampleElevation(point))
+        .map((point) => _sampleElevation(dataset, point, resolution))
         .toList(growable: false);
   }
 
-  Future<DemDataset> _openDataset(RouteElevationDemResolution resolution) {
-    final datasetPath = resolution.datasetPath;
-    if (datasetPath == null || !_fileExists(datasetPath)) {
-      throw const RouteElevationSamplingException.tasmaniaDataUnavailable();
-    }
-
-    return _datasetFutures.putIfAbsent(datasetPath, () async {
-      try {
-        return await _datasetOpener.open(datasetPath);
-      } on RouteElevationSamplingException {
-        rethrow;
-      } catch (_) {
-        _datasetFutures.remove(datasetPath);
-        throw const RouteElevationSamplingException.tasmaniaDataUnavailable();
+  double? _sampleElevation(
+    DemDataset dataset,
+    LatLng point,
+    RouteElevationDemResolution resolution,
+  ) {
+    try {
+      final elevation = dataset.sampleElevation(point);
+      if (elevation != null && !elevation.isFinite) {
+        throw const FormatException('Invalid DEM elevation.');
       }
-    });
+      return elevation;
+    } on Object catch (error) {
+      _datasetFutures.clear();
+      throw MappingStoreOperationException(
+        paths: [resolution.relativePath!],
+        cause: error,
+      );
+    }
+  }
+
+  Future<DemDataset> _openDataset(
+    RouteElevationDemResolution resolution,
+  ) async {
+    final relativePath = resolution.relativePath!;
+    try {
+      // Revalidate even a cached dataset: it cannot mask a lost or escaped source.
+      return await _fileAccess.open(
+        relativePath: relativePath,
+        opener: (canonicalPath) => _datasetFutures.putIfAbsent(
+          canonicalPath,
+          () => _datasetOpener.open(canonicalPath),
+        ),
+      );
+    } on Object catch (error) {
+      _datasetFutures.clear();
+      if (error is RouteElevationSamplingException ||
+          error is MappingStoreOperationException) {
+        rethrow;
+      }
+      throw MappingStoreOperationException(paths: [relativePath], cause: error);
+    }
   }
 
   List<LatLng> _densifyRoute(List<LatLng> points) {
@@ -357,8 +413,7 @@ class GdalDemDataset implements DemDataset {
     this._noDataValue,
   );
 
-  factory GdalDemDataset.open(String datasetPath) {
-    final gdal = Gdal(libraryPath: _resolveGdalLibraryPath());
+  factory GdalDemDataset.open(String datasetPath, {required Gdal gdal}) {
     _configureGdalDataPaths(gdal);
     final source = gdal.openGeoTiffSource(datasetPath);
     final wgs84 = gdal.spatialReferenceFromEpsg(4326);
@@ -378,7 +433,7 @@ class GdalDemDataset implements DemDataset {
     );
   }
 
-  static String? _resolveGdalLibraryPath() {
+  static String? resolveGdalLibraryPath() {
     final configured = Platform.environment['GDAL_LIBRARY_PATH'];
     if (configured != null && configured.isNotEmpty) {
       return configured;

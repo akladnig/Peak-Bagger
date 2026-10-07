@@ -311,3 +311,11 @@ _Avoid_: contact person when referring to the persisted entity
 **Data grid style**:
 The shared visual treatment for tabular and row-based data browsing surfaces, including headers, spacing, selection, hover feedback, and dividers.
 _Avoid_: calling every participating surface a table
+
+**Mapping data store**:
+The external local, app-read-only dataset root at `/Volumes/Services/Mapping` that is the canonical source for Peak Bagger's non-UI mapping data.
+_Avoid_: bundled app assets, project assets folder
+
+**Mapping data manifest**:
+The store-relative manifest at `/Volumes/Services/Mapping/region_manifest.json` that identifies Peak Bagger's regional peak, highway, and polygon datasets.
+_Avoid_: route-graph manifest, Flutter asset manifest

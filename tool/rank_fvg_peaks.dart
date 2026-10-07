@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:peak_bagger/services/mapping_tool_resolver.dart';
+import 'mapping_tool_support.dart';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -58,7 +60,7 @@ Options:
 
 Notes:
   - slovenia is supported out of the box.
-  - veneto expects assets/polygons/veneto.poly to exist.
+  - region geometry must be declared by the Mapping data manifest.
 ''';
 }
 
@@ -474,13 +476,11 @@ const _genericPeakNameTokens = <String>{
   'via',
 };
 
-class _RegionProfile {
-  const _RegionProfile({
+class PeakRankingRegionProfile {
+  const PeakRankingRegionProfile({
     required this.key,
     required this.countryName,
     required this.regionName,
-    required this.datasetPath,
-    required this.polygonPaths,
     required this.defaultCacheDir,
     required this.defaultJsonOutputPath,
     required this.defaultCsvOutputPath,
@@ -504,8 +504,6 @@ class _RegionProfile {
   final String key;
   final String countryName;
   final String regionName;
-  final String datasetPath;
-  final List<String> polygonPaths;
   final String defaultCacheDir;
   final String defaultJsonOutputPath;
   final String defaultCsvOutputPath;
@@ -526,16 +524,11 @@ class _RegionProfile {
   final List<String> allowedLocationSignals;
 }
 
-const _builtInRegionProfiles = <String, _RegionProfile>{
-  'fvg': _RegionProfile(
+const _builtInRegionProfiles = <String, PeakRankingRegionProfile>{
+  'fvg': PeakRankingRegionProfile(
     key: 'fvg',
     countryName: 'Italy',
     regionName: 'Friuli Venezia Giulia',
-    datasetPath: 'assets/peaks/italy-nord-est-peaks.json',
-    polygonPaths: [
-      'assets/polygons/friuli-venezia-giulia-mainland.poly',
-      'assets/polygons/friuli-venezia-giulia-islet.poly',
-    ],
     defaultCacheDir: '.cache/fvg-peak-ranker',
     defaultJsonOutputPath: 'fvg-top-peaks.json',
     defaultCsvOutputPath: 'fvg-top-peaks.csv',
@@ -574,12 +567,10 @@ const _builtInRegionProfiles = <String, _RegionProfile>{
       'Pordenone',
     ],
   ),
-  'slovenia': _RegionProfile(
+  'slovenia': PeakRankingRegionProfile(
     key: 'slovenia',
     countryName: 'Slovenia',
     regionName: 'Slovenia',
-    datasetPath: 'assets/peaks/slovenia-peaks.json',
-    polygonPaths: ['assets/polygons/slovenia.poly'],
     defaultCacheDir: '.cache/slovenia-peak-ranker',
     defaultJsonOutputPath: 'slovenia-top-peaks.json',
     defaultCsvOutputPath: 'slovenia-top-peaks.csv',
@@ -603,12 +594,10 @@ const _builtInRegionProfiles = <String, _RegionProfile>{
     highestPeakNote: 'Highest peak in Slovenia',
     allowedLocationSignals: ['Slovenia', 'Slovenija'],
   ),
-  'veneto': _RegionProfile(
+  'veneto': PeakRankingRegionProfile(
     key: 'veneto',
     countryName: 'Italy',
     regionName: 'Veneto',
-    datasetPath: 'assets/peaks/italy-nord-est-peaks.json',
-    polygonPaths: ['assets/polygons/veneto.poly'],
     defaultCacheDir: '.cache/veneto-peak-ranker',
     defaultJsonOutputPath: 'veneto-top-peaks.json',
     defaultCsvOutputPath: 'veneto-top-peaks.csv',
@@ -639,7 +628,7 @@ const _builtInRegionProfiles = <String, _RegionProfile>{
   ),
 };
 
-late _RegionProfile _activeRegionProfile;
+late PeakRankingRegionProfile _activeRegionProfile;
 
 Map<String, ({double score, String label})> get _weightedDomains =>
     _activeRegionProfile.weightedDomains;
@@ -669,7 +658,7 @@ List<String> get _highestPeakNeedles => _activeRegionProfile.highestPeakNeedles;
 
 String? get _highestPeakNote => _activeRegionProfile.highestPeakNote;
 
-_RegionProfile _regionProfileForKey(String regionKey) {
+PeakRankingRegionProfile _regionProfileForKey(String regionKey) {
   final normalizedKey = regionKey.trim().toLowerCase();
   final profile = _builtInRegionProfiles[normalizedKey];
   if (profile != null) {
@@ -682,13 +671,29 @@ _RegionProfile _regionProfileForKey(String regionKey) {
   );
 }
 
-Future<void> main(List<String> args) async {
-  final options = _CliOptions.parse(args);
+Future<void> main(List<String> args) => runPeakRankingTool(args);
+
+Future<void> runPeakRankingTool(
+  List<String> args, {
+  MappingToolResolver? toolResolver,
+}) async {
+  final options = PeakRankingOptions.parse(args);
   _activeRegionProfile = options.regionProfile;
   if (options.showHelp) {
     stdout.write(_usage);
     return;
   }
+
+  final resolver = toolResolver ?? await openMappingTool('rank-fvg-peaks');
+  for (final path in [
+    options.cacheDir,
+    options.outputJsonPath,
+    options.outputCsvPath,
+    ?options.lesserCsvOutputPath,
+  ]) {
+    await resolver.requireNonStorePath(path);
+  }
+  final catalog = await loadToolCatalog(resolver);
 
   if (options.secondPassOnly) {
     final searchClient = _DuckDuckGoSearchClient(
@@ -730,8 +735,19 @@ Future<void> main(List<String> args) async {
     }
   }
 
-  final polygons = await _loadRegionPolygons();
-  final peaks = await _loadRegionPeaks(polygons);
+  final region = catalog.regionByKey(options.regionKey)!;
+  if (region.polygons.isEmpty) {
+    throw StateError(
+      'No ranking polygon declared for ${region.key} in region_manifest.json.',
+    );
+  }
+  final source = region.peaks.isNotEmpty
+      ? region
+      : catalog.regionByKey(catalog.peakListFilterRegionKey(region.key)!);
+  if (source == null || source.peaks.isEmpty) {
+    throw StateError('No peak source declared for ${region.key}.');
+  }
+  final peaks = await _loadRegionPeaks(region.polygons, source.peaks, resolver);
   final candidateCount = options.maxCandidates == null
       ? peaks.length
       : math.min(options.maxCandidates!, peaks.length);
@@ -810,8 +826,8 @@ Future<void> main(List<String> args) async {
   }
 }
 
-class _CliOptions {
-  const _CliOptions({
+class PeakRankingOptions {
+  const PeakRankingOptions({
     required this.showHelp,
     required this.regionKey,
     required this.regionProfile,
@@ -829,7 +845,7 @@ class _CliOptions {
 
   final bool showHelp;
   final String regionKey;
-  final _RegionProfile regionProfile;
+  final PeakRankingRegionProfile regionProfile;
   final int topCount;
   final int? maxCandidates;
   final int delayMs;
@@ -841,7 +857,7 @@ class _CliOptions {
   final bool offline;
   final bool refreshCache;
 
-  static _CliOptions parse(List<String> args) {
+  static PeakRankingOptions parse(List<String> args) {
     var showHelp = false;
     var regionKey = _defaultRegionKey;
     var topCount = _defaultTopCount;
@@ -966,7 +982,7 @@ class _CliOptions {
 
     final regionProfile = _regionProfileForKey(regionKey);
 
-    return _CliOptions(
+    return PeakRankingOptions(
       showHelp: showHelp,
       regionKey: regionProfile.key,
       regionProfile: regionProfile,
@@ -1462,37 +1478,20 @@ class _NominatimReverseGeocodeClient {
   }
 }
 
-Future<List<List<LatLng>>> _loadRegionPolygons() async {
-  final polygons = <List<LatLng>>[];
-  for (final path in _activeRegionProfile.polygonPaths) {
-    final file = File(path);
-    if (!await file.exists()) {
-      throw FileSystemException('Missing polygon asset', path);
-    }
-    final parseResult = parsePolygonText(await file.readAsString());
-    if (!parseResult.isSuccess || parseResult.polygon == null) {
-      throw StateError('Invalid polygon asset $path: ${parseResult.error}');
-    }
-    polygons.add(parseResult.polygon!.vertices);
-  }
-  return polygons;
-}
-
 Future<List<_PeakCandidate>> _loadRegionPeaks(
   List<List<LatLng>> polygons,
+  List<String> paths,
+  MappingToolResolver resolver,
 ) async {
-  final datasetFile = File(_activeRegionProfile.datasetPath);
-  if (!await datasetFile.exists()) {
-    throw FileSystemException(
-      'Missing peak dataset',
-      _activeRegionProfile.datasetPath,
-    );
+  final allElements = <dynamic>[];
+  for (final path in paths) {
+    final source = jsonDecode(await resolver.readDeclaredText(path));
+    if (source is! Map || source['elements'] is! List) {
+      throw FormatException('Malformed peak source: $path');
+    }
+    allElements.addAll(source['elements'] as List);
   }
-
-  final decoded = jsonDecode(await datasetFile.readAsString());
-  if (decoded is! Map<String, dynamic>) {
-    throw StateError('Peak dataset must be a JSON object.');
-  }
+  final decoded = <String, dynamic>{'elements': allElements};
   final elements = decoded['elements'];
   if (elements is! List<dynamic>) {
     throw StateError('Peak dataset must define an elements list.');
@@ -1591,7 +1590,7 @@ bool _isBetterPeak(_PeakCandidate left, _PeakCandidate right) {
 Future<_SearchCacheEntry> _loadOrFetchSearch({
   required _PeakCandidate peak,
   required String query,
-  required _CliOptions options,
+  required PeakRankingOptions options,
   required _DuckDuckGoSearchClient client,
 }) async {
   final cacheFile = _searchCacheFile(
@@ -1644,7 +1643,7 @@ Future<_SearchCacheEntry> _loadOrFetchSearch({
 
 Future<_SearchCacheEntry> _loadOrFetchPrimarySearch({
   required _PeakCandidate peak,
-  required _CliOptions options,
+  required PeakRankingOptions options,
   required _DuckDuckGoSearchClient client,
 }) async {
   final queries = _buildPrimaryQueries(peak);
@@ -1682,7 +1681,7 @@ Future<_SearchCacheEntry> _loadOrFetchPrimarySearch({
 File _searchCacheFile({
   required _PeakCandidate peak,
   required String query,
-  required _CliOptions options,
+  required PeakRankingOptions options,
 }) {
   if (query == _buildDefaultPrimaryQuery(peak)) {
     return File(p.join(options.cacheDir, '${peak.osmId}.json'));
@@ -1713,7 +1712,7 @@ String _queryCacheKey(String query) {
 
 Future<String?> _loadOrFetchProvince({
   required _PeakCandidate peak,
-  required _CliOptions options,
+  required PeakRankingOptions options,
   required _NominatimReverseGeocodeClient client,
   required _SearchCacheEntry searchCacheEntry,
 }) async {
@@ -1820,7 +1819,7 @@ Future<List<_EnrichedPeak>> _runSecondPass({
   required List<_EnrichedPeak> topPeaks,
   required int totalRegionPeaks,
   required int searchedCandidates,
-  required _CliOptions options,
+  required PeakRankingOptions options,
   required _DuckDuckGoSearchClient client,
 }) async {
   stdout.writeln(
@@ -1869,7 +1868,7 @@ Future<List<_EnrichedPeak>> _writeRankedOutputs({
   required List<_RankedPeak> rankedPeaks,
   required int totalRegionPeaks,
   required int searchedCandidates,
-  required _CliOptions options,
+  required PeakRankingOptions options,
   required bool useSearchOnlyEnrichment,
   required bool showProgress,
 }) async {
@@ -1896,7 +1895,7 @@ Future<List<_EnrichedPeak>> _writeRankedOutputs({
 
 Future<void> _writeLesserCsvIfRequested({
   required List<_RankedPeak> rankedPeaks,
-  required _CliOptions options,
+  required PeakRankingOptions options,
 }) async {
   final outputPath = options.lesserCsvOutputPath;
   if (outputPath == null) {
@@ -1949,7 +1948,7 @@ Future<_ExistingRankedOutput> _loadExistingRankedOutput(
 
 Future<_EnrichedPeak> _runSecondPassForPeak({
   required _EnrichedPeak peak,
-  required _CliOptions options,
+  required PeakRankingOptions options,
   required _DuckDuckGoSearchClient client,
 }) async {
   var updatedPeak = _localizeEnrichedPeak(peak);
@@ -2190,7 +2189,7 @@ int _compareRankedPeaks(_RankedPeak left, _RankedPeak right) {
 
 Future<List<_EnrichedPeak>> _enrichPeaks({
   required List<_RankedPeak> topPeaks,
-  required _CliOptions options,
+  required PeakRankingOptions options,
   required bool useSearchOnlyEnrichment,
   required bool showProgress,
 }) async {
@@ -2488,13 +2487,13 @@ Future<void> _writeJson({
   required List<_EnrichedPeak> topPeaks,
   required int totalRegionPeaks,
   required int searchedCandidates,
-  required _CliOptions options,
+  required PeakRankingOptions options,
 }) async {
   final payload = {
     'generatedAt': DateTime.now().toUtc().toIso8601String(),
     'regionKey': options.regionKey,
     'region': options.regionProfile.regionName,
-    'datasetPath': options.regionProfile.datasetPath,
+    'sourceRegion': options.regionProfile.key,
     'totalRegionPeaks': totalRegionPeaks,
     'searchedCandidates': searchedCandidates,
     'options': options.toJson(),
@@ -2508,7 +2507,7 @@ Future<void> _writeJson({
 Future<void> _writeCsv(
   String outputPath,
   List<_EnrichedPeak> topPeaks,
-  _CliOptions options,
+  PeakRankingOptions options,
 ) async {
   final rows = <List<Object?>>[
     [

@@ -71,6 +71,7 @@ class PeakListImportResult {
 
 class PeakListImportService {
   PeakListImportService({
+    required this.catalog,
     required this._peakRepository,
     required this._peakListRepository,
     PeakListCsvLoader? csvLoader,
@@ -84,6 +85,7 @@ class PeakListImportService {
        _clock = clock ?? DateTime.now;
 
   final PeakRepository _peakRepository;
+  final MappingCatalog catalog;
   final PeakListRepository _peakListRepository;
   final PeakListCsvLoader _csvLoader;
   final PeakListImportRootLoader _importRootLoader;
@@ -210,10 +212,7 @@ class PeakListImportService {
     }
 
     final saved = await _peakListRepository.save(
-      PeakList(
-        name: listName,
-        region: existing?.region ?? Peak.defaultRegion,
-      ),
+      PeakList(name: listName, region: existing?.region ?? Peak.defaultRegion),
       items: [
         for (final row in parsedRows)
           PeakListItem(peakOsmId: row.osmId, points: row.points),
@@ -1271,9 +1270,7 @@ class PeakListImportService {
     String rawRegionValue, {
     required int rowNumber,
   }) {
-    final regionData = regionManifestCatalog.regionByDisplayName(
-      rawRegionValue,
-    );
+    final regionData = catalog.regionByDisplayName(rawRegionValue);
     if (regionData == null || _isUnsupportedRankedRegionKey(regionData.key)) {
       throw FormatException(
         'unsupported region "$rawRegionValue" on row $rowNumber',

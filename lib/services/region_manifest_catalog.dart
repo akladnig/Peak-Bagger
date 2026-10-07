@@ -1,10 +1,14 @@
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
-import 'package:peak_bagger/services/manifest_priority.dart';
+import 'package:peak_bagger/services/mapping_store_core.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
 
-part 'package:peak_bagger/generated/region_manifest_catalog.g.dart';
+export 'package:peak_bagger/services/mapping_store_core.dart'
+    show Basemap, MappingCatalog, MappingCatalogRegion, MappingCatalogBasemap;
+
+typedef RegionManifestRegionData = MappingCatalogRegion;
+typedef RegionManifestBasemapData = MappingCatalogBasemap;
 
 const mapyCzApiKey = String.fromEnvironment('MAPY_CZ_API_KEY');
 const tracestrackApiKey = String.fromEnvironment('TRACESTRACK_API_KEY');
@@ -26,6 +30,7 @@ bool isBasemapAvailable(Basemap basemap) {
 
 List<String> localTopoRegionKeysForBounds(
   LatLngBounds? bounds, {
+  required MappingCatalog catalog,
   LocalTopoCapabilitySnapshot? snapshot,
 }) {
   final activeSnapshot = snapshot ?? localTopoRuntime.capabilitySnapshot;
@@ -33,7 +38,7 @@ List<String> localTopoRegionKeysForBounds(
     return const [];
   }
 
-  final visibleRegions = regionManifestCatalog.regionsForBounds(bounds);
+  final visibleRegions = catalog.regionsForBounds(bounds);
   return [
     for (final region in visibleRegions)
       if (activeSnapshot.supportsRegionKey(region.key)) region.key,
@@ -42,25 +47,31 @@ List<String> localTopoRegionKeysForBounds(
 
 bool isLocalTopoAvailableForBounds(
   LatLngBounds? bounds, {
+  required MappingCatalog catalog,
   LocalTopoCapabilitySnapshot? snapshot,
 }) {
-  return localTopoRegionKeysForBounds(bounds, snapshot: snapshot).isNotEmpty;
+  return localTopoRegionKeysForBounds(
+    bounds,
+    catalog: catalog,
+    snapshot: snapshot,
+  ).isNotEmpty;
 }
 
 bool isTasmaniaOverlayEligible({
+  required MappingCatalog catalog,
   required LatLng point,
   required LatLngBounds? visibleBounds,
   LocalTopoCapabilitySnapshot? snapshot,
 }) {
   final activeSnapshot = snapshot ?? localTopoRuntime.capabilitySnapshot;
   if (activeSnapshot == null ||
-      regionManifestCatalog.regionKeyForPoint(point) != 'tasmania') {
+      catalog.regionKeyForPoint(point) != 'tasmania') {
     return false;
   }
 
   final boundsIntersectTasmania =
       visibleBounds != null &&
-      regionManifestCatalog
+      catalog
           .regionsForBounds(visibleBounds)
           .any((region) => region.key == 'tasmania');
   if (!boundsIntersectTasmania) {
@@ -73,17 +84,16 @@ bool isTasmaniaOverlayEligible({
 }
 
 List<RegionManifestBasemapData> basemapsForDrawer({
+  required MappingCatalog catalog,
   required LatLng point,
   required LatLngBounds? visibleBounds,
 }) {
-  final basemaps = regionManifestCatalog
-      .basemapsForPoint(point)
-      .toList(growable: true);
-  if (!isLocalTopoAvailableForBounds(visibleBounds)) {
+  final basemaps = catalog.basemapsForPoint(point).toList(growable: true);
+  if (!isLocalTopoAvailableForBounds(visibleBounds, catalog: catalog)) {
     return List.unmodifiable(basemaps);
   }
 
-  final localTopo = regionManifestCatalog.basemapByKey(Basemap.localTopo.name);
+  final localTopo = catalog.basemapByKey(Basemap.localTopo.name);
   if (localTopo != null &&
       basemaps.every((basemap) => basemap.key != localTopo.key)) {
     basemaps.add(localTopo);
@@ -91,177 +101,19 @@ List<RegionManifestBasemapData> basemapsForDrawer({
   return List.unmodifiable(basemaps);
 }
 
-class RegionManifestBasemapData {
-  const RegionManifestBasemapData({
-    required this.key,
-    required this.name,
-    required this.tileUrl,
-    required this.attribution,
-    this.maxZoom,
-    this.coveragePolygons = const [],
-  });
-
-  final String key;
-  final String name;
-  final String tileUrl;
-  final String attribution;
-  final int? maxZoom;
-  final List<List<LatLng>> coveragePolygons;
-
-  bool isAvailableForPoint(LatLng point) {
-    if (coveragePolygons.isEmpty) {
-      return true;
-    }
-
-    for (final polygon in coveragePolygons) {
-      if (polygonContainsPoint(point, polygon)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-}
-
-class RegionManifestRegionData {
-  const RegionManifestRegionData({
-    required this.key,
-    required this.name,
-    required this.shortName,
-    required this.priority,
-    required this.showInPeakList,
-    this.peakListFilterAliases = const [],
-    required this.polygons,
-    required this.basemapKeys,
-    required this.mapSet,
-  });
-
-  final String key;
-  final String name;
-  final String shortName;
-  final ManifestPriority priority;
-  final bool? showInPeakList;
-  final List<String> peakListFilterAliases;
-  final List<List<LatLng>> polygons;
-  final List<String> basemapKeys;
-  final List<String> mapSet;
-
-  bool containsPoint(LatLng point) {
-    for (final polygon in polygons) {
-      if (polygonContainsPoint(point, polygon)) {
-        return true;
-      }
-    }
-    return false;
-  }
-}
-
-class RegionManifestCatalogData {
-  const RegionManifestCatalogData({
-    required this.basemaps,
-    required this.regions,
-  });
-
-  final List<RegionManifestBasemapData> basemaps;
-  final List<RegionManifestRegionData> regions;
-}
-
-const regionManifestCatalog = RegionManifestCatalog._();
-
-final Map<String, RegionManifestBasemapData> _basemapByKey = {
-  for (final basemap in regionManifestCatalogData.basemaps)
-    basemap.key: basemap,
-};
-
-final Map<String, Basemap> _basemapEnumByKey = {
-  for (final basemap in Basemap.values) basemap.name: basemap,
-};
-
-final Map<String, RegionManifestRegionData> _regionByKey = {
-  for (final region in regionManifestCatalogData.regions) region.key: region,
-};
-
-final Map<String, RegionManifestRegionData> _regionByDisplayName = {
-  for (final region in regionManifestCatalogData.regions)
-    region.name.trim(): region,
-};
-
-final Map<String, String> _peakListFilterRegionKeyByIdentifier = {
-  for (final region in regionManifestCatalogData.regions)
-    for (final alias in region.peakListFilterAliases) alias: region.key,
-};
-
-class RegionManifestCatalog {
-  const RegionManifestCatalog._();
-
+/// Flutter map operations over the immutable, ready-scope catalog.
+extension MappingCatalogMapOperations on MappingCatalog {
   static const _intersectionEpsilon = 1e-9;
 
-  RegionManifestBasemapData? basemapByKey(String key) {
-    return _basemapByKey[key];
-  }
-
   Basemap? basemapEnumByKey(String key) {
-    return _basemapEnumByKey[key];
-  }
-
-  RegionManifestRegionData? regionByKey(String key) {
-    return _regionByKey[key];
-  }
-
-  RegionManifestRegionData? regionByDisplayName(String? displayName) {
-    final trimmed = displayName?.trim();
-    if (trimmed == null || trimmed.isEmpty) {
-      return null;
-    }
-
-    return _regionByDisplayName[trimmed];
-  }
-
-  String? regionKeyByDisplayName(String? displayName) {
-    return regionByDisplayName(displayName)?.key;
-  }
-
-  List<RegionManifestRegionData> allRegions() {
-    return List.unmodifiable(regionManifestCatalogData.regions);
-  }
-
-  List<RegionManifestRegionData> peakListRegions() {
-    return List.unmodifiable(
-      regionManifestCatalogData.regions.where(
-        (region) => region.showInPeakList == true,
-      ),
-    );
-  }
-
-  String? peakListFilterRegionKey(String? regionKey) {
-    final normalized = _normalizePeakListFilterIdentifier(regionKey);
-    if (normalized == null) {
-      return null;
-    }
-
-    return _peakListFilterRegionKeyByIdentifier[normalized] ?? normalized;
-  }
-
-  RegionManifestRegionData? regionForPoint(LatLng point) {
-    for (final region in regionManifestCatalogData.regions) {
-      if (region.containsPoint(point)) {
-        return region;
-      }
+    for (final basemap in Basemap.values) {
+      if (basemap.name == key) return basemap;
     }
     return null;
   }
 
-  String? regionKeyForPoint(LatLng point) {
-    return regionForPoint(point)?.key;
-  }
-
-  List<RegionManifestRegionData> regionsForPointByPriority(LatLng point) {
-    final matches = <RegionManifestRegionData>[
-      for (final region in regionManifestCatalogData.regions)
-        if (region.containsPoint(point)) region,
-    ];
-    matches.sort(_compareRegionPriorityDescending);
-    return List.unmodifiable(matches);
+  List<RegionManifestRegionData> allRegions() {
+    return regions;
   }
 
   List<RegionManifestRegionData> highestPriorityRegionsForPoint(LatLng point) {
@@ -287,7 +139,7 @@ class RegionManifestCatalog {
     }
 
     final matches = <RegionManifestRegionData>[];
-    for (final region in regionManifestCatalogData.regions) {
+    for (final region in regions) {
       if (_boundsIntersectRegion(bounds, region)) {
         matches.add(region);
       }
@@ -305,7 +157,7 @@ class RegionManifestCatalog {
   }
 
   List<RegionManifestBasemapData> basemapsForRegionKey(String regionKey) {
-    final region = _regionByKey[regionKey];
+    final region = regionByKey(regionKey);
     if (region == null) {
       return const [];
     }
@@ -316,11 +168,11 @@ class RegionManifestCatalog {
       if (!seen.add(key)) {
         continue;
       }
-      final basemapEnum = _basemapEnumByKey[key];
+      final basemapEnum = basemapEnumByKey(key);
       if (basemapEnum != null && !isBasemapAvailable(basemapEnum)) {
         continue;
       }
-      final basemap = _basemapByKey[key];
+      final basemap = basemapByKey(key);
       if (basemap != null) {
         basemaps.add(basemap);
       }
@@ -330,9 +182,14 @@ class RegionManifestCatalog {
   }
 
   List<RegionManifestBasemapData> basemapsForPoint(LatLng point) {
-    final region = regionForPoint(point);
+    var region = regionForPoint(point);
     if (region == null) {
       return const [];
+    }
+    if (region.basemapKeys.isEmpty) {
+      region =
+          regionByKey(peakListFilterRegionKey(region.key) ?? region.key) ??
+          region;
     }
 
     final basemaps = <RegionManifestBasemapData>[];
@@ -342,12 +199,12 @@ class RegionManifestCatalog {
         continue;
       }
 
-      final basemapEnum = _basemapEnumByKey[key];
+      final basemapEnum = basemapEnumByKey(key);
       if (basemapEnum != null && !isBasemapAvailable(basemapEnum)) {
         continue;
       }
 
-      final basemap = _basemapByKey[key];
+      final basemap = basemapByKey(key);
       if (basemap == null || !basemap.isAvailableForPoint(point)) {
         continue;
       }
@@ -483,29 +340,5 @@ class RegionManifestCatalog {
         bounds.east.isFinite &&
         bounds.south < bounds.north &&
         bounds.west < bounds.east;
-  }
-
-  String? _normalizePeakListFilterIdentifier(String? regionKey) {
-    final trimmed = regionKey?.trim();
-    if (trimmed == null) {
-      return null;
-    }
-    if (trimmed.isEmpty) {
-      return 'tasmania';
-    }
-
-    return trimmed.toLowerCase();
-  }
-
-  int _compareRegionPriorityDescending(
-    RegionManifestRegionData left,
-    RegionManifestRegionData right,
-  ) {
-    final priorityComparison = right.priority.compareTo(left.priority);
-    if (priorityComparison != 0) {
-      return priorityComparison;
-    }
-
-    return left.key.compareTo(right.key);
   }
 }

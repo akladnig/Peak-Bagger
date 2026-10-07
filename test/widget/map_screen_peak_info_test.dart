@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -22,7 +23,7 @@ import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/screens/map_screen_peak_layer.dart';
 import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import '../harness/retired_overpass.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
@@ -151,6 +152,7 @@ void main() {
         ),
       ),
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakMarkerInfoSettingsProvider.overrideWith(
           () => _StaticPeakMarkerInfoNotifier(true),
         ),
@@ -200,6 +202,7 @@ void main() {
         ),
       ),
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakMarkerInfoSettingsProvider.overrideWith(
           () => _StaticPeakMarkerInfoNotifier(true),
         ),
@@ -229,6 +232,7 @@ void main() {
       tester,
       _mapStateWithPeak(),
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakOwnershipRingSegmentsProvider.overrideWithValue(
           const <int, List<PeakOwnershipRingSegment>>{},
         ),
@@ -269,6 +273,7 @@ void main() {
         ),
       ]),
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakOwnershipRingSegmentsProvider.overrideWithValue(const {
           6406: [
             PeakOwnershipRingSegment(peakListId: 9, colourValue: 0xFF4C8BF5),
@@ -762,6 +767,7 @@ void main() {
         ),
       ),
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakMarkerInfoSettingsProvider.overrideWith(
           () => _StaticPeakMarkerInfoNotifier(true),
         ),
@@ -999,6 +1005,7 @@ void main() {
         ),
       ),
       overrides: [
+        ...mappingCatalogTestOverrides,
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         tasmapStateProvider.overrideWith(
           () => TestTasmapNotifier(tasmapRepository),
@@ -1084,6 +1091,7 @@ void main() {
         ),
       ),
       overrides: [
+        ...mappingCatalogTestOverrides,
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         tasmapStateProvider.overrideWith(
           () => TestTasmapNotifier(tasmapRepository),
@@ -1337,6 +1345,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -1508,6 +1517,7 @@ void main() {
         ),
       ),
       overrides: [
+        ...mappingCatalogTestOverrides,
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         tasmapStateProvider.overrideWith(
           () => TestTasmapNotifier(tasmapRepository),
@@ -1547,6 +1557,7 @@ void main() {
           ),
         ),
         overrides: [
+          ...mappingCatalogTestOverrides,
           tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(tasmapRepository),
@@ -1573,6 +1584,7 @@ void main() {
       tester,
       _mapStateWithPeak(),
       overrides: [
+        ...mappingCatalogTestOverrides,
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         tasmapStateProvider.overrideWith(
           () => TestTasmapNotifier(tasmapRepository),
@@ -1599,6 +1611,7 @@ void main() {
       tester,
       _mapStateWithPeak(),
       overrides: [
+        ...mappingCatalogTestOverrides,
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         tasmapStateProvider.overrideWith(
           () => TestTasmapNotifier(tasmapRepository),
@@ -1833,6 +1846,7 @@ Future<void> _pumpMap(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => TestMapNotifier(
             state,

@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:peak_bagger/services/import_path_helpers.dart';
+import 'package:peak_bagger/services/mapping_tool_resolver.dart';
+import 'mapping_tool_support.dart';
 
 const _openDataManifestUrl =
     'https://listdata.thelist.tas.gov.au/opendata/resources/opendata.js';
@@ -13,19 +14,21 @@ Downloads and merges theLIST Tasmania 25m DEM municipality zips.
 What it does:
 - fetches theLIST open-data manifest
 - discovers all LIST_DEM_25M_*.zip municipality archives
-- downloads them under your Tasmania DEM root
+- downloads them into a non-store preparation workspace
 - extracts them
 - builds a statewide VRT
 - optionally writes a merged GeoTIFF
 
 Default output:
-- ~/DEM/Tasmania/thelist_25m
+- workspace: build/dem/thelist_25m
+- Mapping output: DEM/tasmania_dem_25m.tif (atomic)
 
 Usage:
   dart run tool/download_tasmania_thelist_dem.dart
   dart run tool/download_tasmania_thelist_dem.dart --list-only
   dart run tool/download_tasmania_thelist_dem.dart --skip-merge
   dart run tool/download_tasmania_thelist_dem.dart --output-dir /path/to/output
+  dart run tool/download_tasmania_thelist_dem.dart --output-file DEM/custom.tif
 ''';
 
 final _municipalityBlockPattern = RegExp(
@@ -37,12 +40,17 @@ final _demDatasetPrefixSuffixPattern = RegExp(r',"([^"]+)"\]\s*,?$');
 const _rasterExtensions = <String>{'.tif', '.tiff', '.asc', '.img'};
 
 Future<void> main(List<String> args) async {
-  final options = _CliOptions.parse(args);
+  final options = TheListDemOptions.parse(args);
   if (options.showHelp) {
     stdout.write(_usage);
     return;
   }
 
+  final resolver = await openMappingTool('download-tasmania-thelist-dem');
+  await resolver.validateOverrides({'--output-file': ?options.outputFile});
+  final outputDirectory =
+      options.outputDirectory ?? p.join('build', 'dem', 'thelist_25m');
+  await resolver.requireNonStorePath(outputDirectory);
   final zipUrls = await _discoverZipUrls();
   if (options.listOnly) {
     for (final url in zipUrls) {
@@ -50,10 +58,6 @@ Future<void> main(List<String> args) async {
     }
     return;
   }
-
-  final outputDirectory =
-      options.outputDirectory ??
-      p.join(resolveTasmaniaDemRoot(), 'thelist_25m');
 
   final workspace = _Workspace.fromRoot(outputDirectory);
   await workspace.ensureExists();
@@ -87,46 +91,63 @@ Future<void> main(List<String> args) async {
   ]);
 
   if (!options.skipMerge) {
-    await _runCommand('gdal_translate', [
-      workspace.vrtPath,
-      workspace.geoTiffPath,
-      '-co',
-      'TILED=YES',
-      '-co',
-      'COMPRESS=DEFLATE',
-      '-co',
-      'BIGTIFF=IF_SAFER',
-    ]);
+    await resolver.writeOutputs(
+      (outputs) async {
+        await outputs.runProcess(resolver.contract.executable, [
+          const MappingToolOutputPath('dem'),
+          workspace.vrtPath,
+        ]);
+      },
+      overrides: {
+        if (options.outputFile != null) '--output-file': options.outputFile!,
+      },
+    );
   }
 
   stdout.writeln('Done.');
   stdout.writeln('VRT: ${workspace.vrtPath}');
   if (!options.skipMerge) {
-    stdout.writeln('GeoTIFF: ${workspace.geoTiffPath}');
+    stdout.writeln(
+      'Published Mapping DEM: ${options.outputFile ?? resolver.contract.outputs['dem']!.path}',
+    );
   }
 }
 
-class _CliOptions {
-  const _CliOptions({
+class TheListDemOptions {
+  const TheListDemOptions({
     required this.showHelp,
     required this.listOnly,
     required this.skipMerge,
     this.outputDirectory,
+    this.outputFile,
   });
 
   final bool showHelp;
   final bool listOnly;
   final bool skipMerge;
   final String? outputDirectory;
+  final String? outputFile;
 
-  static _CliOptions parse(List<String> args) {
+  static TheListDemOptions parse(List<String> args) {
     var showHelp = false;
     var listOnly = false;
     var skipMerge = false;
     String? outputDirectory;
+    String? outputFile;
 
     for (var index = 0; index < args.length; index++) {
       final arg = args[index];
+      if (arg.startsWith('--output-file=')) {
+        outputFile = arg.substring('--output-file='.length);
+        continue;
+      }
+      if (arg == '--output-file') {
+        if (index + 1 >= args.length) {
+          throw ArgumentError('Missing value for --output-file');
+        }
+        outputFile = args[++index];
+        continue;
+      }
       if (arg == '--help' || arg == '-h') {
         showHelp = true;
         continue;
@@ -153,11 +174,12 @@ class _CliOptions {
       throw ArgumentError('Unknown argument: $arg');
     }
 
-    return _CliOptions(
+    return TheListDemOptions(
       showHelp: showHelp,
       listOnly: listOnly,
       skipMerge: skipMerge,
       outputDirectory: outputDirectory,
+      outputFile: outputFile,
     );
   }
 }

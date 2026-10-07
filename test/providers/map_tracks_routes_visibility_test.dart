@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route.dart';
@@ -8,7 +9,7 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import '../harness/retired_overpass.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
@@ -22,6 +23,7 @@ void main() {
     final tasmapRepository = await TestTasmapRepository.create();
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -78,6 +80,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -109,6 +112,7 @@ void main() {
 
     final secondContainer = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -149,6 +153,7 @@ void main() {
       final completer = Completer<SharedPreferences>();
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapPreferencesLoaderProvider.overrideWithValue(
             () => completer.future,
           ),
@@ -198,6 +203,7 @@ void main() {
       final tasmapRepository = await TestTasmapRepository.create();
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => MapNotifier(
               peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -235,6 +241,7 @@ void main() {
     final tasmapRepository = await TestTasmapRepository.create();
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -282,6 +289,7 @@ void main() {
     final tasmapRepository = await TestTasmapRepository.create();
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => MapNotifier(
             peakRepository: PeakRepository.test(InMemoryPeakStorage()),

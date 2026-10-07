@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,41 +6,34 @@ import '../../tool/region_peak_fingerprint_support.dart';
 
 void main() {
   test(
-    'validation reports stale fingerprints and passes current ones',
+    'validation detects stale markers then accepts the published fingerprint',
     () async {
-      final tempDir = await Directory.systemTemp.createTemp(
-        'peak-fingerprint-validation-',
-      );
-      addTearDown(() => tempDir.delete(recursive: true));
-
-      final peakFile = File('${tempDir.path}/tas.json')
-        ..writeAsStringSync('tas');
-      final manifestFile = File('${tempDir.path}/manifest.json')
-        ..writeAsStringSync(
-          jsonEncode({
-            'routingCoverages': {
-              'tasmania': {'displayName': 'Tasmania'},
-            },
-            'tasmania': {
-              'fingerprint': 'stale',
-              'peaks': [peakFile.path],
-            },
-            'fvg': {'seedOnStartup': false},
-          }),
-        );
-
+      var manifest = jsonEncode({
+        'tasmania': {
+          'fingerprint': 'stale',
+          'peaks': ['Peaks/tasmania-peaks.json'],
+        },
+      });
+      Future<String> readText(String path) async => manifest;
+      Future<List<int>> readBytes(String path) async => utf8.encode('tas');
       expect(
         await findStaleSeedableRegionFingerprints(
-          manifestPath: manifestFile.path,
+          readText: readText,
+          readBytes: readBytes,
         ),
         ['tasmania'],
       );
-
-      await updateSeedableRegionFingerprints(manifestPath: manifestFile.path);
-
+      await updateSeedableRegionFingerprints(
+        readText: readText,
+        readBytes: readBytes,
+        writeText: (_, text) async {
+          manifest = text;
+        },
+      );
       expect(
         await findStaleSeedableRegionFingerprints(
-          manifestPath: manifestFile.path,
+          readText: readText,
+          readBytes: readBytes,
         ),
         isEmpty,
       );

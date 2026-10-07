@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../harness/mapping_catalog_fixture.dart';
 import 'dart:ui' show PointerDeviceKind;
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
@@ -21,6 +22,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(
               () => TestMapNotifier(
                 MapState(

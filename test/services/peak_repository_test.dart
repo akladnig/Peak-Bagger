@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -19,6 +20,7 @@ void main() {
     setUp(() {
       storage = InMemoryPeakStorage();
       repository = PeakRepository.test(
+        catalog: testMappingCatalog,
         storage,
         peakListRewritePort: _NoopPeakListRewritePort(),
       );
@@ -279,7 +281,12 @@ void main() {
         final rewritePort = InMemoryPeakListRewritePort(
           peakLists: [peakList],
           peakListItems: [
-            _peakListItemEntity(id: 1, peakList: peakList, peakOsmId: 123, points: 2),
+            _peakListItemEntity(
+              id: 1,
+              peakList: peakList,
+              peakOsmId: 123,
+              points: 2,
+            ),
           ],
           peaksBagged: const [],
           tracks: const [],
@@ -418,8 +425,18 @@ void main() {
         final rewritePort = InMemoryPeakListRewritePort(
           peakLists: peakLists,
           peakListItems: [
-            _peakListItemEntity(id: 1, peakList: repairList, peakOsmId: 123, points: 4),
-            _peakListItemEntity(id: 2, peakList: repairList, peakOsmId: 999, points: 2),
+            _peakListItemEntity(
+              id: 1,
+              peakList: repairList,
+              peakOsmId: 123,
+              points: 4,
+            ),
+            _peakListItemEntity(
+              id: 2,
+              peakList: repairList,
+              peakOsmId: 999,
+              points: 2,
+            ),
           ],
           peaksBagged: peaksBagged,
           tracks: tracks,
@@ -445,7 +462,10 @@ void main() {
         expect(result.survivingPeak?.id, survivingPeak.id);
         expect(detailedRepository.findById(duplicatePeak.id), isNull);
         expect(detailedRepository.findById(survivingPeak.id)?.osmId, 456);
-        expect(_peakListMemberships(rewritePort.peakListItems, 1), [(456, 4), (999, 2)]);
+        expect(_peakListMemberships(rewritePort.peakListItems, 1), [
+          (456, 4),
+          (999, 2),
+        ]);
         expect(peaksBagged.map((row) => row.peakId).toList(), [456, 999]);
         expect(tracks.single.peaks.map((peak) => peak.osmId).toList(), [
           456,
@@ -527,9 +547,24 @@ void main() {
         final rewritePort = InMemoryPeakListRewritePort(
           peakLists: peakLists,
           peakListItems: [
-            _peakListItemEntity(id: 1, peakList: collisionList, peakOsmId: 123, points: 7),
-            _peakListItemEntity(id: 2, peakList: collisionList, peakOsmId: 456, points: 9),
-            _peakListItemEntity(id: 3, peakList: collisionList, peakOsmId: 999, points: 2),
+            _peakListItemEntity(
+              id: 1,
+              peakList: collisionList,
+              peakOsmId: 123,
+              points: 7,
+            ),
+            _peakListItemEntity(
+              id: 2,
+              peakList: collisionList,
+              peakOsmId: 456,
+              points: 9,
+            ),
+            _peakListItemEntity(
+              id: 3,
+              peakList: collisionList,
+              peakOsmId: 999,
+              points: 2,
+            ),
           ],
           peaksBagged: peaksBagged,
           tracks: tracks,
@@ -552,7 +587,10 @@ void main() {
         );
 
         expect(result.isSuccess, isTrue);
-        expect(_peakListMemberships(rewritePort.peakListItems, 1), [(456, 7), (999, 2)]);
+        expect(_peakListMemberships(rewritePort.peakListItems, 1), [
+          (456, 7),
+          (999, 2),
+        ]);
         expect(peaksBagged.map((row) => row.baggedId).toList(), [2]);
         expect(peaksBagged.single.peakId, 456);
         expect(tracks.single.peaks.map((peak) => peak.osmId).toList(), [
@@ -617,7 +655,12 @@ void main() {
         final rewritePort = InMemoryPeakListRewritePort(
           peakLists: peakLists,
           peakListItems: [
-            _peakListItemEntity(id: 1, peakList: rollbackList, peakOsmId: 123, points: 5),
+            _peakListItemEntity(
+              id: 1,
+              peakList: rollbackList,
+              peakOsmId: 123,
+              points: 5,
+            ),
           ],
           peaksBagged: peaksBagged,
           tracks: tracks,
@@ -670,8 +713,18 @@ void main() {
         final rewritePort = InMemoryPeakListRewritePort(
           peakLists: peakLists,
           peakListItems: [
-            _peakListItemEntity(id: 1, peakList: abels, peakOsmId: 123, points: 2),
-            _peakListItemEntity(id: 2, peakList: abels, peakOsmId: 999, points: 4),
+            _peakListItemEntity(
+              id: 1,
+              peakList: abels,
+              peakOsmId: 123,
+              points: 2,
+            ),
+            _peakListItemEntity(
+              id: 2,
+              peakList: abels,
+              peakOsmId: 999,
+              points: 4,
+            ),
           ],
           peaksBagged: peaksBagged,
           tracks: const [],
@@ -876,10 +929,11 @@ List<(int, int)> _peakListMemberships(
   List<PeakListItemEntity> items,
   int peakListId,
 ) {
-  final memberships = items
-      .where((item) => item.peakList.target?.peakListId == peakListId)
-      .toList(growable: false)
-    ..sort((left, right) => left.id.compareTo(right.id));
+  final memberships =
+      items
+          .where((item) => item.peakList.target?.peakListId == peakListId)
+          .toList(growable: false)
+        ..sort((left, right) => left.id.compareTo(right.id));
   return memberships
       .map((item) => (item.peak.target!.osmId, item.points))
       .toList(growable: false);

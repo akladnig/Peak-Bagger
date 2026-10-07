@@ -11,7 +11,7 @@ class TestTasmapNotifier extends TasmapNotifier {
   TasmapState build() => const TasmapState();
 
   @override
-  Future<TasmapCsvImportResult> resetAndReimport() async {
+  Future<TasmapCsvImportResult> updateFromMappingStore() async {
     state = state.copyWith(
       mapCount: repository.mapCount,
       tasmapRevision: state.tasmapRevision + 1,

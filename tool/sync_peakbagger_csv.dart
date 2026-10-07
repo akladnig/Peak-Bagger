@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:peak_bagger/services/mapping_store_core.dart'
+    show requireNonMappingPath;
 
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
@@ -98,6 +100,13 @@ Future<PeakBaggerCsvSyncResult> syncPeakBaggerCsv({
   PeakBaggerCsvRowProgress? onRowProcessed,
   void Function(String message)? onWarning,
 }) async {
+  for (final path in [
+    csvPath,
+    _sourceCsvPath(csvPath),
+    _latLonCsvPath(csvPath),
+  ]) {
+    await requireNonMappingPath(path);
+  }
   if (service != null) {
     final resolvedInputPath = _resolvedInputCsvPath(csvPath);
     return service.syncCsv(
@@ -126,7 +135,7 @@ Future<PeakBaggerCsvSyncResult> syncPeakBaggerCsv({
   WidgetsFlutterBinding.ensureInitialized();
   final store = await openStore();
   try {
-    final peakRepository = PeakRepository(
+    final peakRepository = PeakRepository.userDataOnly(
       store,
       peakListRewritePort: ObjectBoxPeakListRewritePort(store),
     );
@@ -156,6 +165,9 @@ Future<PeakBaggerCsvSyncResult> runSyncPeakBaggerCsvTool({
   void Function(String message)? warningWriter,
 }) async {
   final parsedArgs = _parseArgs(args);
+  await requireNonMappingPath(
+    p.join(Directory.current.path, 'logs', 'import.log'),
+  );
   var processedRows = 0;
 
   final result = await syncPeakBaggerCsv(
@@ -231,6 +243,8 @@ Future<String> refreshPeakBaggerLatLonCsv({
   PeakBaggerScraper? scraper,
   void Function(String message)? onWarning,
 }) async {
+  await requireNonMappingPath(sourceCsvPath);
+  await requireNonMappingPath(latLonCsvPath);
   final csvImportService = PeakBaggerCsvImportService();
   final sourceContents = await File(sourceCsvPath).readAsString();
   final sourceDocument = csvImportService.parse(
@@ -435,6 +449,7 @@ Future<void> main(List<String> args) async {
   final progressFilePath = Platform.environment['PEAKBAGGER_PROGRESS_FILE'];
   RandomAccessFile? progressFile;
   if (progressFilePath != null && progressFilePath.isNotEmpty) {
+    await requireNonMappingPath(progressFilePath);
     final file = File(progressFilePath);
     await file.parent.create(recursive: true);
     progressFile = file.openSync(mode: FileMode.writeOnlyAppend);

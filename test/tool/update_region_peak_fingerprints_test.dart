@@ -1,45 +1,65 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../tool/region_peak_fingerprint_support.dart';
 
 void main() {
-  test('update tool rewrites stale fingerprints deterministically', () async {
-    final tempDir = await Directory.systemTemp.createTemp('peak-fingerprints-');
-    addTearDown(() => tempDir.delete(recursive: true));
+  test(
+    'fingerprint update skips all metadata, composites and supporting regions',
+    () async {
+      var manifest = jsonEncode({
+        'tasmap': {'catalog': 'Maps/test.csv'},
+        'naturalFeatures': {'catalog': 'Features/test.json'},
+        'demSources': {'elvisRuntime': 'DEM/runtime.tif'},
+        'routingCoverages': {
+          'tasmania': {'displayName': 'Tasmania'},
+        },
+        'tasmania': {
+          'fingerprint': 'stale',
+          'peaks': ['Peaks/tasmania-peaks.json'],
+        },
+        'italy': {
+          'composite': true,
+          'peaks': ['Peaks/italy-peaks.json'],
+        },
+        'fvg': {'seedOnStartup': false},
+      });
+      final reads = <String>[];
+      Future<List<int>> readBytes(String path) async {
+        reads.add(path);
+        return utf8.encode('tas');
+      }
 
-    final peakFile = File('${tempDir.path}/tas.json')..writeAsStringSync('tas');
-    final compositePeakFile = File('${tempDir.path}/italy.json')
-      ..writeAsStringSync('italy');
-    final manifestFile = File('${tempDir.path}/manifest.json')
-      ..writeAsStringSync(
-        jsonEncode({
-          'routingCoverages': {
-            'tasmania': {'displayName': 'Tasmania'},
-          },
-          'tasmania': {
-            'fingerprint': 'stale',
-            'peaks': [peakFile.path],
-          },
-          'italy': {
-            'composite': true,
-            'peaks': [compositePeakFile.path],
-          },
-          'fvg': {'seedOnStartup': false},
-        }),
+      var writes = 0;
+      Future<void> write(String path, String text) async {
+        expect(path, 'region_manifest.json');
+        writes++;
+        manifest = text;
+      }
+
+      expect(
+        await updateSeedableRegionFingerprints(
+          readText: (_) async => manifest,
+          readBytes: readBytes,
+          writeText: write,
+        ),
+        isTrue,
       );
-
-    final changed = await updateSeedableRegionFingerprints(
-      manifestPath: manifestFile.path,
-    );
-
-    final updatedManifest =
-        jsonDecode(await manifestFile.readAsString()) as Map<String, dynamic>;
-    expect(changed, isTrue);
-    expect(updatedManifest['tasmania']['fingerprint'], isNot('stale'));
-    expect(updatedManifest['italy']['fingerprint'], isNull);
-    expect(updatedManifest['fvg']['fingerprint'], isNull);
-  });
+      expect(reads, ['Peaks/tasmania-peaks.json']);
+      final decoded = jsonDecode(manifest) as Map;
+      expect(decoded['tasmania']['fingerprint'], isNot('stale'));
+      expect(decoded['italy']['fingerprint'], isNull);
+      expect(decoded['fvg']['fingerprint'], isNull);
+      expect(
+        await updateSeedableRegionFingerprints(
+          readText: (_) async => manifest,
+          readBytes: readBytes,
+          writeText: write,
+        ),
+        isFalse,
+      );
+      expect(writes, 1);
+    },
+  );
 }

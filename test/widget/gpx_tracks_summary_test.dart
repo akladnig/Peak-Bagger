@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -28,6 +29,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(() => TestMapNotifier(initialState)),
           ],
           child: const MaterialApp(home: SettingsScreen()),
@@ -62,22 +64,23 @@ void main() {
           'Some tracks could not be recalculated, so their previous statistics and peak correlation were kept.',
     );
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            mapProvider.overrideWith(() => TestMapNotifier(initialState)),
-          ],
-          child: const MaterialApp(home: SettingsScreen()),
-        ),
-      );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...mappingCatalogTestOverrides,
+          mapProvider.overrideWith(() => TestMapNotifier(initialState)),
+        ],
+        child: const MaterialApp(home: SettingsScreen()),
+      ),
+    );
 
-      await tester.scrollUntilVisible(
-        find.textContaining('Updated 1,234 tracks'),
-        300,
-        scrollable: _settingsScrollable(),
-      );
+    await tester.scrollUntilVisible(
+      find.textContaining('Updated 1,234 tracks'),
+      300,
+      scrollable: _settingsScrollable(),
+    );
 
-      expect(find.textContaining('Updated 1,234 tracks'), findsOneWidget);
+    expect(find.textContaining('Updated 1,234 tracks'), findsOneWidget);
     expect(find.textContaining('refreshed peak correlation'), findsOneWidget);
     expect(find.textContaining('skipped 2,345 tracks'), findsOneWidget);
     expect(

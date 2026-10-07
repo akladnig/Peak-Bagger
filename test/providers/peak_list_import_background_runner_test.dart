@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/models/peak.dart';
@@ -50,6 +51,7 @@ void main() {
         peakRepository: peakRepository,
       );
       final service = PeakListImportService(
+        catalog: testMappingCatalog,
         peakRepository: peakRepository,
         peakListRepository: peakListRepository,
         csvLoader: (_) async =>
@@ -64,6 +66,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListRepositoryProvider.overrideWithValue(peakListRepository),
           currentRoutePathProvider.overrideWithValue('/peaks'),
           peakListImportServiceProvider.overrideWithValue(service),
@@ -138,6 +141,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListRepositoryProvider.overrideWithValue(peakListRepository),
           currentRoutePathProvider.overrideWithValue('/map'),
           peakListSelectionRefreshSchedulerProvider.overrideWithValue((
@@ -216,6 +220,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           peakListRepositoryProvider.overrideWithValue(peakListRepository),
           currentRoutePathProvider.overrideWithValue('/peaks'),
           peakListImportServiceProvider.overrideWithValue(
@@ -289,6 +294,7 @@ class _ReloadingImportService extends PeakListImportService {
     required this.peakListRepository,
     required this.updatedPeak,
   }) : super(
+         catalog: testMappingCatalog,
          peakRepository: peakRepository,
          peakListRepository: peakListRepository,
        );

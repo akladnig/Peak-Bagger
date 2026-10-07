@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
@@ -95,12 +96,16 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
           polygonAssetRepositoryProvider.overrideWithValue(
-            PolygonAssetRepository(assetLoader: _polygonAssetLoader),
+            PolygonAssetRepository.test(
+              paths: ['Polygons/test.poly'],
+              assetLoader: _polygonAssetLoader,
+            ),
           ),
           showPolygonsSettingsProvider.overrideWith(
             () => _TestShowPolygonsNotifier(true),
@@ -150,6 +155,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(
               () => TestMapNotifier(
                 MapState(
@@ -230,6 +236,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(
               () => TestMapNotifier(
                 MapState(
@@ -330,7 +337,8 @@ void main() {
           ),
         );
 
-        final initialRefreshes = MapRebuildDebugCounters.peakListDerivedRefreshes;
+        final initialRefreshes =
+            MapRebuildDebugCounters.peakListDerivedRefreshes;
         final initialBuilds = MapRebuildDebugCounters.peakProjectionBuilds;
         final region = find.byKey(const Key('map-interaction-region'));
         final gesture = await tester.startGesture(
@@ -437,12 +445,16 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           peakListRepositoryProvider.overrideWithValue(
             PeakListRepository.test(InMemoryPeakListStorage()),
           ),
           polygonAssetRepositoryProvider.overrideWithValue(
-            PolygonAssetRepository(assetLoader: _polygonAssetLoader),
+            PolygonAssetRepository.test(
+              paths: ['Polygons/test.poly'],
+              assetLoader: _polygonAssetLoader,
+            ),
           ),
           showPolygonsSettingsProvider.overrideWith(() => polygonToggle),
         ],
@@ -498,6 +510,7 @@ void main() {
     );
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => notifier),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(
@@ -547,9 +560,11 @@ Future<void> _pumpMapApp(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => TestMapNotifier(state)),
         peakListRepositoryProvider.overrideWithValue(
-          peakListRepository ?? PeakListRepository.test(InMemoryPeakListStorage()),
+          peakListRepository ??
+              PeakListRepository.test(InMemoryPeakListStorage()),
         ),
       ],
       child: const App(),
@@ -564,8 +579,7 @@ Future<void> _pumpMapApp(
 
 Future<String> _polygonAssetLoader(String assetPath) async {
   return switch (assetPath) {
-    'assets/polygons/manifest.json' => '["assets/polygons/test.poly"]',
-    'assets/polygons/test.poly' => 'none\n1\n0 0\n1 0\n1 1\n0 0\nEND\nEND\n',
+    'Polygons/test.poly' => 'none\n1\n0 0\n1 0\n1 1\n0 0\nEND\nEND\n',
     _ => throw StateError('Unexpected polygon asset: $assetPath'),
   };
 }

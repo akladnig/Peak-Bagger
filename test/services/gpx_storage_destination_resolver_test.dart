@@ -1,18 +1,31 @@
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/services/gpx_storage_destination_resolver.dart';
 import 'package:peak_bagger/services/polygon_asset_repository.dart';
+import '../fixtures/polygon_mapping_store.dart';
 
 void main() {
   late GpxStorageDestinationResolver resolver;
 
   setUp(() {
     resolver = GpxStorageDestinationResolver(
-      polygonAssetRepository: PolygonAssetRepository(
-        assetLoader: (assetPath) async => File(assetPath).readAsString(),
+      polygonAssetRepository: PolygonAssetRepository.test(
+        paths: [
+          'Polygons/italy-nord-est.poly',
+          'Polygons/italy-nord-ovest.poly',
+          'Polygons/slovenia.poly',
+          'Polygons/croatia.poly',
+          'Polygons/new-south-wales.poly',
+        ],
+        assetLoader: (assetPath) async => switch (assetPath) {
+          'Polygons/italy-nord-est.poly' => _polygonText(12, 45, 14, 47),
+          'Polygons/italy-nord-ovest.poly' => _polygonText(6, 44, 9, 46),
+          'Polygons/slovenia.poly' => _polygonText(13.8, 45.8, 15.7, 46.8),
+          'Polygons/croatia.poly' => _polygonText(15.8, 45.5, 17, 46.2),
+          'Polygons/new-south-wales.poly' => _polygonText(146, -38, 150, -35),
+          _ => throw StateError('Unexpected polygon asset: $assetPath'),
+        },
       ),
     );
   });
@@ -98,4 +111,20 @@ void main() {
 
     expect(destination, isNull);
   });
+
+  test(
+    'ready-scope destination lookup uses catalog geometry without opening optional display files',
+    () async {
+      final store = PolygonMappingStore();
+      final catalog = await store.loadCatalog();
+      store.reads.clear();
+      final resolver = GpxStorageDestinationResolver(mappingCatalog: catalog);
+      expect(await resolver.resolveForPoint(const LatLng(0.1, 0.2)), isNotNull);
+      expect(store.reads, isEmpty);
+    },
+  );
+}
+
+String _polygonText(double west, double south, double east, double north) {
+  return 'none\n1\n$west $south\n$east $south\n$east $north\n$west $north\n$west $south\nEND\nEND\n';
 }

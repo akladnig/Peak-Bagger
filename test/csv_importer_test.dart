@@ -3,18 +3,20 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
 
+const _tasmapFixturePath = 'test/fixtures/tasmap50k.csv';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('CsvImporter', () {
-    test('importFromCsv returns 75 maps', () async {
-      final result = await CsvImporter.importFromCsv('assets/tasmap50k.csv');
-      expect(result.importedCount, 75);
-      expect(result.maps, hasLength(75));
+    test('importFromCsv returns fixture maps', () async {
+      final result = await CsvImporter.importFromCsv(_tasmapFixturePath);
+      expect(result.importedCount, 3);
+      expect(result.maps, hasLength(3));
     });
 
     test('importFromCsv populates new fields correctly', () async {
-      final result = await CsvImporter.importFromCsv('assets/tasmap50k.csv');
+      final result = await CsvImporter.importFromCsv(_tasmapFixturePath);
       final wellington = result.maps.firstWhere((m) => m.name == 'Wellington');
 
       expect(wellington.mgrsMid, 'EN');
@@ -33,7 +35,7 @@ void main() {
     test(
       'importFromCsv uses correct column names (eastingMin not Xmin)',
       () async {
-        final result = await CsvImporter.importFromCsv('assets/tasmap50k.csv');
+        final result = await CsvImporter.importFromCsv(_tasmapFixturePath);
         final wellington = result.maps.firstWhere(
           (m) => m.name == 'Wellington',
         );
@@ -46,7 +48,7 @@ void main() {
     );
 
     test('importFromCsv handles wrap-around ranges', () async {
-      final result = await CsvImporter.importFromCsv('assets/tasmap50k.csv');
+      final result = await CsvImporter.importFromCsv(_tasmapFixturePath);
       final blackBluff = result.maps.firstWhere((m) => m.name == 'Black Bluff');
 
       expect(blackBluff.eastingMin, 80000);
@@ -60,10 +62,10 @@ void main() {
       addTearDown(() => tempDir.delete(recursive: true));
 
       final csvFile = File('${tempDir.path}/tasmap50k.csv');
-      final sourceContents = await File('assets/tasmap50k.csv').readAsString();
+      final sourceContents = await File(_tasmapFixturePath).readAsString();
       final modifiedContents = sourceContents.replaceFirst(
-        'TQ08,Wellington,8312,EN   ,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,',
-        'TQ08,Wellington Test,8312,EN   ,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,',
+        'TQ08,Wellington,8312,EN,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000',
+        'TQ08,Wellington Test,8312,EN,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000',
       );
       await csvFile.writeAsString(modifiedContents);
 
@@ -72,13 +74,56 @@ void main() {
         (map) => map.name == 'Wellington Test',
       );
 
-      expect(result.importedCount, 75);
+      expect(result.importedCount, 3);
       expect(wellington.name, 'Wellington Test');
       expect(wellington.p4, 'EN0000040000');
     });
 
     test('normalizePointValue removes spaces and uppercases', () {
       expect(CsvImporter.normalizePointValue('en 00000 69999'), 'EN0000069999');
+    });
+
+    test('parses quoted RFC 4180 fields and ignores blank rows', () {
+      final result = CsvImporter.importFromContents(
+        'Series,Name,Parent,MGRS,eastingMin,eastingMax,northingMin,northingMax,mgrsMid,eastingMid,northingMid,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12,,\r\n'
+        'TQ08,Wellington,"Parent, quoted",EN,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,,,,,\r\n'
+        ',,,,,,,,,,,,,,,,,,,,,,\r\n',
+      );
+
+      expect(result.maps.single.parentSeries, 'Parent, quoted');
+    });
+
+    for (final parent in ['', '   ']) {
+      test('accepts a blank Parent value "$parent"', () {
+        final result = CsvImporter.importFromContents(
+          'Series,Name,Parent,MGRS,eastingMin,eastingMax,northingMin,northingMax,mgrsMid,eastingMid,northingMid,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12\n'
+          'TQ08,Wellington,$parent,EN,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,,,,,\n',
+        );
+
+        expect(result.importedCount, 1);
+        expect(result.maps.single.parentSeries, isEmpty);
+      });
+    }
+
+    test('rejects duplicate, unknown, and incomplete headers', () {
+      const row =
+          'TQ08,Wellington,8312,EN,0,39999,40000,69999,EN,20000,55000,EN0000069999,EN3999969999,EN3999940000,EN0000040000,,,,,,,,';
+      expect(
+        () => CsvImporter.importFromContents(
+          'Series,Series,Parent,MGRS,eastingMin,eastingMax,northingMin,northingMax,mgrsMid,eastingMid,northingMid,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,p12\n$row',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => CsvImporter.importFromContents(
+          'Series,Name,Parent,MGRS,eastingMin,eastingMax,northingMin,northingMax,mgrsMid,eastingMid,northingMid,p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11,unexpected\n$row',
+        ),
+        throwsFormatException,
+      );
+      expect(
+        () => CsvImporter.importFromContents('Series,Name\n'),
+        throwsFormatException,
+      );
     });
 
     test('parseRow accepts 12 sequential point columns', () {
@@ -243,7 +288,7 @@ void main() {
       final result = CsvImporter.parseRow(headers, row, rowNumber: 2);
 
       expect(result.map, isNull);
-      expect(result.error, contains('expected 4, 6, or 8 points'));
+      expect(result.error, contains('expected 4, 6, 8, 10, or 12 points'));
     });
 
     test('parseRow rejects populated point columns beyond p12', () {

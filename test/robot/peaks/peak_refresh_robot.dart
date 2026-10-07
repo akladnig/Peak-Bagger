@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/screens/settings_screen.dart';
 
 import '../../harness/test_peak_notifier.dart';
 import '../../harness/test_tasmap_notifier.dart';
@@ -26,15 +27,12 @@ class PeakRefreshRobot {
   final TestTasmapNotifier tasmapNotifier;
 
   Finder get refreshPeakDataTile =>
-      find.byKey(const Key('refresh-peak-data-tile'));
-  Finder get peakRefreshConfirm =>
-      find.byKey(const Key('peak-refresh-confirm'));
-  Finder get peakRefreshCancel => find.byKey(const Key('peak-refresh-cancel'));
-  Finder get peakRefreshStatus => find.byKey(const Key('peak-refresh-status'));
+      find.byKey(const Key('update-peak-data-tile'));
+  Finder get peakRefreshConfirm => find.byKey(const Key('peak-update-confirm'));
+  Finder get peakRefreshCancel => find.byKey(const Key('peak-update-cancel'));
+  Finder get peakRefreshStatus => find.byKey(const Key('peak-update-status'));
   Finder get peakRefreshResultClose =>
-      find.byKey(const Key('peak-refresh-result-close'));
-  Finder get peakRefreshErrorClose =>
-      find.byKey(const Key('peak-refresh-error-close'));
+      find.byKey(const Key('peak-update-result-close'));
   Finder get updateTassyFullPeakListTile =>
       find.byKey(const Key('update-tassy-full-peak-list-tile'));
   Finder get updateTassyFullConfirm =>
@@ -48,6 +46,7 @@ class PeakRefreshRobot {
   Finder get settingsScrollable => find.byType(Scrollable).last;
 
   Future<void> pumpApp() async {
+    router = createRouter();
     tester.view.physicalSize = const Size(1024, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -56,15 +55,14 @@ class PeakRefreshRobot {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(() => tasmapNotifier),
           tasmapRepositoryProvider.overrideWithValue(repository),
         ],
-        child: const App(),
+        child: const MaterialApp(home: SettingsScreen()),
       ),
     );
-    await tester.pump();
-    router.go('/settings');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
   }
@@ -109,7 +107,7 @@ class PeakRefreshRobot {
   }
 
   void expectConfirmDialogVisible() {
-    expect(find.text('Refresh Peak Data?'), findsOneWidget);
+    expect(find.text('Update Peak Data?'), findsOneWidget);
   }
 
   void expectStatusVisible(String expected) {
@@ -118,11 +116,11 @@ class PeakRefreshRobot {
   }
 
   void expectResultVisible(String importedCount, {String? warning}) {
-    expect(find.text('Peak Data Refreshed'), findsOneWidget);
+    expect(find.text('Peak Data Updated'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(AlertDialog),
-        matching: find.text('$importedCount Peaks imported'),
+        matching: find.text('$importedCount Peaks updated'),
       ),
       findsOneWidget,
     );
@@ -136,18 +134,6 @@ class PeakRefreshRobot {
       );
     }
     expect(peakRefreshResultClose, findsOneWidget);
-  }
-
-  void expectFailureVisible(String contains) {
-    expect(find.text('Peak Data Refresh Failed'), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byType(AlertDialog),
-        matching: find.textContaining(contains),
-      ),
-      findsOneWidget,
-    );
-    expect(peakRefreshErrorClose, findsOneWidget);
   }
 
   void expectUpdateTassyFullConfirmVisible() {

@@ -21,10 +21,11 @@ class MapBasemapsDrawer extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final basemap = ref.watch(mapProvider.select((state) => state.basemap));
     final overlaySettings = ref.watch(localTopoOverlaySettingsProvider);
+    final catalog = ref.read(mapProvider.notifier).mappingCatalog;
     final snapshot = localTopoRuntime.capabilitySnapshot;
     final regionBasemaps = basemapKeys
-        .map(regionManifestCatalog.basemapByKey)
-        .whereType<RegionManifestBasemapData>()
+        .map(catalog.basemapByKey)
+        .whereType<MappingCatalogBasemap>()
         .toList(growable: false);
 
     return Drawer(
@@ -57,16 +58,11 @@ class MapBasemapsDrawer extends ConsumerWidget {
                 buttonKey: Key('basemap-option-${basemapData.key}'),
                 icon: Icons.map_outlined,
                 label: basemapData.name,
-                isSelected:
-                    basemap ==
-                    regionManifestCatalog.basemapEnumByKey(basemapData.key),
+                isSelected: basemap == Basemap.values.byName(basemapData.key),
                 onPressed: () {
-                  final selected = regionManifestCatalog.basemapEnumByKey(
-                    basemapData.key,
-                  );
-                  if (selected != null) {
-                    ref.read(mapProvider.notifier).setBasemap(selected);
-                  }
+                  ref
+                      .read(mapProvider.notifier)
+                      .setBasemap(Basemap.values.byName(basemapData.key));
                   Navigator.pop(context);
                 },
               ),

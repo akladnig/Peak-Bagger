@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -14,7 +15,6 @@ import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
@@ -190,6 +190,7 @@ void main() {
     await _pumpApp(
       tester,
       overrides: [
+        ...mappingCatalogTestOverrides,
         bootstrappedBackgroundJobsPreferencesProvider.overrideWithValue(prefs),
       ],
     );
@@ -222,6 +223,10 @@ Future<void> _pumpApp(WidgetTester tester, {List overrides = const []}) async {
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides.where(
+          (entry) =>
+              !overrides.any((override) => override.origin == entry.origin),
+        ),
         mapProvider.overrideWith(
           () => TestMapNotifier(
             MapState(
@@ -240,7 +245,6 @@ Future<void> _pumpApp(WidgetTester tester, {List overrides = const []}) async {
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
         ),
-        overpassServiceProvider.overrideWithValue(OverpassService()),
         tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         peakListRewritePortProvider.overrideWithValue(
           _NoopPeakListRewritePort(),

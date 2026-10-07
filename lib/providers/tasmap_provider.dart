@@ -1,5 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
+import 'package:peak_bagger/providers/mapping_store_operation_provider.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 
 final tasmapRepositoryProvider = Provider<TasmapRepository>((ref) {
@@ -41,7 +44,11 @@ final tasmapStateProvider = NotifierProvider<TasmapNotifier, TasmapState>(
 class TasmapNotifier extends Notifier<TasmapState> {
   @override
   TasmapState build() {
-    return const TasmapState();
+    try {
+      return TasmapState(mapCount: ref.read(tasmapRepositoryProvider).mapCount);
+    } on Object {
+      return const TasmapState();
+    }
   }
 
   Future<void> loadCount() async {
@@ -51,18 +58,48 @@ class TasmapNotifier extends Notifier<TasmapState> {
     } catch (_) {}
   }
 
-  Future<TasmapCsvImportResult> resetAndReimport() async {
+  Future<TasmapCsvImportResult> updateFromMappingStore() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final repo = ref.read(tasmapRepositoryProvider);
-      final result = await repo.clearAndReloadFromCsv('assets/tasmap50k.csv');
+      final catalog = ref.read(mappingCatalogProvider);
+      final result = await ref
+          .read(mappingStoreOperationCoordinatorProvider)
+          .run(
+            key: const MappingStoreOperationKey.tasmapUpdate(),
+            writerTables: const ['Tasmap50k'],
+            action: () => repo.reconcileFromMappingStore(catalog),
+          );
       state = state.copyWith(
         mapCount: repo.mapCount,
-        tasmapRevision: state.tasmapRevision + 1,
+        tasmapRevision: result.changed
+            ? state.tasmapRevision + 1
+            : state.tasmapRevision,
       );
       return result;
     } catch (e) {
       state = state.copyWith(error: e.toString());
+      rethrow;
+    } finally {
+      state = state.copyWith(isLoading: false);
+    }
+  }
+
+  Future<void> bootstrapFromMappingStore() async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final repo = ref.read(tasmapRepositoryProvider);
+      final result = await repo.reconcileFromMappingStore(
+        ref.read(mappingCatalogProvider),
+      );
+      state = state.copyWith(
+        mapCount: repo.mapCount,
+        tasmapRevision: result.changed
+            ? state.tasmapRevision + 1
+            : state.tasmapRevision,
+      );
+    } catch (error) {
+      state = state.copyWith(error: error.toString());
       rethrow;
     } finally {
       state = state.copyWith(isLoading: false);

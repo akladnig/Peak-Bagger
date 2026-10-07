@@ -2,6 +2,7 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
@@ -165,6 +166,7 @@ Future<void> _pumpCard(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides,
         peakRepositoryProvider.overrideWithValue(peakRepository),
         peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
       ],

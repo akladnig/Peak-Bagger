@@ -1,8 +1,6 @@
-import 'dart:convert';
-import 'dart:developer' as developer;
-
-import 'package:flutter/services.dart';
 import 'package:peak_bagger/models/map_polygon_asset.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
 
 typedef PolygonAssetLoader = Future<String> Function(String assetPath);
@@ -19,61 +17,63 @@ class PolygonParseResult {
 }
 
 class PolygonAssetRepository {
-  PolygonAssetRepository({PolygonAssetLoader? assetLoader})
-    : _assetLoader = assetLoader ?? rootBundle.loadString;
+  PolygonAssetRepository({
+    required MappingCatalog catalog,
+    MappingStoreFileSystem? fileSystem,
+  }) : paths = catalog.polygonDisplayPaths,
+       _assetLoader = MappingStoreOperationFileAccess(
+         catalog: catalog,
+         fileSystem: fileSystem ?? const IoMappingStoreFileSystem(),
+       ).readText;
 
-  static const _manifestAssetPath = 'assets/polygons/manifest.json';
+  /// Deterministic source seam; production always uses the store boundary.
+  PolygonAssetRepository.test({
+    required Iterable<String> paths,
+    required PolygonAssetLoader assetLoader,
+  }) : paths = Set.unmodifiable(paths),
+       // Keep the source seam private; callers must use allowlisted reads.
+       // ignore: prefer_initializing_formals
+       _assetLoader = assetLoader;
 
+  final Set<String> paths;
   final PolygonAssetLoader _assetLoader;
 
-  Future<List<MapPolygonAsset>> loadPolygons() async {
-    try {
-      final manifestText = await _assetLoader(_manifestAssetPath);
-      final decoded = jsonDecode(manifestText);
-      if (decoded is! List) {
-        developer.log(
-          'Polygon manifest must be a JSON list of asset paths.',
-          name: 'PolygonAssetRepository',
-        );
-        return const [];
-      }
-
-      final assetPaths =
-          decoded
-              .whereType<String>()
-              .where((path) => path.toLowerCase().endsWith('.poly'))
-              .toList(growable: false)
-            ..sort();
-
-      final polygons = <MapPolygonAsset>[];
-      for (final assetPath in assetPaths) {
-        try {
-          final contents = await _assetLoader(assetPath);
-          final parseResult = parsePolygonAsset(contents, assetPath: assetPath);
-          if (parseResult.isSuccess) {
-            polygons.add(parseResult.asset!);
-          } else if (parseResult.error != null) {
-            developer.log(
-              'Skipping polygon asset $assetPath: ${parseResult.error}',
-              name: 'PolygonAssetRepository',
-            );
-          }
-        } catch (error) {
-          developer.log(
-            'Failed to load polygon asset $assetPath: $error',
-            name: 'PolygonAssetRepository',
-          );
-        }
-      }
-
-      return polygons;
-    } catch (error) {
-      developer.log(
-        'Failed to load polygon assets: $error',
-        name: 'PolygonAssetRepository',
+  String validatePath(String path) {
+    if (path.isEmpty ||
+        path.startsWith('/') ||
+        path.contains('\\') ||
+        !path.endsWith('.poly') ||
+        path
+            .split('/')
+            .any((part) => part.isEmpty || part == '.' || part == '..') ||
+        !paths.contains(path)) {
+      throw MappingStoreOperationException(
+        paths: [path.isEmpty ? 'Polygons/manifest.json' : path],
+        cause: const FormatException('Polygon is not a safe manifest entry.'),
       );
-      return const [];
     }
+    return path;
+  }
+
+  Future<MapPolygonAsset> loadPolygon(String path) async {
+    validatePath(path);
+    try {
+      final contents = await _assetLoader(path);
+      final result = parsePolygonAsset(contents, assetPath: path);
+      if (!result.isSuccess) {
+        throw FormatException(result.error!);
+      }
+      return result.asset!;
+    } on MappingStoreOperationException {
+      rethrow;
+    } on Object catch (error) {
+      throw MappingStoreOperationException(paths: [path], cause: error);
+    }
+  }
+
+  Future<List<MapPolygonAsset>> loadPolygons() async {
+    final sortedPaths = paths.toList()..sort();
+    return [for (final path in sortedPaths) await loadPolygon(path)];
   }
 }
 

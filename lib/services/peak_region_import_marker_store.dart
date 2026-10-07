@@ -46,4 +46,9 @@ class PeakRegionImportMarkerStore {
     );
     await preferences.setString(fingerprintsKey, jsonEncode(sorted));
   }
+
+  Future<void> removeFingerprints() async {
+    final preferences = await _loadPreferences();
+    await preferences.remove(fingerprintsKey);
+  }
 }

@@ -79,7 +79,7 @@ void main() {
               maxLat: -41,
               maxLon: 147,
               elementCount: 3,
-              payloadJson: '{"elements": []}',
+              payloadJson: _payload,
             ),
           ],
           wayIndexRows: [
@@ -154,29 +154,13 @@ void main() {
       pruneStaleGenerations: true,
     );
 
-    await storage.replaceGeneration(
-      manifest: RouteGraphManifest(
-        sourceHash: 'old',
-        schemaVersion: 'route-graph-v2',
-        activeGeneration: 1,
-        importedAt: DateTime.utc(2024),
-        chunkCount: 0,
-        nodeCount: 0,
-        edgeCount: 0,
-        readinessState: RouteGraphManifest.readinessReady,
-      ),
-      chunks: const [],
-      wayIndexRows: const [],
-      trailDisplayChunks: const [],
-      pruneStaleGenerations: false,
-    );
-
-    expect(storage.activeTrailDisplayChunks(), isEmpty);
+    expect(storage.activeTrailDisplayChunks(), hasLength(1));
   });
 
   test('buildTripServiceForActiveGeneration loads active payloads', () async {
     final storage = InMemoryRouteGraphStorage(
       manifest: RouteGraphManifest(
+        routingCoverageKey: defaultRouteGraphCoverageKey,
         sourceHash: 'hash',
         schemaVersion: 'route-graph-v1',
         activeGeneration: 7,
@@ -184,12 +168,18 @@ void main() {
         chunkCount: 1,
         nodeCount: 2,
         edgeCount: 1,
+        wayIndexCount: 1,
         readinessState: RouteGraphManifest.readinessReady,
       ),
       chunks: [
         RouteGraphChunk(
-          recordKey: '7|0_0',
+          recordKey: RouteGraphChunk.recordKeyFor(
+            routingCoverageKey: defaultRouteGraphCoverageKey,
+            generation: 7,
+            chunkKey: '0_0',
+          ),
           chunkKey: '0_0',
+          routingCoverageKey: defaultRouteGraphCoverageKey,
           generation: 7,
           minLat: -42,
           minLon: 146,
@@ -208,11 +198,13 @@ void main() {
       wayIndexRows: [
         RouteGraphWayIndex(
           recordKey: RouteGraphWayIndex.recordKeyFor(
+            routingCoverageKey: defaultRouteGraphCoverageKey,
             generation: 7,
             chunkKey: '0_0',
             osmWayId: 10,
           ),
           generation: 7,
+          routingCoverageKey: defaultRouteGraphCoverageKey,
           chunkKey: '0_0',
           osmWayId: 10,
           lengthMeters: 10,
@@ -281,6 +273,10 @@ void main() {
     ]);
     final repository = RouteGraphRepository.objectBox(store);
 
+    expect(repository.activeChunks(''), isEmpty);
+    expect(repository.activeWayIndexRows(''), isEmpty);
+    expect(repository.activeTrailDisplayChunks(''), isEmpty);
+
     await repository.ensureMultiCoverageMigration();
     await repository.writePreparedGeneration(
       _prepared(generation: 3, chunkKey: 'tas'),
@@ -288,6 +284,17 @@ void main() {
       sourceRegionKeys: const ['tasmania'],
       pruneStaleGenerations: true,
     );
+    await repository.writePreparedGeneration(
+      _prepared(generation: 3, chunkKey: 'alps'),
+      routingCoverageKey: 'northeast-alps',
+      pruneStaleGenerations: true,
+    );
+    final alpsKey = repository.activeChunks('northeast-alps').single.recordKey;
+    final orphan = _chunk(
+      generation: 99,
+      chunkKey: 'orphan',
+    ).copyWith(routingCoverageKey: 'tasmania', recordKey: 'tasmania|99|orphan');
+    store.box<RouteGraphChunk>().put(orphan);
     await repository.writePreparedGeneration(
       _prepared(generation: 4, chunkKey: 'tas-next'),
       routingCoverageKey: 'tasmania',
@@ -303,14 +310,24 @@ void main() {
       isTrue,
     );
     expect(repository.manifestForCoverage('tasmania')?.activeGeneration, 4);
-    expect(store.box<RouteGraphChunk>().getAll().map((row) => row.generation), [
-      4,
-    ]);
+    final tasRows = store
+        .box<RouteGraphChunk>()
+        .getAll()
+        .where((row) => row.routingCoverageKey == 'tasmania')
+        .toList();
+    expect(tasRows.map((row) => row.generation), [4]);
+    expect(tasRows.single.routingCoverageKey, 'tasmania');
+    expect(tasRows.single.recordKey, 'tasmania|4|tas-next');
     expect(
-      store.box<RouteGraphWayIndex>().getAll().map((row) => row.generation),
+      store
+          .box<RouteGraphWayIndex>()
+          .getAll()
+          .where((row) => row.routingCoverageKey == 'tasmania')
+          .map((row) => row.generation),
       [4],
     );
     expect(store.box<RouteGraphTrailDisplayChunk>().getAll(), isEmpty);
+    expect(repository.activeChunks('northeast-alps').single.recordKey, alpsKey);
   });
 
   test('reserves globally unique generation IDs across restart', () async {
@@ -334,14 +351,30 @@ void main() {
         pruneStaleGenerations: true,
       );
       await repository.writePreparedGeneration(
-        _prepared(generation: 2, chunkKey: 'alps'),
+        _prepared(generation: 1, chunkKey: 'alps'),
         routingCoverageKey: 'northeast-alps',
         sourceRegionKeys: const ['fvg', 'veneto', 'slovenia'],
         pruneStaleGenerations: true,
       );
 
       expect(repository.activeChunks('tasmania').single.generation, 1);
-      expect(repository.activeChunks('northeast-alps').single.generation, 2);
+      expect(repository.activeChunks('northeast-alps').single.generation, 1);
+      expect(
+        repository.activeChunks('tasmania').single.routingCoverageKey,
+        'tasmania',
+      );
+      expect(
+        repository.activeChunks('northeast-alps').single.routingCoverageKey,
+        'northeast-alps',
+      );
+      expect(
+        repository.activeChunks('tasmania').single.recordKey,
+        'tasmania|1|tas',
+      );
+      expect(
+        repository.activeChunks('northeast-alps').single.recordKey,
+        'northeast-alps|1|alps',
+      );
       expect(
         repository.manifestForCoverage('northeast-alps')?.sourceRegionKeys,
         ['fvg', 'veneto', 'slovenia'],
@@ -404,7 +437,7 @@ RouteGraphChunk _chunk({int generation = 1, String chunkKey = '0_0'}) =>
       maxLat: 1,
       maxLon: 1,
       elementCount: 3,
-      payloadJson: '{"elements": []}',
+      payloadJson: _payload,
     );
 
 RouteGraphWayIndex _way({int generation = 1, String chunkKey = '0_0'}) =>
@@ -421,6 +454,11 @@ RouteGraphWayIndex _way({int generation = 1, String chunkKey = '0_0'}) =>
       tagCount: 1,
       tagsJson: '{"highway":"path"}',
     );
+
+const _payload =
+    '{"elements":[{"type":"node","id":1,"lat":0,"lon":0},'
+    '{"type":"node","id":2,"lat":1,"lon":1},'
+    '{"type":"way","id":10,"nodes":[1,2],"tags":{"highway":"path"}}]}';
 
 RouteGraphTrailDisplayChunk _trailDisplayChunk({
   required int generation,

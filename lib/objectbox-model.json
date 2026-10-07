@@ -634,7 +634,7 @@
     },
     {
       "id": "7:596705519527760639",
-      "lastPropertyId": "10:3398479501893264143",
+      "lastPropertyId": "11:4398440101349052094",
       "name": "RouteGraphChunk",
       "properties": [
         {
@@ -689,13 +689,20 @@
           "id": "10:3398479501893264143",
           "name": "payloadJson",
           "type": 9
+        },
+        {
+          "id": "11:4398440101349052094",
+          "name": "routingCoverageKey",
+          "indexId": "26:2124171086143416313",
+          "type": 9,
+          "flags": 2048
         }
       ],
       "relations": []
     },
     {
       "id": "8:1444775778480771967",
-      "lastPropertyId": "13:7166793728012339321",
+      "lastPropertyId": "15:1011445670074837602",
       "name": "RouteGraphManifest",
       "properties": [
         {
@@ -765,13 +772,23 @@
           "id": "13:7166793728012339321",
           "name": "unavailableFootprintJson",
           "type": 9
+        },
+        {
+          "id": "14:7502542318968346831",
+          "name": "wayIndexCount",
+          "type": 6
+        },
+        {
+          "id": "15:1011445670074837602",
+          "name": "trailDisplayChunkCount",
+          "type": 6
         }
       ],
       "relations": []
     },
     {
       "id": "9:7206587872972155691",
-      "lastPropertyId": "16:8218973595292904004",
+      "lastPropertyId": "17:5381404823353121290",
       "name": "RouteGraphWayIndex",
       "properties": [
         {
@@ -882,13 +899,20 @@
           "id": "16:8218973595292904004",
           "name": "tagsJson",
           "type": 9
+        },
+        {
+          "id": "17:5381404823353121290",
+          "name": "routingCoverageKey",
+          "indexId": "28:2425893039382816013",
+          "type": 9,
+          "flags": 2048
         }
       ],
       "relations": []
     },
     {
       "id": "10:6059948320416146250",
-      "lastPropertyId": "6:7689183445842674669",
+      "lastPropertyId": "7:2547077165027930171",
       "name": "RouteGraphTrailDisplayChunk",
       "properties": [
         {
@@ -929,6 +953,13 @@
           "id": "6:7689183445842674669",
           "name": "payloadJson",
           "type": 9
+        },
+        {
+          "id": "7:2547077165027930171",
+          "name": "routingCoverageKey",
+          "indexId": "27:4068742416137832435",
+          "type": 9,
+          "flags": 2048
         }
       ],
       "relations": []
@@ -1096,7 +1127,7 @@
     },
     {
       "id": "16:4873570092347596398",
-      "lastPropertyId": "16:7596891895938370304",
+      "lastPropertyId": "18:8895360326946859874",
       "name": "NaturalFeature",
       "properties": [
         {
@@ -1179,13 +1210,51 @@
           "id": "16:7596891895938370304",
           "name": "sourceOfTruth",
           "type": 9
+        },
+        {
+          "id": "17:4062087676225271519",
+          "name": "sourceKey",
+          "type": 9
+        },
+        {
+          "id": "18:8895360326946859874",
+          "name": "sourceRecordKey",
+          "indexId": "29:655196580284660726",
+          "type": 9,
+          "flags": 2080
+        }
+      ],
+      "relations": []
+    },
+    {
+      "id": "17:4224728018239922669",
+      "lastPropertyId": "3:571763795470411177",
+      "name": "PeakRegionFingerprint",
+      "properties": [
+        {
+          "id": "1:131560405577640429",
+          "name": "id",
+          "type": 6,
+          "flags": 1
+        },
+        {
+          "id": "2:5126026526761184949",
+          "name": "regionKey",
+          "indexId": "25:1184207881804842512",
+          "type": 9,
+          "flags": 2080
+        },
+        {
+          "id": "3:571763795470411177",
+          "name": "fingerprint",
+          "type": 9
         }
       ],
       "relations": []
     }
   ],
-  "lastEntityId": "16:4873570092347596398",
-  "lastIndexId": "24:1139331039385892952",
+  "lastEntityId": "17:4224728018239922669",
+  "lastIndexId": "29:655196580284660726",
   "lastRelationId": "1:8194382659905112901",
   "lastSequenceId": "0:0",
   "modelVersion": 5,

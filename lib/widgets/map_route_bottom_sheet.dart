@@ -79,6 +79,8 @@ class RouteDraftGraphOverlay extends ConsumerWidget {
     );
 
     final theme = Theme.of(context);
+    final mappingFailure = ref.watch(routeDraftElevationMappingFailureProvider);
+    final graphFailure = ref.watch(routeDraftGraphMappingFailureProvider);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -115,6 +117,17 @@ class RouteDraftGraphOverlay extends ConsumerWidget {
                       onRetry: ref
                           .read(mapProvider.notifier)
                           .retryRouteDraftSegment,
+                      elevationMappingUnavailable:
+                          mappingFailure != null || graphFailure != null,
+                      mappingUnavailableReason:
+                          graphFailure?.toString() ?? routeDraftElevationError,
+                      onRetryElevation: graphFailure != null
+                          ? ref
+                                .read(mapProvider.notifier)
+                                .retryRouteDraftGraphMapping
+                          : ref
+                                .read(mapProvider.notifier)
+                                .retryRouteDraftElevationMapping,
                     ),
                   ),
                 ),
@@ -305,6 +318,9 @@ class _DistanceElevationGroup extends StatelessWidget {
     required this.routeDraftPointElevations,
     required this.onElevationProfileInteractionChanged,
     required this.onRetry,
+    required this.elevationMappingUnavailable,
+    required this.onRetryElevation,
+    this.mappingUnavailableReason,
   });
 
   final RouteDraftStage routeDraftStage;
@@ -319,6 +335,9 @@ class _DistanceElevationGroup extends StatelessWidget {
   final ValueChanged<ElevationProfileChartInteraction?>?
   onElevationProfileInteractionChanged;
   final VoidCallback onRetry;
+  final bool elevationMappingUnavailable;
+  final VoidCallback onRetryElevation;
+  final String? mappingUnavailableReason;
 
   @override
   Widget build(BuildContext context) {
@@ -339,6 +358,23 @@ class _DistanceElevationGroup extends StatelessWidget {
       key: const Key('route-distance-elevation-group'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (elevationMappingUnavailable)
+          Column(
+            key: const Key('route-planning-mapping-unavailable'),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                mappingUnavailableReason ??
+                    routeDraftElevationError ??
+                    'Mapping data unavailable.',
+              ),
+              FilledButton.tonal(
+                key: const Key('route-planning-mapping-unavailable-retry'),
+                onPressed: routeDraftElevationLoading ? null : onRetryElevation,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
         if (routeDraftStage == RouteDraftStage.routingSegment)
           Text(
             'Routing...',

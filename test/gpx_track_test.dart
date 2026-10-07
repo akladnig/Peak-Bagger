@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -19,7 +20,7 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/gpx_track_statistics_calculator.dart';
 import 'package:peak_bagger/services/route_hover_detector.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import 'harness/retired_overpass.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -332,6 +333,7 @@ void main() {
 
         final container = ProviderContainer(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(
               () => MapNotifier(
                 peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -372,6 +374,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => MapNotifier(
               peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -417,6 +420,7 @@ void main() {
 
         final container = ProviderContainer(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(
               () => MapNotifier(
                 peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -474,6 +478,7 @@ void main() {
 
         final container = ProviderContainer(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(
               () => MapNotifier(
                 peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -530,6 +535,7 @@ void main() {
 
         final container = ProviderContainer(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(
               () => MapNotifier(
                 peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -577,6 +583,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => MapNotifier(
               peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -631,6 +638,7 @@ void main() {
 
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => MapNotifier(
               peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -683,6 +691,7 @@ void main() {
         );
         final container = ProviderContainer(
           overrides: [
+            ...mappingCatalogTestOverrides,
             mapProvider.overrideWith(
               () => MapNotifier(
                 peakRepository: PeakRepository.test(
@@ -754,6 +763,7 @@ void main() {
           );
           final container = ProviderContainer(
             overrides: [
+              ...mappingCatalogTestOverrides,
               mapProvider.overrideWith(
                 () => MapNotifier(
                   peakRepository: PeakRepository.test(InMemoryPeakStorage()),
@@ -806,6 +816,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => TestMapNotifier(initialState)),
         ],
       );
@@ -843,6 +854,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => TestMapNotifier(initialState)),
         ],
       );
@@ -874,6 +886,7 @@ void main() {
       );
       final container = ProviderContainer(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => TestMapNotifier(initialState)),
         ],
       );
@@ -1204,68 +1217,64 @@ void main() {
     });
   });
 
-  group(
-    'GpxTrackRepository',
-    () {
-      late Directory tempDir;
-      late Store store;
-      late GpxTrackRepository repository;
+  group('GpxTrackRepository', () {
+    late Directory tempDir;
+    late Store store;
+    late GpxTrackRepository repository;
 
-      setUp(() async {
-        tempDir = await Directory.systemTemp.createTemp('gpx-track-test');
-        store = await openStore(directory: tempDir.path);
-        repository = GpxTrackRepository(store);
-      });
+    setUp(() async {
+      tempDir = await Directory.systemTemp.createTemp('gpx-track-test');
+      store = await openStore(directory: tempDir.path);
+      repository = GpxTrackRepository(store);
+    });
 
-      tearDown(() async {
-        store.close();
-        if (tempDir.existsSync()) {
-          await tempDir.delete(recursive: true);
-        }
-      });
+    tearDown(() async {
+      store.close();
+      if (tempDir.existsSync()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
 
-      test('findByContentHash finds stored track', () {
-        final track = GpxTrack(
-          contentHash: 'hash-1',
-          trackName: 'Track 1',
+    test('findByContentHash finds stored track', () {
+      final track = GpxTrack(
+        contentHash: 'hash-1',
+        trackName: 'Track 1',
+        trackDate: DateTime(2024, 1, 15),
+      );
+      repository.putTrack(track);
+
+      final found = repository.findByContentHash('hash-1');
+
+      expect(found, isNotNull);
+      expect(found!.trackName, 'Track 1');
+    });
+
+    test('findByTrackNameAndTrackDate uses metadata-date rows only', () {
+      repository.putTrack(
+        GpxTrack(
+          contentHash: 'no-meta',
+          trackName: 'Track A',
           trackDate: DateTime(2024, 1, 15),
-        );
-        repository.putTrack(track);
+        ),
+      );
+      repository.putTrack(
+        GpxTrack(
+          contentHash: 'meta',
+          trackName: 'Track A',
+          trackDate: DateTime(2024, 1, 15),
+          startDateTime: DateTime(2024, 1, 15, 8),
+        ),
+      );
 
-        final found = repository.findByContentHash('hash-1');
+      final found = repository.findByTrackNameAndTrackDate(
+        'Track A',
+        DateTime(2024, 1, 15),
+      );
 
-        expect(found, isNotNull);
-        expect(found!.trackName, 'Track 1');
-      });
-
-      test('findByTrackNameAndTrackDate uses metadata-date rows only', () {
-        repository.putTrack(
-          GpxTrack(
-            contentHash: 'no-meta',
-            trackName: 'Track A',
-            trackDate: DateTime(2024, 1, 15),
-          ),
-        );
-        repository.putTrack(
-          GpxTrack(
-            contentHash: 'meta',
-            trackName: 'Track A',
-            trackDate: DateTime(2024, 1, 15),
-            startDateTime: DateTime(2024, 1, 15, 8),
-          ),
-        );
-
-        final found = repository.findByTrackNameAndTrackDate(
-          'Track A',
-          DateTime(2024, 1, 15),
-        );
-
-        expect(found, isNotNull);
-        expect(found!.contentHash, 'meta');
-      });
-    },
-    skip: 'ObjectBox native library unavailable in flutter test environment',
-  );
+      expect(found, isNotNull);
+      expect(found!.contentHash, 'meta');
+    });
+  }, skip: 'ObjectBox native library unavailable in flutter test environment');
 
   group('GpxTrackStatisticsCalculator', () {
     final calculator = GpxTrackStatisticsCalculator();
@@ -1971,16 +1980,22 @@ void main() {
       final gpxFile = File('${importDir.path}/sistiana-scala-santa.gpx')
         ..writeAsStringSync(_italyNordEstGpx);
 
-      final italyPolygon = File(
-        '${Directory.current.path}/assets/polygons/italy-nord-est.poly',
-      ).readAsStringSync();
+      const italyPolygon = '''
+italy-nord-est
+1
+13.5 45.6
+13.8 45.6
+13.8 45.9
+13.5 45.9
+END
+END
+''';
       final importer = GpxImporter(
-        polygonAssetRepository: PolygonAssetRepository(
+        polygonAssetRepository: PolygonAssetRepository.test(
+          paths: ['Polygons/italy-nord-est.poly'],
           assetLoader: (assetPath) async {
             return switch (assetPath) {
-              'assets/polygons/manifest.json' =>
-                '["assets/polygons/italy-nord-est.poly"]',
-              'assets/polygons/italy-nord-est.poly' => italyPolygon,
+              'Polygons/italy-nord-est.poly' => italyPolygon,
               _ => throw Exception('Unexpected asset: $assetPath'),
             };
           },
@@ -2012,7 +2027,8 @@ void main() {
           ..writeAsStringSync(_tasmanianGpx('Lake Skinner'));
 
         final importer = GpxImporter(
-          polygonAssetRepository: PolygonAssetRepository(
+          polygonAssetRepository: PolygonAssetRepository.test(
+            paths: [],
             assetLoader: (_) async => throw Exception('No polygon assets'),
           ),
         );

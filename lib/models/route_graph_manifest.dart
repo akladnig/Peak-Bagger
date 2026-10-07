@@ -23,6 +23,8 @@ class RouteGraphManifest {
   int chunkCount;
   int nodeCount;
   int edgeCount;
+  int wayIndexCount;
+  int trailDisplayChunkCount;
   String readinessState;
   String? lastError;
   String sourceRegionKeysJson;
@@ -38,6 +40,8 @@ class RouteGraphManifest {
     this.chunkCount = 0,
     this.nodeCount = 0,
     this.edgeCount = 0,
+    this.wayIndexCount = 0,
+    this.trailDisplayChunkCount = 0,
     this.readinessState = readinessBootstrapping,
     this.lastError,
     this.sourceRegionKeysJson = '[]',
@@ -67,6 +71,8 @@ class RouteGraphManifest {
     int? chunkCount,
     int? nodeCount,
     int? edgeCount,
+    int? wayIndexCount,
+    int? trailDisplayChunkCount,
     String? readinessState,
     String? lastError,
     String? sourceRegionKeysJson,
@@ -83,6 +89,9 @@ class RouteGraphManifest {
       chunkCount: chunkCount ?? this.chunkCount,
       nodeCount: nodeCount ?? this.nodeCount,
       edgeCount: edgeCount ?? this.edgeCount,
+      wayIndexCount: wayIndexCount ?? this.wayIndexCount,
+      trailDisplayChunkCount:
+          trailDisplayChunkCount ?? this.trailDisplayChunkCount,
       readinessState: readinessState ?? this.readinessState,
       lastError: clearLastError ? null : (lastError ?? this.lastError),
       sourceRegionKeysJson: sourceRegionKeysJson ?? this.sourceRegionKeysJson,

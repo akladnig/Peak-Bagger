@@ -3,6 +3,8 @@ import 'package:peak_bagger/models/route_graph_coverage.dart';
 import 'package:peak_bagger/services/route_graph_coverage_resolver.dart';
 import 'package:peak_bagger/services/route_graph_import_service.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
+import 'package:peak_bagger/services/route_graph_errors.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 
 enum RouteGraphCoverageImportStatus { queued, importing, ready, failed }
 
@@ -68,16 +70,16 @@ class RouteGraphImportBatchConfigurationFailure
 /// Owns the one process-wide route-graph batch so callers cannot overlap imports.
 class RouteGraphImportCoordinator extends ChangeNotifier {
   RouteGraphImportCoordinator({
-    required RouteGraphCoverageResolver coverageResolver,
-    required RouteGraphImportService importService,
-    required RouteGraphRepository repository,
-  }) : _coverageResolver = coverageResolver,
-       _importService = importService,
-       _repository = repository;
+    required this._coverageResolver,
+    required this._importService,
+    required this._repository,
+    this.mappingOperationCoordinator,
+  });
 
   final RouteGraphCoverageResolver _coverageResolver;
   final RouteGraphImportService _importService;
   final RouteGraphRepository _repository;
+  final MappingStoreOperationCoordinator? mappingOperationCoordinator;
   final Map<String, RouteGraphCoverageImportState> _states = {};
 
   Future<RouteGraphImportBatchResult>? _activeBatch;
@@ -91,17 +93,21 @@ class RouteGraphImportCoordinator extends ChangeNotifier {
 
   RouteGraphImportBatchResult? get lastCompletedBatch => _lastCompletedBatch;
 
-  Future<RouteGraphImportBatchResult> bootstrap() => _startOrJoinBatch();
+  Future<RouteGraphImportBatchResult> bootstrap() =>
+      _startOrJoinBatch(bootstrap: true);
 
-  Future<RouteGraphImportBatchResult> refreshAll() => _startOrJoinBatch();
+  Future<RouteGraphImportBatchResult> refreshAll() =>
+      _startOrJoinBatch(bootstrap: false);
 
-  Future<RouteGraphImportBatchResult> _startOrJoinBatch() {
+  Future<RouteGraphImportBatchResult> _startOrJoinBatch({
+    required bool bootstrap,
+  }) {
     final activeBatch = _activeBatch;
     if (activeBatch != null) {
       return activeBatch;
     }
 
-    final batch = _runBatch();
+    final batch = _runBatch(bootstrap: bootstrap);
     _activeBatch = batch;
     batch.whenComplete(() {
       if (identical(_activeBatch, batch)) {
@@ -111,7 +117,12 @@ class RouteGraphImportCoordinator extends ChangeNotifier {
     return batch;
   }
 
-  Future<RouteGraphImportBatchResult> _runBatch() async {
+  Future<RouteGraphImportBatchResult> _runBatch({
+    required bool bootstrap,
+  }) async {
+    if (_coverageResolver.usesMappingCatalog) {
+      return _runCatalogBatch(bootstrap: bootstrap);
+    }
     late final List<RouteGraphCoverageImportInput> inputs;
     try {
       inputs = await _coverageResolver.resolve();
@@ -182,7 +193,7 @@ class RouteGraphImportCoordinator extends ChangeNotifier {
       try {
         final outcome = await _importService.importCoverageInput(
           input,
-          bootstrap: false,
+          bootstrap: bootstrap,
         );
         _setState(
           definition,
@@ -219,6 +230,140 @@ class RouteGraphImportCoordinator extends ChangeNotifier {
     return _complete(
       RouteGraphImportBatchCompleted(List.unmodifiable(outcomes)),
     );
+  }
+
+  Future<RouteGraphImportBatchResult> _runCatalogBatch({
+    required bool bootstrap,
+  }) async {
+    late final List<RouteGraphCoverageDefinition> definitions;
+    try {
+      definitions = _coverageResolver.routingCoverageDefinitions();
+      await _repository.ensureMultiCoverageMigration();
+    } catch (_) {
+      return _complete(const RouteGraphImportBatchConfigurationFailure());
+    }
+
+    final outcomes = await Future.wait(
+      definitions.map((definition) async {
+        try {
+          final outcome = await _importCatalogCoverage(
+            definition,
+            bootstrap: bootstrap,
+          );
+          return RouteGraphCoverageImportOutcome.refreshed(
+            routingCoverageKey: definition.key,
+            displayName: definition.displayName,
+            elementCount: outcome.elementCount,
+          );
+        } catch (error) {
+          return RouteGraphCoverageImportOutcome.failed(
+            routingCoverageKey: definition.key,
+            displayName: definition.displayName,
+            error: _sanitizeCoverageError(error),
+          );
+        }
+      }),
+    );
+    return _complete(
+      RouteGraphImportBatchCompleted(List.unmodifiable(outcomes)),
+    );
+  }
+
+  static const _writerTables = [
+    'RouteGraphManifest',
+    'RouteGraphChunk',
+    'RouteGraphWayIndex',
+    'RouteGraphTrailDisplayChunk',
+    'RouteGraphImportMetadata',
+  ];
+
+  Future<void> ensureCoverage(String key) async {
+    final definition = _coverageResolver
+        .routingCoverageDefinitions()
+        .singleWhere((definition) => definition.key == key);
+    await _importCatalogCoverage(definition, bootstrap: true);
+  }
+
+  Future<RouteGraphImportOutcome> _importCatalogCoverage(
+    RouteGraphCoverageDefinition definition, {
+    required bool bootstrap,
+  }) {
+    if (bootstrap && _repository.hasUsableActiveGenerationFor(definition.key)) {
+      _setState(
+        definition,
+        RouteGraphCoverageImportStatus.ready,
+        hasActiveGeneration: true,
+      );
+      return Future.value(
+        RouteGraphImportOutcome.reused(
+          _repository.manifestForCoverage(definition.key)!,
+        ),
+      );
+    }
+    Future<RouteGraphImportOutcome> import() async {
+      _setState(
+        definition,
+        RouteGraphCoverageImportStatus.importing,
+        hasActiveGeneration: _repository.hasUsableActiveGenerationFor(
+          definition.key,
+        ),
+      );
+      try {
+        final input = await _coverageResolver.resolveCoverage(definition);
+        Future<RouteGraphImportOutcome> write() async {
+          await _repository.ensureMultiCoverageMigration();
+          await _repository.ensureCoverageFootprint(
+            routingCoverageKey: definition.key,
+            sourceRegionKeys: input.definition.sourceRegions
+                .map((region) => region.key)
+                .toList(),
+            unavailableFootprint: input.unavailableFootprint,
+          );
+          return _importService.importCoverageInput(
+            input,
+            bootstrap: bootstrap,
+          );
+        }
+
+        final outcome = mappingOperationCoordinator == null
+            ? await write()
+            : await mappingOperationCoordinator!.serializeWrites(
+                tables: _writerTables,
+                action: write,
+              );
+        _setState(
+          definition,
+          RouteGraphCoverageImportStatus.ready,
+          hasActiveGeneration: true,
+        );
+        return outcome;
+      } catch (error, stackTrace) {
+        final failure =
+            error is FormatException || error is RouteGraphLoadException
+            ? MappingStoreOperationException(
+                paths: _coverageResolver.sourcePathsForCoverage(definition.key),
+                cause: error,
+              )
+            : error;
+        _setState(
+          definition,
+          RouteGraphCoverageImportStatus.failed,
+          hasActiveGeneration: _repository.hasUsableActiveGenerationFor(
+            definition.key,
+          ),
+          error: _sanitizeCoverageError(failure),
+        );
+        Error.throwWithStackTrace(failure, stackTrace);
+      }
+    }
+
+    return mappingOperationCoordinator?.run<RouteGraphImportOutcome>(
+          key: bootstrap
+              ? MappingStoreOperationKey.routeGraphBootstrap(definition.key)
+              : MappingStoreOperationKey.routeGraphRefresh(definition.key),
+          action: import,
+        ) ??
+        import();
   }
 
   RouteGraphImportBatchResult _complete(RouteGraphImportBatchResult result) {

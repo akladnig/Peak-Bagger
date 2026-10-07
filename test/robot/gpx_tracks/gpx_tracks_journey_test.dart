@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -19,7 +20,7 @@ import 'package:peak_bagger/screens/peak_lists_screen.dart';
 import 'package:peak_bagger/services/import/gpx_track_import_models.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
-import 'package:peak_bagger/services/overpass_service.dart';
+import '../../harness/retired_overpass.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
@@ -56,7 +57,10 @@ void main() {
           ),
           items: const [PeakListItem(peakOsmId: 7000, points: 1)],
         ),
-        (peakList: PeakList(peakListId: 3, name: 'Broken', region: 'tasmania'), items: const []),
+        (
+          peakList: PeakList(peakListId: 3, name: 'Broken', region: 'tasmania'),
+          items: const [],
+        ),
       ],
     );
     final robot = GpxTracksRobot(
@@ -283,6 +287,7 @@ void main() {
     );
     final uiContainer = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => uiNotifier),
         peakRepositoryProvider.overrideWithValue(peakRepository),
         peakListRepositoryProvider.overrideWithValue(peakListRepository),
@@ -927,6 +932,7 @@ void main() {
       ),
     );
     final notifier = MapNotifier(
+      mappingCatalog: testMappingCatalog,
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: tasmapRepository,
@@ -979,6 +985,7 @@ void main() {
     expect(find.byType(PolylineLayer), findsOneWidget);
 
     final restartNotifier = MapNotifier(
+      mappingCatalog: testMappingCatalog,
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: tasmapRepository,
@@ -1022,6 +1029,7 @@ void main() {
     final routeRepository = RouteRepository.test(InMemoryRouteStorage());
     final tasmapRepository = await TestTasmapRepository.create();
     final notifier = MapNotifier(
+      mappingCatalog: testMappingCatalog,
       peakRepository: PeakRepository.test(InMemoryPeakStorage()),
       overpassService: OverpassService(),
       tasmapRepository: tasmapRepository,

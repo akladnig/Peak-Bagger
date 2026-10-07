@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/region_manifest_catalog.dart';
+import '../services/mapping_data_store.dart';
 
 const peakListRegionFilterPreferenceKey = 'peak_lists_region_filter_keys';
 
@@ -14,7 +15,7 @@ final peakListRegionFilterPreferencesLoaderProvider =
 
 final peakListRegionFilterOptionsProvider =
     Provider<List<RegionManifestRegionData>>((ref) {
-      return regionManifestCatalog.peakListRegions();
+      return ref.watch(mappingCatalogProvider).peakListRegions();
     });
 
 final peakListRegionFilterProvider =

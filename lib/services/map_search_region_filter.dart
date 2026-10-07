@@ -12,9 +12,11 @@ class MapSearchRegionOption {
   final String compactName;
 }
 
-List<MapSearchRegionOption> buildMapSearchRegionOptions() {
+List<MapSearchRegionOption> buildMapSearchRegionOptions(
+  MappingCatalog catalog,
+) {
   return [
-    for (final region in regionManifestCatalog.peakListRegions())
+    for (final region in catalog.peakListRegions())
       MapSearchRegionOption(
         key: region.key,
         name: region.name,
@@ -23,12 +25,12 @@ List<MapSearchRegionOption> buildMapSearchRegionOptions() {
   ];
 }
 
-String? mapSearchRegionLabel(String? key) {
+String? mapSearchRegionLabel(String? key, {required MappingCatalog catalog}) {
   if (key == null) {
     return null;
   }
 
-  final region = regionManifestCatalog.regionByKey(key);
+  final region = catalog.regionByKey(key);
   if (region != null) {
     return region.shortName;
   }
@@ -37,6 +39,7 @@ String? mapSearchRegionLabel(String? key) {
 }
 
 bool peakMatchesSearchRegion({
+  required MappingCatalog catalog,
   required String? storedPeakRegionKey,
   required String? resolvedRegionKey,
   required String? filterRegionKey,
@@ -45,15 +48,16 @@ bool peakMatchesSearchRegion({
     return true;
   }
 
-  if (_isAggregateRegionFilterKey(filterRegionKey)) {
+  if (_isAggregateRegionFilterKey(filterRegionKey, catalog)) {
     return _aggregateRegionMatchesStoredPeak(
           aggregateRegionKey: filterRegionKey,
           storedPeakRegionKey: storedPeakRegionKey,
+          catalog: catalog,
         ) ||
         resolvedRegionKey == filterRegionKey;
   }
 
-  if (_isChildRegionFilterKey(filterRegionKey)) {
+  if (_isChildRegionFilterKey(filterRegionKey, catalog)) {
     return storedPeakRegionKey == filterRegionKey;
   }
 
@@ -62,6 +66,7 @@ bool peakMatchesSearchRegion({
 }
 
 bool nonPeakMatchesSearchRegion({
+  required MappingCatalog catalog,
   required String? resolvedRegionKey,
   required String? filterRegionKey,
 }) {
@@ -70,29 +75,30 @@ bool nonPeakMatchesSearchRegion({
   }
 
   final broaderFilterKey =
-      regionManifestCatalog.peakListFilterRegionKey(filterRegionKey) ??
-      filterRegionKey;
-  return resolvedRegionKey == broaderFilterKey;
+      catalog.peakListFilterRegionKey(filterRegionKey) ?? filterRegionKey;
+  return catalog.peakListFilterRegionKey(resolvedRegionKey) == broaderFilterKey;
 }
 
-bool _isAggregateRegionFilterKey(String filterRegionKey) {
-  final region = regionManifestCatalog.regionByKey(filterRegionKey);
+bool _isAggregateRegionFilterKey(
+  String filterRegionKey,
+  MappingCatalog catalog,
+) {
+  final region = catalog.regionByKey(filterRegionKey);
   return region != null && region.peakListFilterAliases.isNotEmpty;
 }
 
-bool _isChildRegionFilterKey(String filterRegionKey) {
-  final region = regionManifestCatalog.regionByKey(filterRegionKey);
+bool _isChildRegionFilterKey(String filterRegionKey, MappingCatalog catalog) {
+  final region = catalog.regionByKey(filterRegionKey);
   if (region == null) {
     return false;
   }
 
-  final broaderRegionKey = regionManifestCatalog.peakListFilterRegionKey(
-    filterRegionKey,
-  );
+  final broaderRegionKey = catalog.peakListFilterRegionKey(filterRegionKey);
   return broaderRegionKey != null && broaderRegionKey != filterRegionKey;
 }
 
 bool _aggregateRegionMatchesStoredPeak({
+  required MappingCatalog catalog,
   required String aggregateRegionKey,
   required String? storedPeakRegionKey,
 }) {
@@ -103,7 +109,7 @@ bool _aggregateRegionMatchesStoredPeak({
     return true;
   }
 
-  final aggregateRegion = regionManifestCatalog.regionByKey(aggregateRegionKey);
+  final aggregateRegion = catalog.regionByKey(aggregateRegionKey);
   return aggregateRegion?.peakListFilterAliases.contains(storedPeakRegionKey) ==
       true;
 }

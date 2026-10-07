@@ -11,7 +11,7 @@ class TestTasmapMapNotifier extends MapNotifier {
   final TestTasmapRepository repository;
 
   @override
-  MapState build() => initialState;
+  MapState build() => initialState.copyWith(catalog: mappingCatalog);
 
   @override
   (LatLng?, String?) parseGridReference(String input) {

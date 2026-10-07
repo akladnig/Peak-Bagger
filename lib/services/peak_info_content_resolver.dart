@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
@@ -46,10 +47,15 @@ PeakInfoContent resolvePeakInfoContent({
   required Peak peak,
   required PeakListRepository peakListRepository,
   required TasmapRepository tasmapRepository,
+  required MappingCatalog mappingCatalog,
   required PeaksBaggedRepository peaksBaggedRepository,
   required GpxTrackRepository gpxTrackRepository,
 }) {
-  final resolvedMapName = _resolvePeakMapName(peak, tasmapRepository);
+  final resolvedMapName = _resolvePeakMapName(
+    peak,
+    tasmapRepository,
+    mappingCatalog,
+  );
   return PeakInfoContent(
     peak: peak,
     mapName: resolvedMapName.displayName,
@@ -66,10 +72,12 @@ PeakInfoContent resolvePeakInfoContent({
 ResolvedMapName _resolvePeakMapName(
   Peak peak,
   TasmapRepository tasmapRepository,
+  MappingCatalog mappingCatalog,
 ) {
   try {
     final pointResolved = resolveMapNameForPoint(
       tasmapRepository: tasmapRepository,
+      mappingCatalog: mappingCatalog,
       point: LatLng(peak.latitude, peak.longitude),
     );
     if (pointResolved.origin == MapNameOrigin.sheet) {
@@ -91,6 +99,7 @@ ResolvedMapName _resolvePeakMapName(
 
     final mgrsResolved = resolveMapNameForMgrs(
       tasmapRepository: tasmapRepository,
+      mappingCatalog: mappingCatalog,
       mgrsText: '$gridZoneDesignator$mgrs100kId$easting$northing',
     );
     if (mgrsResolved.origin == MapNameOrigin.sheet) {

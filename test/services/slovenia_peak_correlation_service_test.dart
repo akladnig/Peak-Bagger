@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/services/manifest_priority.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -79,12 +80,13 @@ void main() {
 
   SloveniaPeakCorrelationService service(
     List<Peak> peaks, {
-    SloveniaCanonicalRegionResolver canonicalRegionResolver =
-        const SloveniaCanonicalRegionResolver(),
+    SloveniaCanonicalRegionResolver? canonicalRegionResolver,
   }) {
     return SloveniaPeakCorrelationService(
       peakSource: InMemoryPeakSource(peaks),
-      canonicalRegionResolver: canonicalRegionResolver,
+      canonicalRegionResolver:
+          canonicalRegionResolver ??
+          SloveniaCanonicalRegionResolver(catalog: testMappingCatalog),
     );
   }
 
@@ -201,8 +203,16 @@ void main() {
       'canonicalizes border peaks onto the Italy administrative side when that region wins',
       () {
         final resolver = _FakeCanonicalRegionResolver(
-          candidateRegions: const [
+          candidateRegions: [
             RegionManifestRegionData(
+              polyPaths: const [],
+              peaks: const [],
+              highways: const [],
+              fingerprint: null,
+              seedOnStartup: false,
+              composite: false,
+              routingCoverage: null,
+              peakListFilterAliases: const [],
               key: 'fvg',
               name: 'Friuli Venezia Giulia',
               shortName: 'FVG',
@@ -399,8 +409,16 @@ void main() {
       'tied canonical region priorities fall into deterministic review output',
       () {
         final resolver = _FakeCanonicalRegionResolver(
-          candidateRegions: const [
+          candidateRegions: [
             RegionManifestRegionData(
+              polyPaths: const [],
+              peaks: const [],
+              highways: const [],
+              fingerprint: null,
+              seedOnStartup: false,
+              composite: false,
+              routingCoverage: null,
+              peakListFilterAliases: const [],
               key: 'fvg',
               name: 'Friuli Venezia Giulia',
               shortName: 'FVG',
@@ -411,6 +429,14 @@ void main() {
               mapSet: [],
             ),
             RegionManifestRegionData(
+              polyPaths: const [],
+              peaks: const [],
+              highways: const [],
+              fingerprint: null,
+              seedOnStartup: false,
+              composite: false,
+              routingCoverage: null,
+              peakListFilterAliases: const [],
               key: 'slovenia',
               name: 'Slovenia',
               shortName: 'Slovenia',
@@ -438,7 +464,8 @@ void main() {
 }
 
 class _FakeCanonicalRegionResolver extends SloveniaCanonicalRegionResolver {
-  const _FakeCanonicalRegionResolver({required this.candidateRegions});
+  _FakeCanonicalRegionResolver({required this.candidateRegions})
+    : super(catalog: testMappingCatalog);
 
   final List<RegionManifestRegionData> candidateRegions;
 

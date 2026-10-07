@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -71,6 +72,7 @@ class TrackSpeedAnalysisRobot {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(() => tasmapNotifier),
           tasmapRepositoryProvider.overrideWithValue(repository),

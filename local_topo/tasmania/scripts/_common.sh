@@ -40,10 +40,6 @@ thelist_dem_label="theLIST 25m DEM"
 copernicus_dem_label="Copernicus GLO 30"
 custom_dem_label="Custom DEM"
 
-elvis_topo_dem_tiff_path="${LOCAL_TOPO_ELVIS_TOPO_DEM_TIF:-}"
-configured_dem_tiff_path="${LOCAL_TOPO_THELIST_DEM_TIF:-}"
-copernicus_dem_tiff_path="${LOCAL_TOPO_COPERNICUS_DEM_TIF:-}"
-dem_tiff_path="$configured_dem_tiff_path"
 
 osm_extract_path="${LOCAL_TOPO_OSM_EXTRACT_PATH:-$osm_dir/tasmania-latest.osm.pbf}"
 osm_extract_override_path="${LOCAL_TOPO_OSM_EXTRACT_OVERRIDE:-}"
@@ -122,15 +118,6 @@ compose_command() {
 fail() {
   printf '%s\n' "$*" >&2
   exit 1
-}
-
-resolve_tasmania_dem_root() {
-  local home_dir="${HOME:-}"
-  if [ -z "$home_dir" ]; then
-    fail "HOME is unavailable; cannot resolve the Tasmania DEM root."
-  fi
-
-  printf '%s/DEM/Tasmania\n' "$home_dir"
 }
 
 current_time_epoch() {
@@ -230,12 +217,6 @@ dem_is_accepted() {
   "$gdalinfo_bin" "$path" >/dev/null 2>&1
 }
 
-resolve_default_elvis_topo_dem_path() {
-  local tasmania_dem_root
-  tasmania_dem_root="$(resolve_tasmania_dem_root)"
-  printf '%s/elvis_topo/elvis_topo_5m.tif\n' "$tasmania_dem_root"
-}
-
 fail_invalid_dem_path() {
   local source_key="$1"
   local path="$2"
@@ -253,13 +234,10 @@ select_dem_source() {
   local custom_dem_path="$2"
 
   selected_dem_source_key="$dem_source"
+  selected_dem_path="$custom_dem_path"
 
   case "$dem_source" in
     elvis-topo)
-      selected_dem_path="$elvis_topo_dem_tiff_path"
-      if [ -z "$selected_dem_path" ]; then
-        selected_dem_path="$(resolve_default_elvis_topo_dem_path)"
-      fi
       selected_dem_label="$elvis_topo_dem_label"
       if ! dem_is_accepted "$selected_dem_path"; then
         fail_invalid_dem_path \
@@ -269,23 +247,21 @@ select_dem_source() {
       fi
       ;;
     thelist)
-      selected_dem_path="$dem_tiff_path"
       selected_dem_label="$thelist_dem_label"
       if ! dem_is_accepted "$selected_dem_path"; then
         fail_invalid_dem_path \
           "$dem_source" \
           "$selected_dem_path" \
-          "Set LOCAL_TOPO_THELIST_DEM_TIF to a prepared EPSG:28355 GeoTIFF"
+          "Prepare the declared demSources.thelist25m Mapping file"
       fi
       ;;
     copernicus)
-      selected_dem_path="$copernicus_dem_tiff_path"
       selected_dem_label="$copernicus_dem_label"
       if ! dem_is_accepted "$selected_dem_path"; then
         fail_invalid_dem_path \
           "$dem_source" \
           "$selected_dem_path" \
-          "Set LOCAL_TOPO_COPERNICUS_DEM_TIF to a prepared EPSG:28355 GeoTIFF"
+          "Prepare the declared demSources.copernicus Mapping file"
       fi
       ;;
     custom)

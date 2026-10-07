@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/services/natural_feature_repository.dart';
 import 'package:peak_bagger/services/natural_feature_refresh_service.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 
 final naturalFeatureRepositoryProvider = Provider<NaturalFeatureRepository>((
   ref,
@@ -17,6 +18,7 @@ final naturalFeatureRefreshServiceProvider =
     Provider<NaturalFeatureRefreshService>((ref) {
       return NaturalFeatureRefreshService(
         ref.watch(naturalFeatureRepositoryProvider),
+        catalog: ref.watch(mappingCatalogProvider),
       );
     });
 

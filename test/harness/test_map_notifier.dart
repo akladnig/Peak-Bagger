@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'mapping_catalog_fixture.dart';
+export 'mapping_catalog_fixture.dart' show testMappingCatalog;
 
 import 'package:flutter_map/flutter_map.dart' show LatLngBounds;
 import 'package:latlong2/latlong.dart';
@@ -9,10 +11,11 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
-import 'package:peak_bagger/services/peak_refresh_result.dart';
+import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/services/map_name_resolution.dart';
 import 'package:peak_bagger/services/map_search_service.dart';
 import 'package:peak_bagger/services/natural_feature_repository.dart';
@@ -69,9 +72,15 @@ class TestMapNotifier extends MapNotifier {
     this.routeSaveErrorMessage,
     this.searchPopupLoadMoreDelay = Duration.zero,
     this._correlatedPeakIds = const {},
-  }) : _startupBackfillWarningMessage = startupBackfillWarningMessage;
+    MappingCatalog? mappingCatalog,
+  }) : _startupBackfillWarningMessage = startupBackfillWarningMessage,
+       super(mappingCatalog: mappingCatalog ?? testMappingCatalog);
 
   final MapState initialState;
+
+  @override
+  set state(MapState value) =>
+      super.state = value.copyWith(catalog: value.catalog ?? mappingCatalog);
   final String rescanStatus;
   final String? rescanWarning;
   final String? rescanSnackbarMessage;
@@ -211,7 +220,7 @@ class TestMapNotifier extends MapNotifier {
     ref.listen<int>(peaksBaggedRevisionProvider, (previous, next) {
       refreshPeakInfoPopupContent();
     });
-    return initialState;
+    return initialState.copyWith(catalog: mappingCatalog);
   }
 
   @override
@@ -267,6 +276,7 @@ class TestMapNotifier extends MapNotifier {
     try {
       return resolveMapNameForMgrs(
         tasmapRepository: ref.read(tasmapRepositoryProvider),
+        mappingCatalog: mappingCatalog,
         mgrsText: mgrsText,
       ).displayName;
     } catch (_) {
@@ -279,6 +289,7 @@ class TestMapNotifier extends MapNotifier {
     try {
       return resolveMapNameForPoint(
         tasmapRepository: ref.read(tasmapRepositoryProvider),
+        mappingCatalog: mappingCatalog,
         point: point,
       ).displayName;
     } catch (_) {
@@ -516,10 +527,7 @@ class TestMapNotifier extends MapNotifier {
   }
 
   @override
-  Future<PeakRefreshResult> refreshPeaks({
-    String region = Peak.defaultRegion,
-    LatLngBounds? bounds,
-  }) async {
+  Future<PeakRegionAssetImportResult> updatePeaks() async {
     refreshCallCount += 1;
     final peaks = peakRepository?.getAllPeaks() ?? state.peaks;
     final refreshedPeakInfo = _refreshedPeakInfo(peaks);
@@ -530,7 +538,11 @@ class TestMapNotifier extends MapNotifier {
       peakInfo: refreshedPeakInfo,
       clearPeakInfoPopup: state.peakInfo != null && refreshedPeakInfo == null,
     );
-    return PeakRefreshResult(importedCount: peaks.length, skippedCount: 0);
+    return PeakRegionAssetImportResult(
+      importedRegions: const [],
+      importedPeakCount: peaks.length,
+      skippedPeakCount: 0,
+    );
   }
 
   @override
@@ -577,6 +589,7 @@ class TestMapNotifier extends MapNotifier {
           peak: peak,
           peakListRepository: ref.read(peakListRepositoryProvider),
           tasmapRepository: ref.read(tasmapRepositoryProvider),
+          mappingCatalog: mappingCatalog,
           peaksBaggedRepository: resolvedPeaksBaggedRepository,
           gpxTrackRepository: resolvedGpxTrackRepository,
         );
@@ -1033,6 +1046,7 @@ class TestMapNotifier extends MapNotifier {
 
   MapSearchService _buildSearchPopupService() {
     return MapSearchService(
+      catalog: testMappingCatalog,
       peakRepository:
           peakRepository ??
           PeakRepository.test(InMemoryPeakStorage(state.peaks)),

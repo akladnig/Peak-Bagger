@@ -15,8 +15,14 @@ Raw source:
 
 Prepared ELVIS outputs:
 
-- `$HOME/DEM/Tasmania/elvis_runtime_10m.tif`
-- `$HOME/DEM/Tasmania/elvis_topo/elvis_topo_5m.tif`
+- `/Volumes/Services/Mapping/DEM/Elvis/elvis_runtime_10m.tif`
+- `/Volumes/Services/Mapping/DEM/Elvis/elvis_topo/elvis_topo_5m.tif`
+
+The named tool manifest grants only these outputs. Preparation, provenance,
+reports, and previews use `build/dem/elvis`, outside the Mapping store. Runtime
+publication atomically replaces the declared file; topo publication commits a
+resolver-owned directory snapshot. See `docs/mapping-data-store.md` for bootstrap
+and retained-contract verification prerequisites.
 
 Tasmania Local Topo output:
 
@@ -110,24 +116,26 @@ npm run refresh:manual -- --dem-source=thelist
 npm run refresh:manual -- --dem-source=copernicus
 ```
 
-Configure named-source paths with environment variables:
+Named alternatives resolve `demSources.thelist25m` and `demSources.copernicus`
+from the mounted regional manifest. A declared Mapping input may be substituted
+only with a safe store-relative override:
 
 ```bash
-LOCAL_TOPO_THELIST_DEM_TIF=/absolute/path/to/thelist.tif
-LOCAL_TOPO_COPERNICUS_DEM_TIF=/absolute/path/to/copernicus.tif
+npm run refresh:manual -- --dem-path=DEM/prepared-alternative.tif
 ```
 
 Custom DEM:
 
 ```bash
-npm run refresh:manual -- --dem-source=custom --dem-path=/absolute/path/to/dem.tif
+npm run refresh:manual -- --dem-source=custom --external-dem-path=/absolute/non-store/path/to/dem.tif
 ```
 
 Rules for Local Topo DEM inputs in this slice:
 
 - supported sources are exactly `elvis-topo`, `thelist`, `copernicus`, and `custom`
-- `custom` requires `--dem-path`
-- `--dem-path` must be an absolute path
+- `custom` requires a declared `--dem-path` or separate `--external-dem-path`
+- `--dem-path` is store-relative; `--external-dem-path` is an absolute non-store path
+- `LOCAL_TOPO_*_DEM_TIF` and home-directory DEM fallbacks are retired
 - all selected DEM inputs must already be readable `EPSG:28355` GeoTIFFs
 - rebuild scripts fail fast and do not auto-fallback to another DEM source
 

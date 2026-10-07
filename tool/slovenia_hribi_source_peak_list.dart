@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'package:peak_bagger/services/mapping_store_core.dart';
+import 'mapping_tool_support.dart';
 
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/services/peak_csv_source.dart';
@@ -38,6 +40,7 @@ void main(List<String> args) async {
 Future<int> runSloveniaHribiSourcePeakListTool({
   List<String> args = const [],
   SloveniaHribiSourcePeakListService? service,
+  MappingCatalog? catalog,
   SloveniaHribiSourcePageLoader? pageLoader,
   SloveniaPeakSourceLoader? peakSourceLoader,
   Directory Function()? cacheDirectoryResolver,
@@ -63,6 +66,8 @@ Future<int> runSloveniaHribiSourcePeakListTool({
     stdoutLine(_usage());
     return 0;
   }
+  await requireNonMappingPath(invocation.outputDirectoryPath);
+  await requireNonMappingPath(invocation.peaksCsvPath);
 
   final resolvedService =
       service ??
@@ -71,6 +76,11 @@ Future<int> runSloveniaHribiSourcePeakListTool({
             await (peakSourceLoader ??
                 () => _defaultPeakSourceLoader(invocation.peaksCsvPath))();
         return SloveniaHribiSourcePeakListService(
+          catalog:
+              catalog ??
+              await loadToolCatalog(
+                await openMappingTool('slovenia-hribi-source-peak-list'),
+              ),
           pageLoader: pageLoader,
           peakSource: peakSource,
           outputDirectoryResolver: () =>
@@ -117,7 +127,7 @@ Future<int> runSloveniaHribiSourcePeakListTool({
 
 _Invocation _parseInvocation(List<String> args) {
   var showHelp = false;
-  var outputDirectoryPath = p.join('.', 'assets', 'peaks');
+  var outputDirectoryPath = p.join('build', 'slovenia-peak-reports');
   var peaksCsvPath = _defaultPeaksCsvPath;
   String? sourceOfTruth;
   var repairList = false;
@@ -208,7 +218,7 @@ Usage:
   dart run tool/slovenia_hribi_source_peak_list.dart [--source-of-truth VALUE] [--repair-list] [--refresh-cache] [--tie-window-meters N] [--output-dir PATH] [--peaks-csv PATH]
 
 Defaults:
-  output-dir: ./assets/peaks
+  output-dir: ./build/slovenia-peak-reports
   peaks-csv: $_defaultPeaksCsvPath
   tie-window-meters: 10
 ''';

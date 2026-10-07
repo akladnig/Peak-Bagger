@@ -11,16 +11,16 @@ void main() {
       'generates sorted app-owned CSV from eligible highway segments',
       () async {
         final files = _FakeFiles({
-          '/repo/assets/region_manifest.json': jsonEncode({
+          'region_manifest.json': jsonEncode({
             'routingCoverages': {
               'tasmania': {'displayName': 'Tasmania'},
             },
             'tasmania': {
               'priority': '1',
-              'highways': ['assets/highways/tasmania.json'],
+              'highways': ['Highways/tasmania.json'],
             },
           }),
-          '/repo/assets/highways/tasmania.json': _highwaysJson(),
+          'Highways/tasmania.json': _highwaysJson(),
           '/home/Documents/Bushwalking/Features/peaks.csv': _peaksCsv([
             _peakRow(name: 'Zulu', osmId: 2, latitude: 0, longitude: .0003),
             _peakRow(name: 'alpha', osmId: 3, latitude: 0, longitude: 0),
@@ -55,14 +55,14 @@ void main() {
       'uses ancestor highways and non-composite aliases without replacing source region',
       () async {
         final files = _FakeFiles({
-          '/repo/assets/region_manifest.json': jsonEncode({
+          'region_manifest.json': jsonEncode({
             'italy-nord-est': {
               'priority': '2.1',
-              'highways': ['assets/highways/italy.json'],
+              'highways': ['Highways/italy.json'],
             },
             'fvg': {'priority': '2.1.1'},
           }),
-          '/repo/assets/highways/italy.json': _highwaysJson(),
+          'Highways/italy.json': _highwaysJson(),
           '/source.csv': _peaksCsv([
             _peakRow(
               name: 'FVG Peak',
@@ -88,13 +88,13 @@ void main() {
 
     test('accepts and exports a negative osmId', () async {
       final files = _FakeFiles({
-        '/repo/assets/region_manifest.json': jsonEncode({
+        'region_manifest.json': jsonEncode({
           'tasmania': {
             'priority': '1',
-            'highways': ['assets/highways/tasmania.json'],
+            'highways': ['Highways/tasmania.json'],
           },
         }),
-        '/repo/assets/highways/tasmania.json': _highwaysJson(),
+        'Highways/tasmania.json': _highwaysJson(),
         '/source.csv': _peaksCsv([
           _peakRow(
             name: 'Synthetic Peak',
@@ -123,27 +123,24 @@ void main() {
       'unions matching non-composite regions for composite selections',
       () async {
         final files = _FakeFiles({
-          '/repo/assets/region_manifest.json': jsonEncode({
+          'region_manifest.json': jsonEncode({
             'north': {
               'priority': '2.1',
-              'highways': ['assets/highways/north.json'],
+              'highways': ['Highways/north.json'],
               'peakListFilterAliases': ['north-alias'],
             },
             'south': {
               'priority': '2.2',
-              'highways': ['assets/highways/south.json'],
+              'highways': ['Highways/south.json'],
             },
             'all': {
               'priority': '2',
               'composite': true,
-              'highways': [
-                'assets/highways/north.json',
-                'assets/highways/south.json',
-              ],
+              'highways': ['Highways/north.json', 'Highways/south.json'],
             },
           }),
-          '/repo/assets/highways/north.json': _highwaysJson(),
-          '/repo/assets/highways/south.json': _highwaysJson(),
+          'Highways/north.json': _highwaysJson(),
+          'Highways/south.json': _highwaysJson(),
           '/source.csv': _peaksCsv([
             _peakRow(
               name: 'North',
@@ -182,13 +179,13 @@ void main() {
       'does not bridge unresolved way references and accepts only eligible ways',
       () async {
         final files = _FakeFiles({
-          '/repo/assets/region_manifest.json': jsonEncode({
+          'region_manifest.json': jsonEncode({
             'tasmania': {
               'priority': '1',
-              'highways': ['assets/highways/tasmania.json'],
+              'highways': ['Highways/tasmania.json'],
             },
           }),
-          '/repo/assets/highways/tasmania.json': jsonEncode({
+          'Highways/tasmania.json': jsonEncode({
             'elements': [
               {'type': 'node', 'id': 1, 'lat': 0, 'lon': 0},
               {'type': 'node', 'id': 2, 'lat': 0, 'lon': .002},
@@ -225,7 +222,7 @@ void main() {
             isA<RouteGraphPeakListGenerationException>().having(
               (error) => error.message,
               'message',
-              contains('/repo/assets/highways/tasmania.json'),
+              contains('Highways/tasmania.json'),
             ),
           ),
         );
@@ -237,17 +234,14 @@ void main() {
       'matches the inclusive 50 metre boundary once across multiple files',
       () async {
         final files = _FakeFiles({
-          '/repo/assets/region_manifest.json': jsonEncode({
+          'region_manifest.json': jsonEncode({
             'tasmania': {
               'priority': '1',
-              'highways': [
-                'assets/highways/one.json',
-                'assets/highways/two.json',
-              ],
+              'highways': ['Highways/one.json', 'Highways/two.json'],
             },
           }),
-          '/repo/assets/highways/one.json': _highwaysJson(),
-          '/repo/assets/highways/two.json': _highwaysJson(),
+          'Highways/one.json': _highwaysJson(),
+          'Highways/two.json': _highwaysJson(),
           '/source.csv': _peaksCsv([
             _peakRow(
               name: 'Boundary',
@@ -277,13 +271,13 @@ void main() {
       'rejects malformed source before replacing an existing output and cleans temporary files',
       () async {
         final files = _FakeFiles({
-          '/repo/assets/region_manifest.json': jsonEncode({
+          'region_manifest.json': jsonEncode({
             'tasmania': {
               'priority': '1',
-              'highways': ['assets/highways/tasmania.json'],
+              'highways': ['Highways/tasmania.json'],
             },
           }),
-          '/repo/assets/highways/tasmania.json': _highwaysJson(),
+          'Highways/tasmania.json': _highwaysJson(),
           '/source.csv': _peaksCsv([
             _peakRow(name: '', latitude: 0, longitude: 0),
           ]),
@@ -308,13 +302,13 @@ void main() {
 
     test('writes a header-only CSV when no eligible peaks match', () async {
       final files = _FakeFiles({
-        '/repo/assets/region_manifest.json': jsonEncode({
+        'region_manifest.json': jsonEncode({
           'tasmania': {
             'priority': '1',
-            'highways': ['assets/highways/tasmania.json'],
+            'highways': ['Highways/tasmania.json'],
           },
         }),
-        '/repo/assets/highways/tasmania.json': _highwaysJson(),
+        'Highways/tasmania.json': _highwaysJson(),
         '/source.csv': _peaksCsv([
           _peakRow(
             name: 'Other region',
@@ -353,13 +347,13 @@ void main() {
               ..[21] = 'abc'
               ..[22] = '123';
         final files = _FakeFiles({
-          '/repo/assets/region_manifest.json': jsonEncode({
+          'region_manifest.json': jsonEncode({
             'tasmania': {
               'priority': '1',
-              'highways': ['assets/highways/tasmania.json'],
+              'highways': ['Highways/tasmania.json'],
             },
           }),
-          '/repo/assets/highways/tasmania.json': _highwaysJson(),
+          'Highways/tasmania.json': _highwaysJson(),
           '/invalid.csv': _peaksCsv([invalidRating]),
           '/valid.csv': _peaksCsv([validFallbackMgrs]),
         });
@@ -538,13 +532,13 @@ _FakeFiles _outputFailureFiles({
 }) {
   return _FakeFiles(
     {
-      '/repo/assets/region_manifest.json': jsonEncode({
+      'region_manifest.json': jsonEncode({
         'tasmania': {
           'priority': '1',
-          'highways': ['assets/highways/tasmania.json'],
+          'highways': ['Highways/tasmania.json'],
         },
       }),
-      '/repo/assets/highways/tasmania.json': _highwaysJson(),
+      'Highways/tasmania.json': _highwaysJson(),
       '/source.csv': _peaksCsv([
         _peakRow(name: 'Peak', latitude: 0, longitude: 0),
       ]),

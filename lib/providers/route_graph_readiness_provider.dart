@@ -111,6 +111,21 @@ final routeGraphBootstrapProvider =
           return null;
         }
 
+        void syncCoverageReadiness() {
+          if (coordinator.states.any((state) => state.hasActiveGeneration)) {
+            readiness.markReady();
+          } else if (coordinator.states.isNotEmpty &&
+              coordinator.states.every(
+                (state) =>
+                    state.status == RouteGraphCoverageImportStatus.failed,
+              )) {
+            readiness.markFailed('Route graph bootstrap failed.');
+          }
+        }
+
+        coordinator.addListener(syncCoverageReadiness);
+        ref.onDispose(() => coordinator.removeListener(syncCoverageReadiness));
+
         final result = await coordinator.bootstrap();
         final hasUsableGraph = coordinator.states.any(
           (state) => state.hasActiveGeneration,

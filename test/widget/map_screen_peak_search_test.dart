@@ -3,6 +3,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
@@ -508,6 +509,56 @@ void main() {
       '28 Jul 1962',
     );
 
+    await tester.pumpWidget(const SizedBox.shrink());
+    focusNode.dispose();
+  });
+
+  testWidgets('mapping source failure remains actionable in peak search', (
+    tester,
+  ) async {
+    var retryCount = 0;
+    final focusNode = FocusNode();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MapSearchPopup(
+            focusNode: focusNode,
+            searchResults: const [],
+            isLoadingMore: false,
+            isExhausted: true,
+            searchQuery: '',
+            trackDateRange: null,
+            categories: MapSearchService.defaultCategories,
+            selectedRegionKey: null,
+            sort: MapSearchSort.nameAscending,
+            group: MapSearchGroup.none,
+            availableRegions: const <MapSearchRegionOption>[],
+            onChanged: (_) {},
+            onToggleCategory: (_) {},
+            onSelectTrackDateRange: (_) {},
+            onSelectRegionKey: (_) {},
+            onSelectSort: (_) {},
+            onSelectGroup: (_) {},
+            onLoadMore: () {},
+            onClose: () {},
+            onSelectResult: (_) {},
+            mappingUnavailableReason: 'Mapping store is unavailable.',
+            onRetryMapping: () => retryCount++,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const Key('peak-search-mapping-unavailable')),
+      findsOneWidget,
+    );
+    expect(find.text('Mapping store is unavailable.'), findsOneWidget);
+    await tester.tap(
+      find.byKey(const Key('peak-search-mapping-unavailable-retry')),
+    );
+
+    expect(retryCount, 1);
     await tester.pumpWidget(const SizedBox.shrink());
     focusNode.dispose();
   });
@@ -1430,6 +1481,7 @@ Future<void> _pumpMapApp(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => TestMapNotifier(state)),
         tasmapStateProvider.overrideWith(
           () => TestTasmapNotifier(tasmapRepository),
@@ -1459,6 +1511,7 @@ Future<void> _pumpMapAppWithNotifier(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => notifier),
         tasmapStateProvider.overrideWith(
           () => TestTasmapNotifier(tasmapRepository),

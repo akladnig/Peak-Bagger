@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
-import 'package:peak_bagger/services/import_path_helpers.dart';
+import 'mapping_tool_support.dart';
+import 'package:peak_bagger/services/mapping_tool_resolver.dart';
 
 const elvisDemCanonicalSourcePath =
     '/Volumes/Media/Elvis/tas-elvis/elevation/2m-dem/z55/mosaics/Tasmania_Statewide_2m_DEM_14-08-2021.tif';
@@ -124,7 +125,8 @@ Future<int> runElvisDemTool({
   String sourcePath = elvisDemCanonicalSourcePath,
   ElvisDemCommandChecker? commandChecker,
   ElvisDemCommandRunner? commandRunner,
-  String? homeDirectory,
+  String? workspaceDirectory,
+  Future<void> Function(String toolId, String preparedPath)? publishArtifact,
   DateTime Function()? clock,
   Future<void> Function(String path)? sourceReadableChecker,
   void Function(String message)? stdoutWriter,
@@ -161,13 +163,32 @@ Future<int> runElvisDemTool({
   }
 
   late final String tasmaniaDemRoot;
+  final outputResolvers = <String, MappingToolResolver>{};
   try {
-    tasmaniaDemRoot = resolveTasmaniaDemRoot(homeDirectory: homeDirectory);
+    tasmaniaDemRoot = workspaceDirectory ?? p.join('build', 'dem', 'elvis');
+    await requireNonMappingPath(tasmaniaDemRoot);
+    await requireNonMappingPath(sourcePath);
+    if (publishArtifact == null && command != _ElvisDemCommand.validateSource) {
+      if (command != _ElvisDemCommand.buildTopo) {
+        outputResolvers['elvis-dem-runtime'] = await openMappingTool(
+          'elvis-dem-runtime',
+        );
+      }
+      if (command != _ElvisDemCommand.buildRuntime) {
+        outputResolvers['elvis-dem-topo'] = await openMappingTool(
+          'elvis-dem-topo',
+        );
+      }
+    }
   } on Object catch (error) {
     stderrLine(_errorMessage(error));
     return 1;
   }
 
+  final publish =
+      publishArtifact ??
+      (String toolId, String preparedPath) =>
+          _publishArtifact(outputResolvers[toolId]!, toolId, preparedPath);
   await Directory(tasmaniaDemRoot).create(recursive: true);
   final reportPath = _reportPath(
     commandName: command.cliName,
@@ -191,7 +212,7 @@ Future<int> runElvisDemTool({
 
   if (command == _ElvisDemCommand.buildRuntime) {
     final contract = _runtimeContract(tasmaniaDemRoot);
-    return _runBuildCommand(
+    final result = await _runBuildCommand(
       commandName: command.cliName,
       validateBuildInputs: invocation.validateBuildInputs,
       sourcePath: sourcePath,
@@ -216,11 +237,13 @@ Future<int> runElvisDemTool({
         ];
       },
     );
+    if (result == 0) await publish('elvis-dem-runtime', contract.artifactPath);
+    return result;
   }
 
   if (command == _ElvisDemCommand.buildTopo) {
     final contract = _topoContract(tasmaniaDemRoot);
-    return _runBuildCommand(
+    final result = await _runBuildCommand(
       commandName: command.cliName,
       validateBuildInputs: invocation.validateBuildInputs,
       sourcePath: sourcePath,
@@ -245,11 +268,13 @@ Future<int> runElvisDemTool({
         ];
       },
     );
+    if (result == 0) await publish('elvis-dem-topo', contract.artifactPath);
+    return result;
   }
 
   final runtimeContract = _runtimeContract(tasmaniaDemRoot);
   final topoContract = _topoContract(tasmaniaDemRoot);
-  return _runBuildCommand(
+  final result = await _runBuildCommand(
     commandName: command.cliName,
     validateBuildInputs: invocation.validateBuildInputs,
     sourcePath: sourcePath,
@@ -280,6 +305,27 @@ Future<int> runElvisDemTool({
         ),
       ];
     },
+  );
+  if (result == 0) {
+    await publish('elvis-dem-runtime', runtimeContract.artifactPath);
+    await publish('elvis-dem-topo', topoContract.artifactPath);
+  }
+  return result;
+}
+
+Future<void> _publishArtifact(
+  MappingToolResolver resolver,
+  String toolId,
+  String preparedPath,
+) async {
+  await resolver.writeOutputs(
+    (outputs) => toolId == 'elvis-dem-runtime'
+        ? outputs.copyNonStoreFile('runtime-dem', preparedPath)
+        : outputs.copyNonStoreFile(
+            'topo-dem',
+            preparedPath,
+            child: _topoArtifactName,
+          ),
   );
 }
 

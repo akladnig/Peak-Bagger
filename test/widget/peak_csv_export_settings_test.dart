@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
@@ -54,6 +55,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           peakCsvExportBackgroundRunnerProvider.overrideWithValue(exportRunner),
           tasmapStateProvider.overrideWith(
@@ -131,6 +133,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           peakCsvExportBackgroundRunnerProvider.overrideWithValue(({
             PeakCsvExportProgressCallback? onProgress,

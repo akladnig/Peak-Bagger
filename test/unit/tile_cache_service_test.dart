@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:objectbox/objectbox.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -331,6 +332,7 @@ void main() {
     );
 
     await TileCacheService.ensureLowZoomWarmup(
+      catalog: testMappingCatalog,
       downloadStarter:
           ({required basemap, required region, required skipExistingTiles}) {
             basemaps.add(basemap);
@@ -375,6 +377,7 @@ void main() {
       var callCount = 0;
 
       await TileCacheService.ensureLowZoomWarmup(
+        catalog: testMappingCatalog,
         downloadStarter:
             ({required basemap, required region, required skipExistingTiles}) {
               callCount++;
@@ -393,6 +396,7 @@ void main() {
     'ensureLowZoomWarmup does not persist success after a failed basemap',
     () async {
       await TileCacheService.ensureLowZoomWarmup(
+        catalog: testMappingCatalog,
         downloadStarter:
             ({required basemap, required region, required skipExistingTiles}) {
               if (basemap == Basemap.tracestrack) {
@@ -422,6 +426,7 @@ void main() {
     }
 
     final first = TileCacheService.ensureLowZoomWarmup(
+      catalog: testMappingCatalog,
       downloadStarter:
           ({required basemap, required region, required skipExistingTiles}) {
             callCount++;
@@ -432,6 +437,7 @@ void main() {
           },
     );
     final second = TileCacheService.ensureLowZoomWarmup(
+      catalog: testMappingCatalog,
       downloadStarter:
           ({required basemap, required region, required skipExistingTiles}) {
             callCount += 100;
@@ -491,7 +497,13 @@ void main() {
       );
 
       expect(
-        TileCacheService.transformUrl(Basemap.localTopo, 7, 88, 99),
+        TileCacheService.transformUrl(
+          Basemap.localTopo,
+          7,
+          88,
+          99,
+          catalog: testMappingCatalog,
+        ),
         'http://127.0.0.1:8090/tasmania/local-topo/7/88/99.png',
       );
     },

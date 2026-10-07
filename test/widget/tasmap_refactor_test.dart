@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
@@ -57,10 +58,11 @@ void main() {
     expect(polygon.points, _expectedPoints(selectedMap));
   });
 
-  testWidgets('tasmap reset reimports from csv', (tester) async {
+  testWidgets('TasMap update refreshes from the mapping store', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => TestMapNotifier(
             MapState(
@@ -84,9 +86,22 @@ void main() {
     );
     await tester.pump();
 
-    await tester.tap(find.byKey(const Key('reset-map-data-tile')));
+    await tester.tap(find.byKey(const Key('update-map-data-tile')));
     await tester.pump();
-    await tester.tap(find.byKey(const Key('reset-map-data-confirm')));
+    expect(find.text('Update Map Data'), findsOneWidget);
+    expect(
+      find.text('Update TasMap sheets from Mapping data store'),
+      findsOneWidget,
+    );
+    expect(find.text('Update Map Data?'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Update'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('update-map-data-confirm')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump();
@@ -100,7 +115,7 @@ class TestTasmapNotifier extends TasmapNotifier {
   TasmapState build() => const TasmapState();
 
   @override
-  Future<TasmapCsvImportResult> resetAndReimport() async {
+  Future<TasmapCsvImportResult> updateFromMappingStore() async {
     state = state.copyWith(
       mapCount: 75,
       tasmapRevision: state.tasmapRevision + 1,

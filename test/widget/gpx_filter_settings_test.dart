@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
@@ -21,6 +22,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => TestMapNotifier(_baseState())),
         gpxFilterSettingsProvider.overrideWith(
           () => _PendingGpxFilterSettingsNotifier(),
@@ -53,6 +55,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => TestMapNotifier(_baseState())),
       ],
     );
@@ -93,6 +96,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => TestMapNotifier(_baseState())),
       ],
     );
@@ -139,6 +143,7 @@ void main() {
 
     final container = ProviderContainer(
       overrides: [
+        ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(() => TestMapNotifier(_baseState())),
       ],
     );

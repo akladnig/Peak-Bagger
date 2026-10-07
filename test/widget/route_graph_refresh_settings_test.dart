@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
@@ -27,6 +28,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
@@ -62,6 +64,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
@@ -128,6 +131,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
@@ -182,6 +186,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),
@@ -228,10 +233,7 @@ void main() {
     await tester.tap(find.byKey(const Key('route-graph-refresh-error-close')));
     await tester.pumpAndSettle();
 
-    expect(
-      find.text('Route graph unavailable. Use Refresh Route Graph to retry.'),
-      findsOneWidget,
-    );
+    expect(find.byType(AlertDialog), findsNothing);
   });
 
   testWidgets('refresh route graph shows db full guidance', (tester) async {
@@ -246,6 +248,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           tasmapStateProvider.overrideWith(
             () => TestTasmapNotifier(repository),

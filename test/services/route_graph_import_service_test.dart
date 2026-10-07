@@ -241,6 +241,7 @@ void main() {
       expect(
         row.recordKey,
         RouteGraphWayIndex.recordKeyFor(
+          routingCoverageKey: defaultRouteGraphCoverageKey,
           generation: 1,
           chunkKey: row.chunkKey,
           osmWayId: 10,

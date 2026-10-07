@@ -20,6 +20,12 @@ class NaturalFeature {
   int osmId;
   String osmType;
   String sourceOfTruth;
+  String sourceKey;
+
+  /// Nullable additive index: legacy rows can open before reconciliation removes
+  /// duplicates. New and reconciled rows always persist their canonical key.
+  @Unique()
+  String? sourceRecordKey;
 
   NaturalFeature({
     this.id = 0,
@@ -38,5 +44,8 @@ class NaturalFeature {
     required this.osmId,
     required this.osmType,
     this.sourceOfTruth = 'OSM',
-  });
+    String? sourceKey,
+    String? sourceRecordKey,
+  }) : sourceKey = sourceKey ?? '$sourceOfTruth:$osmType:$osmId',
+       sourceRecordKey = sourceRecordKey ?? '$sourceOfTruth:$osmType:$osmId';
 }

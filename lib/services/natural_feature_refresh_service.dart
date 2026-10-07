@@ -1,20 +1,22 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:developer' as developer;
 import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/services/natural_feature_repository.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
-
-const naturalFeatureSourcePath =
-    '/Volumes/Services/Features/tasmania_natural_features.json';
 
 typedef NaturalFeatureFileReader = Future<String> Function(String path);
 typedef NaturalFeatureMgrsConverter = PeakMgrsComponents Function(LatLng point);
 typedef NaturalFeatureRefreshPersistence =
-    void Function(List<NaturalFeature> features);
+    void Function({
+      required List<NaturalFeature> upserts,
+      required List<int> deletedIds,
+    });
 typedef NaturalFeatureDiagnosticLogger = void Function(String message);
 
 class NaturalFeatureRefreshResult {
@@ -35,56 +37,58 @@ class NaturalFeatureRefreshResult {
 class NaturalFeatureRefreshService {
   NaturalFeatureRefreshService(
     this._repository, {
-    NaturalFeatureFileReader? fileReader,
+    this.catalog,
+    this.fileReader,
+    MappingStoreFileSystem? fileSystem,
     NaturalFeatureMgrsConverter? mgrsConverter,
     NaturalFeatureRefreshPersistence? persistence,
     NaturalFeatureDiagnosticLogger? diagnosticLogger,
-  }) : _fileReader = fileReader ?? _readSourceFile,
+  }) : _fileSystem = fileSystem ?? const IoMappingStoreFileSystem(),
        _mgrsConverter = mgrsConverter ?? PeakMgrsConverter.fromLatLng,
        _persistence = persistence ?? _repositoryPersistence(_repository),
-       _diagnosticLogger = diagnosticLogger ?? _discardDiagnostic;
+       _diagnosticLogger = diagnosticLogger ?? _logDiagnostic;
 
   final NaturalFeatureRepository _repository;
-  final NaturalFeatureFileReader _fileReader;
+  final MappingCatalog? catalog;
+  final NaturalFeatureFileReader? fileReader;
+  final MappingStoreFileSystem _fileSystem;
   final NaturalFeatureMgrsConverter _mgrsConverter;
   final NaturalFeatureRefreshPersistence _persistence;
   final NaturalFeatureDiagnosticLogger _diagnosticLogger;
 
-  static Future<String> _readSourceFile(String path) =>
-      File(path).readAsString();
-
   static NaturalFeatureRefreshPersistence _repositoryPersistence(
     NaturalFeatureRepository repository,
   ) {
-    return repository.upsertAllAtomically;
+    return repository.reconcileAtomically;
   }
 
-  static void _discardDiagnostic(String _) {}
+  static void _logDiagnostic(String message) =>
+      developer.log(message, name: 'NaturalFeatureRefreshService');
 
   Future<NaturalFeatureRefreshResult> refresh() async {
     final sourceText = await _readSourceText();
     final stored = _repository.getAllNaturalFeatures();
-    _ensureUniqueStoredIdentities(stored);
-    final manualIdentities = stored
-        .where((feature) => feature.sourceOfTruth == 'Manual')
-        .map((feature) => _identity(feature.osmType, feature.osmId))
-        .toList(growable: false);
 
-    final workerResult = await Isolate.run<Map<String, Object?>>(
-      () => buildNaturalFeatureRefreshPlan({
-        'sourceText': sourceText,
-        'manualIdentities': manualIdentities,
-      }),
-    );
+    final workerResult = await _buildRefreshPlan(sourceText);
     final geometryErrors = workerResult['geometryErrors']! as List<Object?>;
     for (final error in geometryErrors) {
       _diagnosticLogger(error! as String);
     }
 
-    final existingByIdentity = <String, NaturalFeature>{
-      for (final feature in stored)
-        _identity(feature.osmType, feature.osmId): feature,
-    };
+    final existingByIdentity = <String, NaturalFeature>{};
+    final deletedIds = <int>[];
+    for (final feature in stored.where(_isOsmOwned)) {
+      final identity = _identity(feature.osmType, feature.osmId);
+      final existing = existingByIdentity[identity];
+      if (existing == null || _isPreferredDuplicate(feature, existing)) {
+        if (existing != null && existing.id > 0) {
+          deletedIds.add(existing.id);
+        }
+        existingByIdentity[identity] = feature;
+      } else if (feature.id > 0) {
+        deletedIds.add(feature.id);
+      }
+    }
     final upserts = <NaturalFeature>[];
     var skippedCount = workerResult['skippedCount']! as int;
     var createdCount = 0;
@@ -96,10 +100,6 @@ class NaturalFeatureRefreshService {
       final identity = feature['identity']! as String;
       final existing = existingByIdentity[identity];
       final mgrs = _convertMgrs(feature);
-      if (mgrs == null) {
-        skippedCount += 1;
-        continue;
-      }
       final sourceFeature = NaturalFeature(
         name: feature['name']! as String,
         altName: feature['altName']! as String,
@@ -116,6 +116,11 @@ class NaturalFeatureRefreshService {
         osmId: feature['osmId']! as int,
         osmType: feature['osmType']! as String,
         sourceOfTruth: 'OSM',
+        sourceKey: naturalFeatureSourceKey(
+          'OSM',
+          feature['osmType']! as String,
+          feature['osmId']! as int,
+        ),
       );
       if (existing == null) {
         upserts.add(sourceFeature);
@@ -126,7 +131,19 @@ class NaturalFeatureRefreshService {
       }
     }
 
-    _persistence(upserts);
+    for (final feature in existingByIdentity.values) {
+      final expectedKey = naturalFeatureSourceKey(
+        'OSM',
+        feature.osmType,
+        feature.osmId,
+      );
+      // Persist the new nullable unique index for retained legacy survivors too.
+      if (!upserts.any((upsert) => upsert.id == feature.id)) {
+        upserts.add(_withSourceKey(feature, expectedKey));
+      }
+    }
+
+    _persistence(upserts: upserts, deletedIds: deletedIds);
     return NaturalFeatureRefreshResult(
       createdCount: createdCount,
       updatedCount: updatedCount,
@@ -136,17 +153,47 @@ class NaturalFeatureRefreshService {
   }
 
   Future<String> _readSourceText() async {
+    final path = catalog?.naturalFeaturesCatalogPath;
+    if (path == null && fileReader == null) {
+      throw StateError('Natural Features Mapping catalog is unavailable.');
+    }
     try {
-      return await _fileReader(naturalFeatureSourcePath);
-    } catch (_) {
-      throw StateError(
-        'Error refreshing natural features: source file is unavailable at '
-        '$naturalFeatureSourcePath',
+      final reader = fileReader;
+      if (reader != null) {
+        return await reader(path ?? '');
+      }
+      return await MappingStoreOperationFileAccess(
+        catalog: catalog!,
+        fileSystem: _fileSystem,
+      ).readText(path!);
+    } on MappingStoreOperationException {
+      rethrow;
+    } on Object catch (error) {
+      throw MappingStoreOperationException(
+        paths: [path ?? 'naturalFeatures.catalog'],
+        cause: error,
       );
     }
   }
 
-  PeakMgrsComponents? _convertMgrs(Map<Object?, Object?> feature) {
+  Future<Map<String, Object?>> _buildRefreshPlan(String sourceText) async {
+    try {
+      return await Isolate.run<Map<String, Object?>>(
+        () => buildNaturalFeatureRefreshPlan({'sourceText': sourceText}),
+      );
+    } on MappingStoreOperationException {
+      rethrow;
+    } on Object catch (error) {
+      throw MappingStoreOperationException(
+        paths: [
+          catalog?.naturalFeaturesCatalogPath ?? 'naturalFeatures.catalog',
+        ],
+        cause: error,
+      );
+    }
+  }
+
+  PeakMgrsComponents _convertMgrs(Map<Object?, Object?> feature) {
     try {
       return _mgrsConverter(
         LatLng(
@@ -154,8 +201,13 @@ class NaturalFeatureRefreshService {
           (feature['longitude']! as num).toDouble(),
         ),
       );
-    } catch (_) {
-      return null;
+    } catch (error) {
+      throw MappingStoreOperationException(
+        paths: [
+          catalog?.naturalFeaturesCatalogPath ?? 'naturalFeatures.catalog',
+        ],
+        cause: error,
+      );
     }
   }
 
@@ -180,20 +232,43 @@ class NaturalFeatureRefreshService {
       osmId: source.osmId,
       osmType: source.osmType,
       sourceOfTruth: 'OSM',
+      sourceKey: naturalFeatureSourceKey('OSM', source.osmType, source.osmId),
+    );
+  }
+
+  NaturalFeature _withSourceKey(NaturalFeature feature, String sourceKey) {
+    return NaturalFeature(
+      id: feature.id,
+      name: feature.name,
+      altName: feature.altName,
+      tag: feature.tag,
+      country: feature.country,
+      county: feature.county,
+      region: feature.region,
+      latitude: feature.latitude,
+      longitude: feature.longitude,
+      gridZoneDesignator: feature.gridZoneDesignator,
+      mgrs100kId: feature.mgrs100kId,
+      easting: feature.easting,
+      northing: feature.northing,
+      osmId: feature.osmId,
+      osmType: feature.osmType,
+      sourceOfTruth: 'OSM',
+      sourceKey: sourceKey,
     );
   }
 }
 
 String _identity(String osmType, int osmId) => '$osmType:$osmId';
 
-void _ensureUniqueStoredIdentities(List<NaturalFeature> features) {
-  final identities = <String>{};
-  for (final feature in features) {
-    if (!identities.add(_identity(feature.osmType, feature.osmId))) {
-      throw StateError('Duplicate stored OSM feature identity');
-    }
-  }
-}
+String naturalFeatureSourceKey(String ownership, String osmType, int osmId) =>
+    '$ownership:$osmType:$osmId';
+
+bool _isOsmOwned(NaturalFeature feature) =>
+    feature.sourceOfTruth.trim().toUpperCase() == 'OSM';
+
+bool _isPreferredDuplicate(NaturalFeature candidate, NaturalFeature current) =>
+    candidate.id > 0 && (current.id <= 0 || candidate.id < current.id);
 
 /// Top-level isolate worker: accepts and returns only JSON-compatible values.
 Map<String, Object?> buildNaturalFeatureRefreshPlan(
@@ -204,9 +279,6 @@ Map<String, Object?> buildNaturalFeatureRefreshPlan(
     throw const FormatException('Source JSON must contain an elements array');
   }
   final elements = decoded['elements']! as List;
-  final manualIdentities = (input['manualIdentities']! as List<Object?>)
-      .cast<String>()
-      .toSet();
   final source = _NaturalFeatureSource(elements);
   final features = <Map<String, Object?>>[];
   final identities = <String>{};
@@ -217,24 +289,31 @@ Map<String, Object?> buildNaturalFeatureRefreshPlan(
   for (final rawElement in elements) {
     final candidate = source.candidateFor(rawElement);
     if (candidate == null) {
+      geometryErrors.add('Skipped ineligible Natural Feature source record.');
       continue;
     }
     if (!candidate.isEligible) {
+      geometryErrors.add('Skipped ineligible Natural Feature candidate.');
       skippedCount += 1;
       continue;
     }
     final identity = _identity(candidate.type!, candidate.osmId!);
     if (!identities.add(identity)) {
-      throw StateError('Duplicate source OSM feature identity');
+      throw FormatException(
+        'Duplicate eligible source OSM feature identity for $identity',
+      );
     }
-    if (manualIdentities.contains(identity)) {
-      protectedCount += 1;
+    if (source.isUnsupportedNodeOnlyRelation(candidate)) {
+      skippedCount += 1;
+      geometryErrors.add(
+        'Skipped $identity — ${candidate.name}: '
+        'node-only relation has no supported centroid geometry.',
+      );
       continue;
     }
     final geometry = source.geometryFor(candidate, geometryErrors);
     if (geometry == null) {
-      skippedCount += 1;
-      continue;
+      throw FormatException('Malformed Natural Feature geometry for $identity');
     }
     features.add({
       'identity': identity,
@@ -282,6 +361,9 @@ class _NaturalFeatureCandidate {
 
 class _NaturalFeatureSource {
   _NaturalFeatureSource(this.elements) {
+    final identities = <String>{};
+    final relationMembers =
+        <int, List<({String type, int ref, String role})>>{};
     for (final rawElement in elements) {
       final element = _asObject(rawElement);
       if (element == null) {
@@ -289,8 +371,31 @@ class _NaturalFeatureSource {
       }
       final type = element['type'];
       final id = _positiveId(element['id']);
+      final point = type == 'node' ? _pointFromElement(element) : null;
+      // Overpass can repeat a tagged feature as an untagged geometry skeleton.
+      // Compare geometry here; eligible-feature uniqueness is checked separately.
+      if ((type == 'node' || type == 'way' || type == 'relation') &&
+          id != null &&
+          !identities.add('$type:$id')) {
+        final matches = switch (type) {
+          'node' => point != null && (_nodes[id]?.sameAs(point) ?? false),
+          'way' => _sameReferences(
+            _ways[id],
+            _nodeReferences(element['nodes']),
+          ),
+          'relation' => _sameReferences(
+            relationMembers[id],
+            _relationMemberReferences(element['members']),
+          ),
+          _ => false,
+        };
+        if (!matches) {
+          throw FormatException(
+            'Conflicting source OSM geometry for $type:$id',
+          );
+        }
+      }
       if (type == 'node' && id != null) {
-        final point = _pointFromElement(element);
         if (point != null) {
           _nodes[id] = point;
         }
@@ -299,6 +404,11 @@ class _NaturalFeatureSource {
         if (nodes != null) {
           _ways[id] = nodes;
         }
+      } else if (type == 'relation' && id != null) {
+        final members = _relationMemberReferences(element['members']);
+        if (members != null) {
+          relationMembers[id] = members;
+        }
       }
     }
   }
@@ -306,6 +416,12 @@ class _NaturalFeatureSource {
   final List elements;
   final Map<int, _Point> _nodes = {};
   final Map<int, List<int>> _ways = {};
+
+  static bool _sameReferences<T>(List<T>? left, List<T>? right) =>
+      left != null &&
+      right != null &&
+      left.length == right.length &&
+      left.indexed.every((entry) => right[entry.$1] == entry.$2);
 
   _NaturalFeatureCandidate? candidateFor(Object? rawElement) {
     final element = _asObject(rawElement);
@@ -325,7 +441,9 @@ class _NaturalFeatureSource {
     }
     final id = _positiveId(element['id']);
     if (id == null) {
-      return const _NaturalFeatureCandidate();
+      throw const FormatException(
+        'Selected Natural Feature has an invalid OSM id',
+      );
     }
     final water = _trimmedTag(tags, 'water');
     return _NaturalFeatureCandidate(
@@ -336,6 +454,19 @@ class _NaturalFeatureSource {
       tag: natural == 'water' ? (water ?? 'water') : natural,
       altName: _trimmedTag(tags, 'alt_name') ?? '',
     );
+  }
+
+  bool isUnsupportedNodeOnlyRelation(_NaturalFeatureCandidate candidate) {
+    if (candidate.type != 'relation' ||
+        _trimmedTag(_asObject(candidate.element!['tags']), 'type') ==
+            'multipolygon') {
+      return false;
+    }
+    final members = _relationMemberReferences(candidate.element!['members']);
+    return members != null &&
+        members.every(
+          (member) => member.type == 'node' && _nodes.containsKey(member.ref),
+        );
   }
 
   _Point? geometryFor(
@@ -378,7 +509,7 @@ class _NaturalFeatureSource {
       final member = _asObject(rawMember);
       if (member == null ||
           member['type'] is! String ||
-          member['ref'] is! int) {
+          _positiveId(member['ref']) == null) {
         return null;
       }
       final type = member['type']! as String;
@@ -489,10 +620,38 @@ int? _positiveId(Object? value) {
 }
 
 List<int>? _nodeReferences(Object? value) {
-  if (value is! List || value.isEmpty || value.any((node) => node is! int)) {
+  if (value is! List ||
+      value.length < 2 ||
+      value.any((node) => _positiveId(node) == null)) {
     return null;
   }
   return value.cast<int>();
+}
+
+List<({String type, int ref, String role})>? _relationMemberReferences(
+  Object? value,
+) {
+  if (value is! List || value.isEmpty) {
+    return null;
+  }
+  final references = <({String type, int ref, String role})>[];
+  for (final rawMember in value) {
+    final member = _asObject(rawMember);
+    final type = member?['type'];
+    final ref = _positiveId(member?['ref']);
+    final role = member?['role'];
+    if ((type != 'node' && type != 'way' && type != 'relation') ||
+        ref == null ||
+        (role != null && role is! String)) {
+      return null;
+    }
+    references.add((
+      type: type as String,
+      ref: ref,
+      role: (role as String?) ?? '',
+    ));
+  }
+  return references;
 }
 
 _Point? _pointFromElement(Map<Object?, Object?> element) {

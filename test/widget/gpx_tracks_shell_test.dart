@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/app.dart';
@@ -478,6 +479,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(
             () => TestMapNotifier(
               _baseState().copyWith(tracks: repository.getAllTracks()),
@@ -589,7 +591,10 @@ void _setTallSurface(WidgetTester tester) {
 Future<void> _pumpApp(WidgetTester tester, TestMapNotifier notifier) async {
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [mapProvider.overrideWith(() => notifier)],
+      overrides: [
+        ...mappingCatalogTestOverrides,
+        mapProvider.overrideWith(() => notifier),
+      ],
       child: const App(),
     ),
   );

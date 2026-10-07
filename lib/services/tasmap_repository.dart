@@ -5,21 +5,25 @@ import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs_dart;
 import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
-import 'package:peak_bagger/services/gpx_importer.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
 import '../objectbox.g.dart';
 
 class TasmapRepository {
+  final Store _store;
   final Box<Tasmap50k> _box;
   List<_TasmapLookupEntry>? _lookupEntries;
 
-  TasmapRepository(Store store) : _box = store.box<Tasmap50k>();
+  TasmapRepository(this._store) : _box = _store.box<Tasmap50k>();
 
   int get mapCount => _box.count();
 
   List<Tasmap50k> getAllMaps() {
     return _box.getAll();
   }
+
+  Tasmap50k? getMapById(int id) => _box.get(id);
 
   List<LatLng> getMapPolygonPoints(Tasmap50k map) {
     final points = <LatLng>[];
@@ -172,34 +176,92 @@ class TasmapRepository {
       return null;
     }
 
-    final result = await CsvImporter.importFromCsv(csvPath);
-    if (result.maps.isNotEmpty) {
-      _box.putMany(result.maps);
+    return reconcileCsvContents(await File(csvPath).readAsString());
+  }
+
+  /// Reconciles an already fully parsed Mapping-store catalog atomically.
+  Future<TasmapCsvImportResult> reconcileCsvContents(String contents) async {
+    final parsed = CsvImporter.importFromContents(contents);
+    final incomingByIdentity = {
+      for (final map in parsed.maps)
+        CsvImporter.normalizedIdentity(map.series, map.name): map,
+    };
+    final selectionRetargets = <int, int>{};
+    var changed = false;
+
+    _store.runInTransaction(TxMode.write, () {
+      final existingByIdentity = <String, List<Tasmap50k>>{};
+      for (final map in _box.getAll()) {
+        existingByIdentity
+            .putIfAbsent(
+              CsvImporter.normalizedIdentity(map.series, map.name),
+              () => [],
+            )
+            .add(map);
+      }
+      for (final entry in existingByIdentity.entries) {
+        entry.value.sort((left, right) => left.id.compareTo(right.id));
+        final incoming = incomingByIdentity.remove(entry.key);
+        if (incoming == null) {
+          for (final map in entry.value) {
+            _box.remove(map.id);
+          }
+          changed = true;
+          continue;
+        }
+
+        final survivor = entry.value.first;
+        for (final duplicate in entry.value.skip(1)) {
+          _box.remove(duplicate.id);
+          selectionRetargets[duplicate.id] = survivor.id;
+          changed = true;
+        }
+        incoming.id = survivor.id;
+        if (!_sameMapContent(survivor, incoming)) {
+          _box.put(incoming);
+          changed = true;
+        }
+      }
+      for (final map in incomingByIdentity.values) {
+        _box.put(map);
+        changed = true;
+      }
+    });
+    if (changed) {
       _invalidateLookupEntries();
     }
+    return TasmapCsvImportResult(
+      maps: parsed.maps,
+      importedCount: parsed.importedCount,
+      skippedCount: 0,
+      changed: changed,
+      selectionRetargets: Map.unmodifiable(selectionRetargets),
+    );
+  }
 
-    await _appendImportLogEntries([
-      _describeImportResult(result),
-      ...result.logEntries,
-    ]);
-    return result;
+  Future<TasmapCsvImportResult> reconcileFromMappingStore(
+    MappingCatalog catalog,
+  ) async {
+    final path = catalog.tasmapCatalogPath;
+    try {
+      final contents = await MappingStoreOperationFileAccess(
+        catalog: catalog,
+        fileSystem: const IoMappingStoreFileSystem(),
+      ).readText(path);
+      try {
+        return await reconcileCsvContents(contents);
+      } on FormatException catch (error) {
+        throw MappingStoreOperationException(paths: [path], cause: error);
+      }
+    } on MappingStoreOperationException {
+      rethrow;
+    } on Object catch (error) {
+      throw MappingStoreOperationException(paths: [path], cause: error);
+    }
   }
 
   Future<TasmapCsvImportResult> clearAndReloadFromCsv(String csvPath) async {
-    _box.removeAll();
-    _invalidateLookupEntries();
-
-    final result = await CsvImporter.importFromCsv(csvPath);
-    if (result.maps.isNotEmpty) {
-      _box.putMany(result.maps);
-      _invalidateLookupEntries();
-    }
-
-    await _appendImportLogEntries([
-      _describeImportResult(result),
-      ...result.logEntries,
-    ]);
-    return result;
+    return reconcileCsvContents(await File(csvPath).readAsString());
   }
 
   Future<void> clearAll() async {
@@ -211,26 +273,30 @@ class TasmapRepository {
     return _box.isEmpty();
   }
 
-  Future<void> _appendImportLogEntries(List<String> entries) async {
-    if (entries.isEmpty) {
-      return;
-    }
-
-    final logFile = File(GpxImporter().getImportLogPath());
-    await logFile.parent.create(recursive: true);
-    await logFile.writeAsString(
-      '${entries.join('\n')}\n',
-      mode: FileMode.append,
-    );
-  }
-
-  String _describeImportResult(TasmapCsvImportResult result) {
-    final warningText = result.warning == null
-        ? 'ok'
-        : 'warning: ${result.warning}';
-    final timestamp = DateTime.now().toIso8601String();
-    return '$timestamp Tasmap import: imported ${result.importedCount}, skipped ${result.skippedCount} ($warningText)';
-  }
+  static bool _sameMapContent(Tasmap50k left, Tasmap50k right) =>
+      left.series == right.series &&
+      left.name == right.name &&
+      left.parentSeries == right.parentSeries &&
+      left.mgrs100kIds == right.mgrs100kIds &&
+      left.eastingMin == right.eastingMin &&
+      left.eastingMax == right.eastingMax &&
+      left.northingMin == right.northingMin &&
+      left.northingMax == right.northingMax &&
+      left.mgrsMid == right.mgrsMid &&
+      left.eastingMid == right.eastingMid &&
+      left.northingMid == right.northingMid &&
+      left.p1 == right.p1 &&
+      left.p2 == right.p2 &&
+      left.p3 == right.p3 &&
+      left.p4 == right.p4 &&
+      left.p5 == right.p5 &&
+      left.p6 == right.p6 &&
+      left.p7 == right.p7 &&
+      left.p8 == right.p8 &&
+      left.p9 == right.p9 &&
+      left.p10 == right.p10 &&
+      left.p11 == right.p11 &&
+      left.p12 == right.p12;
 
   LatLng? _pointToLatLng(String point) {
     if (point.length != 12) return null;

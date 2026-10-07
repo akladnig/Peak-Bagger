@@ -88,7 +88,8 @@ void main() {
       final exitCode = await runElvisDemTool(
         args: const ['validate-source'],
         sourcePath: sourceFile.path,
-        homeDirectory: home.path,
+        workspaceDirectory: p.join(home.path, 'DEM', 'Tasmania'),
+        publishArtifact: (_, preparedPath) async {},
         clock: () => DateTime.utc(2024, 1, 2, 3, 4, 5),
         commandChecker: (command) async {
           requiredCommands.add(command);
@@ -159,7 +160,8 @@ void main() {
       final exitCode = await runElvisDemTool(
         args: const ['validate-source'],
         sourcePath: missingPath,
-        homeDirectory: home.path,
+        workspaceDirectory: p.join(home.path, 'DEM', 'Tasmania'),
+        publishArtifact: (_, preparedPath) async {},
         clock: () => DateTime.utc(2024, 2, 3, 4, 5, 6),
         commandChecker: (_) async {
           fail('gdalinfo should not run when the source file is missing');
@@ -205,7 +207,8 @@ void main() {
       final exitCode = await runElvisDemTool(
         args: const ['validate-source'],
         sourcePath: sourceFile.path,
-        homeDirectory: home.path,
+        workspaceDirectory: p.join(home.path, 'DEM', 'Tasmania'),
+        publishArtifact: (_, preparedPath) async {},
         sourceReadableChecker: (_) async {
           throw StateError(
             'Elvis 2m DEM is not readable at ${sourceFile.path}.',
@@ -240,7 +243,8 @@ void main() {
       final exitCode = await runElvisDemTool(
         args: const ['validate-source'],
         sourcePath: sourceFile.path,
-        homeDirectory: home.path,
+        workspaceDirectory: p.join(home.path, 'DEM', 'Tasmania'),
+        publishArtifact: (_, preparedPath) async {},
         commandChecker: (_) async {},
         commandRunner: (executable, arguments) async {
           throw ProcessException(executable, arguments, 'corrupt dataset', 1);
@@ -277,7 +281,8 @@ void main() {
       final exitCode = await runElvisDemTool(
         args: const ['build-all'],
         sourcePath: sourceFile.path,
-        homeDirectory: home.path,
+        workspaceDirectory: p.join(home.path, 'DEM', 'Tasmania'),
+        publishArtifact: (_, preparedPath) async {},
         clock: () => DateTime.utc(2024, 1, 2, 3, 4, 5),
         commandChecker: (command) async {
           requiredCommands.add(command);
@@ -426,7 +431,8 @@ void main() {
       final exitCode = await runElvisDemTool(
         args: const ['build-topo', '--validate'],
         sourcePath: sourceFile.path,
-        homeDirectory: home.path,
+        workspaceDirectory: p.join(home.path, 'DEM', 'Tasmania'),
+        publishArtifact: (_, preparedPath) async {},
         commandChecker: (_) async {},
         commandRunner: (executable, arguments) async {
           recordedCommands.add((executable, arguments));
@@ -489,7 +495,8 @@ void main() {
       final exitCode = await runElvisDemTool(
         args: const ['build-runtime', '--validate'],
         sourcePath: sourceFile.path,
-        homeDirectory: home.path,
+        workspaceDirectory: p.join(home.path, 'DEM', 'Tasmania'),
+        publishArtifact: (_, preparedPath) async {},
         commandChecker: (_) async {},
         commandRunner: (executable, arguments) async {
           recordedCommands.add((executable, arguments));

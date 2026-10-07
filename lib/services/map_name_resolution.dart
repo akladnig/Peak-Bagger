@@ -1,6 +1,6 @@
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
-import 'package:peak_bagger/services/region_manifest_catalog.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 
 enum MapNameOrigin { sheet, region, unknown }
@@ -35,6 +35,7 @@ String formatRegionDisplayName(String regionKey) {
 
 ResolvedMapName resolveMapNameForPoint({
   required TasmapRepository tasmapRepository,
+  required MappingCatalog mappingCatalog,
   required LatLng point,
 }) {
   try {
@@ -49,7 +50,7 @@ ResolvedMapName resolveMapNameForPoint({
     // Fall through to region fallback.
   }
 
-  final region = regionManifestCatalog.regionForPoint(point);
+  final region = mappingCatalog.regionForPoint(point);
   if (region != null) {
     return ResolvedMapName(
       displayName: formatRegionDisplayName(region.key),
@@ -71,8 +72,21 @@ String? resolveSheetMapNameForPoint({
   }
 }
 
+String? resolveSheetMapNameForMgrs({
+  required TasmapRepository tasmapRepository,
+  required String mgrsText,
+}) {
+  final normalizedMgrs = mgrsText.replaceAll(RegExp(r'\s+'), ' ').trim();
+  try {
+    return tasmapRepository.findByMgrsCodeAndCoordinates(normalizedMgrs)?.name;
+  } catch (_) {
+    return null;
+  }
+}
+
 ResolvedMapName resolveMapNameForMgrs({
   required TasmapRepository tasmapRepository,
+  required MappingCatalog mappingCatalog,
   required String mgrsText,
 }) {
   final normalizedMgrs = mgrsText.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -93,6 +107,7 @@ ResolvedMapName resolveMapNameForMgrs({
     final coords = mgrs.Mgrs.toPoint(normalizedMgrs);
     return resolveMapNameForPoint(
       tasmapRepository: tasmapRepository,
+      mappingCatalog: mappingCatalog,
       point: LatLng(coords[1], coords[0]),
     );
   } catch (_) {

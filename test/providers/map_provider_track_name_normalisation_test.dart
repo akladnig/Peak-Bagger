@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
@@ -30,7 +31,10 @@ void main() {
       gpxTrackRepository: repository,
     );
     final container = ProviderContainer(
-      overrides: [mapProvider.overrideWith(() => notifier)],
+      overrides: [
+        ...mappingCatalogTestOverrides,
+        mapProvider.overrideWith(() => notifier),
+      ],
     );
     addTearDown(container.dispose);
 
@@ -73,7 +77,10 @@ void main() {
       gpxTrackRepository: repository,
     );
     final container = ProviderContainer(
-      overrides: [mapProvider.overrideWith(() => notifier)],
+      overrides: [
+        ...mappingCatalogTestOverrides,
+        mapProvider.overrideWith(() => notifier),
+      ],
     );
     addTearDown(container.dispose);
 

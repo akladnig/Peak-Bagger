@@ -1,5 +1,6 @@
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../harness/mapping_catalog_fixture.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/core/constants.dart';
@@ -21,6 +22,7 @@ import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/track_date_query_parser.dart';
 import 'package:peak_bagger/services/csv_importer.dart';
+import 'package:peak_bagger/services/mapping_data_store.dart';
 
 import '../harness/test_tasmap_repository.dart';
 
@@ -71,7 +73,11 @@ void main() {
     () async {
       final tasmapRepository = await TestTasmapRepository.create();
       final service = MapSearchService(
-        peakRepository: PeakRepository.test(_ThrowingPeakStorage()),
+        catalog: testMappingCatalog,
+        peakRepository: PeakRepository.test(
+          _ThrowingPeakStorage(),
+          catalog: testMappingCatalog,
+        ),
         gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
         routeRepository: RouteRepository.test(InMemoryRouteStorage()),
         tasmapRepository: tasmapRepository,
@@ -444,7 +450,9 @@ void main() {
   test('peak enrichment runs only for the requested page window', () async {
     final tasmapRepository = _CountingTasmapRepository();
     final service = MapSearchService(
+      catalog: testMappingCatalog,
       peakRepository: PeakRepository.test(
+        catalog: testMappingCatalog,
         InMemoryPeakStorage(
           List.generate(
             30,
@@ -905,7 +913,11 @@ void main() {
   test('popup peak search uses the popup-specific repository seam', () async {
     final tasmapRepository = await TestTasmapRepository.create();
     final service = MapSearchService(
-      peakRepository: PeakRepository.test(_PopupOnlyPeakStorage()),
+      catalog: testMappingCatalog,
+      peakRepository: PeakRepository.test(
+        _PopupOnlyPeakStorage(),
+        catalog: testMappingCatalog,
+      ),
       gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
       routeRepository: RouteRepository.test(InMemoryRouteStorage()),
       tasmapRepository: tasmapRepository,
@@ -1105,7 +1117,11 @@ Future<MapSearchService> _service({
 }) async {
   final tasmapRepository = await TestTasmapRepository.create(maps: maps);
   return MapSearchService(
-    peakRepository: PeakRepository.test(InMemoryPeakStorage(peaks)),
+    catalog: testMappingCatalog,
+    peakRepository: PeakRepository.test(
+      InMemoryPeakStorage(peaks),
+      catalog: testMappingCatalog,
+    ),
     gpxTrackRepository: GpxTrackRepository.test(
       InMemoryGpxTrackStorage(tracks),
     ),
@@ -1388,6 +1404,9 @@ class _CountingTasmapRepository implements TasmapRepository {
   List<Tasmap50k> getAllMaps() => const [];
 
   @override
+  Tasmap50k? getMapById(int id) => null;
+
+  @override
   LatLngBounds? getMapBounds(Tasmap50k map) => null;
 
   @override
@@ -1402,6 +1421,18 @@ class _CountingTasmapRepository implements TasmapRepository {
   @override
   Future<TasmapCsvImportResult?> loadFromCsvIfEmpty(String csvPath) async =>
       null;
+
+  @override
+  Future<TasmapCsvImportResult> reconcileCsvContents(String contents) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<TasmapCsvImportResult> reconcileFromMappingStore(
+    MappingCatalog catalog,
+  ) {
+    throw UnimplementedError();
+  }
 
   @override
   List<Tasmap50k> searchMaps(String prefix) => const [];

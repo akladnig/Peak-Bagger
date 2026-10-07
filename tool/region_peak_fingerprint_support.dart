@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 
@@ -8,13 +7,13 @@ typedef RegionPeakAssetBytesLoader = Future<List<int>> Function(String path);
 typedef RegionPeakManifestWriter =
     Future<void> Function(String path, String text);
 
-const defaultRegionPeakManifestPath = 'assets/region_manifest.json';
+const defaultRegionPeakManifestPath = 'region_manifest.json';
 
 Future<Map<String, dynamic>> loadRegionPeakManifest(
   String manifestPath, {
-  RegionPeakManifestTextLoader? readText,
+  required RegionPeakManifestTextLoader readText,
 }) async {
-  final loader = readText ?? _readText;
+  final loader = readText;
   final decoded = jsonDecode(await loader(manifestPath));
   if (decoded is! Map<String, dynamic>) {
     throw StateError('Region peak manifest must be a JSON object.');
@@ -24,18 +23,18 @@ Future<Map<String, dynamic>> loadRegionPeakManifest(
 
 Future<Map<String, String>> computeSeedableRegionFingerprints({
   String manifestPath = defaultRegionPeakManifestPath,
-  RegionPeakManifestTextLoader? readText,
-  RegionPeakAssetBytesLoader? readBytes,
+  required RegionPeakManifestTextLoader readText,
+  required RegionPeakAssetBytesLoader readBytes,
 }) async {
   final manifest = await loadRegionPeakManifest(
     manifestPath,
     readText: readText,
   );
-  final bytesLoader = readBytes ?? _readBytes;
+  final bytesLoader = readBytes;
   final fingerprints = <String, String>{};
 
   for (final entry in manifest.entries) {
-    if (entry.key == 'routingCoverages') {
+    if (_metadata.contains(entry.key)) {
       continue;
     }
     final region = entry.value;
@@ -64,9 +63,9 @@ Future<Map<String, String>> computeSeedableRegionFingerprints({
 
 Future<bool> updateSeedableRegionFingerprints({
   String manifestPath = defaultRegionPeakManifestPath,
-  RegionPeakManifestTextLoader? readText,
-  RegionPeakAssetBytesLoader? readBytes,
-  RegionPeakManifestWriter? writeText,
+  required RegionPeakManifestTextLoader readText,
+  required RegionPeakAssetBytesLoader readBytes,
+  required RegionPeakManifestWriter writeText,
 }) async {
   final manifest = await loadRegionPeakManifest(
     manifestPath,
@@ -80,7 +79,7 @@ Future<bool> updateSeedableRegionFingerprints({
   var changed = false;
 
   for (final entry in manifest.entries) {
-    if (entry.key == 'routingCoverages') {
+    if (_metadata.contains(entry.key)) {
       continue;
     }
     final region = entry.value;
@@ -102,7 +101,7 @@ Future<bool> updateSeedableRegionFingerprints({
   }
 
   if (changed) {
-    final writer = writeText ?? _writeText;
+    final writer = writeText;
     final encoded = const JsonEncoder.withIndent('  ').convert(manifest);
     await writer(manifestPath, '$encoded\n');
   }
@@ -112,8 +111,8 @@ Future<bool> updateSeedableRegionFingerprints({
 
 Future<List<String>> findStaleSeedableRegionFingerprints({
   String manifestPath = defaultRegionPeakManifestPath,
-  RegionPeakManifestTextLoader? readText,
-  RegionPeakAssetBytesLoader? readBytes,
+  required RegionPeakManifestTextLoader readText,
+  required RegionPeakAssetBytesLoader readBytes,
 }) async {
   final manifest = await loadRegionPeakManifest(
     manifestPath,
@@ -127,7 +126,7 @@ Future<List<String>> findStaleSeedableRegionFingerprints({
   final staleRegions = <String>[];
 
   for (final entry in manifest.entries) {
-    if (entry.key == 'routingCoverages') {
+    if (_metadata.contains(entry.key)) {
       continue;
     }
     final region = entry.value;
@@ -145,17 +144,12 @@ Future<List<String>> findStaleSeedableRegionFingerprints({
   return staleRegions;
 }
 
-Future<String> _readText(String path) async {
-  return File(path).readAsString();
-}
-
-Future<List<int>> _readBytes(String path) async {
-  return File(path).readAsBytes();
-}
-
-Future<void> _writeText(String path, String text) async {
-  await File(path).writeAsString(text);
-}
+const _metadata = {
+  'tasmap',
+  'naturalFeatures',
+  'demSources',
+  'routingCoverages',
+};
 
 bool _isSeedableRegion(Map<String, dynamic> regionValue) {
   return regionValue['composite'] != true &&

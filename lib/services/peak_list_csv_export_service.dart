@@ -1,13 +1,12 @@
 import 'dart:io';
 
 import 'package:csv/csv.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/services/import_path_helpers.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
-import 'package:peak_bagger/services/peak_metadata_rules.dart';
+import 'package:peak_bagger/services/peak_list_csv_format.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 
@@ -99,30 +98,7 @@ class PeakListCsvExportService {
        _fileWriter = fileWriter ?? const IoPeakListCsvFileWriter(),
        _yieldCallback = yieldCallback ?? _defaultYieldCallback;
 
-  static const List<String> csvHeaders = [
-    'name',
-    'altName',
-    'elevation',
-    'prominence',
-    'rating',
-    'difficulty',
-    'duration',
-    'viaFerrata',
-    'gridZoneDesignator',
-    'mgrs100kId',
-    'easting',
-    'northing',
-    'points',
-    'osmId',
-    'peakbaggerPid',
-    'country',
-    'region',
-    'county',
-    'range',
-    'notes',
-    'verified',
-    'sourceOfTruth',
-  ];
+  static const csvHeaders = PeakListCsvFormat.csvHeaders;
   static const int _progressReportStride = 50;
   static const int _yieldStride = 250;
 
@@ -359,34 +335,19 @@ class PeakListCsvExportService {
   }
 
   static PeakMgrsComponents resolveMgrsComponents(Peak peak) {
-    final storedForward =
-        '${peak.gridZoneDesignator.trim().toUpperCase()}'
-        '${peak.mgrs100kId.trim().toUpperCase()}'
-        '${peak.easting.trim()}'
-        '${peak.northing.trim()}';
-    try {
-      return PeakMgrsConverter.fromForwardString(storedForward);
-    } on FormatException {
-      return PeakMgrsConverter.fromLatLng(
-        LatLng(peak.latitude, peak.longitude),
-      );
-    }
+    return PeakListCsvFormat.resolveMgrsComponents(peak);
   }
 
   static String formatDuration(Peak peak) {
-    if (peak.durationLabel.trim().isNotEmpty) {
-      return peak.durationLabel;
-    }
-
-    return formatPeakDurationMinutes(peak.durationMinutes);
+    return PeakListCsvFormat.formatDuration(peak);
   }
 
   static String formatOptionalNumber(double? value) {
-    return value?.toString() ?? '';
+    return PeakListCsvFormat.formatOptionalNumber(value);
   }
 
   static String formatOptionalRating(double? rating) {
-    return rating == null ? '' : rating.toStringAsFixed(1);
+    return PeakListCsvFormat.formatOptionalRating(rating);
   }
 
   List<_ResolvedPeakListExportRow> _resolveSortedExportRows(
@@ -414,40 +375,11 @@ class PeakListCsvExportService {
   }
 
   static int comparePeaksForCsv(Peak left, Peak right) {
-    final nameComparison = left.name.toLowerCase().compareTo(
-      right.name.toLowerCase(),
-    );
-    return nameComparison != 0
-        ? nameComparison
-        : left.osmId.compareTo(right.osmId);
+    return PeakListCsvFormat.comparePeaksForCsv(left, right);
   }
 
   static List<dynamic> csvRowForPeak(Peak peak, {required int points}) {
-    final mgrs = resolveMgrsComponents(peak);
-    return [
-      peak.name,
-      peak.altName,
-      formatOptionalNumber(peak.elevation),
-      formatOptionalNumber(peak.prominence),
-      formatOptionalRating(peak.rating),
-      peak.difficulty,
-      formatDuration(peak),
-      peak.viaFerrata,
-      mgrs.gridZoneDesignator,
-      mgrs.mgrs100kId,
-      mgrs.easting,
-      mgrs.northing,
-      points,
-      peak.osmId,
-      peak.peakbaggerPid?.toString() ?? '',
-      peak.country,
-      peak.region ?? '',
-      peak.county,
-      peak.range,
-      peak.notes,
-      peak.verified.toString(),
-      peak.sourceOfTruth,
-    ];
+    return PeakListCsvFormat.csvRowForPeak(peak, points: points);
   }
 }
 

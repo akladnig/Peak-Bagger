@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/router.dart';
+import 'package:peak_bagger/screens/settings_screen.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 
 import '../../harness/test_peak_notifier.dart';
@@ -38,6 +39,7 @@ class TassyFullRefreshRobot {
   Finder get settingsScrollable => find.byType(Scrollable).last;
 
   Future<void> pumpApp() async {
+    router = createRouter();
     tester.view.physicalSize = const Size(1024, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -48,6 +50,7 @@ class TassyFullRefreshRobot {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          ...mappingCatalogTestOverrides,
           mapProvider.overrideWith(() => notifier),
           peakListRepositoryProvider.overrideWithValue(repository),
           tasmapStateProvider.overrideWith(
@@ -55,11 +58,9 @@ class TassyFullRefreshRobot {
           ),
           tasmapRepositoryProvider.overrideWithValue(tasmapRepository),
         ],
-        child: const App(),
+        child: const MaterialApp(home: SettingsScreen()),
       ),
     );
-    await tester.pump();
-    router.go('/settings');
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
   }
