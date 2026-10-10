@@ -34,9 +34,9 @@ dependencies:
   crypto: ^3.0.6
   ffi: ^2.1.4
   trip_routing:
-    path: /Volumes/Development/mapping/trip_routing
+    path: ../trip_routing
   flutter_map_tile_caching:
-    path: /Volumes/Development/mapping/flutter_map_tile_caching
+    path: ../flutter_map_tile_caching
   objectbox_generator: ^5.3.2
 
 dev_dependencies:
