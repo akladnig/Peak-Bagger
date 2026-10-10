@@ -6,13 +6,14 @@ Services volume; the MacBook mounts the mini's **Services** share over SMB.
 Current offline support covers source editing and locally provisioned builds.
 Independent offline app runtime is a separate follow-up.
 
-This implements the documentation and inspection portion of
+This records the setup and verification for
 [Work Item 04](../ai_specs/peak-lists/0062-macbook-mini-mutagen-development/work-items/04-smb-runtime-access-and-offline-inventory.md),
 following [the Spec and L3/L4](../ai_specs/peak-lists/0062-macbook-mini-mutagen-development/spec.md)
 and the [Mapping data store contract](mapping-data-store.md).
-**Live MacBook SMB access/startup remains pending administrator share setup.**
+**MacBook SMB access and normal app startup were verified on 2026-10-10** after
+the operator published Services and mounted it at the exact accepted path.
 
-## Existing setup inspected — 2026-10-10
+## Initial setup inspected — 2026-10-10, before share publication
 
 | Surface | Observation and role |
 | --- | --- |
@@ -300,8 +301,34 @@ equality and current mini reference/size equality. Full regression runs:
 5 skipped** (3m54s); `python3 -m unittest discover -s tool/tests -v` — **30 passed**.
 Skipped Flutter tests remain unverified. `git diff --check` passed.
 
-Pending: administrator publication of Services/account SMB enablement; MacBook
-authentication and exact smbfs mount; online SMB preflight/normal UI; live
-unavailable-store Retry/Quit and recovery with an existing local database;
-mini direct-disk UI startup; login-item persistence/reconnect. A reachable SMB
-port and readable files over SSH do not complete these environmental checks.
+### SMB commissioning completion — 2026-10-10
+
+After the operator configured File Sharing and authenticated the MacBook mount:
+
+- Mini `sharing -l` confirms **Services → /Volumes/Services**, SMB enabled,
+  guest access disabled and read-only enabled. Its directly attached APFS volume
+  continues to supply mini access.
+- The MacBook mount is **smbfs from mac-mini.local/Services at /Volumes/Services**.
+  Both manifests are readable at `/Volumes/Services/Mapping`; the authenticated
+  mount identity is intentionally omitted from this report.
+- The documented current-reference audit was run on the MacBook through SMB:
+  **all 25 files opened for reading**, every path and byte count matched the Spec
+  baseline, and the sum remains **4,255,657,108 bytes**.
+- Built/launched with `flutter run -d macos --no-pub --no-resident
+  --dart-define-from-file=dart_defines.local.json`. For continuing startup-log
+  capture, relaunched the built `peak_bagger.app/Contents/MacOS/peak_bagger`
+  executable with output retained outside the repository. This used the same
+  built app and fixed Mapping root.
+- Startup logs confirm preflight/required geometry completed before local
+  ObjectBox preparation, existing-directory reuse, store open, schema validation,
+  settings restore and tile-cache initialization. A native macOS window capture
+  confirmed the **populated normal Dashboard**, rather than the startup shell.
+  Logs/screenshots are temporary local evidence, not committed personal app data.
+
+Work Item 04's SMB/startup acceptance criteria are complete. Existing regression
+tests provide the failure-path evidence for affected paths and startup Retry/Quit;
+code inspection confirms that the existing database cannot bypass preflight.
+The live SMB mount was not ejected to manufacture a failure. Additional physical
+disconnect/Retry/Quit/recovery, mini direct-disk UI and login-item persistence/
+reconnect demonstrations remain unverified commissioning checks; they are not
+claimed as passed. Independent offline runtime remains a separate follow-up.

@@ -19,9 +19,9 @@ Inspect existing Services sharing/mount automation and establish MacBook runtime
 
 ## Acceptance criteria
 
-- [ ] Existing Services sharing and mount automation are inspected and their role documented. The chosen SMB setup preserves the exact MacBook runtime root `/Volumes/Services/Mapping` and direct mini access, without embedding credentials in docs/artifacts.
+- [x] Existing Services sharing and mount automation are inspected and their role documented. The chosen SMB setup preserves the exact MacBook runtime root `/Volumes/Services/Mapping` and direct mini access, without embedding credentials in docs/artifacts.
 - [x] Mapping files stay outside all Mutagen sessions and each machine retains its own ObjectBox database. This item does not copy the Mapping store or introduce configurable runtime roots/automatic fallback.
-- [ ] Online startup through the SMB-mounted path is verified. Unavailable/unreadable Mapping paths retain affected-path reporting and startup Retry/Quit before normal UI; a local database is not a bypass. Existing regression tests are used where appropriate; no runtime change or new test is required merely for this operational setup.
+- [x] Online startup through the SMB-mounted path is verified. Unavailable/unreadable Mapping paths retain affected-path reporting and startup Retry/Quit before normal UI; a local database is not a bypass. Existing regression tests are used where appropriate; no runtime change or new test is required merely for this operational setup.
 - [x] Documentation preserves all 25 file paths and byte counts from the Spec and verifies their count and sum as 4,255,657,108 bytes. The inventory is clearly a measured planning baseline; future copying must recheck manifest references and current sizes rather than assume they remain unchanged.
 - [x] Transfer guidance records the full set's feasibility, approximately 1.16 GiB of non-DEM files, approximately 89.6 MiB excluding highways and DEMs, and the approximately 120 GiB MacBook free space measured at inspection. Partial subsets do not satisfy startup while omitted files remain declared; whole-directory copies include unrelated maintainer data.
 - [x] Future offline-runtime prerequisites include a local Mapping copy at an accepted root, offline basemap tiles, personal app data/settings and required GPX files, and local GDAL/PROJ for elevation sampling. A mini-only Local Topo HTTP service is unavailable while disconnected.
@@ -38,13 +38,13 @@ Inspect existing Services sharing/mount automation and establish MacBook runtime
 
 ## Blocked by
 
-No Work Item blockers. Live completion requires administrator publication of the
-mini's Services SMB share and account enablement, followed by MacBook
-authentication/mounting and the runtime checks recorded below.
+None. The Services share and MacBook SMB runtime path are now verified; see the
+commissioning completion below.
 
-## Implementation results — 2026-10-10
+## Initial implementation results — 2026-10-10
 
-**Partially implemented; live SMB setup/startup pending an environmental prerequisite.**
+Initial result: partially implemented pending share publication. This prerequisite
+was subsequently resolved; the completion evidence below supersedes that status.
 
 - Operational guide: `docs/two-mac-mapping-runtime.md`, linked from
   `docs/mapping-data-store.md`. It records inspected sharing/automation locations,
@@ -55,7 +55,7 @@ authentication/mounting and the runtime checks recorded below.
   `sharing -l` lists only the public-folder share, not Services; no existing
   Services mount automation was found in the inspected locations. Noninteractive
   administrative access reports a password is required.
-- **Acceptance criteria 1 and 3 remain unchecked:** inspection and the chosen
+- **Acceptance criteria 1 and 3 were initially pending:** inspection and the chosen
   procedure are documented, but an administrator must publish Services and enable
   the intended SMB account before MacBook authentication, exact-path mounting,
   online startup and live Retry/Quit/recovery can be verified. No alternate root
@@ -75,3 +75,28 @@ authentication/mounting and the runtime checks recorded below.
   Python suite: **30 passed**. Both documented inventory audit commands passed,
   including current mini/reference/size equality with the baseline; `git diff
   --check` passed. The guide records commands and verification scope.
+
+## SMB commissioning completion — 2026-10-10
+
+**Completed: all acceptance criteria satisfied.**
+
+- After the operator published/authenticated Services, mini `sharing -l` confirms
+  the share maps to `/Volumes/Services`, is SMB-enabled and read-only, and disables
+  guest access. The mini retains its direct APFS access.
+- The MacBook mount is SMB from `mac-mini.local/Services` at exactly
+  `/Volumes/Services`. Both manifests and all **25 manifest-derived runtime files**
+  were opened read-only through SMB; each current path/size equals the baseline,
+  totaling **4,255,657,108 bytes**. No Mapping dataset was copied.
+- Built/launched the current app with machine-local defines. A continuing-log
+  launch of the same built executable confirms preflight/geometry before opening
+  the existing local ObjectBox directory, schema/settings and tile-cache setup.
+  A native window capture confirmed the populated normal Dashboard through SMB.
+- Existing tests retain startup affected-path reporting, Retry/Quit and withheld
+  normal UI; inspected coordinator/main ordering prevents a local-database bypass.
+  Physical SMB ejection/failure/recovery, mini direct-disk UI and login/reconnect
+  demonstrations remain unverified additional commissioning checks, explicitly
+  distinguished from the completed live SMB startup and regression checks.
+- Evidence and commands are recorded in `docs/two-mac-mapping-runtime.md`.
+  Temporary startup logs/window captures stay outside source control; account
+  mount identifiers and credentials are omitted from the report. No runtime code
+  changed, so the already-passed static analysis/full regressions remain applicable.
