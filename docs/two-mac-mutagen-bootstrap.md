@@ -5,6 +5,8 @@ Execute live migration, login registration and session activation in **Work Item
 05**. The disposable verification below has already exercised the procedure.
 Use [local build provisioning](two-mac-local-builds.md) for SDKs, native libraries
 and private defines. The MacBook owns Git; the mini becomes a working-file mirror.
+For ongoing development use the [handover, SSH Git and conflict-recovery
+guide](two-mac-mutagen-operations.md).
 
 ## Persistent configuration and effective roots
 

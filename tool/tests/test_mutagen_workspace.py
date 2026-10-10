@@ -44,7 +44,7 @@ class ScopeTests(unittest.TestCase):
                 self.assertTrue(workspace.problems({**clean, 'beta': {**clean['beta'], key: value}}))
 
 
-class MutagenIntegrationTests(unittest.TestCase):
+class DisposableWorkspace(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if not shutil.which('mutagen'):
@@ -88,6 +88,8 @@ class MutagenIntegrationTests(unittest.TestCase):
         target.write_text(contents)
         return target
 
+
+class MutagenIntegrationTests(DisposableWorkspace):
     def test_bootstrap_three_sessions_scope_deletions_and_offline_conflicts(self):
         shared = ['lib/main.dart', 'test/source_test.dart', 'README.md', 'docs/guide.md',
                   'ai_specs/example/spec.md', 'assets/icon.svg', 'pubspec.lock',
