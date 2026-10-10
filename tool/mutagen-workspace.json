@@ -1,0 +1,44 @@
+{
+  "mutagen_version": "0.18.1",
+  "alpha_root": "~/Development/mapping",
+  "beta_root": "/Volumes/Development/mapping",
+  "ssh_alias": "mini",
+  "mode": "two-way-safe",
+  "common_ignores": [
+    ".git", ".svn", ".hg", ".dart_tool", ".pub", ".pub-cache", ".packages",
+    ".cache", "build", "coverage", "node_modules", "__pycache__", "*.pyc", "*.pyo",
+    ".pytest_cache", ".mypy_cache", ".ruff_cache", ".venv", "venv",
+    ".flutter-plugins", ".flutter-plugins-dependencies", ".gradle", ".cxx",
+    "Pods", ".symlinks", "**/Flutter/ephemeral", "**/flutter/ephemeral",
+    "**/android/local.properties", "**/android/key.properties", "*.keystore", "*.jks",
+    "**/android/captures", "**/android/app/debug", "**/android/app/profile",
+    "**/android/app/release", "**/android/**/GeneratedPluginRegistrant.java",
+    "**/ios/.generated", "**/ios/Flutter/Generated.xcconfig",
+    "**/ios/Flutter/flutter_export_environment.sh", "**/ios/Flutter/.last_build_id",
+    "**/ios/Flutter/App.framework", "**/ios/Flutter/Flutter.framework",
+    "**/ios/Flutter/Flutter.podspec", "**/ios/Flutter/app.flx", "**/ios/Flutter/app.zip",
+    "**/ios/Flutter/flutter_assets", "**/ios/Runner/GeneratedPluginRegistrant.*",
+    "**/lib/generated_plugin_registrant.dart", "DerivedData", "xcuserdata", "*.xcuserstate",
+    "dgph", ".build", ".swiftpm", "*.suo", "*.user", "*.userosscache", "*.sln.docstates",
+    "data.mdb", "lock.mdb", "*.log", "*.pid", "*.tmp", "*.temp", "*.swp", "*.swo",
+    ".DS_Store", "dart_defines.local.json", ".dart_defines.local.json.seed-*"
+  ],
+  "projects": {
+    "peak_bagger": {
+      "name": "mapping-peak-bagger",
+      "ignores": [
+        "/local_topo/tasmania/input/*", "!/local_topo/tasmania/input/.gitignore",
+        "/local_topo/tasmania/output/*", "!/local_topo/tasmania/output/.gitignore",
+        "/local_topo/tasmania/runtime/*", "!/local_topo/tasmania/runtime/.gitignore",
+        "/local_topo/tasmania/.tmp-*",
+        "/assets/cop30_hh.tif", "/assets/tasmania_dem_25m.tif",
+        "/assets/tasmania_dem_25m.vrt", "/assets/tassy dem.xlsx", "/assets/~$*"
+      ]
+    },
+    "trip_routing": {"name": "mapping-trip-routing", "ignores": []},
+    "flutter_map_tile_caching": {
+      "name": "mapping-flutter-map-tile-caching",
+      "ignores": ["/test/lib", "/test/download", "/local", "/tile_server/bin/tile_server.exe", "/tile_server/source/placeholders", "/example/windows/x64", "/example/windows/x86"]
+    }
+  }
+}
