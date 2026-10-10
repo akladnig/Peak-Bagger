@@ -5,6 +5,11 @@ record for [Work Item 05](../ai_specs/peak-lists/0062-macbook-mini-mutagen-devel
 Initial inspection: **2026-10-11 local time** (command timestamp
 `2026-10-10T19:30:04Z`). Reinspect mutable state before resuming.
 
+**Latest recheck:** both private defines files now pass validation and MacBook
+Remote Login is reachable. Reverse SSH host trust/authentication, mini build
+provisioning, the missing shared example, and the confirmed source-write freeze
+remain prerequisites. See the recheck below; the initial failures are historical.
+
 The four prerequisite Work Items are complete. Their preparation/disposable
 results do not establish live commissioning completion. Procedures remain in
 [bootstrap](two-mac-mutagen-bootstrap.md),
@@ -12,7 +17,7 @@ results do not establish live commissioning completion. Procedures remain in
 [local builds](two-mac-local-builds.md), and
 [Mapping runtime](two-mac-mapping-runtime.md).
 
-## Immediate blockers
+## Initial blockers
 
 1. **Mini-to-MacBook SSH fails.** The MacBook's discovered LocalHostName is
    `Adrians-MacBook`; the mini's noninteractive probe to
@@ -164,3 +169,34 @@ been completed for this commissioning attempt. Skipped tests are not passed.
   writers only there after all required commissioning checks succeed. Until then,
   ordinary mini development remains blocked. Offline-build success will not imply
   independent offline runtime; no Mapping replica or personal-data sync is added.
+
+## Recheck after operator configuration updates
+
+- **PASS:** `python3 tool/development_defines.py` on the MacBook and the reviewed
+  validator executed over SSH against the mini's existing local defines file now
+  both report **Local configuration is usable**. Neither file was overwritten or
+  seeded. This resolves the earlier shape-validation failures, not provider access.
+- **PASS:** all three exact roots still pass preflight. Inspection still reports
+  no live sessions.
+- **PARTIAL:** the reverse SSH probe now reaches MacBook SSH, replacing the earlier
+  connection refusal with **host key verification failed**: the mini has no known
+  ED25519 key for `Adrians-MacBook.local`. Its inspected SSH directory still contains
+  only `authorized_keys`. Verify the MacBook host key and establish reverse host
+  trust plus an intended mini identity/authorized public key; do not disable strict
+  host checking. Actual authentication and owner Git remain pending.
+- **PARTIAL:** mini `xcode-select -p` now selects
+  `/Applications/Xcode.app/Contents/Developer`; `xcodebuild -version` reports
+  **Xcode 27.0 / 27A266a**. The operator reports installation still in progress;
+  completed first-launch/platform setup and actual build readiness are pending.
+- **PENDING:** Flutter and CocoaPods were not found on either the noninteractive
+  SSH PATH or the checked interactive-login shell PATH. The login shell finds
+  `/opt/homebrew/bin/dart` and Homebrew, but a standalone Dart executable does not
+  supply Flutter's pinned SDK. The login shell also reports existing missing shell
+  dependencies; no shell configuration was changed. FMTC's required
+  `test/lib/libobjectbox.dylib` remains absent.
+- **PENDING:** `git status --short` now reports `dart_defines.example.json` deleted.
+  The shared example must exist with the three required fields and placeholder
+  keys before seeding; the operator's deletion was preserved pending reconciliation.
+- **PENDING:** an explicit both-Mac/all-project save-and-stop freeze, unique-work
+  backups, migration, live-session verification and offline recompilation remain
+  unperformed. No ordinary mini development or handover readiness is claimed.

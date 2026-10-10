@@ -93,3 +93,16 @@ checklist are in
 - Fresh full Python operational suite: **30 passed** in 19.094 seconds, using
   isolated/disposable sessions. No real session readiness is inferred from those
   tests. Previous Flutter verification remains attributed to prerequisite records.
+
+### Recheck after operator configuration updates
+
+Both existing private defines files now pass status-only validation. MacBook
+Remote Login is reachable, but reverse SSH fails strict host-key verification;
+mini host trust/authentication and owner Git remain pending. Xcode now reports
+27.0 / 27A266a with its full developer directory selected, while the operator
+reports installation still underway. Flutter/CocoaPods remain unavailable on the
+checked SSH and login-shell PATHs, and FMTC's test library is absent. The shared
+defines example is now deleted and needs reconciliation before synchronization.
+All three roots still pass preflight; no live sessions or migration were started.
+Detailed updated evidence is appended to the commissioning record. The Work Item
+remains blocked and its live acceptance criteria remain unchecked.
