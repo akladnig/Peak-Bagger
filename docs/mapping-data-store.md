@@ -269,3 +269,13 @@ Retire every `assets/highways`, `assets/peaks`, `assets/polygons`,
 `assets/all-peaks-sorted-p100.csv` contract. Inventory markers are enforced by
 `test/tool/mapping_data_store_inventory_test.dart`; resolver contracts and modes
 are tested without the mounted store or live services.
+
+## Two-Mac runtime access and offline planning
+
+The mini reads its attached Services volume; the MacBook must mount its Services
+SMB share at exactly `/Volumes/Services`, retaining the canonical Mapping root.
+See [SMB setup, runtime checks and the measured 25-file offline planning
+inventory](two-mac-mapping-runtime.md) for current evidence, pending environmental
+checks, byte-count validation and remeasurement guidance. Independent offline
+runtime remains a separate follow-up; source editing/builds do not bypass the
+Mapping startup contract.

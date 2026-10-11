@@ -10,6 +10,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/local_topo_overlay_tile_provider.dart';
+import 'package:peak_bagger/services/local_topo_tile_provider.dart';
 import 'package:peak_bagger/services/map_grid_geometry.dart';
 import 'package:peak_bagger/services/map_ruler_scale.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
@@ -89,13 +90,17 @@ String get fvgTopoDebugTileUrl {
   return 'http://127.0.0.1:8081/fvg-topo/{z}/{x}/{y}.png';
 }
 
-TileProvider buildNetworkTileProviderForBasemap(Basemap basemap) {
-  return NetworkTileProvider(
-    headers: mapTileHeaders(basemap),
-    cachingProvider: basemap == Basemap.localTopo
-        ? const DisabledMapCachingProvider()
-        : null,
-  );
+TileProvider buildNetworkTileProviderForBasemap(
+  Basemap basemap, {
+  void Function(Uri)? onLocalTopoUnavailable,
+}) {
+  if (basemap == Basemap.localTopo) {
+    return LocalTopoTileProvider(
+      headers: mapTileHeaders(basemap),
+      onUnavailable: onLocalTopoUnavailable,
+    );
+  }
+  return NetworkTileProvider(headers: mapTileHeaders(basemap));
 }
 
 TileLayer buildBasemapTileLayer(

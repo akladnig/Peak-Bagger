@@ -53,6 +53,59 @@ void main() {
     expect(requestCount, 0);
   });
 
+  test('tile outage falls back once and retains settings for retry', () async {
+    SharedPreferences.setMockInitialValues({
+      localTileServerBaseUrlPrefsKey: 'http://127.0.0.1:8090',
+      localTopoCapabilitySnapshotPrefsKey: jsonEncode(_snapshotJson()),
+    });
+    final container = _buildContainer(
+      initialBasemap: Basemap.localTopo,
+      client: _FakeHttpClient((_) async => http.Response('{}', 500)),
+    );
+    addTearDown(container.dispose);
+    container.read(localTopoSettingsProvider);
+    await _drainAsync();
+    final notifier = container.read(localTopoSettingsProvider.notifier);
+    final failedTile = Uri.parse(
+      'http://127.0.0.1:8090/tasmania/local-topo/12/3714/2583.png',
+    );
+
+    expect(notifier.fallbackAfterTileFailure(failedTile), isTrue);
+    expect(container.read(mapProvider).basemap, Basemap.tracestrack);
+    expect(notifier.fallbackAfterTileFailure(failedTile), isFalse);
+    expect(localTopoRuntime.hasCapabilitySnapshot, isTrue);
+    expect(
+      container.read(localTopoSettingsProvider).savedBaseUrlText,
+      'http://127.0.0.1:8090',
+    );
+  });
+
+  test('ignores tile failures from a previously configured server', () async {
+    SharedPreferences.setMockInitialValues({
+      localTileServerBaseUrlPrefsKey: 'http://127.0.0.1:8090',
+      localTopoCapabilitySnapshotPrefsKey: jsonEncode(_snapshotJson()),
+    });
+    final container = _buildContainer(
+      initialBasemap: Basemap.localTopo,
+      client: _FakeHttpClient((_) async => http.Response('{}', 500)),
+    );
+    addTearDown(container.dispose);
+    container.read(localTopoSettingsProvider);
+    await _drainAsync();
+
+    expect(
+      container
+          .read(localTopoSettingsProvider.notifier)
+          .fallbackAfterTileFailure(
+            Uri.parse(
+              'http://127.0.0.1:8091/tasmania/local-topo/12/3714/2583.png',
+            ),
+          ),
+      isFalse,
+    );
+    expect(container.read(mapProvider).basemap, Basemap.localTopo);
+  });
+
   test(
     'saving a different URL deactivates the old snapshot immediately',
     () async {

@@ -37,5 +37,7 @@
 	<string>NSApplication</string>
 	<key>NSLocationUsageDescription</key>
 	<string>This app needs access to your location to show your position on the map.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Peak Bagger connects to your local tile server to load topographic maps and terrain overlays.</string>
 </dict>
 </plist>
