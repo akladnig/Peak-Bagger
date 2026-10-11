@@ -106,3 +106,21 @@ defines example is now deleted and needs reconciliation before synchronization.
 All three roots still pass preflight; no live sessions or migration were started.
 Detailed updated evidence is appended to the commissioning record. The Work Item
 remains blocked and its live acceptance criteria remain unchecked.
+
+### Pre-migration checkpoint — 2026-10-11
+
+The previously missing environment prerequisites now pass: SSH in both directions
+with strict host trust and noninteractive authentication, mini-initiated read-only
+Git to all three exact MacBook roots, both local defines validators, the shared
+placeholder example, matching Flutter **3.47.7 / Dart 3.13.5**, mini Xcode **27.0**
+first-launch checks, CocoaPods, and the separately installed mini FMTC library
+(C API **5.3.2**). Explicit SSH PATHs also permit owner Mutagen **0.18.1** inspection.
+The provisioning and remote-readiness guides now carry the verified version/PATHs.
+
+**Live commissioning remains pending.** There are still no live Mutagen sessions;
+all three original mini Git directories remain in place. The source-write freeze,
+verified unique-work preservation, migration/seeding/baselines, live probes and
+handover, login/reconnect checks, fresh both-Mac builds/tests and fully disconnected
+MacBook recompilation must still be completed. Earlier failure/recheck sections
+are historical; the latest evidence is in the commissioning record. No remaining
+live acceptance criterion is marked complete merely because prerequisites pass.

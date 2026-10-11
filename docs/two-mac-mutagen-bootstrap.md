@@ -8,6 +8,12 @@ and private defines. The MacBook owns Git; the mini becomes a working-file mirro
 For ongoing development use the [handover, SSH Git and conflict-recovery
 guide](two-mac-mutagen-operations.md).
 
+At the **2026-10-11 prerequisite checkpoint**, the mini Development volume and all
+three roots pass preflight, and both SSH directions are verified. Earlier missing
+volume/SSH observations below are historical. See the
+[current commissioning record](two-mac-commissioning.md) for evidence and remaining
+live migration/verification gates; no ordinary sessions have been activated.
+
 ## Persistent configuration and effective roots
 
 `tool/mutagen-workspace.json` is the inspectable, version-controlled configuration.

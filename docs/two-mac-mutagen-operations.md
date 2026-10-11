@@ -133,11 +133,14 @@ data store, as described in the Spec.
 
 ### Discover and validate the reverse connection during commissioning
 
-The discovered `mini` alias is **MacBook-to-mini only**. Read-only inspection on
-2026-10-10 found no `~/.ssh/config` file on the mini supplying a reverse alias.
-The real mini-to-MacBook destination/authentication remains **pending Work Item 05**.
-Use the user's actual mini SSH configuration/address and credentials; do not
-assume an alias called `macbook` exists or copy private keys into a project.
+The discovered `mini` alias is **MacBook-to-mini only**. Initial read-only inspection
+on 2026-10-10 found no reverse alias. At the **2026-10-11 prerequisite checkpoint**,
+the mini's **`macbook`** alias reaches `Adrians-MacBook.local` with noninteractive
+authentication and strict host-key checking. Read-only Git resolves all three exact
+MacBook owner roots. Set `MACBOOK_SSH=macbook` on this mini; full live-session Git
+and handover commissioning remain pending. See the [checkpoint record](two-mac-commissioning.md).
+On another machine, discover its actual SSH configuration/address and credentials;
+do not assume the same alias exists or copy private keys into a project.
 On the MacBook inspect its configured Remote Login/address; on the mini inspect
 its existing SSH setup, set `MACBOOK_SSH` to that discovered destination and verify
 the host key/authentication normally. These examples run in **Bash on the mini**:
@@ -183,7 +186,7 @@ After establishing the two-Mac/all-project freeze, use this Bash function:
 workspace_ready() {
   : "${MACBOOK_SSH:?Set the validated MacBook destination}" || return
   ssh -T -o BatchMode=yes -o ConnectTimeout=8 "$MACBOOK_SSH" \
-    'python3 "$HOME/Development/mapping/peak_bagger/tool/mutagen_workspace.py" ready --writers-stopped'
+    'export PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin; python3 "$HOME/Development/mapping/peak_bagger/tool/mutagen_workspace.py" ready --writers-stopped'
 }
 ```
 
@@ -305,10 +308,11 @@ have no background editor/agent processes and are not a distributed lock test.
 | Deliberate recovery | Both versions preserved outside roots, explicitly combined on both, same session ID retained, no reset/winner mode; only then full readiness and beta resumption |
 | Git owner unreachable | Temporary SSH server stopped; SSH Git fails with no mirror repository created |
 
-**Pending environmental evidence (Work Item 05):** real mini-to-MacBook SSH
-destination, host/authentication and noninteractive owner-command PATH; attached
-mini volume/live sessions; actual two-machine writers and handover; physical
-network loss/reconnect and live Git invocation. Loopback SSH proves the command
+**Checkpoint update:** real mini-to-MacBook destination, host/authentication,
+explicit owner-command PATH, attached mini volume and read-only owner Git were
+verified on 2026-10-11. **Pending environmental evidence (Work Item 05):** live
+sessions/migration, actual two-machine writers and handover, physical network
+loss/reconnect and guarded live Git operations. Loopback SSH proves the command
 boundary, not the reverse path between these Macs. Session pausing simulates
 offline conflicts, not physical network behavior. Unavailable environmental
 checks are pending, never passed.

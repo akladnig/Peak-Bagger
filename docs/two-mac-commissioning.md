@@ -1,14 +1,17 @@
 # Two-Mac workspace commissioning record
 
-**Status: BLOCKED — ordinary mini development is not ready.** This is the live
+**Status: prerequisites verified; live commissioning pending. Ordinary mini
+development is not ready.** This is the live
 record for [Work Item 05](../ai_specs/peak-lists/0062-macbook-mini-mutagen-development/work-items/05-commission-and-verify-two-mac-workspace.md).
 Initial inspection: **2026-10-11 local time** (command timestamp
 `2026-10-10T19:30:04Z`). Reinspect mutable state before resuming.
 
-**Latest recheck:** both private defines files now pass validation and MacBook
-Remote Login is reachable. Reverse SSH host trust/authentication, mini build
-provisioning, the missing shared example, and the confirmed source-write freeze
-remain prerequisites. See the recheck below; the initial failures are historical.
+**Latest recheck:** both SSH directions and all three owner Git destinations,
+private defines, the shared placeholder example, matching Flutter/Dart versions,
+mini Xcode first-launch setup, CocoaPods and the FMTC native library now pass.
+Explicit SSH toolchain PATHs were verified. The operator's source-write freeze,
+preservation/migration, session activation and required build/runtime verification
+remain pending. The initial failures and first recheck below are historical.
 
 The four prerequisite Work Items are complete. Their preparation/disposable
 results do not establish live commissioning completion. Procedures remain in
@@ -51,7 +54,7 @@ results do not establish live commissioning completion. Procedures remain in
    excluded local file before seeding/synchronizing. This modification was not
    staged or altered; no key values are included in this commissioning artifact.
 
-## Current live evidence
+## Initial live evidence
 
 | Check | Result and scope |
 | --- | --- |
@@ -200,3 +203,48 @@ been completed for this commissioning attempt. Skipped tests are not passed.
 - **PENDING:** an explicit both-Mac/all-project save-and-stop freeze, unique-work
   backups, migration, live-session verification and offline recompilation remain
   unperformed. No ordinary mini development or handover readiness is claimed.
+
+## Checkpoint before live migration — 2026-10-11
+
+The operator completed the environment corrections. Current read-only verification:
+
+| Prerequisite | Result |
+| --- | --- |
+| Both SSH directions | **PASS:** MacBook `mini` reaches the mini; mini `macbook` reaches `Adrians-MacBook.local` noninteractively with strict host-key checking |
+| Remote owner Git | **PASS:** mini-initiated `rev-parse --show-toplevel` returns each exact `/Users/adrian/Development/mapping/<project>` MacBook root; no mini Git fallback |
+| Exact source roots | **PASS:** all three helper preflights succeed; ordinary session inspection still reports no sessions |
+| Private defines | **PASS:** reviewed status-only validation succeeds on each existing local file; no overwrite or SSH seed was needed |
+| Shared defines example | **PASS:** restored file has both API-key placeholders and the Referer field; no real values are recorded here |
+| Flutter / Dart | **PASS:** both Macs report Flutter **3.47.7**, revision `abaf9c5237`, bundled Dart **3.13.5** |
+| Mini Xcode | **PASS:** selected `/Applications/Xcode.app/Contents/Developer`; **27.0 / 27A266a**; `-checkFirstLaunchStatus` exits zero |
+| CocoaPods | **PASS:** MacBook **1.16.2**, mini **1.17.0** available; actual post-migration dependency resolution/builds remain pending |
+| Mini FMTC native library | **PASS, limited:** independently installed `test/lib/libobjectbox.dylib` is universal x86_64/arm64, loads locally and exports C API **5.3.2**; fresh package-minimum/native-test checks remain pending |
+| Remote controller tooling | **PASS:** explicit owner PATH finds `/opt/homebrew/bin/mutagen`, version **0.18.1**, and runs the reviewed helper's `inspect` over reverse SSH |
+
+The MacBook Flutter upgrade preserved its original SDK lockfile diff in a stash
+before upgrading. The upgrade-generated SDK lockfile diff is retained in a second
+stash; the SDK checkout is clean. These SDK-local recovery stashes are outside the
+project synchronization roots and are not mini unique-work backups. Existing
+Flutter analysis/test/build evidence predates this upgrade; it does not establish
+both-Mac commissioning success on 3.47.7.
+
+Noninteractive SSH does not inherit the interactive toolchain PATH. Verified
+environments for commands run on each destination are:
+
+```bash
+# Commands running on the MacBook via the mini's macbook alias:
+export PATH=/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+# Commands running on the mini via the MacBook's mini alias:
+export PATH="$HOME/develop/flutter/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+```
+
+Use these inside the respective remote command, not merely on the initiating
+machine. The operations guide's remote readiness function includes the owner PATH.
+
+**Checkpoint only:** mini `.git` directories remain active in all three original
+checkouts, no live Mutagen sessions exist, and no final source-write freeze,
+verified unique-work backups, seeding, baseline comparison, handover, login/network
+persistence check, both-Mac project builds/tests, or fully disconnected MacBook
+source-recompilation probe has occurred. These remain required before ordinary
+mini development. Reinspect repositories and endpoint state under the confirmed
+freeze before migration; preparation is not Work Item 05 completion.

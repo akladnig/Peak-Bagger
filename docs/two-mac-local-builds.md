@@ -35,16 +35,16 @@ Git ignore rules alone do not configure Mutagen.
 
 ## Online provisioning on each Mac
 
-1. Install Flutter **3.47.5** stable with its bundled Dart **3.13.4** outside all
-   synchronized project roots. The observed framework revision is `6a19cca564`.
+1. Install Flutter **3.47.7** stable with its bundled Dart **3.13.5** outside all
+   synchronized project roots. The observed framework revision is `abaf9c5237`.
    Use the Flutter SDK archive or that release's Git tag rather than upgrading
    dependencies during commissioning. Put this machine's SDK `bin` on `PATH`.
    The project requires Dart `^3.12.0`; a stale installation is insufficient.
 2. Install full Xcode, select its developer directory, and complete first-launch
    setup/licensing and any macOS platform downloads **while online**. The
    verified MacBook has Xcode **27.0 / 27A266a**, macOS **27.0.1**, arm64.
-   Install CocoaPods (verified **1.16.2**) with a working Ruby environment, and
-   Python 3 for the configuration helper. Check `flutter --version`,
+   Install CocoaPods (MacBook **1.16.2**, mini **1.17.0**) with a working Ruby
+   environment, and Python 3 for the configuration helper. Check `flutter --version`,
    `dart --version`, `xcodebuild -version`, `xcode-select -p`, `pod --version`,
    and `flutter doctor -v`. Android/iOS SDKs are only needed for those separate
    targets; their absence did not prevent the verified macOS build.
@@ -84,6 +84,25 @@ sampling. Provision them locally (for example with Homebrew `gdal` and `proj`)
 if testing that runtime feature. Mapping datasets, Docker, and the mini's Local
 Topo service are not required to compile this macOS app and are not provisioned
 by package resolution. Full runtime still needs the accepted Mapping root.
+
+### Pre-migration SDK checkpoint — 2026-10-11
+
+Both Macs now report Flutter **3.47.7 / Dart 3.13.5**. The mini SDK is at
+`~/develop/flutter`; CocoaPods **1.17.0** and Xcode **27.0** with completed
+first-launch checks are available. Its independently installed FMTC test library
+loads and reports ObjectBox C API **5.3.2**. Both existing local defines files pass
+validation, and the shared example contains placeholder keys again.
+
+MacBook provisioning/test/build results below were collected on **3.47.5 / Dart
+3.13.4** and remain historical. Fresh post-migration local resolution, native
+minimum checks, analysis/tests, both-Mac builds and disconnected recompilation on
+3.47.7 remain pending. See the [current commissioning record](two-mac-commissioning.md).
+
+For noninteractive commands on the mini, explicitly supply its installed tools:
+
+```bash
+export PATH="$HOME/develop/flutter/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+```
 
 ## ObjectBox treatment and readiness
 
