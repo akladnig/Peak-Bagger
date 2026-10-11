@@ -1,5 +1,11 @@
 # Two-Mac Mapping runtime: SMB access and offline planning
 
+> Historical SMB commissioning record (2026-10-10). Spec 0063 supersedes the
+> SMB-only design and prohibition on a dedicated runtime-data session. The
+> current code still uses SMB until replica delivery is implemented. See
+> [the replica inventory and contract gate](mapping-runtime-replica-contracts.md)
+> for fresh audit evidence and the approved design's remaining implementation gates.
+
 Peak Bagger requires the **Mapping data store** at exactly
 `/Volumes/Services/Mapping` on both Macs. The mini uses its directly attached
 Services volume; the MacBook mounts the mini's **Services** share over SMB.

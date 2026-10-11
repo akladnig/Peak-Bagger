@@ -50,6 +50,26 @@ class IoMappingStoreFileSystem implements MappingStoreFileSystem {
   Future<String> readText(String absolutePath) =>
       File(absolutePath).readAsString();
 
+  /// Trusted binary adapters, invoked only with resolver-authorized paths.
+  Future<List<int>> readBytes(String absolutePath) =>
+      File(absolutePath).readAsBytes();
+
+  Future<({int size, String sha256})> inspectIntegrity(
+    String absolutePath,
+  ) async {
+    final file = File(absolutePath);
+    final before = await file.stat();
+    final digest = await sha256.bind(file.openRead()).single;
+    final after = await file.stat();
+    if (before.size != after.size || before.modified != after.modified) {
+      throw FileSystemException(
+        'File changed during read-only audit',
+        absolutePath,
+      );
+    }
+    return (size: after.size, sha256: digest.toString());
+  }
+
   @override
   Future<bool> fileExists(String absolutePath) async =>
       FileSystemEntity.typeSync(absolutePath, followLinks: true) ==

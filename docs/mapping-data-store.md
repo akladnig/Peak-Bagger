@@ -117,6 +117,7 @@ paths targeting one declared placeholder only.
 | `tool/non_store_paths.dart PATH...` <!-- inventory:tool/non_store_paths.dart --> | Store-isolated validation bridge for shell external/cache/report operands. Reads only path metadata through the shared boundary, grants no Mapping content or write permissions, and needs no tool-manifest entry. |
 | `tool/publish_thelist_dem.sh` <!-- inventory:tool/publish_thelist_dem.sh --> | **Non-Dart: resolver-validated paths only**. Internal GDAL publication worker receives the staged Mapping output as its first operand and a checked non-store VRT as its second (default `build/dem/thelist_25m/tasmania_dem_25m.vrt`). No Mapping input or final-target path construction; PAM sidecars are disabled. |
 | `dart run tool/mapping_store.dart provision-or-verify` <!-- inventory:tool/mapping_store.dart --> | ID `mapping-store-provision`: shared parser reads runtime pair and named `tools` input `tool_manifest.json`; fixtures are version-controlled non-store input. No Mapping writes. Bootstrap is a separate restricted capability. |
+| `dart run tool/mapping_runtime_inventory.dart [--root PATH]` <!-- inventory:tool/mapping_runtime_inventory.dart --> | Read-only diagnostic: production preflight/catalog/read resolver derives the complete app set, including display-only polygons. Trusted binary adapters in `IoMappingStoreFileSystem` stream SHA-256 and read raw peak bytes only after resolver authorization. No tool manifest, glob authority, dataset writes, export, or eligibility publication. See [replica audit/contracts](mapping-runtime-replica-contracts.md). |
 
 ## Local Topo non-Dart classification
 
@@ -272,10 +273,12 @@ are tested without the mounted store or live services.
 
 ## Two-Mac runtime access and offline planning
 
-The mini reads its attached Services volume; the MacBook must mount its Services
-SMB share at exactly `/Volumes/Services`, retaining the canonical Mapping root.
+The implemented runtime still uses the fixed root; the mini reads its attached
+Services volume and the MacBook currently mounts Services over SMB.
+Spec 0063 approves a downstream local runtime replica. Its [audit and contracts](mapping-runtime-replica-contracts.md)
+define the implementation gates; Item 01 does not provision or select that replica.
 See [SMB setup, runtime checks and the measured 25-file offline planning
 inventory](two-mac-mapping-runtime.md) for current evidence, pending environmental
 checks, byte-count validation and remeasurement guidance. Independent offline
-runtime remains a separate follow-up; source editing/builds do not bypass the
+runtime delivery remains pending; source editing/builds do not bypass the
 Mapping startup contract.
