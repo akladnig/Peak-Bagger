@@ -6,16 +6,16 @@ Only status is printed. This checks configuration shape, not provider access.
 import argparse
 import json
 import os
-from pathlib import Path
 import sys
 import tempfile
+from pathlib import Path
 from urllib.parse import urlparse
 
 
 def validate(payload):
     config = json.loads(payload)
     if not isinstance(config, dict):
-        raise ValueError()
+        raise TypeError()
     for key in ("TRACESTRACK_API_KEY", "TRACESTRACK_REFERER", "MAPY_CZ_API_KEY"):
         value = config.get(key)
         if not isinstance(value, str) or not value.strip():
@@ -32,7 +32,7 @@ def check_existing(path, receive):
         if path.is_symlink():
             raise ValueError()
         validate(path.read_bytes())
-    except (OSError, ValueError):
+    except (OSError, TypeError, ValueError):
         print("Existing configuration is invalid or unreadable; deliberate correction required.",
               file=sys.stderr)
         return 1
@@ -55,7 +55,7 @@ def main():
     try:
         payload = sys.stdin.buffer.read()
         validate(payload)
-    except (OSError, ValueError):
+    except (OSError, TypeError, ValueError):
         print("Incoming configuration is invalid; no file created.", file=sys.stderr)
         return 1
     try:

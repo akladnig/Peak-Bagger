@@ -34,6 +34,7 @@ import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/mapping_store_operation_provider.dart';
 import 'package:peak_bagger/providers/local_topo_overlay_settings_provider.dart';
 import 'package:peak_bagger/providers/local_topo_overlay_outage_provider.dart';
+import 'package:peak_bagger/providers/local_topo_settings_provider.dart';
 import 'package:peak_bagger/providers/map_chart_hover_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
@@ -4378,7 +4379,10 @@ class _MapScreenState extends ConsumerState<MapScreen>
   TileProvider _buildTileProviderForBasemap(Basemap basemap) {
     if (basemap == Basemap.localTopo ||
         TileCacheService.getStoreForBasemap(basemap) == null) {
-      return buildNetworkTileProviderForBasemap(basemap);
+      return buildNetworkTileProviderForBasemap(
+        basemap,
+        onLocalTopoUnavailable: _handleLocalTopoUnavailable,
+      );
     }
 
     // TileLayer owns and disposes its provider. Reusing an FMTC provider after
@@ -4391,6 +4395,35 @@ class _MapScreenState extends ConsumerState<MapScreen>
       urlTransformer: (url) =>
           TileCacheService.transformBrowseUrl(basemap, url),
     );
+  }
+
+  void _handleLocalTopoUnavailable(Uri tileUri) {
+    scheduleMicrotask(() {
+      if (!mounted ||
+          !ref
+              .read(localTopoSettingsProvider.notifier)
+              .fallbackAfterTileFailure(tileUri)) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Local Topo is unavailable at ${tileUri.origin}. '
+            'Switched to the fallback basemap. Check the server or network connection.',
+          ),
+          action: SnackBarAction(
+            label: 'Retry',
+            onPressed: () {
+              if (mounted &&
+                  localTopoRuntime.savedBaseUrl?.origin == tileUri.origin &&
+                  localTopoRuntime.hasCapabilitySnapshot) {
+                ref.read(mapProvider.notifier).setBasemap(Basemap.localTopo);
+              }
+            },
+          ),
+        ),
+      );
+    });
   }
 
   Widget _buildPeakInfoPopup(BuildContext context, PeakInfoContent content) {

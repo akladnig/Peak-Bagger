@@ -89,7 +89,44 @@ For local development in this repo, you can keep API keys out of git by using `d
 
 For the combined local Mapy + Slovenia debug setup, run `./run_local_maps.sh`. It starts the local Slovenia proxy on `127.0.0.1:8080` if needed, then launches `flutter run --dart-define-from-file=dart_defines.local.json`. Extra `flutter run` args are forwarded, for example `./run_local_maps.sh --verbose`.
 
+The launcher reuses a healthy Tasmania tile server on localhost, or starts the
+local stack when Docker is available. When local Docker is unavailable, it checks
+the migrated server at `http://mac-mini.local:8090` and uses it if healthy.
+Set `LOCAL_TOPO_BASE_URL` to select an externally managed server explicitly;
+the launcher checks that URL and reports a failure if it is unavailable.
+Save the URL printed by the launcher in **Settings → Local tile server base URL**.
+
+If the selected Local Topo server times out, disconnects, or returns a server
+error, the map switches to the fallback basemap and offers **Retry**. The saved
+server URL and capability snapshot remain available for that retry; an ordinary
+missing tile does not trigger a server-outage fallback.
+
 You can manage the local Slovenia proxy on its own with `./start_slovenia_proxy.sh`, `./stop_slovenia_proxy.sh`, and `./restart_slovenia_proxy.sh`. The helper-managed proxy PID is stored in `.dart_tool/slovenia_topo_proxy.pid`, and proxy output goes to `.dart_tool/slovenia_topo_proxy.log`.
+
+### macOS builds after moving or copying the project
+
+Stop any existing `flutter run` session, then open a terminal in the intended
+checkout and regenerate the local build files:
+
+```bash
+flutter clean
+flutter pub get
+flutter run -d macos --dart-define-from-file=dart_defines.local.json
+```
+
+Xcode and Flutter caches contain absolute paths. Copying `build`, `.dart_tool`,
+`macos/Pods`, or `macos/Flutter/ephemeral` between project locations or machines
+can produce stale-file warnings. Exclude these generated directories from sync
+and recreate them locally. A terminal already running in a renamed directory
+continues using that directory, so check `pwd -P` before launching.
+
+`objectbox_flutter_libs` 5.3.2 requires Flutter's CocoaPods fallback and emits a
+Swift Package Manager compatibility warning until ObjectBox adds support.
+Disabling SwiftPM does not remove that warning in Flutter 3.47.
+`geolocator_apple` 2.3.14 also emits upstream CoreLocation deprecation warnings;
+these do not prevent a macOS build.
+The `pub get` notice about newer versions is informational; use
+`flutter pub outdated` to review upgrades separately.
 
 ## Local-First By Design
 

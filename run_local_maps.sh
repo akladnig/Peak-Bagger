@@ -7,7 +7,9 @@ source "$script_dir/local_slovenia_proxy.sh"
 defines_file="$script_dir/dart_defines.local.json"
 flutter_log_path="$script_dir/.dart_tool/run_local_maps.log"
 local_topo_dir="$script_dir/local_topo/tasmania"
-local_topo_base_url="http://127.0.0.1:${LOCAL_TOPO_PORT:-8090}"
+# An explicit URL uses an externally managed server, including SSH tunnels.
+local_topo_base_url="${LOCAL_TOPO_BASE_URL:-http://127.0.0.1:${LOCAL_TOPO_PORT:-8090}}"
+local_topo_base_url="${local_topo_base_url%/}"
 
 started_proxy=0
 started_local_topo_stack=0
@@ -15,8 +17,8 @@ started_local_topo_stack=0
 local_topo_is_ready() {
   local capabilities_status
   local tile_status
-  capabilities_status="$(curl -s -o /dev/null -w '%{http_code}' "$local_topo_base_url/capabilities" || true)"
-  tile_status="$(curl -s -o /dev/null -w '%{http_code}' "$local_topo_base_url/tasmania/local-topo/0/0/0.png" || true)"
+  capabilities_status="$(curl --connect-timeout 5 --max-time 15 -s -o /dev/null -w '%{http_code}' "$local_topo_base_url/capabilities" || true)"
+  tile_status="$(curl --connect-timeout 5 --max-time 15 -s -o /dev/null -w '%{http_code}' "$local_topo_base_url/tasmania/local-topo/0/0/0.png" || true)"
   [ "$capabilities_status" = "200" ] && [ "$tile_status" = "200" ]
 }
 
@@ -56,11 +58,29 @@ else
 fi
 
 if ! local_topo_is_ready; then
-  npm run stack:up --prefix "$local_topo_dir"
-  started_local_topo_stack=1
+  if [ -n "${LOCAL_TOPO_BASE_URL:-}" ]; then
+    printf 'Local tile server readiness checks failed at %s\n' "$local_topo_base_url" >&2
+    printf 'Check that server and its /capabilities and /tasmania/local-topo/0/0/0.png endpoints.\n' >&2
+    exit 1
+  fi
+  if docker info >/dev/null 2>&1; then
+    npm run stack:up --prefix "$local_topo_dir"
+    started_local_topo_stack=1
+  else
+    local_topo_base_url="http://mac-mini.local:8090"
+    if ! local_topo_is_ready; then
+      printf 'Local Docker engine is unavailable and the Mini tile server is not ready at %s.\n' "$local_topo_base_url" >&2
+      printf 'Check the Mini server, or set LOCAL_TOPO_BASE_URL to its reachable URL.\n' >&2
+      printf 'For a MacBook-hosted stack, start Docker Desktop first.\n' >&2
+      exit 1
+    fi
+    printf 'Using existing Tasmania local topo stack at %s\n' "$local_topo_base_url"
+  fi
 else
   printf 'Using existing Tasmania local topo stack at %s\n' "$local_topo_base_url"
 fi
+
+printf 'In Peak Bagger settings, save %s as Local tile server base URL.\n' "$local_topo_base_url"
 
 flutter_args=(run --dart-define-from-file=dart_defines.local.json)
 if [ "$has_device_arg" -eq 0 ]; then

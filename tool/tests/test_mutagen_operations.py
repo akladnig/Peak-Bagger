@@ -5,6 +5,7 @@ SSH server to a disposable owner repository. These are not live commissioning.
 """
 
 import getpass
+import os
 import shlex
 import shutil
 import socket
@@ -243,18 +244,42 @@ class OperationsTests(DisposableWorkspace):
               'unconflicted path delivered; explicit combined content resolved on same session')
 
     def test_each_disconnected_or_missing_session_blocks_operations(self):
-        # Loopback port 22 is probed first: never connect to an unexpected server.
-        with socket.socket() as probe:
-            if probe.connect_ex(('127.0.0.1', 22)) == 0:
-                self.fail('loopback port 22 in use; disposable disconnected test needs a closed endpoint')
+        # Reserve an ephemeral port without listening. The user's Remote Login
+        # can remain enabled on port 22, and another server cannot take this port.
+        closed_endpoint = socket.socket()
+        self.addCleanup(closed_endpoint.close)
+        closed_endpoint.bind(('127.0.0.1', 0))
+        port = closed_endpoint.getsockname()[1]
+        tools = self.directory / 'ssh-tools'
+        tools.mkdir(mode=0o700)
+        config = tools / 'config'
+        config.write_text('\n'.join([
+            'Host disconnected-fixture', 'HostName 127.0.0.1', f'Port {port}',
+            'BatchMode yes', 'StrictHostKeyChecking yes',
+            'UserKnownHostsFile /dev/null',
+        ]) + '\n')
+        for name in ('ssh', 'scp'):
+            executable = tools / name
+            executable.write_text(
+                f'#!/bin/sh\nexec /usr/bin/{name} -F {shlex.quote(str(config))} "$@"\n'
+            )
+            executable.chmod(0o700)
+        # Mutagen captures its SSH executable search path at daemon startup.
+        # Only the existing isolated test daemon is restarted; user settings,
+        # credentials, known_hosts and the real controlling daemon stay separate.
+        workspace.run(['mutagen', 'daemon', 'stop'])
+        with patch.dict(os.environ, {
+            'MUTAGEN_SSH_PATH': str(tools), 'MUTAGEN_SSH_CONNECT_TIMEOUT': '1',
+        }):
+            workspace.run(['mutagen', 'daemon', 'start'])
         for index, original in enumerate(list(self.plans)):
             with self.subTest(project=original.project):
                 self.frozen()
-                self.plans[index] = replace(original, host='127.0.0.1')
+                self.plans[index] = replace(original, host='disconnected-fixture')
                 for member in self.plans:
                     identifier = workspace.create(member)
                     if member.host:
-                        with self.assertRaisesRegex(workspace.SetupError, 'Connection refused'):
+                        with self.assertRaisesRegex(workspace.SetupError, 'Connection refused|Operation timed out'):
                             workspace.run(['mutagen', 'sync', 'resume', identifier])
                     else:
                         workspace.run(['mutagen', 'sync', 'resume', identifier])

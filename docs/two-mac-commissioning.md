@@ -248,3 +248,25 @@ persistence check, both-Mac project builds/tests, or fully disconnected MacBook
 source-recompilation probe has occurred. These remain required before ordinary
 mini development. Reinspect repositories and endpoint state under the confirmed
 freeze before migration; preparation is not Work Item 05 completion.
+
+## PR regression verification — 2026-10-11
+
+With the reviewed Local Topo outage/launcher changes and the upgraded MacBook SDK:
+
+- `flutter analyze --no-pub`: **no issues**.
+- `caffeinate -i flutter test --no-pub --reporter expanded`: **2,173 passed,
+  5 skipped** in 3m05s, including tile timeout/cancellation/server-error and
+  settings-retention/fallback coverage. Skips remain unverified.
+- `flutter build macos --debug --no-pub --dart-define-from-file=dart_defines.local.json`:
+  **passed**, producing `build/macos/Build/Products/Debug/peak_bagger.app` on
+  Flutter **3.47.7 / Dart 3.13.5**. This was an online MacBook build.
+- Full operational Python suite: **30 passed** in 22.098s after removing its
+  assumption that the user's Remote Login port is closed; fixtures retain real
+  disconnected-member coverage on an isolated, non-listening ephemeral port.
+- Ruff on all seven workspace/helper/test Python files, unchanged Dart formatting,
+  both shell scripts' Bash syntax, Runner plist validation, 1024-pixel icon
+  dimensions and `git diff --check`: **passed**.
+
+This verifies the reviewed PR on the MacBook. Mini post-migration package/native
+minimum checks, tests/builds, real sessions/handover/login/reconnect and fully
+disconnected source recompilation remain pending; Work Item 05 is not complete.

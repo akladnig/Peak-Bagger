@@ -232,6 +232,17 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
     await saveAndValidate(state.savedBaseUrlText);
   }
 
+  /// Keeps the saved server and capabilities available for a later retry.
+  /// Returns true only when this failure changes the active basemap.
+  bool fallbackAfterTileFailure(Uri tileUri) {
+    if (tileUri.origin != localTopoRuntime.savedBaseUrl?.origin ||
+        ref.read(mapProvider).basemap != Basemap.localTopo) {
+      return false;
+    }
+    _fallbackToTracestrackIfLocalTopoSelected();
+    return true;
+  }
+
   Future<void> clearSetting() async {
     _hasUserOverride = true;
     _validationRequestSerial += 1;

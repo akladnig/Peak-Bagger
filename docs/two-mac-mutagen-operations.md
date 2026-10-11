@@ -303,7 +303,7 @@ have no background editor/agent processes and are not a distributed lock test.
 | File replacement | A second mini edit to a tracked file reaches alpha before SSH checkout; checkout replaces another tracked file on both endpoints, preserving the edit; post-check covers all three |
 | Post-operation failure | Paused dependency after checkout rejects post-check and resumption; writers remain frozen until restored three-session readiness |
 | Sequential handover | Source edits in all three projects flushed/inspected before alpha-to-beta resumption; outgoing alpha writers remain stopped; both directions recorded |
-| Disconnected/missing member | Real SSH connection refusal on disposable loopback endpoint, separately for each project, then missing session: named readiness failure prevents `add`, `commit`, checkout and handover |
+| Disconnected/missing member | Real SSH connection failure on disposable loopback endpoint, separately for each project, then missing session: named readiness failure prevents `add`, `commit`, checkout and handover |
 | Explicit conflict | Divergent saved versions after pause/resume reported and retained; dependency conflict blocks owner Git; unrelated path still syncs |
 | Deliberate recovery | Both versions preserved outside roots, explicitly combined on both, same session ID retained, no reset/winner mode; only then full readiness and beta resumption |
 | Git owner unreachable | Temporary SSH server stopped; SSH Git fails with no mirror repository created |
@@ -321,3 +321,13 @@ Full regression checks: `python3 -m unittest discover -s tool/tests -v` **30
 passed**; Ruff and Python compilation passed; `flutter analyze --no-pub` reported
 no issues; `caffeinate -i flutter test --no-pub --reporter expanded` **2,173 passed,
 5 skipped** (3m26s). Skipped tests remain unverified.
+
+### PR regression recheck — 2026-10-11
+
+Enabling MacBook Remote Login exposed a fixture assumption that loopback port 22
+must be closed. The disconnected-member test now reserves a non-listening
+ephemeral loopback port and uses private SSH wrappers/configuration only in its
+isolated daemon. Connection refusal or timeout both establish the expected
+transport failure. User SSH services, configuration and live sessions are untouched.
+The focused test passed, followed by the full Python suite: **30 passed** in
+22.098 seconds. Ruff passed for all seven workspace/helper/test Python files.

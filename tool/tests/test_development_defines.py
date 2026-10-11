@@ -1,13 +1,12 @@
 """Exercise credential setup with disposable, fake configurations only."""
 
 import json
-from pathlib import Path
 import stat
 import subprocess
 import sys
 import tempfile
 import unittest
-
+from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / "development_defines.py"
 VALID = {
@@ -27,7 +26,7 @@ class DevelopmentDefinesTest(unittest.TestCase):
         command = [sys.executable, str(SCRIPT), "--file", str(self.path)]
         if receive:
             command.append("--receive")
-        result = subprocess.run(command, input=payload, capture_output=True)
+        result = subprocess.run(command, input=payload, capture_output=True, check=False)
         output = result.stdout + result.stderr
         for value in VALID.values():
             self.assertNotIn(value.encode(), output)
