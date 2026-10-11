@@ -26,18 +26,18 @@ Execute the reviewed migration and setup on the real MacBook and mini, then veri
 
 ## Acceptance criteria
 
-- [ ] Both SSH directions, exact external volume mounts/permissions, sibling roots, and required installed Mutagen support are validated. Missing prerequisites identify the affected step/project and block its setup without substitute directories or Git fallback.
-- [ ] Current mini repository and working-file state is inspected for unique commits, branches, stashes, staged/unstaged/untracked changes; unique work is preserved outside every root or deliberately reconciled into the MacBook baseline. Mini Git metadata is moved outside all roots as recoverable backups before ordinary mirroring.
-- [ ] Edits are saved and all source writers on both machines across all three projects are stopped before final reconciliation/seeding. The freeze lasts through matching in-scope path/content verification, activation, and the first successful three-session flush/status check. Stale mini-only source cannot return as new additions; excluded local content remains intact.
-- [ ] Exactly one intended SSH `two-way-safe` session is active per project with Work Item 02's effective configuration. Reapplying unchanged setup reuses matching sessions without duplicates; any drift stops the affected project for deliberate reconciliation rather than silently replacing sessions.
-- [ ] Every real session propagates a disposable change MacBook-to-mini and mini-to-MacBook, then propagates probe removal with cleanup confirmed. `.git` remains only on MacBook roots; keys, live database files, caches, Local Topo generated payloads, and FMTC's installed test libraries do not propagate.
-- [ ] MacBook controlling-daemon login startup and session persistence are exercised. Connection-loss status is clear, offline edits remain local, and synchronization catches up automatically on reconnect. Conflict outcomes are supported by disposable verification rather than conflicting user files; there is no automatic winner/reset to suppress conflicts.
-- [ ] Real handover readiness checks cover all three sessions and require no pending changes/conflicts/connection errors/other problems. Writers remain stopped through the check, resume only on the receiving machine after success, and stay stopped on the outgoing machine. A failed/unavailable member is named and blocks handover.
-- [ ] Mini-initiated Git is verified to target each corresponding MacBook repository. Unreachable-MacBook behavior reports Git unavailable without creating a mini repository. File-replacement and staging/commit procedures retain Work Item 03's flush/freeze gates, supported by its disposable Git verification; user work is not reset merely to demonstrate them.
-- [ ] Work Item 01's machine-local API-key procedure is applied without exposing values: seed an absent mini file once over SSH, preserve a usable existing file, and report an invalid file for deliberate correction. The example remains shared and later local-key edits remain local.
-- [ ] SDK/package/platform dependencies and caches are installed/generated locally on both machines; stale relocation caches are recreated. Peak Bagger's tracked dylib treatment is confirmed compatible on both Macs, and FMTC ObjectBox `test/lib/` readiness is checked locally before relevant tests on each machine.
-- [ ] Package resolution, appropriate Flutter/Dart analysis, existing relevant tests for the three projects, and a Peak Bagger macOS build on both machines are recorded with commands/outcomes. Required native-library tests are not called successful without their prerequisites; installed native test libraries remain excluded.
-- [ ] After online provisioning, a MacBook macOS rebuild succeeds with the external development drive absent and all network access unavailable, including mini access. A saved disposable source change requiring compilation demonstrates rebuilding rather than launching an existing binary; the exact provisioning/build procedure and result are recorded, and the probe is cleaned up.
+- [x] Both SSH directions, exact external volume mounts/permissions, sibling roots, and required installed Mutagen support are validated. Missing prerequisites identify the affected step/project and block its setup without substitute directories or Git fallback.
+- [x] Current mini repository and working-file state is inspected for unique commits, branches, stashes, staged/unstaged/untracked changes; unique work is preserved outside every root or deliberately reconciled into the MacBook baseline. Mini Git metadata is moved outside all roots as recoverable backups before ordinary mirroring.
+- [x] Edits are saved and all source writers on both machines across all three projects are stopped before final reconciliation/seeding. The freeze lasts through matching in-scope path/content verification, activation, and the first successful three-session flush/status check. Stale mini-only source cannot return as new additions; excluded local content remains intact.
+- [x] Exactly one intended SSH `two-way-safe` session is active per project with Work Item 02's effective configuration. Reapplying unchanged setup reuses matching sessions without duplicates; any drift stops the affected project for deliberate reconciliation rather than silently replacing sessions.
+- [x] Every real session propagates a disposable change MacBook-to-mini and mini-to-MacBook, then propagates probe removal with cleanup confirmed. `.git` remains only on MacBook roots; keys, live database files, caches, Local Topo generated payloads, and FMTC's installed test libraries do not propagate.
+- [x] MacBook controlling-daemon login startup and session persistence are exercised. Connection-loss status is clear, offline edits remain local, and synchronization catches up automatically on reconnect. Conflict outcomes are supported by disposable verification rather than conflicting user files; there is no automatic winner/reset to suppress conflicts.
+- [x] Real handover readiness checks cover all three sessions and require no pending changes/conflicts/connection errors/other problems. Writers remain stopped through the check, resume only on the receiving machine after success, and stay stopped on the outgoing machine. A failed/unavailable member is named and blocks handover.
+- [x] Mini-initiated Git is verified to target each corresponding MacBook repository. Unreachable-MacBook behavior reports Git unavailable without creating a mini repository. File-replacement and staging/commit procedures retain Work Item 03's flush/freeze gates, supported by its disposable Git verification; user work is not reset merely to demonstrate them.
+- [x] Work Item 01's machine-local API-key procedure is applied without exposing values: seed an absent mini file once over SSH, preserve a usable existing file, and report an invalid file for deliberate correction. The example remains shared and later local-key edits remain local.
+- [x] SDK/package/platform dependencies and caches are installed/generated locally on both machines; stale relocation caches are recreated. Peak Bagger's tracked dylib treatment is confirmed compatible on both Macs, and FMTC ObjectBox `test/lib/` readiness is checked locally before relevant tests on each machine.
+- [x] Package resolution, appropriate Flutter/Dart analysis, existing relevant tests for the three projects, and a Peak Bagger macOS build on both machines are recorded with commands/outcomes. Required native-library tests are not called successful without their prerequisites; installed native test libraries remain excluded.
+- [x] After online provisioning, a MacBook macOS rebuild succeeds with the external development drive absent and all network access unavailable, including mini access. A saved disposable source change requiring compilation demonstrates rebuilding rather than launching an existing binary; the exact provisioning/build procedure and result are recorded, and the probe is cleaned up.
 - [x] Work Item 04's SMB runtime access and startup evidence are included in the commissioning record. Offline-build success is not described as offline full-app startup; no local Mapping replica or personal-data synchronization is introduced.
 - [x] The record identifies evidence, remaining unique-work backups, and every incomplete environmental check as pending, not passed. Failed bootstrap/readiness blocks ordinary development; source writers resume only on the selected machine after successful initial readiness, and ordinary mini development remains gated on completion of migration, setup, and required verification.
 
@@ -124,3 +124,37 @@ handover, login/reconnect checks, fresh both-Mac builds/tests and fully disconne
 MacBook recompilation must still be completed. Earlier failure/recheck sections
 are historical; the latest evidence is in the commissioning record. No remaining
 live acceptance criterion is marked complete merely because prerequisites pass.
+
+## Live execution — 2026-10-11
+
+**Completed: all acceptance criteria satisfied.** Detailed evidence and recovery
+paths are in [`docs/two-mac-commissioning-live.md`](../../../../docs/two-mac-commissioning-live.md).
+
+- Operator confirmed the both-Mac/all-project freeze and selected MacBook receiver.
+- Full private worktree snapshots, all-ref bundles and recovery inventories verified
+  on the mini under `~/MigrationBackups/mapping-20261011T063303Z/`; original root
+  `.git` directories moved there. Differing mini versions remain recoverable.
+- Exact baselines matched before activation; three SSH `two-way-safe` sessions
+  created and reused with no duplicates. Initial all-three readiness passed.
+- All real sessions passed bidirectional edits/deletion/exclusion probes and cleanup.
+  All original excluded mini content survived seeding unchanged.
+- Login agent registered and restarted with persistent IDs/configuration; actual
+  logout/login and post-login readiness passed. Real outage rejects readiness,
+  retains local edits and catches up automatically on reconnect. Mini owner Git
+  fails during outage without local repository fallback.
+- Both Macs passed Trip Routing **11**, FMTC **59**, Peak Bagger **2,173 / 5 skipped**,
+  and the macOS debug build. Peak Bagger/Trip Routing analysis clean; FMTC's existing
+  warning/info remain explicit. Native readiness verified before tests.
+- Fully disconnected MacBook source rebuild and restored-source rebuild passed;
+  compiled marker and changed kernel confirmed. Source and synchronization probes
+  cleaned up; matching baselines/readiness restored.
+- Registration exposed fixture lifecycle calls selecting the user's launch agent;
+  fixtures now own isolated foreground daemon processes. Full operational suite
+  **30 passed in 21.334s**, Ruff passed. Earlier failed runs are superseded.
+- Operator completed actual logout/login; automatically started PID **91788** in
+  new GUI session **101147** retained all three IDs/configurations. Local and
+  mini-initiated readiness passed at the **2026-10-11T07:42:19Z** checkpoint;
+  baselines still match, and SMB Mapping manifests are readable after login.
+- Final readiness releases ordinary development only to the selected **MacBook**.
+  Outgoing mini writers remain stopped; subsequent mini development requires the
+  ordinary frozen all-three-session handover. Preserve remaining recovery backups.

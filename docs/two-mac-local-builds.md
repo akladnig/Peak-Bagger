@@ -3,7 +3,9 @@
 Work Item 01 of [the two-Mac Spec](../ai_specs/peak-lists/0062-macbook-mini-mutagen-development/spec.md)
 prepares portable source dependencies and local builds. Real mini commissioning,
 credential seeding, and the disconnected MacBook rebuild belong to Work Item 05.
-The verification record below distinguishes completed checks from pending checks.
+Both-Mac provisioning/tests/builds and disconnected source recompilation now
+passed; see [live commissioning evidence](two-mac-commissioning-live.md).
+The earlier verification records below preserve their historical scope.
 
 ## Sibling layout and local artifacts
 

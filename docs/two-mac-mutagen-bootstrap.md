@@ -1,8 +1,10 @@
 # Two-Mac Mutagen configuration and safe bootstrap
 
 This is the configuration/bootstrap procedure for [Work Item 02](../ai_specs/peak-lists/0062-macbook-mini-mutagen-development/work-items/02-repeatable-mutagen-configuration-and-safe-bootstrap.md).
-Execute live migration, login registration and session activation in **Work Item
-05**. The disposable verification below has already exercised the procedure.
+Live migration, login registration and session activation have now been executed
+in **Work Item 05**; see the [live record](two-mac-commissioning-live.md) for
+passed checks, including actual logout/login and final readiness. The disposable
+verification below exercises the procedure separately.
 Use [local build provisioning](two-mac-local-builds.md) for SDKs, native libraries
 and private defines. The MacBook owns Git; the mini becomes a working-file mirror.
 For ongoing development use the [handover, SSH Git and conflict-recovery
@@ -12,7 +14,8 @@ At the **2026-10-11 prerequisite checkpoint**, the mini Development volume and a
 three roots pass preflight, and both SSH directions are verified. Earlier missing
 volume/SSH observations below are historical. See the
 [current commissioning record](two-mac-commissioning.md) for evidence and remaining
-live migration/verification gates; no ordinary sessions have been activated.
+live migration/verification gates. The checkpoint was subsequently superseded by
+the live execution record; exactly three ordinary sessions are now active.
 
 ## Persistent configuration and effective roots
 
@@ -52,8 +55,9 @@ python3 tool/mutagen_workspace.py preflight
 Development volume on a different filesystem from the mini's startup volume.
 It creates no directories. An unavailable SSH endpoint, absent volume, missing
 project or substituted/symlink root is a setup failure. The actual mini
-Development volume is **absent at this verification**; preflight fails with the
-project/root identified. Attaching/validating it is pending commissioning.
+Development volume was **absent during the initial disposable verification**;
+preflight correctly failed with the project/root identified. Live commissioning
+now validates the attached volume and all three exact roots.
 Reverse SSH for mini-initiated Git is covered by Work Item 03/05.
 
 ## Source and machine-local boundary
@@ -108,6 +112,7 @@ commissioning, with writers frozen and existing sessions inspected:
 mutagen version
 mutagen sync list --long
 mutagen daemon stop
+# Wait for the stopped daemon to exit before registration; stop can return early.
 mutagen daemon register
 mutagen daemon start
 plutil -lint "$HOME/Library/LaunchAgents/io.mutagen.mutagen.plist"
@@ -124,8 +129,11 @@ version. Do not register a second controller on the mini. The mini needs Remote
 Login enabled, SSH authentication, Python 3 for baseline hashing and Mutagen's
 automatically deployed matching **remote agent** (normally under `~/.mutagen`).
 
-Login registration/logout-login evidence is pending Work Item 05. Disposable
-tests use a separate data directory and do not register any launch agent.
+Login registration, launch-agent restart/persistent IDs, actual logout/login and
+post-login readiness passed Work Item 05. Disposable tests own a
+foreground `mutagen daemon run` process with a private data directory and do not
+use registered `daemon start/stop`, which on macOS select the user's launch job
+regardless of that data-directory override. They register no launch agent.
 
 ## Recoverable bootstrap: preserve first, then reconcile
 

@@ -7,7 +7,9 @@ source or databases. The full lifecycle exercises real Mutagen, not a fake sync.
 import json
 import os
 import shutil
+import subprocess
 import tempfile
+import time
 import unittest
 from dataclasses import replace
 from pathlib import Path
@@ -54,13 +56,44 @@ class DisposableWorkspace(unittest.TestCase):
         cls.base = Path(cls.temp.name).resolve()
         cls.environment = patch.dict(os.environ, {'MUTAGEN_DATA_DIRECTORY': str(cls.base / 'd')})
         cls.environment.start()
-        workspace.run(['mutagen', 'daemon', 'start'])
+        # Registered start/stop route through launchctl, ignoring the fixture's
+        # data directory. Own a foreground daemon instead of touching user jobs.
+        cls.daemon_log = (cls.base / 'daemon.log').open('w+')
+        try:
+            cls.start_daemon()
+            if workspace.sessions():
+                raise RuntimeError('disposable daemon must start with no sessions')
+        except Exception:
+            cls.tearDownClass()
+            raise
+
+    @classmethod
+    def start_daemon(cls, environment=None):
+        cls.daemon = subprocess.Popen(['mutagen', 'daemon', 'run'],
+                                      env={**os.environ, **(environment or {})},
+                                      stdout=cls.daemon_log, stderr=subprocess.STDOUT)
+        deadline = time.monotonic() + 10
+        socket = cls.base / 'd' / 'daemon' / 'daemon.sock'
+        while not socket.exists():
+            if cls.daemon.poll() is not None or time.monotonic() >= deadline:
+                raise RuntimeError('isolated Mutagen daemon did not start')
+            time.sleep(0.05)
+
+    @classmethod
+    def stop_daemon(cls):
+        cls.daemon.terminate()
+        try:
+            cls.daemon.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            cls.daemon.kill()
+            cls.daemon.wait(timeout=10)
 
     @classmethod
     def tearDownClass(cls):
         try:
-            workspace.run(['mutagen', 'daemon', 'stop'])
+            cls.stop_daemon()
         finally:
+            cls.daemon_log.close()
             cls.environment.stop()
             cls.temp.cleanup()
 

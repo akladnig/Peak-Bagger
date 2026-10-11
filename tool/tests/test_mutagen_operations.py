@@ -5,7 +5,6 @@ SSH server to a disposable owner repository. These are not live commissioning.
 """
 
 import getpass
-import os
 import shlex
 import shutil
 import socket
@@ -267,11 +266,10 @@ class OperationsTests(DisposableWorkspace):
         # Mutagen captures its SSH executable search path at daemon startup.
         # Only the existing isolated test daemon is restarted; user settings,
         # credentials, known_hosts and the real controlling daemon stay separate.
-        workspace.run(['mutagen', 'daemon', 'stop'])
-        with patch.dict(os.environ, {
+        self.stop_daemon()
+        self.start_daemon({
             'MUTAGEN_SSH_PATH': str(tools), 'MUTAGEN_SSH_CONNECT_TIMEOUT': '1',
-        }):
-            workspace.run(['mutagen', 'daemon', 'start'])
+        })
         for index, original in enumerate(list(self.plans)):
             with self.subTest(project=original.project):
                 self.frozen()

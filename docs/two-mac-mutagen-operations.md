@@ -29,8 +29,10 @@ labels and explicit ordered ignores. `.git` directories/pointer files, private
 defines, live databases, caches and outputs stay local. Required generated source,
 lockfiles and documentation stay shared. See [configuration and safe
 bootstrap](two-mac-mutagen-bootstrap.md) for the complete scope, preservation,
-seeding, drift/replacement and login-start instructions. Live activation and
-ordinary mini development wait for Work Item 05 commissioning.
+seeding, drift/replacement and login-start instructions. All Work Item 05 gates
+passed in the [live commissioning record](two-mac-commissioning-live.md).
+MacBook is the selected active developer; switch to mini only after the normal
+all-project freeze/readiness handover below.
 
 ### Creation or reuse after preserved, verified initial seeding
 

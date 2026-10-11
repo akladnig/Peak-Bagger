@@ -1,17 +1,20 @@
 # Two-Mac workspace commissioning record
 
-**Status: prerequisites verified; live commissioning pending. Ordinary mini
-development is not ready.** This is the live
+**Status: completed.** Live migration, synchronization, both-Mac builds/tests,
+fully disconnected recompilation and actual logout/login verification passed.
+Development is released to the selected **MacBook**; switching to mini requires
+the normal all-three-session handover. This is the live
 record for [Work Item 05](../ai_specs/peak-lists/0062-macbook-mini-mutagen-development/work-items/05-commission-and-verify-two-mac-workspace.md).
 Initial inspection: **2026-10-11 local time** (command timestamp
 `2026-10-10T19:30:04Z`). Reinspect mutable state before resuming.
 
-**Latest recheck:** both SSH directions and all three owner Git destinations,
-private defines, the shared placeholder example, matching Flutter/Dart versions,
-mini Xcode first-launch setup, CocoaPods and the FMTC native library now pass.
-Explicit SSH toolchain PATHs were verified. The operator's source-write freeze,
-preservation/migration, session activation and required build/runtime verification
-remain pending. The initial failures and first recheck below are historical.
+**Latest evidence:** [live commissioning execution](two-mac-commissioning-live.md)
+records the operator-confirmed freeze, verified mini backups/Git relocation,
+matching baselines, three active SSH sessions, real probes/exclusions, local tests
+and builds on both Macs, fully disconnected source recompilation and automatic
+reconnect, actual login startup/persistence and final readiness. The MacBook is
+the selected receiver; outgoing mini writers stay stopped. Earlier blockers and
+pending checklists below are historical and superseded by that execution record.
 
 The four prerequisite Work Items are complete. Their preparation/disposable
 results do not establish live commissioning completion. Procedures remain in
