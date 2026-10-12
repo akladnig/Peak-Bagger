@@ -48,6 +48,8 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
+import 'package:peak_bagger/providers/local_data_load_outcome_provider.dart';
+import 'package:peak_bagger/services/performance_measurement.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
@@ -1863,14 +1865,48 @@ class MapNotifier extends Notifier<MapState> {
       _waypointsRepository ??= _buildWaypointsRepository();
 
   Future<void> _runStartupLoad() async {
+    try {
+      await performanceMeasurement.phase(
+        'dashboard.local-load',
+        _loadDashboardLocalData,
+      );
+      if (ref.mounted && _loadTracksOnBuild) {
+        final error = state.trackImportError;
+        if (error != null) {
+          ref
+              .read(mapDashboardLoadProvider.notifier)
+              .failed(StateError(error), StackTrace.current);
+        } else {
+          ref.read(mapDashboardLoadProvider.notifier).loaded();
+        }
+      }
+    } catch (error, trace) {
+      if (ref.mounted) {
+        ref.read(mapDashboardLoadProvider.notifier).failed(error, trace);
+      }
+      developer.log(
+        'Dashboard local load failed',
+        error: error,
+        stackTrace: trace,
+      );
+    }
+  }
+
+  Future<void> _loadDashboardLocalData() async {
     if (!ref.mounted) {
       return;
     }
-    await _backfillItemVisibility();
+    await performanceMeasurement.phase(
+      'dashboard.visibility-backfill',
+      _backfillItemVisibility,
+    );
     if (!ref.mounted) {
       return;
     }
-    await _restoreVisibilityPrefs();
+    await performanceMeasurement.phase(
+      'dashboard.visibility-settings',
+      _restoreVisibilityPrefs,
+    );
     if (!ref.mounted) {
       return;
     }
@@ -1885,13 +1921,19 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
     if (_loadPeaksOnBuild) {
-      await _loadPeaks();
+      await performanceMeasurement.phase(
+        'dashboard.peaks-import-backfill',
+        _loadPeaks,
+      );
       if (!ref.mounted) {
         return;
       }
     }
     if (_loadTracksOnBuild) {
-      await _loadTracks();
+      await performanceMeasurement.phase(
+        'dashboard.tracks-import-backfill',
+        _loadTracks,
+      );
     }
   }
 
@@ -1916,9 +1958,10 @@ class MapNotifier extends Notifier<MapState> {
       if (changed) {
         ref.read(routeRevisionProvider.notifier).increment();
       }
-    } catch (e) {
+    } catch (e, trace) {
       _pendingStartupBackfillWarningMessage =
           'Failed to restore route/track visibility: $e';
+      ref.read(mapDashboardLoadProvider.notifier).failed(e, trace);
     }
   }
 
@@ -1934,8 +1977,9 @@ class MapNotifier extends Notifier<MapState> {
         showRoutes: _showRoutesRestoreOverridden ? null : showRoutes,
         showTrails: _showTrailsRestoreOverridden ? null : showTrails,
       );
-    } catch (_) {
+    } catch (error, trace) {
       // Continue with defaults on read failure.
+      ref.read(mapDashboardLoadProvider.notifier).failed(error, trace);
     } finally {
       _isRestoringVisibilityPrefs = false;
     }
@@ -1959,14 +2003,16 @@ class MapNotifier extends Notifier<MapState> {
         clearPeakSearchMappingUnavailableReason: true,
       );
       reconcileSelectedPeakList();
-    } on MappingStoreOperationException catch (error) {
+    } on MappingStoreOperationException catch (error, trace) {
+      ref.read(mapDashboardLoadProvider.notifier).failed(error, trace);
       state = state.copyWith(
         peaks: _peakRepository.getAllPeaks(),
         isLoadingPeaks: false,
         error: 'Failed to load peaks: $error',
         peakSearchMappingUnavailableReason: error.toString(),
       );
-    } catch (e) {
+    } catch (e, trace) {
+      ref.read(mapDashboardLoadProvider.notifier).failed(e, trace);
       state = state.copyWith(
         peaks: _peakRepository.getAllPeaks(),
         isLoadingPeaks: false,
@@ -2087,9 +2133,10 @@ class MapNotifier extends Notifier<MapState> {
       await _migrationMarkerStore.markPeaksBaggedBackfillComplete();
       _pendingStartupBackfillWarningMessage = null;
       state = state.copyWith(clearTrackImportError: true);
-    } catch (e) {
+    } catch (e, trace) {
       _pendingStartupBackfillWarningMessage =
           'Bagged history is stale. Open Settings to rebuild it.';
+      ref.read(mapDashboardLoadProvider.notifier).failed(e, trace);
       state = state.copyWith(
         trackImportError:
             'Failed to rebuild bagged peak history from stored tracks: $e',
@@ -5661,8 +5708,10 @@ class MapNotifier extends Notifier<MapState> {
       state = state.copyWith(routeDraftElevationLoading: true);
     }
     try {
-      final elevations = await _routeElevationSampler.samplePointElevations(
-        points,
+      final elevations = await performanceMeasurement.phase(
+        'route.geometry-elevation-total',
+        () => _routeElevationSampler.samplePointElevations(points),
+        {'geometry_version': geometryVersion, 'request_id': requestId},
       );
       if (!isRetry &&
           !_isActiveRouteDraftElevationRequest(
@@ -5671,10 +5720,14 @@ class MapNotifier extends Notifier<MapState> {
           )) {
         return;
       }
-      final summary = await _routeElevationSampler.sampleRoute(
-        points: points,
-        requestId: requestId,
-        geometryVersion: geometryVersion,
+      final summary = await performanceMeasurement.phase(
+        'route.densified-elevation-total',
+        () => _routeElevationSampler.sampleRoute(
+          points: points,
+          requestId: requestId,
+          geometryVersion: geometryVersion,
+        ),
+        {'geometry_version': geometryVersion, 'request_id': requestId},
       );
       if (!_isActiveRouteDraftElevationRequest(
         requestId: requestId,
@@ -5693,6 +5746,10 @@ class MapNotifier extends Notifier<MapState> {
         routeDraftElevationLoading: false,
         clearRouteDraftElevationError: true,
       );
+      performanceMeasurement.event('route.statistics-committed', {
+        'geometry_version': geometryVersion,
+        'request_id': requestId,
+      });
     } on MappingStoreOperationException catch (error) {
       _setRouteDraftElevationError(
         requestId,

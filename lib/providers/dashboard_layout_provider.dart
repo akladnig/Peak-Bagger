@@ -50,6 +50,12 @@ final dashboardLayoutProvider =
       DashboardLayoutNotifier.new,
     );
 
+/// Raw read outcome, separate from the UI's default/fallback order.
+final dashboardLayoutReadProvider = FutureProvider<List<String>?>((ref) async {
+  final prefs = await ref.watch(dashboardPreferencesLoaderProvider)();
+  return prefs.getStringList(dashboardCardOrderStorageKey);
+});
+
 class DashboardLayoutNotifier extends Notifier<List<String>> {
   bool _loaded = false;
 
@@ -64,8 +70,7 @@ class DashboardLayoutNotifier extends Notifier<List<String>> {
     final initialState = state;
 
     try {
-      final prefs = await ref.read(dashboardPreferencesLoaderProvider)();
-      final storedOrder = prefs.getStringList(dashboardCardOrderStorageKey);
+      final storedOrder = await ref.read(dashboardLayoutReadProvider.future);
       if (storedOrder != null && listEquals(state, initialState)) {
         state = _sanitizeOrder(storedOrder);
       }

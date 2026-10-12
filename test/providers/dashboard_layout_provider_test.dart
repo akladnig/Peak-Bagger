@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
@@ -5,6 +7,30 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   group('DashboardLayoutNotifier', () {
+    test('layout read stays pending until stored order is applied', () async {
+      SharedPreferences.setMockInitialValues({
+        dashboardCardOrderStorageKey: ['my-ascents'],
+      });
+      final gate = Completer<SharedPreferences>();
+      final container = ProviderContainer(
+        overrides: [
+          dashboardPreferencesLoaderProvider.overrideWithValue(
+            () => gate.future,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final loading = container.read(dashboardLayoutProvider.notifier).load();
+      expect(container.read(dashboardLayoutReadProvider).isLoading, isTrue);
+      expect(
+        container.read(dashboardLayoutProvider),
+        dashboardDefaultCardOrder,
+      );
+      gate.complete(await SharedPreferences.getInstance());
+      await loading;
+      expect(container.read(dashboardLayoutReadProvider).hasValue, isTrue);
+      expect(container.read(dashboardLayoutProvider).first, 'my-ascents');
+    });
     test('starts with the default order', () {
       SharedPreferences.setMockInitialValues({});
 
@@ -16,6 +42,42 @@ void main() {
         dashboardDefaultCardOrder,
       );
     });
+
+    test(
+      'failed layout read keeps defaults but is not loaded evidence',
+      () async {
+        final container = ProviderContainer(
+          overrides: [
+            dashboardPreferencesLoaderProvider.overrideWithValue(
+              () async => throw StateError('preferences unavailable'),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        await container.read(dashboardLayoutProvider.notifier).load();
+        expect(
+          container.read(dashboardLayoutProvider),
+          dashboardDefaultCardOrder,
+        );
+        expect(container.read(dashboardLayoutReadProvider).hasError, isTrue);
+      },
+    );
+
+    test(
+      'absent saved layout qualifies only after a successful read',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        await container.read(dashboardLayoutProvider.notifier).load();
+        expect(container.read(dashboardLayoutReadProvider).hasValue, isTrue);
+        expect(container.read(dashboardLayoutReadProvider).value, isNull);
+        expect(
+          container.read(dashboardLayoutProvider),
+          dashboardDefaultCardOrder,
+        );
+      },
+    );
 
     test('loads and sanitizes stored order data', () async {
       SharedPreferences.setMockInitialValues({

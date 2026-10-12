@@ -8,6 +8,10 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/route_mode_measurement_provider.dart';
+import 'package:peak_bagger/providers/dashboard_readiness_provider.dart'
+    show performanceMeasurementProvider;
+import 'package:peak_bagger/services/route_placement_measurement.dart';
 import 'package:peak_bagger/screens/map_screen_panels.dart';
 import 'package:peak_bagger/services/elevation_profile_series_builder.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
@@ -253,7 +257,45 @@ class _RouteDraftControlsOverlayState
                   routeNameController: _routeNameController,
                   routeNameFocusNode: _routeNameFocusNode,
                   onNameChanged: notifier.setRouteDraftName,
-                  onModeSelected: notifier.setRouteDraftMode,
+                  onModeSelected: (mode) {
+                    final before = ref.read(mapProvider);
+                    final recorder = ref.read(performanceMeasurementProvider);
+                    if (!recorder.enabled ||
+                        mode != RouteMode.routeToPeak ||
+                        before.routeDraftControlEndpoints.isEmpty) {
+                      notifier.setRouteDraftMode(mode);
+                      return;
+                    }
+                    final timing = RoutePlacementMeasurement(
+                      mode: mode,
+                      ordinaryStart: false,
+                      beforeDistanceMeters: before.routeDraftDistanceMeters,
+                      beforeGeometryVersion: before.routeDraftGeometryVersion,
+                      modeAction: true,
+                    );
+                    recorder.phaseSync(
+                      'route.mode-action-dispatch',
+                      () => notifier.setRouteDraftMode(mode),
+                    );
+                    final after = ref.read(mapProvider);
+                    if (after.routeDraftRequestId ==
+                            before.routeDraftRequestId ||
+                        after.routeDraftStage != RouteDraftStage.routingSegment) {
+                      return;
+                    }
+                    recorder.event('route.mode-action.accepted', {
+                      'dart_monotonic_us': timing.acceptedDartUs,
+                      'mode': mode.name,
+                      'control_coordinates': [
+                        for (final e in after.routeDraftControlEndpoints)
+                          [e.point.latitude, e.point.longitude],
+                      ],
+                    });
+                    ref.read(routeModeMeasurementProvider.notifier).started((
+                      timing: timing,
+                      routingRequestId: after.routeDraftRequestId,
+                    ));
+                  },
                   onOutAndBack: notifier.applyRouteDraftOutAndBack,
                   onCloseLoop: notifier.applyRouteDraftCloseLoop,
                   onUndo: notifier.undoRouteDraftEdit,

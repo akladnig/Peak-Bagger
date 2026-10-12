@@ -8,6 +8,7 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/services/geo.dart';
 import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
+import 'performance_measurement.dart';
 
 const _distance = Distance();
 
@@ -251,17 +252,25 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
     final dataset = await _openDataset(resolution);
     final densifiedPoints = _densifyRoute(points);
     final sampledElevations = <double>[];
-
+    final sampleClock = Stopwatch()..start();
     for (final point in densifiedPoints) {
       sampledElevations.add(_sampleElevation(dataset, point, resolution) ?? 0);
     }
 
-    return _buildSummary(
+    final summary = _buildSummary(
       elevations: sampledElevations,
       sampledPoints: densifiedPoints,
       requestId: requestId,
       geometryVersion: geometryVersion,
     );
+    performanceMeasurement.event('route.densified-summary-sampling', {
+      'elapsed_us': sampleClock.elapsedMicroseconds,
+      'geometry_vertices': points.length,
+      'sample_vertices': densifiedPoints.length,
+      'request_id': requestId,
+      'geometry_version': geometryVersion,
+    });
+    return summary;
   }
 
   @override
@@ -276,9 +285,15 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
     }
 
     final dataset = await _openDataset(resolution);
-    return points
+    final clock = Stopwatch()..start();
+    final result = points
         .map((point) => _sampleElevation(dataset, point, resolution))
         .toList(growable: false);
+    performanceMeasurement.event('route.geometry-point-sampling', {
+      'elapsed_us': clock.elapsedMicroseconds,
+      'geometry_vertices': points.length,
+    });
+    return result;
   }
 
   double? _sampleElevation(
@@ -307,12 +322,20 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
     final relativePath = resolution.relativePath!;
     try {
       // Revalidate even a cached dataset: it cannot mask a lost or escaped source.
-      return await _fileAccess.open(
-        relativePath: relativePath,
-        opener: (canonicalPath) => _datasetFutures.putIfAbsent(
-          canonicalPath,
-          () => _datasetOpener.open(canonicalPath),
+      return await performanceMeasurement.phase(
+        'route.dem-path-validation-open',
+        () => _fileAccess.open(
+          relativePath: relativePath,
+          opener: (canonicalPath) => _datasetFutures.putIfAbsent(
+            canonicalPath,
+            () => performanceMeasurement.phase(
+              'route.dem-first-open',
+              () => _datasetOpener.open(canonicalPath),
+              {'dataset_path': canonicalPath},
+            ),
+          ),
         ),
+        {'dem_relative_path': relativePath},
       );
     } on Object catch (error) {
       _datasetFutures.clear();

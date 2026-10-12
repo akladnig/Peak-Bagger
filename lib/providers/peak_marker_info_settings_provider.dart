@@ -15,14 +15,27 @@ final peakMarkerInfoSettingsProvider =
       PeakMarkerInfoSettingsNotifier.new,
     );
 
+final peakMarkerInfoReadProvider = FutureProvider<bool>((ref) async {
+  final prefs = await ref.watch(peakMarkerInfoPreferencesLoaderProvider)();
+  return prefs.getBool(peakMarkerInfoKey) ?? false;
+});
+
+/// Completes after the read is applied, or a newer user toggle is retained.
+final peakMarkerInfoHydrationProvider = FutureProvider<void>((ref) {
+  return ref.watch(peakMarkerInfoSettingsProvider.notifier).load();
+});
+
 class PeakMarkerInfoSettingsNotifier extends Notifier<bool> {
   bool _hasUserOverride = false;
+  Future<void>? _loadFuture;
 
   @override
   bool build() {
-    unawaited(_hydrate());
+    unawaited(load().catchError((Object _) {}));
     return false;
   }
+
+  Future<void> load() => _loadFuture ??= _hydrate();
 
   Future<void> setShowPeakInfo(bool value) async {
     _hasUserOverride = true;
@@ -35,12 +48,12 @@ class PeakMarkerInfoSettingsNotifier extends Notifier<bool> {
 
   Future<void> _hydrate() async {
     try {
-      final prefs = await ref.read(peakMarkerInfoPreferencesLoaderProvider)();
+      final stored = await ref.read(peakMarkerInfoReadProvider.future);
+      if (!ref.mounted) return;
       if (_hasUserOverride) {
         return;
       }
 
-      final stored = prefs.getBool(peakMarkerInfoKey) ?? false;
       if (state != stored) {
         await Future<void>.delayed(Duration.zero);
         if (!ref.mounted || _hasUserOverride) {
@@ -48,6 +61,9 @@ class PeakMarkerInfoSettingsNotifier extends Notifier<bool> {
         }
         state = stored;
       }
-    } catch (_) {}
+    } catch (_) {
+      // The UI keeps its fallback; the hydration observer retains failure.
+      rethrow;
+    }
   }
 }

@@ -4,6 +4,7 @@ import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
+import 'performance_measurement.dart';
 
 class PlannedRouteSegment {
   const PlannedRouteSegment({
@@ -176,7 +177,9 @@ abstract class RoutePlanner {
         break;
     }
 
-    final reconnectAnchor = _usableLoopReconnectAnchor(directResult.startAnchor);
+    final reconnectAnchor = _usableLoopReconnectAnchor(
+      directResult.startAnchor,
+    );
     final probe = reconnectAnchor == null
         ? await probeEndpoint(
             point: currentPoint,
@@ -185,7 +188,9 @@ abstract class RoutePlanner {
         : null;
     final resolvedReconnectAnchor =
         reconnectAnchor ??
-        ((probe?.isOnTrack ?? false) ? _usableLoopReconnectAnchor(probe?.anchor) : null);
+        ((probe?.isOnTrack ?? false)
+            ? _usableLoopReconnectAnchor(probe?.anchor)
+            : null);
 
     if (resolvedReconnectAnchor != null) {
       final reconnectResult = await planSegmentResult(
@@ -576,16 +581,27 @@ class TripRoutingRoutePlanner extends RoutePlanner {
       );
     }
     try {
-      final service = await client.tripServiceForCoverageRoute(
-        routingCoverageKey: routingCoverageKey,
-        start: start,
-        end: end,
-      );
-      return _mapSegmentResult(
-        await service.findAnchoredSegment(
+      final service = await performanceMeasurement.phase(
+        'route.graph-loading',
+        () => client.tripServiceForCoverageRoute(
+          routingCoverageKey: routingCoverageKey,
           start: start,
           end: end,
-          maxSnapDistanceMeters: maxSnapDistanceMeters,
+        ),
+        {'coverage': routingCoverageKey},
+      );
+      return _mapSegmentResult(
+        await performanceMeasurement.phase(
+          'route.graph-planning',
+          () => service.findAnchoredSegment(
+            start: start,
+            end: end,
+            maxSnapDistanceMeters: maxSnapDistanceMeters,
+          ),
+          {
+            'start': [start.latitude, start.longitude],
+            'end': [end.latitude, end.longitude],
+          },
         ),
       );
     } on RouteGraphLoadException catch (error) {

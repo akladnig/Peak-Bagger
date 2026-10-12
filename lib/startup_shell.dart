@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/performance_measurement.dart';
 
 enum StartupState {
   checking,
@@ -78,9 +79,21 @@ class MappingStoreStartupCoordinator implements StartupCoordinator {
       return const StartupResult.unsupportedPlatform();
     }
     final MappingCatalog catalog;
+    performanceMeasurement.context['selected_root'] = mappingDataStore.rootPath;
+    performanceMeasurement.context['filesystem_transport'] =
+        const String.fromEnvironment(
+          'MEASUREMENT_TRANSPORT',
+          defaultValue: 'unspecified',
+        );
     try {
-      final preflight = await mappingDataStore.preflight();
-      catalog = await mappingDataStore.loadCatalogFromPreflight(preflight);
+      final preflight = await performanceMeasurement.phase(
+        'startup.manifest-path-validation',
+        mappingDataStore.preflight,
+      );
+      catalog = await performanceMeasurement.phase(
+        'startup.polygon-catalog',
+        () => mappingDataStore.loadCatalogFromPreflight(preflight),
+      );
     } on MappingStoreFailure catch (error) {
       return StartupResult.unavailable(error.paths);
     } catch (error) {
@@ -88,7 +101,11 @@ class MappingStoreStartupCoordinator implements StartupCoordinator {
     }
     try {
       _state.value = StartupState.initializing;
-      await initialize(catalog);
+      await performanceMeasurement.phase(
+        'startup.ready-dependencies',
+        () => initialize(catalog),
+      );
+      performanceMeasurement.event('startup.shell-handoff');
       return StartupResult.ready(catalog);
     } catch (error) {
       return StartupResult.initializationFailed(error.toString());

@@ -13,6 +13,9 @@ import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/dashboard_readiness_provider.dart'
+    show performanceMeasurementProvider;
+import 'package:peak_bagger/services/performance_measurement.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/providers/route_repository_provider.dart';
@@ -38,6 +41,179 @@ import '../harness/test_tasmap_repository.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
+  testWidgets(
+    'route-to-peak button action waits for current visible statistics',
+    (tester) async {
+      final events = <Map<String, Object?>>[];
+      final tasmap = await TestTasmapRepository.create();
+      final planner = _CompletingRoutePlanner();
+      final sampler = _ControlledRouteElevationSampler();
+      final notifier = MapNotifier(
+        peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+        tasmapRepository: tasmap,
+        gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+        routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage(),
+        ),
+        routePlanner: planner,
+        routeElevationSampler: sampler,
+        loadPositionOnBuild: false,
+        loadPeaksOnBuild: false,
+        loadTracksOnBuild: false,
+      );
+      await _pumpMap(
+        tester,
+        notifier,
+        tasmapRepository: tasmap,
+        measurement: PerformanceMeasurement(sink: events.add),
+      );
+      const start = LatLng(-41.5, 146.5);
+      const end = LatLng(-41.51, 146.51);
+      notifier.state = notifier.state.copyWith(
+        isRouteDrafting: true,
+        routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        routeDraftMarkers: const [start],
+        routeDraftControlEndpoints: const [
+          RouteDraftControlEndpoint(
+            id: '1',
+            point: start,
+            kind: RouteDraftEndpointKind.tapped,
+          ),
+        ],
+        routeDraftPeak: Peak(
+          osmId: 42,
+          name: 'Fixture peak',
+          latitude: end.latitude,
+          longitude: end.longitude,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('route-mode-route-to-peak')));
+      await tester.pump();
+      expect(notifier.state.routeDraftStage, RouteDraftStage.routingSegment);
+      expect(
+        events.where((e) => e['event'] == 'route.mode-action.accepted'),
+        hasLength(1),
+      );
+      planner.complete(
+        const PlannedRouteSegment(points: [start, end], distanceMeters: 100),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(
+        events.where((e) => e['event'] == 'route.mode-action.complete.frame'),
+        isEmpty,
+      );
+      final current = notifier.state;
+      sampler.completeNext(
+        RouteElevationSummary(
+          requestId: current.routeDraftElevationRequestId,
+          geometryVersion: current.routeDraftGeometryVersion,
+          ascent: 20,
+          descent: 5,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        events.where((e) => e['event'] == 'route.mode-action.complete.frame'),
+        hasLength(1),
+      );
+      expect(
+        tester.widget<Text>(find.byKey(const Key('route-ascent-text'))).data,
+        '20 m',
+      );
+      expect(
+        events.where((e) => e['event'] == 'route.start-feedback.frame'),
+        isEmpty,
+      );
+    },
+  );
+  testWidgets(
+    'accepted click waits for the visible current elevation statistics',
+    (tester) async {
+      final events = <Map<String, Object?>>[];
+      final tasmap = await TestTasmapRepository.create();
+      final planner = _CompletingRoutePlanner();
+      final sampler = _ControlledRouteElevationSampler();
+      final notifier = MapNotifier(
+        peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+        tasmapRepository: tasmap,
+        gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+        routeRepository: RouteRepository.test(InMemoryRouteStorage()),
+        peaksBaggedRepository: PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage(),
+        ),
+        routePlanner: planner,
+        routeElevationSampler: sampler,
+        loadPositionOnBuild: false,
+        loadPeaksOnBuild: false,
+        loadTracksOnBuild: false,
+      );
+      await _pumpMap(
+        tester,
+        notifier,
+        tasmapRepository: tasmap,
+        measurement: PerformanceMeasurement(
+          sink: (event) {
+            events.add(event);
+            if (event['event'] == 'route.complete-update.frame') {
+              expect(
+                tester
+                    .widget<Text>(find.byKey(const Key('route-ascent-text')))
+                    .data,
+                '20 m',
+              );
+              expect(
+                tester
+                    .widget<Text>(find.byKey(const Key('route-descent-text')))
+                    .data,
+                '5 m',
+              );
+            }
+          },
+        ),
+      );
+      await tester.tap(find.byKey(const Key('create-route-fab')));
+      await tester.pumpAndSettle();
+      final region = find.byKey(const Key('map-interaction-region'));
+      await tester.tapAt(tester.getCenter(region) + const Offset(-40, 0));
+      await tester.pumpAndSettle();
+      expect(
+        events.where((e) => e['event'] == 'route.start-feedback.frame'),
+        hasLength(1),
+      );
+      await tester.tapAt(tester.getCenter(region) + const Offset(40, 0));
+      await tester.pump();
+      planner.complete(
+        const PlannedRouteSegment(
+          points: [LatLng(-41.5, 146.5), LatLng(-41.51, 146.51)],
+          distanceMeters: 100,
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(
+        events.where((e) => e['event'] == 'route.complete-update.frame'),
+        isEmpty,
+      );
+      expect(notifier.state.routeDraftElevationLoading, isTrue);
+      final current = notifier.state;
+      sampler.completeNext(
+        RouteElevationSummary(
+          requestId: current.routeDraftElevationRequestId,
+          geometryVersion: current.routeDraftGeometryVersion,
+          ascent: 20,
+          descent: 5,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        events.where((e) => e['event'] == 'route.complete-update.frame'),
+        hasLength(1),
+      );
+    },
+  );
   final routeGraphOverlayRoot = find.byKey(
     const Key('route-graph-overlay-root'),
   );
@@ -2085,6 +2261,10 @@ class _ControlledRouteElevationSampler implements RouteElevationSampler {
   void failNext(Object error) {
     _completers.removeAt(0).completeError(error);
   }
+
+  void completeNext(RouteElevationSummary summary) {
+    _completers.removeAt(0).complete(summary);
+  }
 }
 
 ProviderContainer _container(WidgetTester tester) {
@@ -2099,6 +2279,7 @@ Future<void> _pumpMap(
   RouteRepository? routeRepository,
   TasmapRepository? tasmapRepository,
   Size surfaceSize = const Size(1600, 900),
+  PerformanceMeasurement? measurement,
 }) async {
   final effectiveTasmapRepository =
       tasmapRepository ?? await TestTasmapRepository.create();
@@ -2110,6 +2291,8 @@ Future<void> _pumpMap(
     ProviderScope(
       overrides: [
         ...mappingCatalogTestOverrides,
+        if (measurement != null)
+          performanceMeasurementProvider.overrideWithValue(measurement),
         mapProvider.overrideWith(() => notifier),
         routeGraphStoreProvider.overrideWithValue(_ReadyRouteGraphStore()),
         routeRepositoryProvider.overrideWithValue(effectiveRouteRepository),

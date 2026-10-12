@@ -3,6 +3,7 @@ import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/services/performance_measurement.dart';
 
 final peakRepositoryProvider = Provider<PeakRepository>((ref) {
   throw UnimplementedError('peakRepositoryProvider must be overridden');
@@ -23,9 +24,12 @@ final peakRevisionProvider = NotifierProvider<PeakRevisionNotifier, int>(
 final peaksByOsmIdProvider = Provider<Map<int, Peak>>((ref) {
   ref.watch(peakRevisionProvider);
   final peakRepository = ref.watch(peakRepositoryProvider);
-  return Map<int, Peak>.unmodifiable({
-    for (final peak in peakRepository.getAllPeaks()) peak.osmId: peak,
-  });
+  return performanceMeasurement.phaseSync(
+    'dashboard.peak-index',
+    () => Map<int, Peak>.unmodifiable({
+      for (final peak in peakRepository.getAllPeaks()) peak.osmId: peak,
+    }),
+  );
 });
 
 final peakListRewritePortProvider = Provider<PeakListRewritePort>((ref) {

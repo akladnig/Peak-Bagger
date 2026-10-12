@@ -6,11 +6,13 @@ import 'package:peak_bagger/core/constants.dart';
 
 import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
+import '../providers/dashboard_readiness_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_marker_info_settings_provider.dart';
 import '../providers/peak_list_provider.dart';
 import '../router.dart';
 import '../services/latest_walk_summary.dart';
+import '../services/performance_frame.dart';
 import '../services/summary_card_service.dart';
 import '../widgets/dashboard/distance_card.dart';
 import '../widgets/dashboard/elevation_card.dart';
@@ -34,11 +36,98 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   SummaryVisibleSummary? _elevationSummary;
   SummaryVisibleSummary? _distanceSummary;
   SummaryVisibleSummary? _peaksBaggedSummary;
+  bool _readyMarkerEmitted = false;
+  bool _readyFrameScheduled = false;
+  final Set<String> _failedDependencies = {};
+  VoidCallback? _cancelFrameMeasurement;
+  int _headerRevision = 0;
+  int _paintedHeaderRevision = 0;
+  Map<String, AsyncValue<Object?>>? _paintedReadiness;
+  List<String>? _paintedOrder;
+  Object? _paintedTracks;
+  bool? _paintedPeakInfo;
 
   @override
   void initState() {
     super.initState();
     unawaited(ref.read(dashboardLayoutProvider.notifier).load());
+    ref.listenManual(
+      dashboardReadinessProvider,
+      (_, next) => _observeReadiness(next),
+      fireImmediately: true,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (TickerMode.valuesOf(context).enabled) {
+      _observeReadiness(ref.read(dashboardReadinessProvider));
+    }
+  }
+
+  void _observeReadiness(Map<String, AsyncValue<Object?>> next) {
+    final measurement = ref.read(performanceMeasurementProvider);
+    for (final entry in next.entries) {
+      if (entry.value.hasError && _failedDependencies.add(entry.key)) {
+        measurement.event('dashboard.dependency.failed', {
+          'dependency': entry.key,
+          'error': '${entry.value.error}',
+        });
+      }
+    }
+    if (!dashboardDependenciesLoaded(next) ||
+        _readyMarkerEmitted ||
+        _readyFrameScheduled) {
+      return;
+    }
+    _readyFrameScheduled = true;
+    // Flush every post-frame summary callback before judging this frame. Only
+    // defer if newer local data or header content still awaits a build/paint.
+    // Empty data with no pending header update qualifies on this first frame.
+    unawaited(
+      WidgetsBinding.instance.endOfFrame.then((_) {
+        _readyFrameScheduled = false;
+        if (!mounted ||
+            _readyMarkerEmitted ||
+            !dashboardDependenciesLoaded(
+              ref.read(dashboardReadinessProvider),
+            )) {
+          return;
+        }
+        // A dashboard retained offstage by navigation is not a shown endpoint.
+        if (!TickerMode.valuesOf(context).enabled ||
+            !(ModalRoute.of(context)?.isCurrent ?? true)) {
+          return;
+        }
+        if (_paintedHeaderRevision != _headerRevision ||
+            !identical(
+              _paintedReadiness,
+              ref.read(dashboardReadinessProvider),
+            ) ||
+            !identical(_paintedOrder, ref.read(dashboardLayoutProvider)) ||
+            !identical(_paintedTracks, ref.read(mapProvider).tracks) ||
+            _paintedPeakInfo != ref.read(peakMarkerInfoSettingsProvider)) {
+          _observeReadiness(ref.read(dashboardReadinessProvider));
+          return;
+        }
+        _readyMarkerEmitted = true;
+        final fields = <String, Object?>{
+          'endpoint': 'framework-frame-complete',
+          'window_width': MediaQuery.sizeOf(context).width,
+          'window_height': MediaQuery.sizeOf(context).height,
+          'text_scale': MediaQuery.textScalerOf(context).scale(1),
+          'dashboard_order': ref.read(dashboardLayoutProvider),
+          'track_count': ref.read(mapProvider).tracks.length,
+        };
+        measurement.event('dashboard.local_data_ready.frame', fields);
+        _cancelFrameMeasurement = recordRasterizedPerformanceFrame(
+          measurement,
+          'dashboard.local_data_ready.frame',
+          fields,
+        );
+      }),
+    );
   }
 
   void _handleElevationSummaryChanged(SummaryVisibleSummary? summary) {
@@ -48,7 +137,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     setState(() {
       _elevationSummary = summary;
+      _headerRevision++;
     });
+  }
+
+  @override
+  void dispose() {
+    _cancelFrameMeasurement?.call();
+    super.dispose();
   }
 
   void _handleDistanceSummaryChanged(SummaryVisibleSummary? summary) {
@@ -58,6 +154,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     setState(() {
       _distanceSummary = summary;
+      _headerRevision++;
     });
   }
 
@@ -68,11 +165,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
     setState(() {
       _peaksBaggedSummary = summary;
+      _headerRevision++;
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    _paintedReadiness = ref.watch(dashboardReadinessProvider);
+    _paintedHeaderRevision = _headerRevision;
     final order = ref.watch(dashboardLayoutProvider);
     final tracks = ref.watch(mapProvider.select((state) => state.tracks));
     final peaksBagged = ref.watch(peaksBaggedRepositoryProvider).getAll();
@@ -80,6 +180,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       tracks,
     )?.gpxTrackId;
     final showPeakInfo = ref.watch(peakMarkerInfoSettingsProvider);
+    _paintedOrder = order;
+    _paintedTracks = tracks;
+    _paintedPeakInfo = showPeakInfo;
     final isLoadingTracks = ref.watch(
       mapProvider.select((state) => state.isLoadingTracks),
     );

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'performance_measurement.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/services/manifest_priority.dart';
@@ -473,16 +474,17 @@ class MappingDataStoreCore {
 
   Future<MappingStorePreflight> preflight() async {
     final failures = <String>[];
-    final root = await _canonicalRoot(failures);
-    final regionJson = await _readManifest(
-      root ?? rootPath,
-      _regionManifestPath,
-      failures,
+    final root = await performanceMeasurement.phase(
+      'mapping.canonical-root',
+      () => _canonicalRoot(failures),
     );
-    final polygonJson = await _readManifest(
-      root ?? rootPath,
-      _polygonManifestPath,
-      failures,
+    final regionJson = await performanceMeasurement.phase(
+      'mapping.region-manifest',
+      () => _readManifest(root ?? rootPath, _regionManifestPath, failures),
+    );
+    final polygonJson = await performanceMeasurement.phase(
+      'mapping.polygon-manifest',
+      () => _readManifest(root ?? rootPath, _polygonManifestPath, failures),
     );
     if (root == null || regionJson == null || polygonJson == null) {
       throw MappingStoreFailure(failures);
@@ -514,7 +516,11 @@ class MappingDataStoreCore {
       for (final region in parsed.regions) ...region.highways,
     };
     for (final path in references) {
-      await _checkReferencedPath(root, path, failures);
+      await performanceMeasurement.phase(
+        'mapping.referenced-path',
+        () => _checkReferencedPath(root, path, failures),
+        {'relative_path': path},
+      );
     }
     if (failures.isNotEmpty) {
       throw MappingStoreFailure(failures);
@@ -778,7 +784,9 @@ class MappingDataStoreCore {
       );
       if (target == null) return null;
       final polygonManifest = await _readText(target);
-      return _sha256('$regionManifest\u0000$polygonManifest');
+      final hash = _sha256('$regionManifest\u0000$polygonManifest');
+      performanceMeasurement.context['manifest_pair_sha256'] = hash;
+      return hash;
     } on Object {
       failures.add(_polygonManifestPath);
       return null;

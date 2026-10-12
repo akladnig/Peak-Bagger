@@ -38,6 +38,9 @@ import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/startup_shell.dart';
 import 'package:peak_bagger/router.dart' show createRouter, router;
+import 'package:peak_bagger/services/performance_measurement.dart';
+import 'package:peak_bagger/services/native_performance_clock.dart';
+import 'package:peak_bagger/services/performance_workload_summary.dart';
 
 late final Store objectboxStore;
 late final Widget Function(MappingCatalog catalog) _readyAppBuilder;
@@ -52,7 +55,7 @@ Future<T> _runStartupPhase<T>(String label, Future<T> Function() action) async {
   final stopwatch = Stopwatch()..start();
   _logStartup('Starting $label');
   try {
-    final result = await action();
+    final result = await performanceMeasurement.phase('startup.$label', action);
     _logStartup('Finished $label in ${stopwatch.elapsedMilliseconds}ms');
     return result;
   } catch (error) {
@@ -65,6 +68,7 @@ Future<T> _runStartupPhase<T>(String label, Future<T> Function() action) async {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  unawaited(initializeNativePerformanceClock());
   _logStartup('Widgets binding initialized');
 
   runApp(
@@ -113,6 +117,16 @@ Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
       'SharedPreferences load',
       SharedPreferences.getInstance,
     );
+    if (const bool.fromEnvironment('MEASURE_WORKLOAD')) {
+      try {
+        performanceMeasurement.event('workload.read-only-summary', {
+          'timing_run': false,
+          ...capturePerformanceWorkload(initializedStore, themePreferences),
+        });
+      } catch (error) {
+        performanceMeasurement.event('workload.summary-failed', {'error': '$error'});
+      }
+    }
 
     final peakListRewritePort = ObjectBoxPeakListRewritePort(initializedStore);
     final peakDeleteGuard = PeakDeleteGuard(
