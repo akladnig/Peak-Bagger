@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -19,6 +20,98 @@ void main() {
     await _write(root, 'Peaks/input.json', 'source');
   });
   tearDown(() async => root.delete(recursive: true));
+
+  test(
+    'live publication lease journals bytes and preserves original target backup',
+    () async {
+      final coordination = await Directory.systemTemp.createTemp(
+        'mapping-publish-lease-',
+      );
+      addTearDown(() => coordination.delete(recursive: true));
+      final base = await coordination.resolveSymbolicLinks();
+      final address = p.join(base, 'rpc.sock');
+      final server = await ServerSocket.bind(
+        InternetAddress(address, type: InternetAddressType.unix),
+        0,
+      );
+      addTearDown(server.close);
+      final requests = <Map>[];
+      final subscription = server.listen((socket) async {
+        final request =
+            jsonDecode(
+                  await socket
+                      .cast<List<int>>()
+                      .transform(utf8.decoder)
+                      .transform(const LineSplitter())
+                      .first,
+                )
+                as Map;
+        requests.add(request);
+        socket.writeln('{"ok":true}');
+        await socket.flush();
+        await socket.close();
+      });
+      addTearDown(subscription.cancel);
+      await _write(
+        root,
+        'tool_manifest.json',
+        jsonEncode({'example': contract}),
+      );
+      await _write(root, 'Reports/result.json', 'old');
+      final tool = await MappingToolResolver.namedTool(
+        toolId: 'example',
+        repositoryRoot: '.',
+        rootPath: root.path,
+        requirePublication: true,
+        environment: {
+          'MAPPING_PUBLICATION_SOCKET': address,
+          'MAPPING_PUBLICATION_TOKEN': 'token',
+          'MAPPING_PUBLICATION_BACKUP': p.join(base, 'backup'),
+        },
+      );
+      await tool.writeOutputs((outputs) => outputs.writeText('result', 'new'));
+      expect(
+        await File(p.join(root.path, 'Reports/result.json')).readAsString(),
+        'new',
+      );
+      expect(
+        await File(
+          p.join(base, 'backup/extra/Reports/result.json'),
+        ).readAsString(),
+        'old',
+      );
+      expect(requests.map((e) => e['action']), [
+        'ping',
+        'prepare',
+        'published',
+      ]);
+      expect(
+        requests[1]['priorSha256'],
+        sha256.convert(utf8.encode('old')).toString(),
+      );
+      expect(
+        requests[1]['nextSha256'],
+        sha256.convert(utf8.encode('new')).toString(),
+      );
+    },
+  );
+
+  test('publisher refuses output without a live outer transaction', () async {
+    await _write(root, 'tool_manifest.json', jsonEncode({'example': contract}));
+    final tool = await MappingToolResolver.namedTool(
+      toolId: 'example',
+      repositoryRoot: Directory.current.path,
+      rootPath: root.path,
+      requirePublication: true,
+      environment: const {},
+    );
+    await expectLater(
+      tool.writeOutputs((outputs) async {
+        fail('unguarded writer was dispatched');
+      }),
+      throwsA(isA<StateError>()),
+    );
+  });
 
   Future<MappingToolResolver> resolver({
     MappingToolProcessRunner? runner,
@@ -63,7 +156,13 @@ void main() {
       final parsed = MappingToolManifest.parse(
         await _fixture('tool_manifest.json'),
       );
-      expect(parsed.tools, hasLength(13));
+      expect(parsed.tools, hasLength(14));
+      final manual = parsed.requireTool('mapping-maintenance-promote');
+      expect(manual.overrides, isEmpty);
+      expect(
+        manual.outputs.values.every((e) => e.kind == MappingToolPathKind.file),
+        isTrue,
+      );
       expect(
         parsed
             .requireTool('update-region-peak-fingerprints')

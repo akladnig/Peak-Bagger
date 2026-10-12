@@ -36,15 +36,33 @@ You need these tools available on your machine:
 - Node.js and npm
 - GDAL tools such as `gdalinfo`, `gdalwarp`, `gdalbuildvrt`, `gdal_contour`, `gdaldem`, `ogr2ogr`, `gdal_translate`, and `gdaladdo`
 - Docker
+- Python 3 and Dart for [coordinated mini publication](docs/mapping-source-publication.md)
 
 ## 1. Validate Or Build ELVIS Artifacts
 
-From the repo root:
+Validate the external source from the repo root:
 
 ```bash
 ./elvis_dem.sh validate-source
-./elvis_dem.sh build-all
 ```
+
+Canonical builds now run **on the mini** inside one guarded maintenance plan.
+Save this JSON outside Mapping (for example `/tmp/elvis-build-all.json`):
+
+```json
+[{"publisher":"elvis","arguments":["build-all"]}]
+```
+
+```sh
+python3 tool/mapping_source.py maintenance run --plan /tmp/elvis-build-all.json
+python3 tool/mapping_source.py --operation <returned-UUID> status
+```
+
+Wait for the detached operation to succeed before rebuilding consumers. The
+runtime and topo publications, post-publication validation and recovery evidence
+share the outer lock. Direct unguarded canonical builds are rejected. See the
+[source publication guide](docs/mapping-source-publication.md) for setup,
+publisher compliance, failures and finish/rollback recovery.
 
 `./elvis_dem.sh` auto-builds a standalone CLI binary on first run.
 
@@ -56,9 +74,8 @@ Build commands skip raw-source validation by default. If you want a build to
 re-run exact-file validation against the canonical `Elvis 2m DEM` TIFF first,
 add `--validate`:
 
-```bash
-./elvis_dem.sh build-topo --validate
-./elvis_dem.sh build-all --validate
+```json
+[{"publisher":"elvis","arguments":["build-all","--validate"]}]
 ```
 
 `--validate` is the only supported build flag. In this workflow it checks that
@@ -72,9 +89,14 @@ such as `/Volumes/Elvis/tas-elvis`.
 
 If you only need one artifact:
 
-```bash
-./elvis_dem.sh build-runtime
-./elvis_dem.sh build-topo
+```json
+[{"publisher":"elvis","arguments":["build-runtime"]}]
+```
+
+Or use `"arguments":["build-topo"]` in the same guarded procedure:
+
+```json
+[{"publisher":"elvis","arguments":["build-topo"]}]
 ```
 
 Useful checks:
@@ -183,12 +205,15 @@ npm run stack:down
 
 The macOS app resolves Tasmania route elevation from the prepared `ELVIS runtime DEM` automatically.
 
-There is no in-app DEM file picker for this workflow. Once `./elvis_dem.sh build-runtime` or `./elvis_dem.sh build-all` has succeeded, the app uses the fixed maintainer-managed path.
+There is no in-app DEM file picker for this workflow. Once the guarded `build-runtime`
+or `build-all` publication has succeeded, the current fixed-root app uses the
+maintainer-managed path. Local replica runtime selection is delivered separately.
 
 ## Fastest End-To-End Path
 
 ```bash
-./elvis_dem.sh build-all
+python3 tool/mapping_source.py maintenance run --plan /tmp/elvis-build-all.json
+# Inspect the returned operation until succeeded before the remaining commands.
 cd local_topo/tasmania
 npm run refresh:manual
 npm run stack:up

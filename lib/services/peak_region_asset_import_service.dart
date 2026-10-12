@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/mapping_data_store.dart';
@@ -8,6 +6,7 @@ import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_region_import_marker_store.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peak_source_precedence.dart';
+import 'peak_source_parser.dart';
 
 typedef PeakRegionSourceReader = Future<String> Function(String relativePath);
 typedef PeakRegionMgrsConverter = PeakMgrsComponents Function(LatLng location);
@@ -211,85 +210,21 @@ class PeakRegionAssetImportService {
   }) async {
     try {
       final source = await _readCatalogSource(path);
-      final decoded = jsonDecode(source);
-      if (decoded is! Map || decoded['elements'] is! List) {
-        throw const FormatException(
-          'Peak source must contain an elements list.',
-        );
-      }
-      final peaks = <Peak>[];
-      var skipped = 0;
-      for (final element in decoded['elements'] as List) {
-        if (element is! Map) {
-          throw const FormatException('Peak source elements must be objects.');
-        }
-        final value = Map<String, dynamic>.from(element);
-        final tags = value['tags'];
-        final isPeak =
-            value['type'] == 'node' && tags is Map && tags['natural'] == 'peak';
-        if (!isPeak) {
-          skipped += 1;
-          continue;
-        }
-        peaks.add(_parseCatalogPeak(value, region: region, path: path));
-      }
-      return _RegionAssetLoadResult(peaks: peaks, skippedPeakCount: skipped);
+      final result = parsePeakSource(
+        source,
+        regionKey: region.key,
+        path: path,
+        mgrsConverter: _mgrsConverter,
+      );
+      return _RegionAssetLoadResult(
+        peaks: result.peaks,
+        skippedPeakCount: result.skippedPeakCount,
+      );
     } on MappingStoreOperationException {
       rethrow;
     } on Object catch (error) {
       throw MappingStoreOperationException(paths: [path], cause: error);
     }
-  }
-
-  Peak _parseCatalogPeak(
-    Map<String, dynamic> value, {
-    required MappingCatalogRegion region,
-    required String path,
-  }) {
-    final id = value['id'];
-    final tags = value['tags'];
-    final name = tags is Map ? tags['name'] : null;
-    final lat = value['lat'];
-    final lon = value['lon'];
-    if (id is! int ||
-        id <= 0 ||
-        name is! String ||
-        name.trim().isEmpty ||
-        lat is! num ||
-        lon is! num ||
-        !lat.isFinite ||
-        !lon.isFinite ||
-        lat < -90 ||
-        lat > 90 ||
-        lon < -180 ||
-        lon > 180) {
-      throw FormatException('Invalid peak record in $path.');
-    }
-    final base = Peak(
-      osmId: id,
-      name: name.trim(),
-      elevation: _parseElevation(tags['ele']),
-      latitude: lat.toDouble(),
-      longitude: lon.toDouble(),
-      region: region.key,
-      sourceOfTruth: Peak.sourceOfTruthOsm,
-    );
-    final enriched = _enrichPeak(base);
-    if (enriched == null) {
-      throw FormatException('Unable to derive MGRS fields in $path.');
-    }
-    return enriched;
-  }
-
-  double? _parseElevation(Object? value) {
-    if (value is num && value.isFinite) {
-      return value.toDouble();
-    }
-    if (value is String) {
-      final parsed = double.tryParse(value.trim());
-      return parsed?.isFinite == true ? parsed : null;
-    }
-    return null;
   }
 
   Future<String> _readCatalogSource(String path) {

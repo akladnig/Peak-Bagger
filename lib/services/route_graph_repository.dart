@@ -10,59 +10,8 @@ import 'package:peak_bagger/objectbox.g.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 import 'route_graph_errors.dart';
-
-const defaultRouteGraphCoverageKey = 'legacy';
-
-/// Chunk overlap duplicates geometry; manifest counts describe unique graph
-/// nodes and ways, not their repeated occurrences in neighboring chunks.
-({int nodes, int ways}) routeGraphPayloadCounts(Iterable<String> payloads) {
-  final nodes = <int>{};
-  final ways = <int>{};
-  for (final text in payloads) {
-    final payload = jsonDecode(text);
-    if (payload is! Map || payload['elements'] is! List) {
-      throw const FormatException('Invalid persisted route graph payload.');
-    }
-    for (final element in payload['elements'] as List) {
-      if (element is! Map ||
-          element['id'] is! int ||
-          (element['id'] as int) <= 0) {
-        throw const FormatException('Invalid persisted graph identity.');
-      }
-      if (element['type'] == 'node') nodes.add(element['id'] as int);
-      if (element['type'] == 'way') ways.add(element['id'] as int);
-    }
-  }
-  return (nodes: nodes.length, ways: ways.length);
-}
-
-class RouteGraphPreparedGeneration {
-  const RouteGraphPreparedGeneration({
-    required this.generation,
-    required this.sourceHash,
-    required this.schemaVersion,
-    required this.importedAt,
-    required this.chunkCount,
-    required this.nodeCount,
-    required this.edgeCount,
-    required this.chunks,
-    required this.wayIndexRows,
-    this.trailDisplayChunks = const [],
-  });
-
-  final int generation;
-  final String sourceHash;
-  final String schemaVersion;
-  final DateTime importedAt;
-  final int chunkCount;
-  final int nodeCount;
-  final int edgeCount;
-  final List<RouteGraphChunk> chunks;
-  final List<RouteGraphWayIndex> wayIndexRows;
-  final List<RouteGraphTrailDisplayChunk> trailDisplayChunks;
-
-  int get elementCount => nodeCount + edgeCount;
-}
+import 'route_graph_import_storage.dart';
+export 'route_graph_import_storage.dart';
 
 abstract class RouteGraphStorage {
   RouteGraphManifest? manifestForCoverage(String routingCoverageKey);
@@ -706,7 +655,7 @@ class InMemoryRouteGraphStorage implements RouteGraphStorage {
   }
 }
 
-class RouteGraphRepository {
+class RouteGraphRepository implements RouteGraphImportStorage {
   RouteGraphRepository(RouteGraphStorage storage) : _storage = storage;
   RouteGraphRepository.objectBox(Store store)
     : _storage = ObjectBoxRouteGraphStorage(store);
@@ -715,8 +664,10 @@ class RouteGraphRepository {
   final RouteGraphStorage _storage;
   final Map<String, _RouteGraphCoverageCache> _caches = {};
 
+  @override
   RouteGraphManifest? get manifest =>
       manifestForCoverage(defaultRouteGraphCoverageKey);
+  @override
   RouteGraphManifest? manifestForCoverage(String routingCoverageKey) =>
       _storage.manifestForCoverage(routingCoverageKey);
   List<RouteGraphManifest> get manifests => _storage.manifests();
@@ -808,6 +759,7 @@ class RouteGraphRepository {
           coverage,
         ))
       : const [];
+  @override
   List<RouteGraphTrailDisplayChunk> activeTrailDisplayChunks([
     String coverage = defaultRouteGraphCoverageKey,
   ]) => hasUsableActiveGenerationFor(coverage)
@@ -815,10 +767,13 @@ class RouteGraphRepository {
             .activeTrailDisplayChunks(coverage))
       : const [];
 
+  @override
   Future<void> ensureMultiCoverageMigration() =>
       _storage.ensureMultiCoverageMigration();
+  @override
   Future<int> reserveGeneration() => _storage.reserveGeneration();
 
+  @override
   Future<void> writePreparedGeneration(
     RouteGraphPreparedGeneration generation, {
     String routingCoverageKey = defaultRouteGraphCoverageKey,
@@ -857,6 +812,7 @@ class RouteGraphRepository {
     );
   }
 
+  @override
   Future<void> markImportFailure({
     required String routingCoverageKey,
     required String sourceHash,

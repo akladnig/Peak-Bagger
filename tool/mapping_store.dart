@@ -18,17 +18,31 @@ Future<void> main(List<String> arguments) async {
     p.join(p.dirname(Platform.script.toFilePath()), '..'),
   );
   try {
+    if (arguments.length == 2 && arguments.first == 'restore-tool-manifest') {
+      await const MappingToolManifestBootstrap().restoreNonStore(arguments[1]);
+      return;
+    }
     if (arguments.length != 1 ||
         !{
           'bootstrap-tool-manifest',
+          'replace-reviewed-tool-manifest',
           'provision-or-verify',
         }.contains(arguments.single)) {
       throw ArgumentError(
-        'Usage: dart run tool/mapping_store.dart <bootstrap-tool-manifest|provision-or-verify>',
+        'Usage: dart run tool/mapping_store.dart <bootstrap-tool-manifest|replace-reviewed-tool-manifest|provision-or-verify>',
       );
     }
     final fixtureTools = await _fixture(repositoryRoot, 'tool_manifest.json');
     MappingToolManifest.parse(fixtureTools);
+    if (arguments.single == 'replace-reviewed-tool-manifest') {
+      await const MappingToolManifestBootstrap().replaceReviewed(
+        fixtureText: fixtureTools,
+      );
+      stdout.writeln(
+        'Published reviewed tool contract under the outer maintenance transaction.',
+      );
+      return;
+    }
     if (arguments.single == 'bootstrap-tool-manifest') {
       final installed = await const MappingToolManifestBootstrap().install(
         fixtureText: fixtureTools,

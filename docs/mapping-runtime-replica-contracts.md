@@ -136,6 +136,14 @@ free lock. The maintainer confirmed this register covers their actual manual
 and external commands during revision 1 review; new publisher workflows must be
 registered and guarded before use. Inspection alone cannot certify private scripts.
 
+Item 03 implements these roles through a single detached `maintenance run` plan
+(begin and completion are automatic), `maintenance recover` and source `prepare`.
+See [implemented publication/export operations](mapping-source-publication.md).
+Plan progress prevents an unexecuted related command being mistaken for completion.
+Release-family names in the compatibility table describe supported implementations;
+persisted release identities are lowercase UUIDs, with installed compatibility
+registration handled by Item 07. No live publisher activation is claimed here.
+
 ## Source/local validation matrix — profile `mapping-runtime-v1`
 
 Both source **independent capture** and local candidate run the same profile.

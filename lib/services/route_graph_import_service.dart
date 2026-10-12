@@ -14,8 +14,8 @@ import 'package:peak_bagger/models/route_graph_way_index.dart';
 
 import 'route_graph_coverage_resolver.dart';
 import 'route_graph_errors.dart';
-import 'route_graph_query_service.dart';
-import 'route_graph_repository.dart';
+import 'route_graph_trail_metadata.dart';
+import 'route_graph_import_storage.dart';
 import 'track_display_cache_builder.dart';
 
 typedef RouteGraphAssetLoader = Future<String> Function(String assetPath);
@@ -111,7 +111,7 @@ class RouteGraphImportService {
 
   static const _schemaVersion = 'route-graph-v5';
 
-  final RouteGraphRepository _repository;
+  final RouteGraphImportStorage _repository;
   final RouteGraphAssetLoader _assetLoader;
   final RouteGraphGenerationPreparer _generationPreparer;
   final RouteGraphCoverageResolver _coverageResolver;
@@ -352,11 +352,11 @@ Future<Map<String, Object?>> _prepareGenerationInBackground(
   int generation,
 ) async {
   return Isolate.run(
-    () => _prepareGeneration(rawJson, schemaVersion, generation),
+    () => prepareRouteGraphGeneration(rawJson, schemaVersion, generation),
   );
 }
 
-Map<String, Object?> _prepareGeneration(
+Map<String, Object?> prepareRouteGraphGeneration(
   String rawJson,
   String schemaVersion,
   int generation,

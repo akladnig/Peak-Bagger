@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 
 void main() {
   const nonDart = {
+    'tool/mapping_source.py': 'resolver-validated',
     'tool/convert_osm_boundary_to_poly.sh': 'store-isolated',
     'tool/publish_thelist_dem.sh': 'resolver-validated',
     'elvis_dem.sh': 'store-isolated',
@@ -30,6 +31,14 @@ void main() {
     'tool/sync_peakbagger_csv.dart': 9,
     'tool/rank_fvg_peaks.dart': 6,
     'tool/slovenia_hribi_source_peak_list.dart': 1,
+    'tool/mapping_source_restore.dart': 1,
+  };
+  // New role-specific owners: one resolver-authorized source open followed by
+  // checked non-store capture writes; opaque read-only GDAL validation + host
+  // dependency probes. Their direct callsites are frozen, not broadly allowed.
+  const sourcePipelineIo = {
+    'tool/mapping_source_io.dart': 3,
+    'tool/mapping_source_dem.dart': 3,
   };
   final directIo = RegExp(
     r'\b(File|Directory|RandomAccessFile)\s*\(|\bProcess\.',
@@ -122,11 +131,43 @@ void main() {
         } else {
           expect(
             directIo.allMatches(source).length,
-            nonStoreToolIo[file.path] ?? 0,
+            nonStoreToolIo[file.path] ?? sourcePipelineIo[file.path] ?? 0,
             reason: file.path,
           );
         }
       }
+    },
+  );
+
+  test(
+    'source pipeline owners keep canonical reads behind production capabilities',
+    () {
+      final dataset = File(
+        'tool/mapping_source_dataset.dart',
+      ).readAsStringSync();
+      expect(dataset, contains('catalog.authorizedPaths'));
+      expect(dataset, contains('reader.open('));
+      expect(dataset, contains('prepareRouteGraphGeneration('));
+      final io = File('tool/mapping_source_io.dart').readAsStringSync();
+      expect(io, contains('requireNonMappingPath(destination'));
+      expect(io, contains('rejectLinks(destination)'));
+      expect(io, isNot(contains('Process.')));
+      final coordinator = File('tool/mapping_source.py').readAsStringSync();
+      expect(coordinator, contains('class DatasetBridge:'));
+      expect(
+        coordinator,
+        contains('check_layout(self.base, workspace_roots())'),
+      );
+      expect(
+        coordinator,
+        contains('externalGuardSha256=external_guard_identity()'),
+      );
+      expect(
+        RegExp(
+          r'CANONICAL_ROOT\)\.(?:write|unlink|rename)',
+        ).hasMatch(coordinator),
+        isFalse,
+      );
     },
   );
 

@@ -118,6 +118,12 @@ paths targeting one declared placeholder only.
 | `tool/publish_thelist_dem.sh` <!-- inventory:tool/publish_thelist_dem.sh --> | **Non-Dart: resolver-validated paths only**. Internal GDAL publication worker receives the staged Mapping output as its first operand and a checked non-store VRT as its second (default `build/dem/thelist_25m/tasmania_dem_25m.vrt`). No Mapping input or final-target path construction; PAM sidecars are disabled. |
 | `dart run tool/mapping_store.dart provision-or-verify` <!-- inventory:tool/mapping_store.dart --> | ID `mapping-store-provision`: shared parser reads runtime pair and named `tools` input `tool_manifest.json`; fixtures are version-controlled non-store input. No Mapping writes. Bootstrap is a separate restricted capability. |
 | `dart run tool/mapping_runtime_inventory.dart [--root PATH]` <!-- inventory:tool/mapping_runtime_inventory.dart --> | Read-only diagnostic: production preflight/catalog/read resolver derives the complete app set, including display-only polygons. Trusted binary adapters in `IoMappingStoreFileSystem` stream SHA-256 and read raw peak bytes only after resolver authorization. No tool manifest, glob authority, dataset writes, export, or eligibility publication. See [replica audit/contracts](mapping-runtime-replica-contracts.md). |
+| `python3 tool/mapping_source.py maintenance run\|recover`, `prepare`, `status`, `reconcile`, `enable`, `install-external-guard` <!-- inventory:tool/mapping_source.py --> | **Non-Dart: resolver-validated**. Mini-local process-lifetime publication/preparation/release ownership, external journals/backups/exports, bounded detached supervision and receipt-bound integration. Canonical content I/O delegates to the existing capabilities. See [exact transactions/recovery](mapping-source-publication.md). |
+| `tool/mapping_source_dataset.dart capture\|inspect\|validate\|capabilities` <!-- inventory:tool/mapping_source_dataset.dart --> | Production catalog-authorized app-set reads only; independently captured, hashed and profile-validated through resolver/native adapters. Capability inspection is separate named-tool coordinator work. No canonical dataset writes or ObjectBox opens. |
+| `tool/mapping_source_io.dart` <!-- inventory:tool/mapping_source_io.dart --> | Narrow trusted snapshot-read/non-store-export adapter: source opens are resolver-authorized; destinations reject Mapping/source-workspace paths and symlinks. Three frozen direct-I/O sites. |
+| `tool/mapping_source_dem.dart` <!-- inventory:tool/mapping_source_dem.dart --> | Read-only opaque GTiff/BigTIFF full-band validator invoked by a resolver open, plus host-library/PROJ probes. Three frozen I/O sites; no PAM or sidecar publication. |
+| `tool/mapping_source_promote.dart` <!-- inventory:tool/mapping_source_promote.dart --> | New ID `mapping-maintenance-promote`: exact registered optional file outputs, no globs/directories/overrides. Requires a live guarded outer transaction; preserves all existing publisher permissions. |
+| `tool/mapping_source_restore.dart` <!-- inventory:tool/mapping_source_restore.dart --> | Recovery through the original named file/directory output capabilities. One guarded non-store snapshot metadata read; verified backup members are copied by the resolver. No generic canonical I/O. |
 
 ## Local Topo non-Dart classification
 
@@ -183,15 +189,15 @@ repair or mutate source data.
 
 If the existing manifest is an empty `{}` placeholder, review and explicitly
 provision the **complete** `test/fixtures/mapping_store/v1/tool_manifest.json`.
-It declares 13 named tools; adding only `mapping-store-provision` is insufficient
+It declares 14 named tools; adding only `mapping-store-provision` is insufficient
 for retained-contract verification. Keep a backup outside Mapping and stage the
 replacement beside its target for a same-filesystem atomic rename:
 
 ```sh
-# Run from the repository root, after reviewing the fixture's capabilities.
-cp /Volumes/Services/Mapping/tool_manifest.json /tmp/peak-bagger-tool_manifest.before.json
-cp test/fixtures/mapping_store/v1/tool_manifest.json /Volumes/Services/Mapping/.tool_manifest.json.reviewed
-mv /Volumes/Services/Mapping/.tool_manifest.json.reviewed /Volumes/Services/Mapping/tool_manifest.json
+# On the mini, save a non-store plan containing:
+# [{"publisher":"tool-contract","arguments":[]}]
+python3 tool/mapping_source.py maintenance run --plan /tmp/reviewed-tool-contract-plan.json
+# Inspect the returned operation until succeeded before verification.
 dart run tool/mapping_store.dart provision-or-verify
 ```
 
@@ -282,3 +288,14 @@ inventory](two-mac-mapping-runtime.md) for current evidence, pending environment
 checks, byte-count validation and remeasurement guidance. Independent offline
 runtime delivery remains pending; source editing/builds do not bypass the
 Mapping startup contract.
+
+## Coordinated canonical publication
+
+All canonical resolver writers, including fingerprints, theLIST, ELVIS and exact
+manual promotions, require the live outer publication lease. Bootstrap retains its
+absent-only capability; reviewed tool-contract replacement and recovery have separate
+fixed-target capabilities. Use [guarded plans, full source validation and recovery](mapping-source-publication.md)
+for every registered manual/automated maintenance operation. Publication/capture
+locks, immutable exports and metadata are mini-local and outside Mapping/source
+sync roots. Automatic export stays disabled until the registered procedures and
+external Slovenia cwd guard have passed the explicit compliance gate.
