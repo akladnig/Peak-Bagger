@@ -214,9 +214,9 @@ def freeze_export(path):
             file = Path(root) / name
             if file.is_symlink() or not file.is_file():
                 raise SourceError('non-regular export: ' + str(file))
+            file.chmod(0o444)
             with file.open('rb') as stream:
                 os.fsync(stream.fileno())
-            file.chmod(0o444)
         for name in directories:
             directory = Path(root) / name
             if directory.is_symlink():

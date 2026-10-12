@@ -272,9 +272,13 @@ Future<Map<String, Object?>> validateMappingSource({
     ),
   );
   passed(naturalPath, 'natural-features-v1');
-  CsvImporter.importFromContents(
-    await reader.readText(catalog.tasmapCatalogPath),
-  );
+  try {
+    CsvImporter.importFromContents(
+      await reader.readText(catalog.tasmapCatalogPath),
+    );
+  } on Object catch (error) {
+    throw FormatException('${catalog.tasmapCatalogPath}: $error');
+  }
   passed(catalog.tasmapCatalogPath, 'tasmap-v1');
   for (final path in catalog.demSources.values.toSet()) {
     final details = await reader.open(relativePath: path, opener: validateDem);

@@ -12,6 +12,35 @@ import 'package:gdal_dart/gdal_dart.dart';
 
 void main() {
   test(
+    'catalog validation diagnostics identify the affected TasMap dataset',
+    () async {
+      final created = await createMappingSourceFixture();
+      final root = Directory(await created.resolveSymbolicLinks());
+      addTearDown(() => root.delete(recursive: true));
+      await File(
+        p.join(root.path, 'Maps/tasmap50k.csv'),
+      ).writeAsString('Series,Name\nTQ,Broken\n');
+      final integrity = await inspectMappingSource(
+        rootPath: root.path,
+        generationId: '00000000-0000-4000-8000-000000000001',
+      );
+      await expectLater(
+        validateMappingSource(
+          rootPath: root.path,
+          integrity: integrity,
+          validateDem: (_) async => {'blockCount': 1},
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (e) => e.message,
+            'dataset path',
+            contains('Maps/tasmap50k.csv'),
+          ),
+        ),
+      );
+    },
+  );
+  test(
     'fresh valid hashes cannot make malformed matrix payloads valid',
     () async {
       for (final entry in {

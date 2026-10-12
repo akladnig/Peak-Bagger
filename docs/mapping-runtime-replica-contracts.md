@@ -148,8 +148,9 @@ registration handled by Item 07. No live publisher activation is claimed here.
 
 Both source **independent capture** and local candidate run the same profile.
 Validation never imports/reconciles into a personal ObjectBox store. Production
-parsers that are currently coupled to persistence must expose pure parse/plan
-entrypoints in Item 04; reuse their implementations, do not duplicate schemas.
+pure parse/plan entrypoints extracted in Item 03 are reused by local capture in
+Item 04; no duplicate schemas. See [implemented local capture/eligibility and
+reader/receipt handoffs](mapping-replica-capture.md).
 Warnings/skips and counts belong in the validation report with paths and parser
 revision; allowed production skips are not converted silently into stronger
 semantic guarantees.
@@ -220,6 +221,15 @@ digests/identities, inventory equality and retained-generation boundaries, then
 normal preflight. It does **not** rehash multi-gigabyte payloads. This relies on
 controller-owned immutable directories and no later payload writer; uncontrolled
 edits require background revalidation and cannot retain eligibility.
+
+Item 04 uses the per-operation record selected by `validation.operationId` as
+the durable local publication witness: `state=succeeded`, exact generation/release,
+and `outcomeRecordSha256` bound to the eligibility object, persisted after durable
+generation/eligibility/receipt publication. A leftover eligibility/receipt file
+without this outcome is ineligible. `operation.json` is only a diagnostic mirror.
+Item 05 readers must check this small-metadata chain before normal local preflight;
+Item 06/08 source acknowledgements must consume `Replica.receipt`, not an unchecked
+receipt file. Record formats/profile versions remain revision 1.
 
 ## Layout, ownership and recovery protocol
 

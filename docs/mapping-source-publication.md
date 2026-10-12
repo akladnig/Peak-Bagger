@@ -230,6 +230,12 @@ the generation identity. It does not itself delete or mutate exports. Item 06
 must keep the completed source surface available until a safe successor/receipt
 transition, and may prune abandoned captures only after their real owners end.
 
+Item 04 produces the exact downstream evidence through `Replica.receipt`, which
+checks the local independent generation, passed report and durable publication
+outcome before returning a receipt. See [local capture/eligibility and controller
+handoffs](mapping-replica-capture.md); an unchecked incoming or leftover receipt
+file cannot authorize source cleanup.
+
 ## Verification and commissioning boundary
 
 Automated tests use disposable manifests/files/processes/sockets, including a real

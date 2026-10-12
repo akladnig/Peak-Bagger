@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 void main() {
   const nonDart = {
     'tool/mapping_source.py': 'resolver-validated',
+    'tool/mapping_replica.py': 'resolver-validated',
     'tool/convert_osm_boundary_to_poly.sh': 'store-isolated',
     'tool/publish_thelist_dem.sh': 'resolver-validated',
     'elvis_dem.sh': 'store-isolated',
@@ -168,6 +169,32 @@ void main() {
         ).hasMatch(coordinator),
         isFalse,
       );
+    },
+  );
+
+  test(
+    'local replica owner confines writes outside incoming and uses the shared profile',
+    () {
+      final replica = File('tool/mapping_replica.py').readAsStringSync();
+      expect(replica, contains('check_layout(self.base, workspace_roots())'));
+      expect(replica, contains("path.is_relative_to(self.base/'incoming')"));
+      expect(replica, contains('self.publish(self.local_path(path), value)'));
+      expect(replica, contains('os.O_NOFOLLOW'));
+      expect(replica, contains("with target.open('xb')"));
+      expect(replica, isNot(contains('os.link(')));
+      expect(replica, contains('integrity=inventory'));
+      expect(replica, contains("'tool/mapping_source_dataset.dart'"));
+      expect(replica, contains('pass_fds=tuple(self.controller._fds)'));
+      expect(replica, contains('sourceCompletionSha256=completion_sha'));
+      expect(
+        RegExp(
+          r'\.open\(|\bos\.open\(|\bsubprocess\.Popen\(|\bos\.rename\(',
+        ).allMatches(replica),
+        hasLength(7),
+        reason:
+            'Freeze the incoming-read/independent-copy, local locks/logs, validator and generation-rename sites.',
+      );
+      expect(RegExp(r'\.mkdir\(').allMatches(replica), hasLength(5));
     },
   );
 
