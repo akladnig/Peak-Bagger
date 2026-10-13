@@ -123,6 +123,12 @@ Fetch into a non-store preparation directory, then promote the resulting JSON in
 the same multi-region maintenance plan. The external README's historical direct
 Mapping-cwd invocation is superseded by this procedure.
 
+The installer requires a shell shebang on the first line. Live inspection on
+2026-10-13 found that the existing script began directly with its portable `curl`
+command, contrary to the earlier audit assumption. The maintainer preserved the
+original and added `#!/bin/sh` before installing the guard with the pinned source
+release. Launching an interactive `sh` does not supply the script's missing shebang.
+
 Provision the reviewed 14-tool fixture through a `tool-contract`-only plan before
 using the new manual capability; a missing tool contract can instead use the
 restricted bootstrap alias. Verify publication succeeded and inspect the register,
@@ -164,6 +170,20 @@ requires exact inventory equality and applies the reviewed profile:
 
 The matrix's geographic, freshness, connectivity, raster accuracy and NoData
 coverage limitations still apply. Integrity is byte equality, not semantic truth.
+Identical permitted diagnostics are aggregated with exact occurrence counts,
+retaining every distinct message/identity. Live validation found 627,587 identical
+ineligible Natural Feature skips, plus four distinct messages: unaggregated evidence
+was 58,373,281 bytes, exceeding the app/local reader's 16 MiB metadata bound.
+Aggregation retains all outcomes in a small report; local capture checks the final
+report size before publication and fails ineligible if distinct evidence still
+exceeds the bound. Neither payloads, fingerprints nor required checks are changed.
+
+Composite regions are unions of sources rather than imported ownership regions.
+They may contain the same OSM peak identity in distinct valid source files, as
+Italy NE/NW do under the existing NE-over-NW importer precedence. Validation still
+parses every declared file, rejects duplicate identities within each file, and
+rejects cross-file duplicates within a noncomposite region. A composite does not
+override importer ownership or authorize dropping a source from the export.
 
 Only after validation and durable metadata publication is the directory moved to
 `prepared/<generationId>`. File and directory flush failures leave the operation
@@ -220,6 +240,52 @@ For tool-contract-only rollback, the original contract is restored and untouched
 app sources are validated. Directory-output snapshots use their original named
 output authority and verified backup inventory. Retain backups/journals for an
 incomplete publication; do not overwrite/remove them to force another update.
+
+### Composite peak validation failure during initial setup
+
+The initial live tool-contract transaction `1ce02fd9-22b8-4440-b0c0-1ac5a8d9a5d2`
+published the reviewed contract but failed whole-source validation with
+`Duplicate peak identity: italy:Peaks/italy-nord-ovest-peaks.json`. Read-only
+inspection found no duplicates within either Italy peak file and four shared
+identities across them. The validator had incorrectly applied an imported-region
+uniqueness constraint to the composite `italy` union.
+
+The fix resets cross-file identity tracking only for composite regions, preserving
+all file validation, noncomposite uniqueness and raw-byte fingerprint checks.
+Disposable behavior-first coverage reproduces the error and verifies both retained
+duplicate-rejection cases. Compatible immutable releases were installed/selected
+without editing old release artifacts:
+
+| Role | Corrected release |
+| --- | --- |
+| MacBook controller/local validator | `e88b0e1e-6157-4659-9da4-c47079c576ce` |
+| Mini source preparer/validator | `c827d430-9994-4d2d-9fac-fa2f1df6d22c` |
+
+Both retain support for the previous installed and development release identities,
+schemas 1, profile `mapping-runtime-v1` and the existing app reader. After bounded
+inspection confirmed the failed supervisor/child ownership was released, recovery
+was started with the installed dispatcher:
+
+```sh
+/Users/adrian/.local/bin/python3.15 -I \
+  /Users/adrian/.local/share/peak-bagger-mapping-releases/mapping_release_launcher.py \
+  run -- maintenance recover
+```
+
+Recovery operation `317d8558-23a9-4d1f-902b-9a25f215de53` resumed the existing
+publication and retained plan without replaying the successful tool-contract step.
+It completed successfully at **2026-10-13T09:31:39Z** with publication `complete`
+and released supervisor/child ownership. Installed publisher-register enablement
+then succeeded through the same guarded capabilities/guard checks. An accepted
+recovery alone would not have permitted enablement. Do not rerun `maintenance run`, remove backups/journals,
+rewrite fingerprints, alter the peak datasets, or patch an immutable release to
+bypass this failure.
+
+Verification for the correction: `flutter analyze --no-pub` reported no issues;
+the full `caffeinate -i flutter test --no-pub --reporter expanded` run passed
+**2,257 tests**, with **5 existing skips**, in **3m09s**; the Python tooling suite
+passed **100 tests**. Disposable tests do not substitute for the live source
+validation/recovery outcome or for Item 08's scheduled-controller commissioning.
 
 ### Item 06 receipt-bound cleanup integration
 

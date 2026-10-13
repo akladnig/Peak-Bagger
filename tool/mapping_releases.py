@@ -27,6 +27,7 @@ MANIFEST_FIELDS = {'releaseId', 'role', 'profile', 'contracts', 'appReaders',
     'sourceReleases', 'controllerReleases', 'artifacts', 'dependencies'}
 PYTHON_STAGES = ('mapping_source.py', 'mapping_replica.py', 'mapping_retention.py',
     'mapping_releases.py', 'mapping_release_launcher.py')
+REFRESH_STAGES = ('mapping_controller.py', 'mapping_transport.py')
 SOURCE_STAGES = ('mapping_source_promote', 'mapping_source_restore', 'mapping_store',
     'update_region_peak_fingerprints', 'download_tasmania_thelist_dem', 'elvis_dem', 'non_store_paths')
 
@@ -95,6 +96,10 @@ def verify(path):
         raise SourceError(f'incomplete/drifted release artifacts: {path}')
     if not required_artifacts(value['role']).issubset({item['path'] for item in value['artifacts']}):
         raise SourceError('missing required installed stage/helper artifacts')
+    refresh = {'tool/'+name for name in REFRESH_STAGES}
+    present = {item['path'] for item in value['artifacts']}
+    if refresh & present and not refresh.issubset(present):
+        raise SourceError('incomplete installed refresh controller/helper closure')
     for dependency in value['dependencies']:
         if set(dependency) != {'path', 'sha256'} or not Path(dependency['path']).is_absolute():
             raise SourceError('invalid stable machine dependency')
@@ -171,7 +176,7 @@ def build(checkout, output, *, role, release_id, source_ids, controller_ids,
     output.mkdir(parents=True)
     for folder in ('tool', 'bin'):
         (output/folder).mkdir()
-    for name in PYTHON_STAGES:
+    for name in (*PYTHON_STAGES, *REFRESH_STAGES):
         shutil.copyfile(checkout/'tool'/name, output/'tool'/name)
     stages = ['mapping_source_dataset']
     if role == 'source-preparer':
@@ -333,6 +338,14 @@ class Releases:
         from mapping_source import COMPLETION_FIELDS, PUBLICATION_FIELDS, OPERATION_FIELDS, completed_export
         from mapping_replica import Replica, ELIGIBILITY_FIELDS, VALIDATION_FIELDS, RECEIPT_FIELDS
         from mapping_retention import checked_selection
+        refresh = base/'refresh'/'state.json'
+        if refresh.exists():
+            reject_links(refresh)
+            state = read_json(refresh)
+            if state.get('kind') != 'mapping-refresh-state' or type(state.get('schemaVersion')) is not int or state['schemaVersion'] != 1:
+                raise SourceError('unsupported retained refresh metadata; installed upgrade blocked')
+            if state.get('executingController') not in value['controllerReleases']:
+                raise SourceError('unsupported retained controller release; preserve surviving helpers and operation')
         fields = {
             'mapping-integrity': {'generationId', 'files'},
             'mapping-source-completion': COMPLETION_FIELDS,
@@ -417,6 +430,7 @@ class Releases:
     def use_lock(self, operation_id):
         target = self.base/'uses'/f'{operation_id}.lock'
         reject_links(target)
+        target.parent.mkdir(exist_ok=True)
         with target.open('a+b') as stream:
             try:
                 fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -428,6 +442,15 @@ class Releases:
         require_uuid(operation_id)
         with self.lock(), self.use_lock(operation_id):
             target = self.base/'uses'/f'{operation_id}.json'
+            if not target.exists():
+                # Fence a delayed SSH dispatch that has not pinned yet. Holding
+                # installation coordination makes absence meaningful: pin uses
+                # this same lock and will reject the durable consumed identity.
+                selected = read_json(self.base/'selected.json')
+                value = verify(self.base/'releases'/selected['releaseId'])
+                self.publish(target, record('mapping-release-use', operationId=operation_id,
+                    releaseId=value['releaseId'], role=value['role'], dataBase=selected['dataBase'],
+                    manifestSha256=selected['manifestSha256'], owner=owner(), state='failed', observedAtUtc=utc()))
             use = check_record(read_json(target), 'mapping-release-use', {'operationId', 'releaseId',
                 'role', 'dataBase', 'manifestSha256', 'owner', 'state', 'observedAtUtc'})
             if use['operationId'] != operation_id:
@@ -491,7 +514,7 @@ class Releases:
                         scopes.enter_context(self.use_lock(use['operationId']))
                 remove_tree(self.base/'releases'/identity)
 
-    def run(self, arguments, *, operation_id=None, target_operation=None):
+    def run(self, arguments, *, operation_id=None, target_operation=None, input_text=None):
         forbidden = {'--base', '--release-id', '--compatible-source-release',
             '--compatible-controller-release', '--dataset-executable', '--worker', '--operation'}
         if any(argument.split('=', 1)[0] in forbidden for argument in arguments):
@@ -507,7 +530,7 @@ class Releases:
                 if Path(item['path']).name.startswith('python')), None)
             if python is None:
                 raise SourceError('release has no pinned Python interpreter dependency')
-            environment = {key: os.environ[key] for key in ('HOME', 'USER', 'TMPDIR', 'LANG') if key in os.environ}
+            environment = {key: os.environ[key] for key in ('HOME', 'USER', 'TMPDIR', 'LANG', 'SSH_AUTH_SOCK') if key in os.environ}
             environment.update(PATH=str(path/'bin')+':/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin',
                 PYTHONDONTWRITEBYTECODE='1', PYTHONNOUSERSITE='1',
                 MAPPING_INSTALLED_RELEASE=str(path), MAPPING_RELEASE_FD=str(pinned['fd']))
@@ -522,6 +545,12 @@ class Releases:
             if proj:
                 environment['PROJ_DATA'] = str(Path(proj).parent)
             script = 'mapping_source.py' if value['role'] == 'source-preparer' else 'mapping_replica.py'
+            refresh = arguments[:1] == ['controller']
+            if refresh:
+                if value['role'] != 'controller' or not (path/'tool/mapping_controller.py').is_file():
+                    raise SourceError('installed controller refresh stage unavailable; install a compatible complete Item 08 release')
+                script = 'mapping_controller.py'
+                arguments = arguments[1:]
             argv = [python, '-I', str(path/'tool'/script), '--base', str(pinned['dataBase']),
                 '--release-id', value['releaseId']]
             if arguments and arguments[0] in ('capture', 'prepare', 'maintenance'):
@@ -537,7 +566,7 @@ class Releases:
             bootstrap = 'import sys,runpy; sys.path.insert(0,sys.argv.pop(1)); sys.argv=sys.argv[1:]; runpy.run_path(sys.argv[0],run_name="__main__")'
             argv = [python, '-I', '-c', bootstrap, str(path/'tool'), *argv[2:]]
             result = subprocess.run(argv, cwd=path, env=environment, pass_fds=(pinned['fd'],),
-                capture_output=True, text=True, timeout=30)
+                input=input_text, capture_output=True, text=True, timeout=180 if refresh else 30)
             return result
 
     def install_launcher(self):
@@ -582,6 +611,7 @@ def main():
     select.add_argument('--peer-manifest', type=Path, required=True)
     select.add_argument('--data-base', type=Path, required=True)
     sub.add_parser('inspect')
+    sub.add_parser('describe', help='bounded selected release/peer/data-root identity')
     sub.add_parser('install-launcher')
     retire = sub.add_parser('retire')
     retire.add_argument('release_id', type=require_uuid)
@@ -617,6 +647,11 @@ def main():
             result = manager.select(args.release_id, args.peer_manifest, args.data_base)
         elif args.action == 'inspect':
             result = manager.inspect()
+        elif args.action == 'describe':
+            with manager.lock():
+                manager.recover_selection()
+                selected = read_json(manager.base/'selected.json')
+                result = dict(selected=selected,manifest=verify(manager.base/'releases'/selected['releaseId']))
         elif args.action == 'install-launcher':
             result = str(manager.install_launcher())
         elif args.action == 'retire':
@@ -626,7 +661,8 @@ def main():
             result = manager.reconcile(args.operation_id)
         else:
             arguments = args.arguments[1:] if args.arguments[:1] == ['--'] else args.arguments
-            completed = manager.run(arguments, operation_id=args.operation, target_operation=args.target_operation)
+            input_text = sys.stdin.read() if arguments[:1] in (['acknowledge'], ['space']) else None
+            completed = manager.run(arguments, operation_id=args.operation, target_operation=args.target_operation,input_text=input_text)
             print(completed.stdout, end='')
             print(completed.stderr, end='', file=sys.stderr)
             return completed.returncode

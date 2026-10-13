@@ -13,6 +13,23 @@ import mapping_source as source
 
 
 class ReleaseTest(unittest.TestCase):
+    def test_unknown_never_dispatched_identity_is_fenced_before_retry(self):
+        old = self.make_bundle()
+        peer = self.make_bundle('source-preparer', source.DEVELOPMENT_RELEASE_ID)
+        peer['controllerReleases'] = old['controllerReleases']
+        source.atomic_json(self.root/'peer.json', peer)
+        old['artifacts'] = releases.artifacts(self.bundle)
+        source.atomic_json(self.bundle/'release.json', old)
+        manager = releases.Releases(self.base)
+        manager.install(self.bundle)
+        manager.select(old['releaseId'], self.root/'peer.json', self.root/'data')
+        identity = str(uuid.uuid4())
+        outcome = manager.reconcile(identity)
+        self.assertEqual(outcome['state'], 'failed')
+        with self.assertRaisesRegex(source.SourceError, 'already exists'):
+            with manager.pin(identity):
+                self.fail('late dispatch bypassed durable fence')
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name).resolve()
@@ -170,7 +187,7 @@ class ReleaseTest(unittest.TestCase):
         (checkout/'tool').mkdir(parents=True)
         (checkout/'test/fixtures/mapping_store/v1').mkdir(parents=True)
         actual = Path(__file__).parents[1]
-        for name in releases.PYTHON_STAGES:
+        for name in (*releases.PYTHON_STAGES, *releases.REFRESH_STAGES):
             (checkout/'tool'/name).write_bytes((actual/name).read_bytes())
         (checkout/'test/fixtures/mapping_store/v1/tool_manifest.json').write_text('{}')
         (checkout/'tool/publish_thelist_dem.sh').write_text('#!/bin/sh\nexit 0\n')

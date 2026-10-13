@@ -187,6 +187,10 @@ Future<Map<String, Object?>> validateMappingSource({
   for (final region in catalog.regions) {
     final ids = <int>{};
     for (final path in region.peaks) {
+      // Composite regions are unions, not imported ownership regions. Their
+      // source files may overlap under the importer's regional precedence.
+      // Still reject duplicates within each file and across noncomposite inputs.
+      if (region.composite) ids.clear();
       final parsed = parsePeakSource(
         await reader.readText(path),
         regionKey: region.key,
@@ -285,9 +289,25 @@ Future<Map<String, Object?>> validateMappingSource({
     diagnostics.add('$path: ${jsonEncode(details)}');
     passed(path, 'dem-full-band1-v1');
   }
+  // Runtime readers intentionally bound metadata to 16 MiB. Record exact counts
+  // for identical permitted skips rather than one string per ineligible element;
+  // retain every distinct diagnostic (including named/identified geometry skips).
+  final diagnosticCounts = <String, int>{};
+  for (final diagnostic in diagnostics) {
+    diagnosticCounts.update(
+      diagnostic,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+  }
   return {
     'checks': checks,
-    'diagnostics': diagnostics,
+    'diagnostics': [
+      for (final entry in diagnosticCounts.entries)
+        entry.value == 1
+            ? entry.key
+            : '${entry.key} (${entry.value} occurrences)',
+    ],
     'inventorySha256': sha256
         .convert(utf8.encode(jsonEncode(integrity)))
         .toString(),

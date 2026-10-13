@@ -27,6 +27,11 @@ Other configured local replica bases must match the app's machine-local
 `mapping-runtime.json`. Installation rejects canonical Mapping, the three
 source-workspace roots, and incoming/payload/generation namespaces.
 
+New Item 08 bundles additionally include the complete Python refresh controller/
+transport closure. Earlier retained releases remain readable; they cannot dispatch
+the new controller command. [Automatic refresh setup/recovery](mapping-runtime-controller.md)
+uses installed commands, a dedicated session and a 60-second user agent.
+
 The controller includes the source dataset validator AOT executable. The source
 preparer additionally includes AOT promotion/restoration/tool-contract/fingerprint/
 theLIST/ELVIS/non-store-path executables, the internal theLIST shell helper, and
@@ -165,8 +170,8 @@ remain those in [source operations](two-mac-mutagen-operations.md).
 The 30-second installed dispatch/inspection budget and 5-second installation lock
 wait are noninteractive; detached work keeps the existing 2-hour stage budget,
 10-minute no-progress diagnostic and lifetime/data locks. Expiry is an unknown
-outcome, not success or permission to delete binaries. Item 08 adds the 60-second
-LaunchAgent, transport integration and pipeline-wide scheduling/reconciliation.
+outcome, not success or permission to delete binaries. Item 08 supplies the
+[60-second LaunchAgent, transport integration and pipeline-wide scheduling/reconciliation](mapping-runtime-controller.md).
 App startup only reads local v1 `reader-compatibility.json` and generation evidence;
 it never runs/verifies remote binaries or installs dependencies.
 

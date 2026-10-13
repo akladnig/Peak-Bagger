@@ -10,6 +10,8 @@ void main() {
     'tool/mapping_retention.py': 'resolver-validated',
     'tool/mapping_releases.py': 'store-isolated',
     'tool/mapping_release_launcher.py': 'store-isolated',
+    'tool/mapping_controller.py': 'store-isolated',
+    'tool/mapping_transport.py': 'store-isolated',
     'tool/convert_osm_boundary_to_poly.sh': 'store-isolated',
     'tool/publish_thelist_dem.sh': 'resolver-validated',
     'elvis_dem.sh': 'store-isolated',
@@ -269,6 +271,48 @@ void main() {
       expect(RegExp(r'\.chmod\(').allMatches(helper), hasLength(1));
       expect(RegExp(r'shutil\.rmtree\(').allMatches(helper), hasLength(1));
       expect(RegExp(r'\.unlink\(').allMatches(helper), hasLength(3));
+    },
+  );
+
+  test(
+    'refresh controller has narrow metadata/process boundaries independent of app startup',
+    () {
+      for (final entry in {
+        'tool/mapping_controller.py': 3,
+        'tool/mapping_transport.py': 1,
+      }.entries) {
+        final source = File(entry.key).readAsStringSync();
+        expect(
+          RegExp(
+            r'\.open\(|\bos\.rename\(|\bsubprocess\.run\(',
+          ).allMatches(source),
+          hasLength(entry.value),
+        );
+        expect(source, isNot(contains('mutagen_workspace')));
+        expect(source, isNot(contains('shutil.rmtree')));
+      }
+      final transport = File('tool/mapping_transport.py').readAsStringSync();
+      expect(transport, contains("'one-way-replica'"));
+      expect(transport, contains("'BatchMode=yes'"));
+      expect(transport, contains("'ConnectTimeout=10'"));
+      expect(transport, contains("'/prepared'"));
+      final controller = File('tool/mapping_controller.py').readAsStringSync();
+      expect(controller, contains("'refresh'/'state.json'"));
+      expect(controller, contains('StartInterval=60'));
+      for (final file
+          in Directory('lib')
+              .listSync(recursive: true)
+              .whereType<File>()
+              .where((file) => file.path.endsWith('.dart'))) {
+        expect(
+          file.readAsStringSync(),
+          isNot(contains('mapping_controller.py')),
+        );
+        expect(
+          file.readAsStringSync(),
+          isNot(contains('mapping-runtime-replica')),
+        );
+      }
     },
   );
 

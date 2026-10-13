@@ -16,7 +16,9 @@ create a mini repository as a fallback or synchronize `.git`.
 The dedicated Mapping runtime pipeline uses [installed release dispatch](mapping-pipeline-releases.md),
 independently of the source handover gate below. Source pauses/handovers do not
 release its invocation/helper locks or stop its installed stages. Runtime session
-automation is managed separately by Spec 0063 Item 08.
+automation is managed separately by [Spec 0063 Item 08's controller](mapping-runtime-controller.md).
+Use its installed `controller pause` / `controller resume` commands for runtime
+refresh; the three-source handover commands below never operate that session.
 
 Run controlling Mutagen commands on the **MacBook**. Helper examples assume its
 Peak Bagger checkout is the current directory. Use Python 3 and Mutagen **0.18.1**;

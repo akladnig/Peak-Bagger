@@ -6,6 +6,8 @@
 > See [machine-local configuration/startup](mapping-runtime-startup.md) and
 > [replica inventory/contracts](mapping-runtime-replica-contracts.md) for
 > current behavior, fresh audit evidence and remaining commissioning gates.
+> [Installed automatic refresh](mapping-runtime-controller.md) now manages the
+> dedicated mini-export → MacBook-incoming session and 60-second user LaunchAgent.
 
 The **historical setup below** required the **Mapping data store** at exactly
 `/Volumes/Services/Mapping` on both Macs. The mini uses its directly attached

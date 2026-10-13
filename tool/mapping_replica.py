@@ -368,6 +368,8 @@ class Replica:
                 inventorySha256=digest(inventory), operationId=operation['operationId'],
                 validationProfile=PROFILE, validatorRelease=self.release_id, state='passed',
                 checks=validation['checks'], diagnostics=validation['diagnostics'], validatedAtUtc=utc())
+            if len(json.dumps(report, separators=(',', ':'), ensure_ascii=False).encode()) > 16*1024*1024:
+                raise ReplicaError('validation evidence exceeds the 16 MiB reader limit; aggregate identical diagnostics or inspect distinct failures before retry')
             self.copy(export/'integrity.json', candidate/'integrity.json')
             self.copy(export/'completion.json', candidate/'completion.json')
             if file_sha(candidate/'completion.json') != completion_sha or file_sha(candidate/'integrity.json') != incoming_identity[3]:

@@ -447,6 +447,43 @@ class Coordinator:
     def last_operation(self):
         return check_record(read_json(self.base / 'operation.json'), 'mapping-operation', OPERATION_FIELDS)
 
+    def pin_transfer(self, identity, generation):
+        require_uuid(identity)
+        require_uuid(generation)
+        with self.publication_lock('dispatch'), self.publication_lock('prepare'):
+            completion, _ = completed_export(self.base/'prepared'/generation, self.supported_releases)
+            path = self.base/'operations'/f'{identity}.json'
+            if path.exists():
+                operation = check_record(read_json(path), 'mapping-operation', OPERATION_FIELDS)
+                if operation['stage'] != 'transfer' or operation['generationId'] != generation:
+                    raise SourceError('transfer protection identity drift')
+                return operation
+            operation = record('mapping-operation', operationId=identity, parentOperationId=None,
+                owner=owner(), releaseId=self.release_id, stage='transfer', state='running',
+                generationId=generation, publicationId=completion['publicationId'],
+                protectedExportIds=[generation], protectedGenerationIds=[], startedAtUtc=utc(),
+                progressAtUtc=utc(), outcomeRecordSha256=None)
+            self.metadata(path, operation)
+            return operation
+
+    def release_transfer(self, identity, generation):
+        from mapping_retention import acknowledged_export
+        require_uuid(identity)
+        require_uuid(generation)
+        with self.publication_lock('dispatch'), self.publication_lock('prepare'):
+            path = self.base/'operations'/f'{identity}.json'
+            operation = check_record(read_json(path), 'mapping-operation', OPERATION_FIELDS)
+            if operation['stage'] != 'transfer' or operation['generationId'] != generation:
+                raise SourceError('transfer protection identity drift')
+            if operation['state'] == 'succeeded':
+                return operation
+            if not acknowledged_export(self, self.base/'prepared'/generation):
+                raise SourceError('durable independent receipt required before transfer protection release')
+            operation.update(state='succeeded', progressAtUtc=utc(),
+                outcomeRecordSha256=digest(read_json(self.base/'receipts'/f'{generation}.json')))
+            self.metadata(path, operation)
+            return operation
+
     def metadata(self, path, value):
         from mapping_retention import reject_links
         if not path.is_relative_to(self.base):
@@ -455,7 +492,7 @@ class Coordinator:
         atomic_json(path, value)
 
     @contextlib.contextmanager
-    def receipt_cleanup_scope(self, receipt, *, protected_export_ids):
+    def receipt_cleanup_scope(self, receipt, *, protected_export_ids, acknowledge_only=False):
         """Item 06 integration: caller supplies frozen live transfer/operation pins.
 
         This scope retains source coordination through the caller's cleanup. It
@@ -481,7 +518,9 @@ class Coordinator:
         generation = receipt['generationId']
         with self.publication_lock('dispatch'), self.publication_lock('prepare'):
             from mapping_retention import operation_records
-            if any(op['state'] in ('running', 'outcome-unknown') for op in operation_records(self.base, self.supported_releases | self.supported_controllers).values()):
+            if any(op['state'] in ('running', 'outcome-unknown') and not (
+                acknowledge_only and op['stage'] == 'transfer' and op['generationId'] == generation)
+                for op in operation_records(self.base, self.supported_releases | self.supported_controllers).values()):
                 raise SourceError('source operation outcome unresolved; reconcile before receipt/cleanup')
             if generation in protected_export_ids:
                 raise SourceError('export is protected by a live transfer/operation: ' + generation)
@@ -502,7 +541,7 @@ class Coordinator:
             yield generation
 
     def acknowledge(self, receipt, *, protected_export_ids):
-        with self.receipt_cleanup_scope(receipt, protected_export_ids=protected_export_ids):
+        with self.receipt_cleanup_scope(receipt, protected_export_ids=protected_export_ids, acknowledge_only=True):
             return receipt
 
     def cleanup(self, *, protected_export_ids):
@@ -872,6 +911,10 @@ def main():
     space = sub.add_parser('space', help='audit a completed integrity inventory supplied on stdin')
     space.add_argument('--stage', choices=['provision', 'refresh'], default='refresh')
     sub.add_parser('install-external-guard')
+    for name in ('export', 'transfer-pin', 'transfer-release'):
+        command = sub.add_parser(name)
+        command.add_argument('generation', type=require_uuid)
+        if name != 'export': command.add_argument('--transfer-operation', type=require_uuid, required=True)
     enable = sub.add_parser('enable')
     enable.add_argument('--confirm-publisher-register', type=int, required=True, choices=[1])
     maintenance = sub.add_parser('maintenance')
@@ -918,10 +961,23 @@ def main():
         with coordinator.publication_lock('dispatch'):
             path = base / 'operations' / (args.operation + '.json')
             operation = check_record(read_json(path), 'mapping-operation', OPERATION_FIELDS)
+            if operation['stage'] == 'transfer':
+                raise SourceError('durable transfer protection cannot be reconciled from a free process lock; use exact receipt/release')
             if operation['state'] in ('running', 'outcome-unknown'):
                 operation.update(state='failed', progressAtUtc=utc())
                 coordinator._save_operation(operation)
             print(json.dumps(operation))
+        return
+    if args.command == 'export':
+        with coordinator.publication_lock('dispatch'), coordinator.publication_lock('prepare'):
+            path = base/'prepared'/args.generation
+            completion, inventory = completed_export(path, coordinator.supported_releases)
+            print(json.dumps(dict(completion=completion, inventory=inventory,
+                completionSha256=hashlib.sha256((path/'completion.json').read_bytes()).hexdigest())))
+        return
+    if args.command in ('transfer-pin', 'transfer-release'):
+        action = coordinator.pin_transfer if args.command == 'transfer-pin' else coordinator.release_transfer
+        print(json.dumps(action(args.transfer_operation, args.generation)))
         return
     if args.command == 'acknowledge':
         print(json.dumps(coordinator.acknowledge(decode_json(sys.stdin.read()), protected_export_ids=set(args.protected_export))))
