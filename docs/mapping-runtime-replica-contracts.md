@@ -314,7 +314,13 @@ that Mutagen can remove.
 
 ## Compatibility and installed-release contract
 
-This is a reviewed protocol version, not a claim of installed readers today.
+Item 07 implements these roles through [versioned release operations](mapping-pipeline-releases.md).
+Release UUID registration for the v1 app reader is local metadata; app startup
+does not execute/inspect pipeline binaries or remote dependencies.
+
+The table names reviewed implementation families. Actual installed UUIDs and
+verification evidence are recorded by Item 07; its installed reader registration
+does not itself certify a prepared export or eligible generation.
 
 | Source preparer | Controller | App reader | Permitted records/profile |
 | --- | --- | --- | --- |

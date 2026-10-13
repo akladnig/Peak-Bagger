@@ -162,7 +162,7 @@ def bounded_process(command, *, input_text=None, timeout=7200, on_unknown=lambda
     bounded while this owner waits for definitive child exit and drains output.
     """
     process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE, text=True, env=environment, cwd=cwd, pass_fds=pass_fds)
+        stderr=subprocess.PIPE, text=True, env=environment, cwd=cwd, pass_fds=release_fds(pass_fds))
     deadline = time.monotonic() + timeout
     progress_at = time.monotonic()
     byte_count = 0
@@ -614,6 +614,21 @@ PUBLISHERS = {
 }
 
 
+def release_fds(descriptors=()):
+    """Preserve the installed invocation flock through detached/native children."""
+    installed = os.environ.get('MAPPING_RELEASE_FD')
+    return tuple(dict.fromkeys([*descriptors, *([int(installed)] if installed else [])]))
+
+
+def installed_commands():
+    root = os.environ.get('MAPPING_INSTALLED_RELEASE')
+    if root is None:
+        return None
+    root = Path(root).resolve()
+    return root, [str(root/'bin/mapping_source_dataset')], {
+        name: [str(root/'bin/dart'), *argv[1:]] for name, argv in PUBLISHERS.items()}
+
+
 def validate_plan(plan):
     if not isinstance(plan, list):
         raise SourceError('maintenance plan must be a command array')
@@ -633,6 +648,12 @@ class DatasetBridge:
     """
     def __init__(self, coordinator, command=None, publishers=None, cwd=None):
         self.coordinator = coordinator
+        installed = installed_commands()
+        if installed:
+            root, installed_dataset, installed_publishers = installed
+            command = command or installed_dataset
+            publishers = publishers or installed_publishers
+            cwd = cwd or root
         self.command = list(command or ['dart', 'run', 'tool/mapping_source_dataset.dart'])
         self.publishers = {name: list(argv) for name, argv in (publishers or PUBLISHERS).items()}
         self.cwd = str(Path(cwd or Path(__file__).resolve().parents[1]).resolve())
@@ -955,7 +976,7 @@ def main():
                 *[arg for value in args.compatible_source_release for arg in ('--compatible-source-release', value)],
                 *[arg for value in args.compatible_controller_release for arg in ('--compatible-controller-release', value)],
                 '--worker', 'prepare'], stdin=subprocess.DEVNULL,
-                stdout=log, stderr=log, start_new_session=True, pass_fds=tuple(coordinator._fds), env=environment)
+                stdout=log, stderr=log, start_new_session=True, pass_fds=release_fds(coordinator._fds), env=environment)
         print(json.dumps(dict(operationId=operation_id, status='accepted', log=str(logs/(operation_id+'.log')))))
 
 

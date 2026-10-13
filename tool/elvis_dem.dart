@@ -165,7 +165,13 @@ Future<int> runElvisDemTool({
   late final String tasmaniaDemRoot;
   final outputResolvers = <String, MappingToolResolver>{};
   try {
-    tasmaniaDemRoot = workspaceDirectory ?? p.join('build', 'dem', 'elvis');
+    tasmaniaDemRoot =
+        workspaceDirectory ??
+        p.join(
+          Platform.environment['MAPPING_PREPARATION_BASE'] ??
+              p.join('build', 'dem'),
+          'elvis',
+        );
     await requireNonMappingPath(tasmaniaDemRoot);
     await requireNonMappingPath(sourcePath);
     if (publishArtifact == null && command != _ElvisDemCommand.validateSource) {

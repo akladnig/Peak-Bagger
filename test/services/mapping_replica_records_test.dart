@@ -8,6 +8,76 @@ import '../harness/mapping_runtime_fixture.dart';
 
 void main() {
   test(
+    'installed v1 compatibility registers release UUIDs without remote checks',
+    () async {
+      final fixture = await MappingRuntimeFixture.create();
+      addTearDown(fixture.dispose);
+      await fixture.generation(runtimeGenerationA);
+      final report = await fixture.read(
+        'generations/$runtimeGenerationA/validation.json',
+      );
+      await fixture.rewriteEvidence(
+        runtimeGenerationA,
+        report: {...report, 'validatorRelease': runtimeGenerationC},
+      );
+      final eligibility = {
+        ...await fixture.read('eligibility/$runtimeGenerationA.json'),
+        'controllerRelease': runtimeGenerationC,
+      };
+      await fixture.write('eligibility/$runtimeGenerationA.json', eligibility);
+      final operation = await fixture.read(
+        'operations/$runtimeGenerationA.json',
+      );
+      await fixture.write('operations/$runtimeGenerationA.json', {
+        ...operation,
+        'releaseId': runtimeGenerationC,
+        'outcomeRecordSha256': runtimeDigest(eligibility),
+      });
+      final compatibility = {
+        'kind': 'mapping-reader-compatibility',
+        'schemaVersion': 1,
+        'appReaderRelease': 'e442ea38-fc1d-4ca0-b07d-223b01df6c35',
+        'profile': 'mapping-runtime-v1',
+        'contracts': {
+          for (final kind in [
+            'mapping-integrity',
+            'mapping-source-completion',
+            'mapping-publication',
+            'mapping-publication-journal',
+            'mapping-operation',
+            'mapping-durable-receipt',
+            'mapping-validation-report',
+            'mapping-eligibility',
+            'mapping-selection',
+            'mapping-selection-transaction',
+            'mapping-session',
+          ])
+            kind: 1,
+        },
+        'sourceReleases': ['36363ecc-d359-5591-ba2a-a6a7ffff0e60'],
+        'controllerReleases': [
+          'fb5e6371-026c-5381-8994-eb5d74a17321',
+          runtimeGenerationC,
+        ],
+      };
+      await fixture.write('reader-compatibility.json', compatibility);
+      expect(
+        (await MappingReplicaRecords(
+          fixture.base,
+        ).eligible(runtimeGenerationA)).generationId,
+        runtimeGenerationA,
+      );
+      await fixture.write('reader-compatibility.json', {
+        ...compatibility,
+        'profile': 'unsupported',
+      });
+      await expectLater(
+        MappingReplicaRecords(fixture.base).eligible(runtimeGenerationA),
+        throwsA(isA<FormatException>()),
+      );
+    },
+  );
+  test(
     'versioned records reject missing diagnostic times even with a matching publication witness',
     () async {
       final fixture = await MappingRuntimeFixture.create();

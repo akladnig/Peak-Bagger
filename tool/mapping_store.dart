@@ -14,9 +14,9 @@ Future<String> _fixture(String repositoryRoot, String relative) => File(
 ).readAsString();
 
 Future<void> main(List<String> arguments) async {
-  final repositoryRoot = p.normalize(
-    p.join(p.dirname(Platform.script.toFilePath()), '..'),
-  );
+  final repositoryRoot = Platform.script.path.endsWith('.dart')
+      ? p.normalize(p.join(p.dirname(Platform.script.toFilePath()), '..'))
+      : Directory.current.path;
   try {
     if (arguments.length == 2 && arguments.first == 'restore-tool-manifest') {
       await const MappingToolManifestBootstrap().restoreNonStore(arguments[1]);

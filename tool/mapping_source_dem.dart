@@ -32,7 +32,11 @@ Future<Map<String, Object?>> validateSourceDem(
           : 'libgdal.so');
   final native = gdal ?? Gdal(libraryPath: libraryPath);
   if (gdal == null && Platform.isMacOS) {
-    for (final root in ['/opt/homebrew/share/proj', '/usr/local/share/proj']) {
+    for (final root in [
+      if (Platform.environment['PROJ_DATA'] case final String data) data,
+      '/opt/homebrew/share/proj',
+      '/usr/local/share/proj',
+    ]) {
       if (Directory(root).existsSync()) {
         native.setConfigOption('PROJ_DATA', root);
         native.setConfigOption('PROJ_LIB', root);

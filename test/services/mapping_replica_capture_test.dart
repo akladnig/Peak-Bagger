@@ -72,21 +72,63 @@ void main() {
       final inventorySha = sha256
           .convert(utf8.encode(jsonEncode(integrity)))
           .toString();
+      final executable = p.join(base, 'compiled-dataset');
+      final compilation = await Process.run('dart', [
+        'compile',
+        'exe',
+        'tool/mapping_source_dataset.dart',
+        '-o',
+        executable,
+      ]);
+      expect(compilation.exitCode, 0, reason: '${compilation.stderr}');
       final python = '''
-import sys, json
+import sys, json, shutil, os
 sys.path.insert(0, 'tool')
 import mapping_replica as r
 import mapping_source as s
+import mapping_releases as releases
 from pathlib import Path
+os.environ['PROJ_DATA']='/opt/homebrew/share/proj'
 base=Path(sys.argv[1]); generation=sys.argv[2]
 s.atomic_json(base/'incoming'/generation/'completion.json', s.record('mapping-source-completion',
     generationId=generation, inventorySha256=sys.argv[3], operationId='00000000-0000-4000-8000-000000000002',
     publicationId='00000000-0000-4000-8000-000000000003', sourcePreparerRelease=s.DEVELOPMENT_RELEASE_ID,
     validationProfile=s.PROFILE, validatedAtUtc=s.utc()))
+bundle=base.parent/(base.name+'-bundle')
+installed=base.parent/(base.name+'-installed')
+def compile_helper(_, output):
+    shutil.copyfile(base/'compiled-dataset', output)
+    output.chmod(0o755)
+release='00000000-0000-4000-8000-000000000099'
+if not bundle.exists():
+    releases.build(Path.cwd(), bundle, role='controller', release_id=release,
+        source_ids=[s.DEVELOPMENT_RELEASE_ID], controller_ids=[s.DEVELOPMENT_CONTROLLER_ID,release],
+        compile_executable=compile_helper,
+        dependencies=[dict(path=sys.executable,sha256=releases.sha(Path(sys.executable)))])
+    manager=releases.Releases(installed)
+    manager.install(bundle)
+    peer=releases.manifest_for(bundle,role='source-preparer',release_id=s.DEVELOPMENT_RELEASE_ID,
+        source_ids=[s.DEVELOPMENT_RELEASE_ID],controller_ids=[s.DEVELOPMENT_CONTROLLER_ID,release],dependencies=[])
+    s.atomic_json(base/'peer-release.json',peer)
+    manager.select(release,base/'peer-release.json',base)
+validator=r.DatasetValidator(r.Replica(base), command=[str(installed/'releases'/release/'bin/mapping_source_dataset')],
+    cwd=installed/'releases'/release)
 controller=r.Replica(base)
-controller.capture(generation, transfer_complete=True)
+controller.capture(generation, transfer_complete=True,validate=validator.validate)
 print(json.dumps(controller.eligible(generation)))
 ''';
+      addTearDown(() async {
+        for (final suffix in ['-bundle', '-installed']) {
+          final tree = '$base$suffix';
+          await Process.run('python3', [
+            '-c',
+            'import os,sys; from pathlib import Path; '
+                '[Path(root).chmod(0o755) for root, _, _ in os.walk(sys.argv[1])]',
+            tree,
+          ]);
+          await Directory(tree).delete(recursive: true);
+        }
+      });
       final result = await Process.run('python3', [
         '-c',
         python,
@@ -200,9 +242,9 @@ print(json.dumps(controller.eligible(generation)))
           p.join(rejectedExport, 'integrity.json'),
         ).writeAsString(jsonEncode(changedIntegrity));
         final rejectingPython = python.replaceAll(
-          'controller.capture(generation, transfer_complete=True)',
+          'controller.capture(generation, transfer_complete=True,validate=validator.validate)',
           '''try:
-    controller.capture(generation, transfer_complete=True)
+    controller.capture(generation, transfer_complete=True,validate=validator.validate)
 except Exception as error:
     print(error, file=sys.stderr)
     assert controller.eligible('$generation')['inventorySha256'] == '$inventorySha'

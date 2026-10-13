@@ -30,6 +30,57 @@ class MappingReplicaRecords {
   Future<MappingReplicaGeneration> eligible(String generation) async {
     requireRuntimeUuid(generation);
     final io = MappingRuntimeIo();
+    final supportedSources = {...sourceReleases};
+    final supportedControllers = {...controllerReleases};
+    final compatibilityPath = p.join(base, 'reader-compatibility.json');
+    if (await io.exists(compatibilityPath)) {
+      final compatibility = runtimeRecord(
+        (await io.readMetadata(compatibilityPath)).value,
+        'mapping-reader-compatibility',
+        'appReaderRelease profile contracts sourceReleases controllerReleases',
+      );
+      const kinds = {
+        'mapping-integrity',
+        'mapping-source-completion',
+        'mapping-publication',
+        'mapping-publication-journal',
+        'mapping-operation',
+        'mapping-durable-receipt',
+        'mapping-validation-report',
+        'mapping-eligibility',
+        'mapping-selection',
+        'mapping-selection-transaction',
+        'mapping-session',
+      };
+      final contracts = compatibility['contracts'];
+      if (compatibility['appReaderRelease'] !=
+              'e442ea38-fc1d-4ca0-b07d-223b01df6c35' ||
+          compatibility['profile'] != 'mapping-runtime-v1' ||
+          contracts is! Map ||
+          contracts.length != kinds.length ||
+          !kinds.every(
+            (kind) => contracts[kind] is int && contracts[kind] == 1,
+          )) {
+        throw const FormatException(
+          'Unsupported installed app-reader metadata/profile combination',
+        );
+      }
+      for (final entry in {
+        'sourceReleases': supportedSources,
+        'controllerReleases': supportedControllers,
+      }.entries) {
+        final ids = compatibility[entry.key];
+        if (ids is! List || ids.isEmpty || ids.toSet().length != ids.length) {
+          throw const FormatException(
+            'Invalid installed compatibility release identities',
+          );
+        }
+        for (final id in ids) {
+          requireRuntimeUuid(id);
+          entry.value.add(id as String);
+        }
+      }
+    }
     final eligibility = await io.readMetadata(
       p.join(base, 'eligibility', '$generation.json'),
     );
@@ -78,9 +129,9 @@ class MappingReplicaRecords {
         value['validationReportSha256'] !=
             sha256.convert(reportBytes).toString() ||
         report['state'] != 'passed' ||
-        !sourceReleases.contains(completion['sourcePreparerRelease']) ||
-        !controllerReleases.contains(value['controllerRelease']) ||
-        !controllerReleases.contains(report['validatorRelease']) ||
+        !supportedSources.contains(completion['sourcePreparerRelease']) ||
+        !supportedControllers.contains(value['controllerRelease']) ||
+        !supportedControllers.contains(report['validatorRelease']) ||
         [
           value,
           completion,

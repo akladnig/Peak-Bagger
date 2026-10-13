@@ -8,6 +8,8 @@ void main() {
     'tool/mapping_source.py': 'resolver-validated',
     'tool/mapping_replica.py': 'resolver-validated',
     'tool/mapping_retention.py': 'resolver-validated',
+    'tool/mapping_releases.py': 'store-isolated',
+    'tool/mapping_release_launcher.py': 'store-isolated',
     'tool/convert_osm_boundary_to_poly.sh': 'store-isolated',
     'tool/publish_thelist_dem.sh': 'resolver-validated',
     'elvis_dem.sh': 'store-isolated',
@@ -267,6 +269,35 @@ void main() {
       expect(RegExp(r'\.chmod\(').allMatches(helper), hasLength(1));
       expect(RegExp(r'shutil\.rmtree\(').allMatches(helper), hasLength(1));
       expect(RegExp(r'\.unlink\(').allMatches(helper), hasLength(3));
+    },
+  );
+
+  test(
+    'release publication is non-store and cannot use the workspace readiness gate',
+    () {
+      final installer = File('tool/mapping_releases.py').readAsStringSync();
+      final launcher = File(
+        'tool/mapping_release_launcher.py',
+      ).readAsStringSync();
+      expect(installer, contains('check_layout(self.base,'));
+      expect(installer, contains('transport/dataset payload namespaces'));
+      expect(installer, contains('self.check_retained(value, data_base)'));
+      expect(
+        installer,
+        contains('remove_tree(self.base/\'releases\'/identity)'),
+      );
+      expect(installer, contains('pass_fds=(pinned[\'fd\'],)'));
+      expect(
+        RegExp(
+          r'\.open\(|\bos\.rename\(|\bshutil\.copyfile\(|\bshutil\.copytree\(|\bsubprocess\.run\(',
+        ).allMatches(installer),
+        hasLength(15),
+      );
+      for (final source in [installer, launcher]) {
+        expect(source, isNot(contains('mutagen_workspace')));
+        expect(source, isNot(contains('mutagen_operations')));
+        expect(source, isNot(contains('CANONICAL_ROOT')));
+      }
     },
   );
 

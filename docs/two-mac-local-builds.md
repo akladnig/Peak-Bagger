@@ -9,6 +9,11 @@ The earlier verification records below preserve their historical scope.
 
 ## Sibling layout and local artifacts
 
+Mapping runtime refresh uses [versioned installed pipeline releases](mapping-pipeline-releases.md),
+including AOT helpers and host dependency inspection. These live outside the three
+source roots; source-workspace SDK provisioning below is build-time preparation,
+not an installed-refresh runtime dependency.
+
 Use the existing roots; do not create substitute directories for an absent volume.
 Set this in a **Bash** terminal on the machine being provisioned:
 

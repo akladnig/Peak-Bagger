@@ -18,7 +18,8 @@ from pathlib import Path
 
 from mapping_source import (PROFILE, DEVELOPMENT_RELEASE_ID, DEVELOPMENT_CONTROLLER_ID,
     SourceError, atomic_json, bounded_process, check_layout, check_record, completed_export, digest, freeze_export,
-    OPERATION_FIELDS, decode_json, owner, read_json, record, require_uuid, sync_directory, utc, workspace_roots)
+    OPERATION_FIELDS, decode_json, owner, read_json, record, require_uuid, sync_directory, utc, workspace_roots,
+    installed_commands, release_fds)
 
 
 class ReplicaError(SourceError):
@@ -124,6 +125,11 @@ class DatasetValidator:
     """
     def __init__(self, controller, *, command=None, cwd=None, timeout=7200):
         self.controller = controller
+        installed = installed_commands()
+        if installed:
+            root, dataset, _ = installed
+            command = command or dataset
+            cwd = cwd or root
         self.command = list(command or ['dart', 'run', 'tool/mapping_source_dataset.dart'])
         self.cwd = str(Path(cwd or Path(__file__).resolve().parents[1]).resolve())
         self.timeout = timeout
@@ -290,7 +296,7 @@ class Replica:
                     *[arg for value in sorted(self.controllers) for arg in ('--compatible-controller-release', value)],
                     '--worker', 'capture', generation]
                 process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log, stderr=log,
-                    start_new_session=True, pass_fds=tuple(self._fds),
+                    start_new_session=True, pass_fds=release_fds(self._fds),
                     env=dict(os.environ, MAPPING_REPLICA_FDS=json.dumps(self._fds)))
                 self._children.append(process)
             return dict(status='accepted', operationId=operation_id, log=str(log_path))
