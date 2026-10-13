@@ -4,7 +4,8 @@ Implements Spec 0063 Item 04 against the approved
 [revision-1 contracts](mapping-runtime-replica-contracts.md) and
 [completed source exports](mapping-source-publication.md). The mini remains the
 canonical Mapping data store. Automatic transport/controller integration is Item
-08; launch selection is Item 05; retention/receipt acknowledgement is Item 06.
+08; launch selection is Item 05; [retention/receipt acknowledgement](mapping-runtime-retention.md)
+is implemented by Item 06.
 
 ## Local layout and authority
 
@@ -19,6 +20,7 @@ source-workspace synchronization roots. The only future Mutagen beta is
 | `generations/<generationId>/{payload,integrity.json,completion.json,validation.json}` | Frozen generation; metadata siblings are not Mapping references |
 | `eligibility/<generationId>.json` | Versioned generation/inventory/completion/local-report binding |
 | `receipts/<generationId>.json` | Independent durable receipt, exportable only through successful-outcome checks |
+| `acknowledgements/<generationId>.json` | Exact durably accepted source response; receipt/evidence remain protected until confirmed |
 | `requests/`, `operations/`, `operation.json`, `logs/`, `failures/` | Detached requests, authoritative per-operation outcomes, diagnostic current mirror, logs and failed reports |
 | `locks/{pipeline,release-<UUID>}.lock` | OS lifetime ownership; surviving children inherit descriptors |
 
@@ -64,8 +66,10 @@ UUIDs use the same v1 families as source preparation.
    supported source release/profile `mapping-runtime-v1`, UUIDs, UTC completion
    time, ordered inventory and its reviewed compact SHA-256. Reject duplicate JSON
    keys, unknown fields/versions, unsafe paths and absent manifest-pair references.
-2. Check available space against inventory sizes plus a **64 MiB reserve** before
-   copying. Do not delete protected data to fit an update.
+2. Record [space accounting](mapping-runtime-retention.md) from current inventory
+   sizes and existing directory identities before transfer/copy; completed incoming
+   still needs a full independent copy plus **64 MiB reserve**. Do not delete
+   protected data to fit an update.
 3. Make exclusive new-inode streamed copies outside incoming, never writable hard
    links. NoFollow/non-regular checks and pre/post size/inode/mtime/ctime comparisons
    reject ordinary concurrent replacement/truncation. Flush captured files.
@@ -163,12 +167,14 @@ rewritten/deleted/partially merged by this stage.
 - `Replica.receipt(generation)` returns schema-1 evidence bound to generation,
   inventory, exact source completion, passed local report, validating operation
   and controller release. It does not require app activation.
-- Pass the exact receipt to source `Coordinator.receipt_cleanup_scope` with frozen
+- `Replica.acknowledge` passes the exact receipt to source `Coordinator.acknowledge`
+  / `receipt_cleanup_scope` with frozen
   live transfer/operation pins. Source acknowledgement is persisted before cleanup;
   retry a lost acknowledgement idempotently. Idle transfer never replaces receipt.
   Source production already bounds changed exports behind its sole outstanding
   unacknowledged generation.
-- Freeze local operation ownership under `pipeline` before cleanup; protect
+- Implemented `Replica.cleanup` freezes local operation ownership under `pipeline`
+  and app `selection-retention` before cleanup; protect
   `protectedGenerationIds`, `protectedExportIds`, operation-specific candidates and
   inherited release/helper lifetime until owners really end. Item 06 additionally
   coordinates active/recovery/newest pending and app/native session pins.

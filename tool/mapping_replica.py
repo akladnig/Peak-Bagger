@@ -18,7 +18,7 @@ from pathlib import Path
 
 from mapping_source import (PROFILE, DEVELOPMENT_RELEASE_ID, DEVELOPMENT_CONTROLLER_ID,
     SourceError, atomic_json, bounded_process, check_layout, check_record, completed_export, digest, freeze_export,
-    OPERATION_FIELDS, owner, read_json, record, require_uuid, sync_directory, utc, workspace_roots)
+    OPERATION_FIELDS, decode_json, owner, read_json, record, require_uuid, sync_directory, utc, workspace_roots)
 
 
 class ReplicaError(SourceError):
@@ -144,6 +144,7 @@ class DatasetValidator:
 
 
 class Replica:
+    error_type = ReplicaError
     def __init__(self, base, *, lock_wait=5, release_id=DEVELOPMENT_CONTROLLER_ID,
                  compatible_sources=(), compatible_controllers=(), publish=atomic_json,
                  available_bytes=None, copy=independent_copy):
@@ -192,12 +193,12 @@ class Replica:
         self.metadata(self.base/'operation.json', operation)
 
     @contextlib.contextmanager
-    def lock(self, name='pipeline'):
+    def lock(self, name='pipeline', *, wait=None):
         target = self.local_path(self.base/'locks'/f'{name}.lock')
         target.parent.mkdir(exist_ok=True)
         reject_links(target)
         with target.open('a+b') as stream:
-            deadline = time.monotonic() + self.lock_wait
+            deadline = time.monotonic() + (self.lock_wait if wait is None else wait)
             while True:
                 try:
                     fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -213,6 +214,54 @@ class Replica:
                 self._fds.remove(stream.fileno())
                 # Closing our descriptor does not unlock a surviving child's
                 # inherited descriptor. Never unlink a lifetime lock to recover.
+
+    def cleanup(self):
+        from mapping_retention import cleanup_replica
+        try:
+            return cleanup_replica(self)
+        except SourceError as error:
+            raise ReplicaError(f'stage=cleanup local={self.base}: {error}') from error
+
+    def audit_space(self, inventory, *, stage, incoming_remaining_bytes=None, operation_id=None):
+        from mapping_retention import audit_space
+        try:
+            return audit_space(self.base, inventory, stage=stage,
+                available_bytes=self.available_bytes, incoming_remaining_bytes=incoming_remaining_bytes,
+                operation_id=operation_id, publish=self.metadata)
+        except SourceError as error:
+            raise ReplicaError(str(error)) from error
+
+    def acknowledge(self, generation, *, send):
+        """send uses Item 08's bounded transport; exact peer echo is required.
+
+        Retain capture/evidence until the source's durable acknowledgement is
+        confirmed. A lost response retries the same receipt, never a new ID.
+        """
+        require_uuid(generation)
+        with self.lock(), self.lock('selection-retention'):
+            try:
+                target = self.local_path(self.base/'acknowledgements'/f'{generation}.json')
+                if target.exists():
+                    confirmed = self.local_record(target, 'mapping-durable-receipt', RECEIPT_FIELDS)
+                    receipt = self.receipt(generation) if (self.base/'generations'/generation).exists() else self.local_record(
+                        self.base/'receipts'/f'{generation}.json', 'mapping-durable-receipt', RECEIPT_FIELDS)
+                    if confirmed != receipt or receipt['generationId'] != generation or receipt['controllerRelease'] not in self.controllers:
+                        raise ReplicaError('conflicting source acknowledgement')
+                    return receipt
+                receipt = self.receipt(generation)
+                response = send(receipt)
+                if response != receipt:
+                    raise ReplicaError('source did not confirm the exact durable receipt')
+                self.metadata(target, receipt)
+                self.metadata(self.base/'logs'/'receipt.json', dict(stage='receipt', generationId=generation,
+                    operationId=receipt['operationId'], receiptId=receipt['receiptId'], state='acknowledged',
+                    local=str(self.base/'generations'/generation), observedAtUtc=utc()))
+                return receipt
+            except Exception as error:
+                diagnostic = f'stage=receipt generation={generation} local={self.base/"generations"/generation}: {error}'
+                self.metadata(self.base/'logs'/'receipt.json', dict(stage='receipt', generationId=generation,
+                    state='acknowledgement-unconfirmed', diagnostic=diagnostic, observedAtUtc=utc()))
+                raise ReplicaError(diagnostic) from error
 
     def capture(self, generation, *, transfer_complete, validate=None, operation_id=None):
         with self.lock(), self.lock('release-' + self.release_id):
@@ -258,7 +307,9 @@ class Replica:
         except ReplicaError:
             owned = True
         self._children = [child for child in self._children if child.poll() is None]
-        return dict(operation=operation, supervisorOrChildOwnsPipeline=owned)
+        from mapping_retention import policy_status
+        return dict(operation=operation, supervisorOrChildOwnsPipeline=owned,
+            lastPolicyReports=policy_status(self.base))
 
     def _capture(self, generation, *, transfer_complete, validate, operation_id=None):
         require_uuid(generation)
@@ -292,9 +343,7 @@ class Replica:
                 return existing
             operation.update(stage='capture', publicationId=completion['publicationId'])
             self.save_operation(operation)
-            required = sum(entry['size'] for entry in inventory['files'])
-            if self.available_bytes() < required + 64*1024*1024:
-                raise ReplicaError(f'insufficient space: need {required} bytes plus 64 MiB reserve')
+            self.audit_space(inventory, stage='capture', incoming_remaining_bytes=0, operation_id=operation_id)
             payload = candidate/'payload'
             for entry in inventory['files']:
                 target = self.local_path(payload/entry['path'])
@@ -395,12 +444,21 @@ class Replica:
                                  'mapping-operation', OPERATION_FIELDS)
         if operation['operationId'] != report['operationId'] or operation['releaseId'] != report['validatorRelease'] or operation['state'] != 'succeeded' or operation['generationId'] != generation or operation['outcomeRecordSha256'] != digest(value):
             raise ReplicaError('no successful durable publication outcome for eligibility')
+        expected = {'integrity.json', 'completion.json', 'validation.json'} | {'payload/' + entry['path'] for entry in inventory['files']}
+        actual = set()
         for root, directories, files in os.walk(final, followlinks=False):
             for path in [Path(root), *[Path(root)/name for name in directories + files]]:
                 reject_links(path)
                 observed = path.stat()
                 if observed.st_mode & 0o222 or not (stat.S_ISREG(observed.st_mode) or stat.S_ISDIR(observed.st_mode)) or stat.S_ISREG(observed.st_mode) and observed.st_nlink != 1:
                     raise ReplicaError(f'published generation is not immutable/independent: {path}')
+                if stat.S_ISREG(observed.st_mode):
+                    actual.add(path.relative_to(final).as_posix())
+        if actual != expected:
+            raise ReplicaError(f'published generation is incomplete or has unexpected files: {final}')
+        for entry in inventory['files']:
+            if (final/'payload'/entry['path']).stat().st_size != entry['size']:
+                raise ReplicaError(f'published generation file size changed: {entry["path"]}')
         return value
 
     def receipt(self, generation):
@@ -430,6 +488,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base', type=Path, required=True)
     parser.add_argument('--operation', type=require_uuid)
+    parser.add_argument('--lock-wait', type=float, default=5)
     parser.add_argument('--release-id', type=require_uuid, default=DEVELOPMENT_CONTROLLER_ID)
     parser.add_argument('--compatible-source-release', type=require_uuid, action='append', default=[])
     parser.add_argument('--compatible-controller-release', type=require_uuid, action='append', default=[])
@@ -443,8 +502,12 @@ def main():
         subcommands.add_parser(name).add_argument('generation', type=require_uuid)
     subcommands.add_parser('status')
     subcommands.add_parser('reconcile')
+    subcommands.add_parser('cleanup')
+    space = subcommands.add_parser('space', help='audit a completed integrity inventory supplied on stdin')
+    space.add_argument('--stage', choices=['provision', 'refresh'], default='refresh')
+    space.add_argument('--incoming-remaining-bytes', type=int)
     arguments = parser.parse_args()
-    controller = Replica(arguments.base, release_id=arguments.release_id,
+    controller = Replica(arguments.base, lock_wait=arguments.lock_wait, release_id=arguments.release_id,
         compatible_sources=arguments.compatible_source_release,
         compatible_controllers=arguments.compatible_controller_release)
     if arguments.worker:
@@ -471,6 +534,12 @@ def main():
         if not arguments.operation:
             raise ReplicaError('reconcile requires the original --operation UUID')
         result = controller.reconcile(arguments.operation)
+    elif arguments.command == 'cleanup':
+        result = controller.cleanup()
+    elif arguments.command == 'space':
+        with controller.lock():
+            result = controller.audit_space(decode_json(sys.stdin.read()), stage=arguments.stage,
+                incoming_remaining_bytes=arguments.incoming_remaining_bytes, operation_id=arguments.operation)
     elif arguments.command == 'receipt':
         result = controller.receipt(arguments.generation)
     else:

@@ -114,14 +114,16 @@ coverage refreshes, Natural Features, TasMap, polygon overlays and lazy DEM open
 retain its concrete root through existing resolver boundaries. Runtime roots
 never repeatedly resolve a mutable pointer.
 
-### Cleanup handoff — Item 06
+### Controller cleanup — Item 06
 
 Cleanup takes `selection-retention.lock`, protects active/recovery **and both full
 tuples of a retained transaction**, probes session locks nonblockingly and retains
 all held session/native generations. Retain journal references conservatively
 until safe replacement/resolution. Capture/validation owners remain protected
 under the controller pipeline lock. Never infer liveness from flags/PIDs or
-delete locks. App ownership is established here; controller pruning is Item 06.
+delete locks. [Implemented controller retention](mapping-runtime-retention.md)
+retires only a validated committed journal matching current selection, retaining
+unresolved old/new tuples. The app itself never prunes datasets.
 
 ### Compatibility handoff — Item 07
 

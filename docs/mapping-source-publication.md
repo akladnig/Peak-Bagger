@@ -170,13 +170,16 @@ Only after validation and durable metadata publication is the directory moved to
 failed/unresolved and publish no valid completed surface. Unchanged complete
 publications reuse the existing export without another copy/hash/profile pass.
 Changed publication with identical captured bytes also reuses it. A changed dataset
-cannot accumulate exports: finish durable receipt/receipt-bound cleanup of the sole
-existing completed export first, or preparation reports blocked.
+cannot accumulate exports: finish durable receipt of the sole unacknowledged export
+first, or preparation reports blocked **before another full scratch copy**. The
+acknowledged current surface stays available for reuse; a complete successor makes
+the old acknowledged unowned export prunable.
 
 Space checks use manifest-derived byte totals before each independent copy, plus
 a 64 MiB reserve. Account separately for publication backups, validation scratch,
 candidate capture and the protected export; insufficient space fails that stage
-without deleting protected data. Item 06 owns automated retention/cleanup.
+without deleting protected data. [Item 06 storage accounting and controller cleanup](mapping-runtime-retention.md)
+record existing occupation per identity, additional bytes and available space.
 
 ## Status, interruption and recovery
 
@@ -226,9 +229,11 @@ and operation pins and keep the scope held for any cleanup. It takes source
 dispatch/preparation coordination, rejects protected or unsupported identities,
 verifies exact generation/inventory/source-completion SHA-256 and supported
 controller release, and durably persists the acknowledgement **before** yielding
-the generation identity. It does not itself delete or mutate exports. Item 06
-must keep the completed source surface available until a safe successor/receipt
-transition, and may prune abandoned captures only after their real owners end.
+the generation identity. `Coordinator.acknowledge` returns the same durably accepted
+receipt. `Coordinator.cleanup` keeps the current completed surface, every unacknowledged
+export and every live/unresolved transfer/preparation identity, and prunes acknowledged
+old exports or abandoned captures only after their real owners end. Retained receipt
+evidence permits reconnect retries after pruning. See [implemented policy and recovery](mapping-runtime-retention.md).
 
 Item 04 produces the exact downstream evidence through `Replica.receipt`, which
 checks the local independent generation, passed report and durable publication

@@ -125,15 +125,19 @@ def completed_export(path, supported_releases=None):
     return completion, inventory
 
 
-def read_json(path):
+def decode_json(contents, *, context='stdin'):
     def unique(pairs):
         value = {}
         for key, item in pairs:
             if key in value:
-                raise SourceError(f'duplicate metadata key: {path}:{key}')
+                raise SourceError(f'duplicate metadata key: {context}:{key}')
             value[key] = item
         return value
-    return json.loads(path.read_text(encoding='utf-8'), object_pairs_hook=unique)
+    return json.loads(contents, object_pairs_hook=unique)
+
+
+def read_json(path):
+    return decode_json(path.read_text(encoding='utf-8'), context=str(path))
 
 
 def owner():
@@ -241,7 +245,7 @@ def atomic_json(path, value):
 
 class Coordinator:
     def __init__(self, base, lock_wait=5, release_id=DEVELOPMENT_RELEASE_ID,
-                 compatible_releases=(), compatible_controllers=()):
+                 compatible_releases=(), compatible_controllers=(), available_bytes=None):
         self.base = Path(base).resolve()
         check_layout(self.base, workspace_roots())
         self.base.mkdir(parents=True, exist_ok=True)
@@ -252,6 +256,7 @@ class Coordinator:
         self.registered_outputs = {}
         self._publishing = False
         self._fds = []
+        self.available_bytes = available_bytes or (lambda: shutil.disk_usage(self.base).free)
 
     @contextlib.contextmanager
     def publication_lock(self, name='publication'):
@@ -442,6 +447,13 @@ class Coordinator:
     def last_operation(self):
         return check_record(read_json(self.base / 'operation.json'), 'mapping-operation', OPERATION_FIELDS)
 
+    def metadata(self, path, value):
+        from mapping_retention import reject_links
+        if not path.is_relative_to(self.base):
+            raise SourceError(f'source metadata outside non-store owner: {path}')
+        reject_links(path)
+        atomic_json(path, value)
+
     @contextlib.contextmanager
     def receipt_cleanup_scope(self, receipt, *, protected_export_ids):
         """Item 06 integration: caller supplies frozen live transfer/operation pins.
@@ -463,20 +475,45 @@ class Coordinator:
         require_uuid(receipt['controllerRelease'])
         if receipt['controllerRelease'] not in self.supported_controllers:
             raise SourceError('unsupported durable receipt controller')
+        from mapping_replica import timestamp
+        from mapping_retention import reject_links
+        timestamp(receipt['storedAtUtc'])
         generation = receipt['generationId']
         with self.publication_lock('dispatch'), self.publication_lock('prepare'):
+            from mapping_retention import operation_records
+            if any(op['state'] in ('running', 'outcome-unknown') for op in operation_records(self.base, self.supported_releases | self.supported_controllers).values()):
+                raise SourceError('source operation outcome unresolved; reconcile before receipt/cleanup')
             if generation in protected_export_ids:
                 raise SourceError('export is protected by a live transfer/operation: ' + generation)
             export = self.base / 'prepared' / generation
-            completion, _ = completed_export(export, self.supported_releases)
-            if receipt['inventorySha256'] != completion['inventorySha256'] or receipt['sourceCompletionSha256'] != hashlib.sha256((export/'completion.json').read_bytes()).hexdigest():
-                raise SourceError('durable receipt does not acknowledge this exact export')
             target = self.base / 'receipts' / (generation + '.json')
+            for path in (export, export/'integrity.json', export/'completion.json', target):
+                reject_links(path)
             if target.exists() and read_json(target) != receipt:
                 raise SourceError('conflicting durable receipt acknowledgement')
+            # Previously accepted exact evidence survives export pruning and a
+            # lost reconnect response. Never authorize a first receipt by absence.
+            if export.exists() or not target.exists():
+                completion, _ = completed_export(export, self.supported_releases)
+                if receipt['inventorySha256'] != completion['inventorySha256'] or receipt['sourceCompletionSha256'] != hashlib.sha256((export/'completion.json').read_bytes()).hexdigest():
+                    raise SourceError('durable receipt does not acknowledge this exact export')
             if not target.exists():
-                atomic_json(target, receipt)
+                self.metadata(target, receipt)
             yield generation
+
+    def acknowledge(self, receipt, *, protected_export_ids):
+        with self.receipt_cleanup_scope(receipt, protected_export_ids=protected_export_ids):
+            return receipt
+
+    def cleanup(self, *, protected_export_ids):
+        from mapping_retention import cleanup_source
+        return cleanup_source(self, protected_export_ids=protected_export_ids)
+
+    def audit_space(self, inventory, *, stage, available_bytes=None, operation_id=None):
+        from mapping_retention import audit_space
+        return audit_space(self.base, inventory, stage=stage, source_capture=True,
+            available_bytes=available_bytes or self.available_bytes,
+            operation_id=operation_id, publish=self.metadata)
 
     def _save_operation(self, operation):
         atomic_json(self.base / 'operations' / (operation['operationId'] + '.json'), operation)
@@ -484,6 +521,10 @@ class Coordinator:
 
     def prepare(self, capture, validate, operation_id=None):
         with self.publication_lock('prepare'):
+            from mapping_retention import operation_records
+            for prior in operation_records(self.base, self.supported_releases | self.supported_controllers).values():
+                if prior['state'] == 'outcome-unknown' or prior['state'] == 'running' and prior['operationId'] != operation_id:
+                    raise SourceError(f'stage=prepare operation={prior["operationId"]} local={self.base}: prior outcome unresolved; reconcile before preparation')
             operation = record('mapping-operation', operationId=operation_id or str(uuid.uuid4()),
                 parentOperationId=None, owner=owner(), releaseId=self.release_id, stage='prepare', state='running',
                 generationId=str(uuid.uuid4()), publicationId=None, protectedExportIds=[],
@@ -518,6 +559,17 @@ class Coordinator:
                 completion, _ = completed_export(completed, self.supported_releases)
                 if completion['publicationId'] == publication['publicationId']:
                     return completed.name
+            # Stop before producing another multi-gigabyte candidate. A changed
+            # publication cannot bypass the sole outstanding durable receipt.
+            from mapping_retention import acknowledged_export
+            for completed in prepared.iterdir():
+                if not acknowledged_export(self, completed):
+                    diagnostic = (f'stage=prepare operation={operation["operationId"]} generation={completed.name} '
+                        f'local={completed}: Existing source export awaits durable receipt; changed export blocked')
+                    self.metadata(self.base/'logs'/'source-production.json', dict(stage='prepare',
+                        operationId=operation['operationId'], blockedExportId=completed.name,
+                        state='blocked-awaiting-durable-receipt', diagnostic=diagnostic, observedAtUtc=utc()))
+                    raise SourceError(diagnostic)
             operation.update(stage='capture', publicationId=publication['publicationId'], protectedExportIds=[generation])
             self._save_operation(operation)
             integrity = capture(candidate / "payload", generation)
@@ -525,10 +577,9 @@ class Coordinator:
         for completed in prepared.iterdir():
             _, existing = completed_export(completed, self.supported_releases)
             if existing["files"] == integrity["files"]:
-                shutil.rmtree(candidate)
+                from mapping_retention import remove_tree
+                remove_tree(candidate)
                 return completed.name
-        if any(prepared.iterdir()):
-            raise SourceError('Existing source export awaits durable receipt/receipt-bound cleanup; changed export blocked')
         inventory_hash = digest(integrity)
         operation.update(stage='validate', progressAtUtc=utc())
         self._save_operation(operation)
@@ -610,9 +661,8 @@ class DatasetBridge:
         # Space is checked before copying; the authoritative set/byte sizes are
         # resolver-derived, never a directory glob. Hashing remains background.
         inventory = self.dataset('inspect', root, generation, allowSourceLinks=True)
-        required = sum(file['size'] for file in inventory['files'])
-        if shutil.disk_usage(self.coordinator.base).free < required + 64*1024*1024:
-            raise SourceError(f'capture has insufficient space: need {required} bytes plus 64 MiB reserve')
+        self.coordinator.audit_space(inventory, stage='source-capture',
+            operation_id=self.coordinator.last_operation()['operationId'] if (self.coordinator.base/'operation.json').exists() else None)
         return self.dataset('capture', root, generation, destination=str(payload))
 
     def validate(self, payload, generation):
@@ -786,6 +836,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base', type=Path, default=Path.home() / '.local/share/peak-bagger-mapping-source')
     parser.add_argument('--operation', type=require_uuid)
+    parser.add_argument('--lock-wait', type=float, default=5)
     parser.add_argument('--release-id', type=require_uuid, default=DEVELOPMENT_RELEASE_ID)
     parser.add_argument('--compatible-source-release', type=require_uuid, action='append', default=[])
     parser.add_argument('--compatible-controller-release', type=require_uuid, action='append', default=[])
@@ -794,6 +845,11 @@ def main():
     sub.add_parser('prepare')
     sub.add_parser('status')
     sub.add_parser('reconcile')
+    for name in ('acknowledge', 'cleanup'):
+        command = sub.add_parser(name)
+        command.add_argument('--protected-export', type=require_uuid, action='append', default=[])
+    space = sub.add_parser('space', help='audit a completed integrity inventory supplied on stdin')
+    space.add_argument('--stage', choices=['provision', 'refresh'], default='refresh')
     sub.add_parser('install-external-guard')
     enable = sub.add_parser('enable')
     enable.add_argument('--confirm-publisher-register', type=int, required=True, choices=[1])
@@ -804,7 +860,7 @@ def main():
     args = parser.parse_args()
     base = args.base.resolve()
     check_layout(base, [Path(__file__).resolve().parents[1]])
-    coordinator = Coordinator(base, release_id=args.release_id,
+    coordinator = Coordinator(base, lock_wait=args.lock_wait, release_id=args.release_id,
         compatible_releases=args.compatible_source_release, compatible_controllers=args.compatible_controller_release)
     if args.worker:
         coordinator._fds.append(int(os.environ['MAPPING_DISPATCH_FD']))
@@ -821,6 +877,7 @@ def main():
             coordinator._save_operation(operation)
             raise
     if args.command == 'status':
+        from mapping_retention import policy_status
         path = base / 'operations' / (args.operation + '.json') if args.operation else base / 'operation.json'
         state = read_json(path) if path.exists() else None
         alive = False
@@ -831,7 +888,8 @@ def main():
         except SourceError:
             alive = True
         print(json.dumps(dict(operation=state, supervisorOrChildOwnsPipeline=alive,
-            publication=coordinator.publication(), preparedExports=sorted(p.name for p in (base/'prepared').glob('*')))))
+            publication=coordinator.publication(), preparedExports=sorted(p.name for p in (base/'prepared').glob('*')),
+            lastPolicyReports=policy_status(base))))
         return
     if args.command == 'reconcile':
         if not args.operation:
@@ -843,6 +901,16 @@ def main():
                 operation.update(state='failed', progressAtUtc=utc())
                 coordinator._save_operation(operation)
             print(json.dumps(operation))
+        return
+    if args.command == 'acknowledge':
+        print(json.dumps(coordinator.acknowledge(decode_json(sys.stdin.read()), protected_export_ids=set(args.protected_export))))
+        return
+    if args.command == 'cleanup':
+        print(json.dumps(coordinator.cleanup(protected_export_ids=set(args.protected_export))))
+        return
+    if args.command == 'space':
+        with coordinator.publication_lock('dispatch'), coordinator.publication_lock('prepare'):
+            print(json.dumps(coordinator.audit_space(decode_json(sys.stdin.read()), stage=args.stage, operation_id=args.operation)))
         return
     check_mini()
     if args.command == 'install-external-guard':

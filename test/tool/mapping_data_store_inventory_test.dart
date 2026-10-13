@@ -7,6 +7,7 @@ void main() {
   const nonDart = {
     'tool/mapping_source.py': 'resolver-validated',
     'tool/mapping_replica.py': 'resolver-validated',
+    'tool/mapping_retention.py': 'resolver-validated',
     'tool/convert_osm_boundary_to_poly.sh': 'store-isolated',
     'tool/publish_thelist_dem.sh': 'resolver-validated',
     'elvis_dem.sh': 'store-isolated',
@@ -241,6 +242,31 @@ void main() {
             'Freeze the incoming-read/independent-copy, local locks/logs, validator and generation-rename sites.',
       );
       expect(RegExp(r'\.mkdir\(').allMatches(replica), hasLength(5));
+    },
+  );
+
+  test(
+    'controller retention helper has only scoped non-store destructive sites',
+    () {
+      final helper = File('tool/mapping_retention.py').readAsStringSync();
+      expect(helper, isNot(contains('CANONICAL_ROOT')));
+      expect(helper, isNot(contains('subprocess.')));
+      expect(helper, isNot(contains('os.open(')));
+      expect(helper, contains("controller.lock('selection-retention')"));
+      expect(
+        helper,
+        contains("controller.lock('session-' + path.stem, wait=0)"),
+      );
+      expect(helper, contains('remove_tree(controller.local_path(path))'));
+      expect(helper, contains('coordinator.publication_lock(\'dispatch\')'));
+      expect(helper, contains("children(base/'prepared')"));
+      expect(helper, contains("children(base/'captures')"));
+      expect(helper, contains('reject_links(path)'));
+      expect(helper, contains('mode.st_nlink != 1'));
+      expect(RegExp(r'os\.walk\(').allMatches(helper), hasLength(3));
+      expect(RegExp(r'\.chmod\(').allMatches(helper), hasLength(1));
+      expect(RegExp(r'shutil\.rmtree\(').allMatches(helper), hasLength(1));
+      expect(RegExp(r'\.unlink\(').allMatches(helper), hasLength(3));
     },
   );
 
