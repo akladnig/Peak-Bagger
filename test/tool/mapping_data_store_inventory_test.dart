@@ -72,6 +72,52 @@ void main() {
   });
 
   test(
+    'app runtime metadata ownership has fixed sites and zero dataset-write authority',
+    () {
+      const owners = {
+        'lib/services/mapping_runtime_io.dart': 8,
+        'lib/services/mapping_runtime_config.dart': 0,
+        'lib/services/mapping_replica_records.dart': 0,
+        'lib/services/mapping_runtime_selection.dart': 0,
+        'lib/services/mapping_runtime_startup.dart': 0,
+        'lib/services/mapping_session_protection.dart': 0,
+      };
+      final inventory = File('docs/mapping-data-store.md').readAsStringSync();
+      for (final entry in owners.entries) {
+        final source = File(entry.key).readAsStringSync();
+        expect(inventory, contains('<!-- inventory:${entry.key} -->'));
+        expect(
+          directIo.allMatches(source),
+          hasLength(entry.value),
+          reason: entry.key,
+        );
+        expect(source, isNot(contains('Process.')), reason: entry.key);
+      }
+      final io = File(
+        'lib/services/mapping_runtime_io.dart',
+      ).readAsStringSync();
+      expect(io, contains("relative != 'selection.json'"));
+      expect(io, contains("relative != 'selection-transaction.json'"));
+      expect(io, contains('sessions|app-failures'));
+      expect(io, contains('O_NOFOLLOW | O_CLOEXEC'));
+      expect(io, contains('MNT_NOWAIT'));
+      expect(io, contains('sync(p.dirname(path))'));
+      final selector = File(
+        'lib/services/mapping_runtime_selection.dart',
+      ).readAsStringSync();
+      expect(selector, contains('selection-retention.lock'));
+      expect(
+        selector,
+        contains('catalog.authorizedPaths.containsAll(generation.paths)'),
+      );
+      expect(selector, isNot(contains('incoming')));
+      final main = File('lib/main.dart').readAsStringSync();
+      expect(main, contains('prepareCatalog: mappingRuntime.launch'));
+      expect(main, isNot(contains('mappingDataStore: MappingDataStore()')));
+    },
+  );
+
+  test(
     'Mapping-aware runtime I/O is restricted to resolver and named non-store adapters',
     () {
       const resolverOwners = {

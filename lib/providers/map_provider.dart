@@ -1425,9 +1425,11 @@ typedef _PersistedPeakListSelectionState = ({
 });
 
 final routeElevationSamplerProvider = Provider<RouteElevationSampler>((ref) {
-  return RegionAwareRouteElevationSampler(
+  final sampler = RegionAwareRouteElevationSampler(
     catalog: ref.watch(mappingCatalogProvider),
   );
+  ref.onDispose(() => unawaited(sampler.dispose()));
+  return sampler;
 });
 
 final routeDraftElevationMappingFailureProvider =

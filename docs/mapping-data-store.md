@@ -33,6 +33,12 @@ Mapping writes are permitted.
 | Entrypoint | Mapping inputs and non-store ownership |
 | --- | --- |
 | `lib/main.dart` <!-- inventory:lib/main.dart --> | Startup manifest pair, immutable catalog, ready-only user ObjectBox and tile cache. |
+| `lib/services/mapping_runtime_startup.dart` <!-- inventory:lib/services/mapping_runtime_startup.dart --> | Application Support configuration before local readiness; session catalog handoff before ObjectBox. No transport/controller invocation. |
+| `lib/services/mapping_runtime_config.dart` <!-- inventory:lib/services/mapping_runtime_config.dart --> | Strict machine-local replica/canonical configuration, local-mount and source-sync containment checks. No dataset content I/O. |
+| `lib/services/mapping_replica_records.dart` <!-- inventory:lib/services/mapping_replica_records.dart --> | Small version-1 inventory/completion/report/eligibility/outcome identity checks. No launch-time payload hashing or Mapping writes. |
+| `lib/services/mapping_runtime_selection.dart` <!-- inventory:lib/services/mapping_runtime_selection.dart --> | Coordinated atomic selection, old/new transaction recovery and process-lifetime session pinning; dataset readiness delegates to the production store. |
+| `lib/services/mapping_runtime_io.dart` <!-- inventory:lib/services/mapping_runtime_io.dart --> | Narrow local metadata/mount/immutability/OS-lock adapter, eight frozen direct-I/O sites. Writes only selection/transaction/session/failure metadata and temporary siblings; no payload writes. Darwin `flock`, `MNT_NOWAIT`, `fsync`/`F_FULLFSYNC` are not dataset capabilities. |
+| `lib/services/mapping_session_protection.dart` <!-- inventory:lib/services/mapping_session_protection.dart --> | Session/native-owner reference lifetime only. Releases the process lock after session close and final native resource closure. No I/O. |
 | `lib/services/peak_region_asset_import_service.dart` <!-- inventory:lib/services/peak_region_asset_import_service.dart --> | Regional `peaks` references; peaks and fingerprint records are user ObjectBox data. |
 | `lib/services/route_graph_coverage_resolver.dart` <!-- inventory:lib/services/route_graph_coverage_resolver.dart --> | Coverage-qualified `highways` references; route-graph rows are user ObjectBox data. |
 | `lib/services/polygon_asset_repository.dart` <!-- inventory:lib/services/polygon_asset_repository.dart --> | Lazy display reads from `Polygons/manifest.json`; parsed geometry is cache. |
@@ -280,15 +286,16 @@ are tested without the mounted store or live services.
 
 ## Two-Mac runtime access and offline planning
 
-The implemented runtime still uses the fixed root; the mini reads its attached
-Services volume and the MacBook currently mounts Services over SMB.
-Spec 0063 approves a downstream local runtime replica. Its [audit and contracts](mapping-runtime-replica-contracts.md)
-define the implementation gates; Item 01 does not provision or select that replica.
-See [SMB setup, runtime checks and the measured 25-file offline planning
-inventory](two-mac-mapping-runtime.md) for current evidence, pending environmental
-checks, byte-count validation and remeasurement guidance. Independent offline
-runtime delivery remains pending; source editing/builds do not bypass the
-Mapping startup contract.
+The app now reads [machine-local configuration and immutable runtime selection](mapping-runtime-startup.md)
+before readiness: replica mode defaults to Application Support; explicit canonical
+mode requires the mini's attached local Mapping filesystem. MacBook SMB runtime
+is rejected. Maintainer tools retain canonical authority independently of this
+configuration. Spec 0063's [audit/contracts](mapping-runtime-replica-contracts.md)
+and [capture pipeline](mapping-replica-capture.md) define generation eligibility;
+automated installation/controller and live commissioning remain later slices.
+The [2026-10-10 SMB commissioning record](two-mac-mapping-runtime.md) preserves
+historical measurements, not current app-runtime instructions. Source editing,
+ObjectBox and geometry caches never bypass Mapping startup readiness.
 
 ## Coordinated canonical publication
 

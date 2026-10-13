@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'mapping_session_protection.dart';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -317,6 +318,7 @@ class MappingCatalog {
     required Map<String, String> demSources,
     required Map<String, List<String>> routingCoverageRegionKeys,
     Iterable<String> polygonDisplayPaths = const [],
+    this.sessionProtection,
   }) : regions = List.unmodifiable(regions),
        polygonDisplayPaths = Set.unmodifiable(polygonDisplayPaths),
        basemaps = List.unmodifiable(basemaps),
@@ -329,6 +331,21 @@ class MappingCatalog {
        _basemapsByKey = {for (final basemap in basemaps) basemap.key: basemap};
 
   final String rootPath;
+
+  final MappingSessionProtection? sessionProtection;
+
+  MappingCatalog withSessionProtection(MappingSessionProtection protection) =>
+      MappingCatalog(
+        rootPath: rootPath,
+        regions: regions,
+        basemaps: basemaps,
+        tasmapCatalogPath: tasmapCatalogPath,
+        naturalFeaturesCatalogPath: naturalFeaturesCatalogPath,
+        demSources: demSources,
+        routingCoverageRegionKeys: routingCoverageRegionKeys,
+        polygonDisplayPaths: polygonDisplayPaths,
+        sessionProtection: protection,
+      );
 
   /// Structurally validated entries from Polygons/manifest.json. Optional
   /// entries have not been resolved, opened, or parsed during startup.

@@ -13,7 +13,8 @@ publisher register is complete, with no additional publisher workflows.
 Eligibility implementation may consume this reviewed contract. Automatic export
 must still wait for Item 03 to guard every registered publisher.
 The audit tool does not provision, export, publish eligibility, or change runtime
-root selection. The shipped app currently still uses the fixed Mapping root.
+root selection. The shipped app now selects a machine-local replica or explicitly
+attached canonical root through [Item 05 startup](mapping-runtime-startup.md).
 
 ## Reproducible read-only inventory
 
@@ -318,7 +319,7 @@ This is a reviewed protocol version, not a claim of installed readers today.
 | Source preparer | Controller | App reader | Permitted records/profile |
 | --- | --- | --- | --- |
 | `source-preparer-v1` | `controller-v1` | `app-reader-v1` | All above schemas 1, `mapping-runtime-v1`; required runtime manifest schema unchanged |
-| Existing fixed-root app | Any proposed replica release | Existing reader | Does not consume replica selection/eligibility; replica mode not delivered yet |
+| Historical fixed-root app | Any replica release | Existing reader | Does not consume selection/eligibility; use the Item 05 reader for replica mode |
 | Unknown/unsupported major or profile | Any | Any | Reject before publication, activation, destructive cleanup or release selection; keep retained readable generations |
 
 Release manifest includes `releaseId`, role, complete executable/helper artifacts

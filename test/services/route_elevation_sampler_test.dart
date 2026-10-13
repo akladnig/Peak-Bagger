@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:peak_bagger/services/mapping_session_protection.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
@@ -6,6 +8,31 @@ import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import '../harness/route_elevation_fixture.dart';
 
 void main() {
+  test(
+    'pending native open keeps generation protected until sampler disposal closes it',
+    () async {
+      var lockReleased = false;
+      final protection = MappingSessionProtection(() => lockReleased = true);
+      final catalog = elevationMappingCatalog.withSessionProtection(protection);
+      final opener = _PendingDisposableOpener();
+      final sampler = RegionAwareRouteElevationSampler(
+        catalog: catalog,
+        fileSystem: FakeDemFileSystem(),
+        datasetOpener: opener,
+      );
+      final sampling = sampler.samplePointElevations(elevationRoutePoints);
+      await Future<void>.delayed(Duration.zero);
+      protection.close();
+      expect(lockReleased, isFalse);
+      final disposal = sampler.dispose();
+      final dataset = _DisposableDataset();
+      opener.pending.complete(dataset);
+      await sampling.catchError((_) => <double?>[]);
+      await disposal;
+      expect(dataset.closed, isTrue);
+      expect(lockReleased, isTrue);
+    },
+  );
   test('resolver selects only the catalog ELVIS reference for Tasmania', () {
     final resolver = RouteElevationDemResolver(
       catalog: elevationMappingCatalog,
@@ -332,6 +359,24 @@ void main() {
       },
     );
   }
+}
+
+class _PendingDisposableOpener implements DemDatasetOpener {
+  final pending = Completer<DemDataset>();
+  @override
+  Future<DemDataset> open(String path) => pending.future;
+}
+
+class _DisposableDataset implements DisposableDemDataset {
+  bool closed = false;
+  @override
+  double? sampleElevation(LatLng point) {
+    if (closed) throw StateError('Closed');
+    return 100;
+  }
+
+  @override
+  void close() => closed = true;
 }
 
 final _mappingFailure = isA<MappingStoreOperationException>().having(

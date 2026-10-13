@@ -25,6 +25,7 @@ import 'package:peak_bagger/services/route_graph_coverage_resolver.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/mapping_runtime_startup.dart';
 import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -70,16 +71,20 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   unawaited(initializeNativePerformanceClock());
   _logStartup('Widgets binding initialized');
+  final mappingRuntime = MappingRuntimeLauncher();
 
   runApp(
     StartupShell(
       coordinator: MappingStoreStartupCoordinator(
         isMacOS: Platform.isMacOS,
-        mappingDataStore: MappingDataStore(),
+        prepareCatalog: mappingRuntime.launch,
         initialize: _initializeReadyDependencies,
       ),
       readyBuilder: (catalog) => _readyAppBuilder(catalog),
-      onQuit: () => exit(0),
+      onQuit: () {
+        mappingRuntime.close();
+        exit(0);
+      },
     ),
   );
 }
@@ -124,7 +129,9 @@ Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
           ...capturePerformanceWorkload(initializedStore, themePreferences),
         });
       } catch (error) {
-        performanceMeasurement.event('workload.summary-failed', {'error': '$error'});
+        performanceMeasurement.event('workload.summary-failed', {
+          'error': '$error',
+        });
       }
     }
 

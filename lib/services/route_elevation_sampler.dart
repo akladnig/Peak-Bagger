@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -9,6 +11,7 @@ import 'package:peak_bagger/services/geo.dart';
 import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'performance_measurement.dart';
+import 'mapping_session_protection.dart';
 
 const _distance = Distance();
 
@@ -119,6 +122,10 @@ abstract interface class DemDataset {
   double? sampleElevation(LatLng point);
 }
 
+abstract interface class DisposableDemDataset implements DemDataset {
+  void close();
+}
+
 abstract interface class DemDatasetOpener {
   Future<DemDataset> open(String datasetPath);
 }
@@ -219,6 +226,7 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
   }) : _demResolver =
            demResolver ?? RouteElevationDemResolver(catalog: catalog),
        _datasetOpener = datasetOpener ?? const GdalDemDatasetOpener(),
+       _sessionProtection = catalog.sessionProtection,
        _fileAccess = MappingStoreOperationFileAccess(
          catalog: catalog,
          fileSystem: fileSystem ?? const IoMappingStoreFileSystem(),
@@ -228,8 +236,44 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
   final DemDatasetOpener _datasetOpener;
   final MappingStoreOperationFileAccess _fileAccess;
   final double _sampleSpacingMetres;
+  final MappingSessionProtection? _sessionProtection;
+  bool _disposed = false;
 
   final Map<String, Future<DemDataset>> _datasetFutures = {};
+
+  Future<void> dispose() async {
+    _disposed = true;
+    await _closeCachedDatasets();
+  }
+
+  Future<void> _closeCachedDatasets() async {
+    final pending = _datasetFutures.values.toList();
+    _datasetFutures.clear();
+    for (final future in pending) {
+      try {
+        final dataset = await future;
+        if (dataset is DisposableDemDataset) dataset.close();
+      } catch (error, stack) {
+        developer.log(
+          'Mapping DEM cache release failed',
+          error: error,
+          stackTrace: stack,
+        );
+      }
+    }
+  }
+
+  Future<DemDataset> _openOwnedDataset(String path) async {
+    if (_disposed) throw StateError('Mapping DEM sampler is disposed');
+    final release = _sessionProtection?.retainNative();
+    try {
+      final dataset = await _datasetOpener.open(path);
+      return _OwnedDemDataset(dataset, release);
+    } catch (_) {
+      release?.call();
+      rethrow;
+    }
+  }
 
   @override
   Future<RouteElevationSummary> sampleRoute({
@@ -308,7 +352,7 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
       }
       return elevation;
     } on Object catch (error) {
-      _datasetFutures.clear();
+      unawaited(_closeCachedDatasets());
       throw MappingStoreOperationException(
         paths: [resolution.relativePath!],
         cause: error,
@@ -330,7 +374,7 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
             canonicalPath,
             () => performanceMeasurement.phase(
               'route.dem-first-open',
-              () => _datasetOpener.open(canonicalPath),
+              () => _openOwnedDataset(canonicalPath),
               {'dataset_path': canonicalPath},
             ),
           ),
@@ -338,7 +382,7 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
         {'dem_relative_path': relativePath},
       );
     } on Object catch (error) {
-      _datasetFutures.clear();
+      unawaited(_closeCachedDatasets());
       if (error is RouteElevationSamplingException ||
           error is MappingStoreOperationException) {
         rethrow;
@@ -423,7 +467,27 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
   }
 }
 
-class GdalDemDataset implements DemDataset {
+class _OwnedDemDataset implements DisposableDemDataset {
+  _OwnedDemDataset(this.dataset, this.release);
+  final DemDataset dataset;
+  final void Function()? release;
+  bool _closed = false;
+  @override
+  double? sampleElevation(LatLng point) {
+    if (_closed) throw StateError('Mapping DEM dataset is closed');
+    return dataset.sampleElevation(point);
+  }
+
+  @override
+  void close() {
+    if (_closed) return;
+    if (dataset case final DisposableDemDataset owned) owned.close();
+    _closed = true;
+    release?.call();
+  }
+}
+
+class GdalDemDataset implements DisposableDemDataset {
   GdalDemDataset._(
     this._source,
     this._wgs84,
@@ -438,22 +502,34 @@ class GdalDemDataset implements DemDataset {
 
   factory GdalDemDataset.open(String datasetPath, {required Gdal gdal}) {
     _configureGdalDataPaths(gdal);
+    gdal.setConfigOption('GDAL_PAM_ENABLED', 'NO');
+    gdal.setConfigOption('GDAL_DISABLE_READDIR_ON_OPEN', 'EMPTY_DIR');
     final source = gdal.openGeoTiffSource(datasetPath);
-    final wgs84 = gdal.spatialReferenceFromEpsg(4326);
-    final datasetSrs = source.dataset.spatialReference;
-    final toDataset = gdal.coordinateTransform(wgs84, datasetSrs);
-
-    return GdalDemDataset._(
-      source,
-      wgs84,
-      datasetSrs,
-      toDataset,
-      source.band(1),
-      source.geoTransform,
-      source.width,
-      source.height,
-      source.noDataValue,
-    );
+    SpatialReference? wgs84;
+    SpatialReference? datasetSrs;
+    CoordinateTransform? toDataset;
+    try {
+      wgs84 = gdal.spatialReferenceFromEpsg(4326);
+      datasetSrs = source.dataset.spatialReference;
+      toDataset = gdal.coordinateTransform(wgs84, datasetSrs);
+      return GdalDemDataset._(
+        source,
+        wgs84,
+        datasetSrs,
+        toDataset,
+        source.band(1),
+        source.geoTransform,
+        source.width,
+        source.height,
+        source.noDataValue,
+      );
+    } catch (_) {
+      toDataset?.close();
+      datasetSrs?.close();
+      wgs84?.close();
+      source.close();
+      rethrow;
+    }
   }
 
   static String? resolveGdalLibraryPath() {
@@ -527,9 +603,21 @@ class GdalDemDataset implements DemDataset {
   final int _width;
   final int _height;
   final double? _noDataValue;
+  bool _closed = false;
+
+  @override
+  void close() {
+    if (_closed) return;
+    _toDataset.close();
+    _datasetSrs.close();
+    _wgs84.close();
+    _source.close();
+    _closed = true;
+  }
 
   @override
   double? sampleElevation(LatLng point) {
+    if (_closed) throw StateError('GDAL dataset is closed');
     final (x, y) = _toDataset.transformPoint(point.longitude, point.latitude);
     final pixelLocation = _toPixel(x, y);
     final pixelX = pixelLocation.$1.round();

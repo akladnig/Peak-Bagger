@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:gdal_dart/gdal_dart.dart';
 import 'package:path/path.dart' as p;
+import 'package:peak_bagger/services/mapping_replica_records.dart';
 
 import '../../tool/mapping_source_dataset.dart';
 import '../harness/mapping_catalog_fixture.dart';
@@ -97,6 +98,9 @@ print(json.dumps(controller.eligible(generation)))
       final eligibility = jsonDecode(result.stdout as String) as Map;
       expect(eligibility['inventorySha256'], inventorySha);
       final captured = p.join(base, 'generations', generation);
+      final readable = await MappingReplicaRecords(base).eligible(generation);
+      expect(readable.rootPath, p.join(captured, 'payload'));
+      expect(readable.inventorySha256, inventorySha);
       final report =
           jsonDecode(
                 await File(p.join(captured, 'validation.json')).readAsString(),

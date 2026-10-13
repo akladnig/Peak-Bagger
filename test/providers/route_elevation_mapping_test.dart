@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,12 +14,79 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/services/mapping_runtime_selection.dart';
+import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:peak_bagger/widgets/map_route_bottom_sheet.dart';
 
 import '../harness/route_elevation_fixture.dart';
 import '../harness/test_tasmap_repository.dart';
+import '../harness/mapping_runtime_fixture.dart';
 
 void main() {
+  test(
+    'late provider DEM opens and peak updates retain the session generation after another launch selects an update',
+    () async {
+      final fixture = await MappingRuntimeFixture.create();
+      addTearDown(fixture.dispose);
+      await fixture.generation(runtimeGenerationA);
+      final first = await MappingRuntimeSelector(fixture.base).launch();
+      addTearDown(first.close);
+      final opener = FakeDemDatasetOpener(LookupDemDataset((_) => 123));
+      final fs = FakeDemFileSystem();
+      final sampler = RegionAwareRouteElevationSampler(
+        catalog: first.catalog,
+        demResolver: RouteElevationDemResolver(
+          catalog: first.catalog,
+          regionKeyForPoint: (_) => 'tasmania',
+        ),
+        fileSystem: fs,
+        datasetOpener: opener,
+      );
+      addTearDown(sampler.dispose);
+      final container = await _container(sampler, catalog: first.catalog);
+      addTearDown(container.dispose);
+      expect(opener.openedPaths, isEmpty);
+      await fixture.generation(
+        runtimeGenerationB,
+        time: '2026-10-13T01:00:00Z',
+      );
+      final second = await MappingRuntimeSelector(fixture.base).launch();
+      addTearDown(second.close);
+      expect(second.catalog.rootPath, contains(runtimeGenerationB));
+      // Different source bytes in B cannot redirect A's later import/read.
+      final changed = File(
+        '${second.catalog.rootPath}/Peaks/tasmania-peaks.json',
+      );
+      await Process.run('chmod', ['u+w', changed.path]);
+      await changed.writeAsString('broken new-generation source');
+      await Process.run('chmod', ['u-w', changed.path]);
+      _startRoute(container.read(mapProvider.notifier));
+      await _settle();
+      expect(container.read(mapProvider).routeDraftPointElevations, [123, 123]);
+      expect(opener.openedPaths, [
+        '${first.catalog.rootPath}/$elvisRuntimePath',
+      ]);
+      expect(
+        fs.checkedPaths.every(
+          (path) => path.startsWith(first.catalog.rootPath),
+        ),
+        isTrue,
+      );
+      final repository = PeakRepository.test(
+        InMemoryPeakStorage(),
+        catalog: first.catalog,
+      );
+      final imported = await PeakRegionAssetImportService(
+        catalog: container.read(mappingCatalogProvider),
+      ).updateRegion(peakRepository: repository, regionKey: 'tasmania');
+      expect(imported.importedPeakCount, 0);
+      expect(imported.importedRegions, ['tasmania']);
+      expect(
+        container.read(mappingCatalogProvider).rootPath,
+        first.catalog.rootPath,
+      );
+    },
+  );
   test(
     'default sampler requires the ready-scope catalog but opens no DEM at construction',
     () {
@@ -256,9 +325,13 @@ RegionAwareRouteElevationSampler _sampler(
   datasetOpener: opener,
 );
 
-Future<ProviderContainer> _container(RouteElevationSampler sampler) async {
+Future<ProviderContainer> _container(
+  RouteElevationSampler sampler, {
+  MappingCatalog? catalog,
+}) async {
+  final readyCatalog = catalog ?? elevationMappingCatalog;
   final notifier = MapNotifier(
-    mappingCatalog: elevationMappingCatalog,
+    mappingCatalog: readyCatalog,
     peakRepository: PeakRepository.test(InMemoryPeakStorage()),
     tasmapRepository: await TestTasmapRepository.create(),
     gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
@@ -274,7 +347,7 @@ Future<ProviderContainer> _container(RouteElevationSampler sampler) async {
   );
   final container = ProviderContainer(
     overrides: [
-      mappingCatalogProvider.overrideWithValue(elevationMappingCatalog),
+      mappingCatalogProvider.overrideWithValue(readyCatalog),
       mapProvider.overrideWith(() => notifier),
     ],
   );

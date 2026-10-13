@@ -2,11 +2,12 @@
 
 > Historical SMB commissioning record (2026-10-10). Spec 0063 supersedes the
 > SMB-only design and prohibition on a dedicated runtime-data session. The
-> current code still uses SMB until replica delivery is implemented. See
-> [the replica inventory and contract gate](mapping-runtime-replica-contracts.md)
-> for fresh audit evidence and the approved design's remaining implementation gates.
+> current app defaults to a local runtime replica and rejects SMB runtime access.
+> See [machine-local configuration/startup](mapping-runtime-startup.md) and
+> [replica inventory/contracts](mapping-runtime-replica-contracts.md) for
+> current behavior, fresh audit evidence and remaining commissioning gates.
 
-Peak Bagger requires the **Mapping data store** at exactly
+The **historical setup below** required the **Mapping data store** at exactly
 `/Volumes/Services/Mapping` on both Macs. The mini uses its directly attached
 Services volume; the MacBook mounts the mini's **Services** share over SMB.
 Current offline support covers source editing and locally provisioned builds.
