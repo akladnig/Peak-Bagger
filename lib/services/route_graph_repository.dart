@@ -74,14 +74,17 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
     if (routingCoverageKey.isEmpty) return const [];
     final manifest = manifestForCoverage(routingCoverageKey);
     if (manifest?.hasActiveGeneration != true) return const [];
-    return _chunkBox
-        .getAll()
-        .where(
-          (row) =>
-              row.routingCoverageKey == routingCoverageKey &&
-              row.generation == manifest!.activeGeneration,
+    final query = _chunkBox
+        .query(
+          RouteGraphChunk_.routingCoverageKey.equals(routingCoverageKey) &
+              RouteGraphChunk_.generation.equals(manifest!.activeGeneration),
         )
-        .toList(growable: false);
+        .build();
+    try {
+      return query.find();
+    } finally {
+      query.close();
+    }
   }
 
   @override
@@ -89,14 +92,17 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
     if (routingCoverageKey.isEmpty) return const [];
     final manifest = manifestForCoverage(routingCoverageKey);
     if (manifest?.hasActiveGeneration != true) return const [];
-    return _wayIndexBox
-        .getAll()
-        .where(
-          (row) =>
-              row.routingCoverageKey == routingCoverageKey &&
-              row.generation == manifest!.activeGeneration,
+    final query = _wayIndexBox
+        .query(
+          RouteGraphWayIndex_.routingCoverageKey.equals(routingCoverageKey) &
+              RouteGraphWayIndex_.generation.equals(manifest!.activeGeneration),
         )
-        .toList(growable: false);
+        .build();
+    try {
+      return query.find();
+    } finally {
+      query.close();
+    }
   }
 
   @override
@@ -106,14 +112,21 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
     if (routingCoverageKey.isEmpty) return const [];
     final manifest = manifestForCoverage(routingCoverageKey);
     if (manifest?.hasActiveGeneration != true) return const [];
-    return _trailDisplayChunkBox
-        .getAll()
-        .where(
-          (row) =>
-              row.routingCoverageKey == routingCoverageKey &&
-              row.generation == manifest!.activeGeneration,
+    final query = _trailDisplayChunkBox
+        .query(
+          RouteGraphTrailDisplayChunk_.routingCoverageKey.equals(
+                routingCoverageKey,
+              ) &
+              RouteGraphTrailDisplayChunk_.generation.equals(
+                manifest!.activeGeneration,
+              ),
         )
-        .toList(growable: false);
+        .build();
+    try {
+      return query.find();
+    } finally {
+      query.close();
+    }
   }
 
   @override
@@ -138,15 +151,17 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
   }
 
   @override
-  Future<void> ensureMultiCoverageMigration() async {
-    _store.runInTransaction(TxMode.write, () {
-      final metadata =
-          _metadataBox.get(RouteGraphImportMetadata.metadataId) ??
-          RouteGraphImportMetadata();
-      _removeLegacyRows();
-      metadata.multiCoverageMigrationComplete = true;
-      _metadataBox.put(metadata);
-    });
+  Future<void> ensureMultiCoverageMigration() =>
+      _store.runInTransactionAsync(TxMode.write, _migrateLegacyRows, null);
+
+  static void _migrateLegacyRows(Store store, void _) {
+    final storage = ObjectBoxRouteGraphStorage(store);
+    final metadata =
+        storage._metadataBox.get(RouteGraphImportMetadata.metadataId) ??
+        RouteGraphImportMetadata();
+    storage._removeLegacyRows();
+    metadata.multiCoverageMigrationComplete = true;
+    storage._metadataBox.put(metadata);
   }
 
   @override
@@ -200,34 +215,27 @@ class ObjectBoxRouteGraphStorage implements RouteGraphStorage {
   }
 
   void _removeLegacyRows() {
-    _manifestBox.removeMany(
+    final queries = [
       _manifestBox
-          .getAll()
-          .where((row) => row.routingCoverageKey.isEmpty)
-          .map((row) => row.id)
-          .toList(growable: false),
-    );
-    _chunkBox.removeMany(
-      _chunkBox
-          .getAll()
-          .where((row) => row.routingCoverageKey.isEmpty)
-          .map((row) => row.id)
-          .toList(growable: false),
-    );
-    _wayIndexBox.removeMany(
+          .query(RouteGraphManifest_.routingCoverageKey.equals(''))
+          .build(),
+      _chunkBox.query(RouteGraphChunk_.routingCoverageKey.equals('')).build(),
       _wayIndexBox
-          .getAll()
-          .where((row) => row.routingCoverageKey.isEmpty)
-          .map((row) => row.id)
-          .toList(growable: false),
-    );
-    _trailDisplayChunkBox.removeMany(
+          .query(RouteGraphWayIndex_.routingCoverageKey.equals(''))
+          .build(),
       _trailDisplayChunkBox
-          .getAll()
-          .where((row) => row.routingCoverageKey.isEmpty)
-          .map((row) => row.id)
-          .toList(growable: false),
-    );
+          .query(RouteGraphTrailDisplayChunk_.routingCoverageKey.equals(''))
+          .build(),
+    ];
+    try {
+      for (final query in queries) {
+        query.remove();
+      }
+    } finally {
+      for (final query in queries) {
+        query.close();
+      }
+    }
   }
 
   void _removeStaleGenerationRows(String coverage, int generation) {
@@ -671,6 +679,53 @@ class RouteGraphRepository implements RouteGraphImportStorage {
   RouteGraphManifest? manifestForCoverage(String routingCoverageKey) =>
       _storage.manifestForCoverage(routingCoverageKey);
   List<RouteGraphManifest> get manifests => _storage.manifests();
+
+  /// Full stored-graph validation without blocking dashboard frames. The worker
+  /// reads one coherent ObjectBox snapshot and closes its attached store before
+  /// returning; it transfers no graph payloads or native handles to the UI.
+  Future<bool> hasUsableActiveGenerationForAsync(String coverage) async {
+    final storage = _storage;
+    if (storage is ObjectBoxRouteGraphStorage) {
+      final before = _manifestReadinessIdentity(manifestForCoverage(coverage));
+      final usable = await storage._store.runInTransactionAsync(
+        TxMode.read,
+        _validateStoredCoverage,
+        coverage,
+      );
+      return usable &&
+          before == _manifestReadinessIdentity(manifestForCoverage(coverage));
+    }
+    return hasUsableActiveGenerationFor(coverage);
+  }
+
+  static String _manifestReadinessIdentity(RouteGraphManifest? manifest) =>
+      jsonEncode(
+        manifest == null
+            ? null
+            : [
+                manifest.id,
+                manifest.routingCoverageKey,
+                manifest.sourceHash,
+                manifest.schemaVersion,
+                manifest.activeGeneration,
+                manifest.importedAt?.millisecondsSinceEpoch,
+                manifest.chunkCount,
+                manifest.nodeCount,
+                manifest.edgeCount,
+                manifest.wayIndexCount,
+                manifest.trailDisplayChunkCount,
+                manifest.readinessState,
+                manifest.lastError,
+                manifest.sourceRegionKeysJson,
+                manifest.unavailableFootprintJson,
+              ],
+      );
+
+  static bool _validateStoredCoverage(Store store, String coverage) =>
+      RouteGraphRepository.objectBox(
+        store,
+      ).hasUsableActiveGenerationFor(coverage);
+
   bool hasUsableActiveGenerationFor(String coverage) {
     final manifest = manifestForCoverage(coverage);
     if (manifest?.hasActiveGeneration != true || coverage.isEmpty) {

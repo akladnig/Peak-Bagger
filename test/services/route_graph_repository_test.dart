@@ -13,6 +13,71 @@ import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 void main() {
   test(
+    'async readiness rejects a generation replaced while validation runs',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'graph-validation-version',
+      );
+      final store = await openStore(directory: directory.path);
+      addTearDown(() async {
+        store.close();
+        await directory.delete(recursive: true);
+      });
+      final repository = RouteGraphRepository.objectBox(store);
+      await repository.writePreparedGeneration(
+        _prepared(generation: 3, chunkKey: 'old'),
+        routingCoverageKey: 'tasmania',
+        pruneStaleGenerations: true,
+      );
+      final validation = repository.hasUsableActiveGenerationForAsync(
+        'tasmania',
+      );
+      await repository.writePreparedGeneration(
+        _prepared(generation: 4, chunkKey: 'new'),
+        routingCoverageKey: 'tasmania',
+        pruneStaleGenerations: true,
+      );
+      expect(await validation, isFalse);
+      expect(
+        await repository.hasUsableActiveGenerationForAsync('tasmania'),
+        isTrue,
+      );
+    },
+  );
+
+  test('async ObjectBox readiness validates current stored payloads', () async {
+    final directory = await Directory.systemTemp.createTemp('graph-readiness');
+    final store = await openStore(directory: directory.path);
+    addTearDown(() async {
+      store.close();
+      await directory.delete(recursive: true);
+    });
+    final repository = RouteGraphRepository.objectBox(store);
+    await repository.writePreparedGeneration(
+      _prepared(generation: 3, chunkKey: 'tas'),
+      routingCoverageKey: 'tasmania',
+      sourceRegionKeys: const ['tasmania'],
+      pruneStaleGenerations: true,
+    );
+
+    expect(
+      await repository.hasUsableActiveGenerationForAsync('tasmania'),
+      isTrue,
+    );
+    final row = store.box<RouteGraphChunk>().getAll().single;
+    row.payloadJson = '{"elements":[]}';
+    store.box<RouteGraphChunk>().put(row);
+    expect(
+      await repository.hasUsableActiveGenerationForAsync('tasmania'),
+      isFalse,
+    );
+    expect(
+      await repository.hasUsableActiveGenerationForAsync('missing'),
+      isFalse,
+    );
+  });
+
+  test(
     'writePreparedGeneration activates new generation and prunes stale chunks',
     () async {
       final storage = InMemoryRouteGraphStorage(
