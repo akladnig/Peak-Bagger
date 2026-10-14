@@ -25,6 +25,17 @@ external sources**. These classifications do not grant Mapping-store writes.
 The **Northeast Alps routing coverage** is FVG, Veneto and Slovenia, including
 the required `Highways/slovenia-highways.json` source.
 
+Spec 0063 keeps the mini authoritative and changes MacBook app access to a
+**Mapping runtime replica**: a manifest-derived immutable local generation,
+prepared/transferred/independently validated in the background and selected only
+at app launch. Machine-local configuration is separate from private defines.
+Canonical mode requires the mini's attached disk; MacBook SMB is not an app
+runtime fallback. All read entrypoints below receive the session's concrete
+catalog root, including late imports and lazy native elevation opens. See
+[current operating/commissioning evidence](mapping-runtime-commissioning.md) and
+[configuration/activation](mapping-runtime-startup.md). The three source sessions,
+mini-only canonical publication and personal-data locality remain intact.
+
 ## Runtime entrypoints
 
 All Mapping reads below receive validated catalog references; no runtime

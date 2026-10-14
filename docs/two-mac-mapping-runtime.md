@@ -1,4 +1,4 @@
-# Two-Mac Mapping runtime: SMB access and offline planning
+# Two-Mac Mapping runtime: local replica and historical SMB evidence
 
 > Historical SMB commissioning record (2026-10-10). Spec 0063 supersedes the
 > SMB-only design and prohibition on a dedicated runtime-data session. The
@@ -8,6 +8,26 @@
 > current behavior, fresh audit evidence and remaining commissioning gates.
 > [Installed automatic refresh](mapping-runtime-controller.md) now manages the
 > dedicated mini-export → MacBook-incoming session and 60-second user LaunchAgent.
+
+## Current operating contract — Spec 0063
+
+The mini owns canonical `/Volumes/Services/Mapping` on its attached disk and
+explicitly selects canonical mode in machine-local Application Support
+`mapping-runtime.json`. MacBook defaults to a local immutable Mapping runtime
+replica, selected before preflight/ObjectBox. It never waits for the mini/runner
+or falls back to SMB. The dedicated **`mapping-runtime-replica`** session is
+prepared mini export alpha → MacBook incoming beta, **`one-way-replica`**; capture,
+validation, eligibility/selection/session metadata and logs remain outside beta.
+All manifest-required files and DEMs remain required. Mapping edits remain mini-only.
+
+Use the [current commissioning record and operating index](mapping-runtime-commissioning.md)
+for actual machine identities, prerequisites, configuration, space, installed
+setup/recovery/upgrade commands, physical offline checks and remaining release
+gates. Runtime pause/resume is separate from the unchanged three source sessions
+and handover. Personal ObjectBox/GPX/settings stay machine-local; Local Topo and
+remote tile availability are separate from local Mapping-file readiness.
+
+## Historical SMB-only contract — 2026-10-10
 
 The **historical setup below** required the **Mapping data store** at exactly
 `/Volumes/Services/Mapping` on both Macs. The mini uses its directly attached

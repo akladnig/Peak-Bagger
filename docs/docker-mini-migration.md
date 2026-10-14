@@ -2,11 +2,12 @@
 
 This records the earlier staged Docker migration. For the selected two-Mac
 development arrangement, keep Development and Services attached to the mini:
-MacBook source uses its home-directory checkouts and Mapping runtime access uses
-the Services SMB share. The historical drive-return step below is superseded by
+MacBook source uses its home-directory checkouts and app Mapping reads use the
+validated local runtime replica. The historical drive-return step below is superseded by
 [the Mutagen operations guide](two-mac-mutagen-operations.md) and
-[the SMB runtime guide](two-mac-mapping-runtime.md). Live source commissioning
-remains pending; Docker data migration is separate from source synchronization.
+[the runtime guide](two-mac-mapping-runtime.md). Source commissioning completed
+on 2026-10-11; [runtime commissioning](mapping-runtime-commissioning.md) records
+its separate results/gates. Docker data migration is separate from source synchronization.
 
 ## Audited prerequisites (7 October 2026)
 

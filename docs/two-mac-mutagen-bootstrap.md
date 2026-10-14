@@ -13,6 +13,10 @@ guide](two-mac-mutagen-operations.md).
 Spec 0063's [automatic Mapping runtime replica](mapping-runtime-controller.md)
 adds a separate installed controller and `mapping-runtime-replica` session. It is
 not part of this three-source-session setup, ownership or readiness gate.
+The [runtime commissioning record](mapping-runtime-commissioning.md) records
+the installed fourth session and its independent login/recovery evidence; references
+below to exactly three sessions mean **source-workspace sessions**, not all Mutagen
+sessions on the MacBook.
 
 At the **2026-10-11 prerequisite checkpoint**, the mini Development volume and all
 three roots pass preflight, and both SSH directions are verified. Earlier missing

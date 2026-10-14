@@ -4,6 +4,10 @@ Spec 0063 Item 08 supplies the installed MacBook controller. Source preparation
 uses the mini's attached canonical store through its guarded publisher register.
 The app only reads a selected immutable local generation; it never starts this
 controller, contacts the mini, or waits for dataset freshness.
+Current both-host inspection, offline execution, source-pause/reconnect checks,
+performance rechecks and incomplete gates are in the
+[runtime commissioning record](mapping-runtime-commissioning.md). The Item 08
+checkpoint at the end of this page remains dated evidence.
 
 ## Prerequisites and setup
 

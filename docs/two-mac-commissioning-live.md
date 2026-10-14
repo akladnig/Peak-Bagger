@@ -1,5 +1,12 @@
 # Two-Mac live commissioning — 2026-10-11
 
+This dated evidence covers Spec 0062's source-workspace migration. Spec 0063
+supersedes only its SMB-only app runtime and dedicated-data-session prohibition;
+see [local runtime commissioning](mapping-runtime-commissioning.md) for current
+machine configuration, the fourth/runtime session and separate unfinished gates.
+The historical actual login below verified the source Mutagen daemon, not the
+later-installed runtime LaunchAgent.
+
 This is the latest execution evidence for [Work Item 05](../ai_specs/peak-lists/0062-macbook-mini-mutagen-development/work-items/05-commission-and-verify-two-mac-workspace.md),
 superseding the historical checks in the [commissioning record](two-mac-commissioning.md).
 **Completed:** migration, live synchronization, both-Mac tests/builds, fully

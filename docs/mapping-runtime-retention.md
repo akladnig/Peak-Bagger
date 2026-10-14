@@ -116,6 +116,15 @@ pinned for later imports/lazy reads. There is no new DEM worker in this item;
 future worker implementations must retain equivalent protection until dataset close
 and worker join, including workers that outlive UI ownership.
 
+**Current Item 10 implementation:** the Riverpod-owned serial lazy DEM isolate
+uses `WorkerRouteElevationSampler`. Its main-isolate native lease protects the
+concrete generation before creation through confirmed worker exit; admitted work
+drains before dataset/transform closure and exit acknowledgement. New work is
+rejected during disposal; unexpected exit fails pending requests. See
+[current worker ownership](mapping-route-performance.md#implementation-and-ownership)
+and [commissioning](mapping-runtime-commissioning.md). The preceding no-worker
+statement describes Item 06's historical implementation scope.
+
 ## Durable receipt and source cleanup
 
 1. `Replica.receipt(generation)` verifies the successful local publication witness,
