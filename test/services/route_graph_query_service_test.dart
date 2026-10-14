@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/route_graph_chunk.dart';
@@ -6,8 +8,110 @@ import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
+import 'package:peak_bagger/services/route_graph_errors.dart';
 
 void main() {
+  test(
+    'worker result rejects a changed manifest even with the same generation',
+    () async {
+      final storage = InMemoryRouteGraphStorage(
+        manifest: _manifest,
+        chunks: [_chunk('1|0_0', '0_0', -42, 146, -41, 147)],
+      );
+      final repository = _PendingSnapshotRepository(storage);
+      final service = RouteGraphQueryService(repository);
+      final planning = service.planSegmentInWorker(
+        routingCoverageKey: defaultRouteGraphCoverageKey,
+        start: const LatLng(-41.5, 146.5),
+        end: const LatLng(-41.6, 146.6),
+        maxSnapDistanceMeters: 100,
+      );
+      final failure = expectLater(
+        planning,
+        throwsA(isA<RouteGraphLoadException>()),
+      );
+      final original = repository.manifest!;
+      await storage.markFailure(
+        original.copyWith(sourceHash: 'superseded-source'),
+      );
+      repository.pending.complete(
+        storage.activeChunks(defaultRouteGraphCoverageKey),
+      );
+      await failure;
+    },
+  );
+
+  test(
+    'worker endpoint probe preserves exact on-track anchor semantics',
+    () async {
+      final service = RouteGraphQueryService(
+        RouteGraphRepository.test(
+          InMemoryRouteGraphStorage(
+            manifest: _manifest,
+            chunks: [_chunk('1|0_0', '0_0', -42, 146, -41, 147)],
+          ),
+        ),
+      );
+      const point = LatLng(-41.5, 146.5);
+      final baseline = await service.buildTripServiceForCoveragePoint(
+        routingCoverageKey: defaultRouteGraphCoverageKey,
+        point: point,
+      );
+      final expected = await baseline.probeEndpointAnchor(
+        point: point,
+        maxSnapDistanceMeters: 100,
+      );
+      final actual = await service.probeEndpointInWorker(
+        routingCoverageKey: defaultRouteGraphCoverageKey,
+        point: point,
+        maxSnapDistanceMeters: 100,
+      );
+      expect(actual.isOnTrack, expected.isOnTrack);
+      expect(actual.anchor?.type, expected.anchor?.type);
+      expect(actual.anchor?.point, expected.anchor?.point);
+      expect(actual.anchor?.nodeId, expected.anchor?.nodeId);
+    },
+  );
+
+  test(
+    'worker planning preserves snapped geometry and endpoint anchors',
+    () async {
+      final service = RouteGraphQueryService(
+        RouteGraphRepository.test(
+          InMemoryRouteGraphStorage(
+            manifest: _manifest,
+            chunks: [
+              _chunk('1|0_0', '0_0', -42, 146, -41, 147, payloadJson: _payload),
+            ],
+          ),
+        ),
+      );
+      const start = LatLng(-41.5, 146.5);
+      const end = LatLng(-41.6, 146.6);
+      final baseline = await service.buildTripServiceForCoverageRoute(
+        routingCoverageKey: defaultRouteGraphCoverageKey,
+        start: start,
+        end: end,
+      );
+      final expected = await baseline.findAnchoredSegment(
+        start: start,
+        end: end,
+        maxSnapDistanceMeters: 100,
+      );
+      final actual = await service.planSegmentInWorker(
+        routingCoverageKey: defaultRouteGraphCoverageKey,
+        start: start,
+        end: end,
+        maxSnapDistanceMeters: 100,
+      );
+      expect(actual.status, expected.status);
+      expect(actual.route, expected.route);
+      expect(actual.distance, expected.distance);
+      expect(actual.startAnchor?.point, expected.startAnchor?.point);
+      expect(actual.endAnchor?.point, expected.endAnchor?.point);
+    },
+  );
+
   test('queryChunksForRoute selects intersecting chunks only', () {
     final service = RouteGraphQueryService(
       RouteGraphRepository.test(
@@ -886,6 +990,19 @@ void main() {
       expect(rows.map((row) => row.chunkKey).toSet(), {'0_0', '0_1'});
     },
   );
+}
+
+class _PendingSnapshotRepository extends RouteGraphRepository {
+  _PendingSnapshotRepository(super.storage) : super.test();
+  final pending = Completer<List<RouteGraphChunk>>();
+  @override
+  Future<List<RouteGraphChunk>> chunksForBoundsAsync(
+    String coverage, {
+    required double minLat,
+    required double minLon,
+    required double maxLat,
+    required double maxLon,
+  }) => pending.future;
 }
 
 final _manifest = RouteGraphManifest(

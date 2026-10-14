@@ -3,6 +3,32 @@ import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/services/polygon_geometry.dart';
 
 void main() {
+  test(
+    'prepared immutable containment matches full checks including epsilon edges',
+    () {
+      final vertices = <LatLng>[
+        const LatLng(0, 0),
+        const LatLng(0, 2),
+        const LatLng(2, 2),
+        const LatLng(2, 0),
+        const LatLng(0, 0),
+      ];
+      final polygon = PreparedPolygon(vertices);
+      for (final point in const [
+        LatLng(1, 1),
+        LatLng(3, 3),
+        LatLng(0, 0),
+        LatLng(-0.0000000000001, 1),
+        LatLng(2, 1),
+      ]) {
+        expect(polygon.contains(point), polygonContainsPoint(point, vertices));
+      }
+      vertices.clear();
+      expect(polygon.contains(const LatLng(1, 1)), isTrue);
+      expect(() => PreparedPolygon(const [LatLng(0, 0)]), throwsArgumentError);
+    },
+  );
+
   test('returns true for a point inside a square and false outside', () {
     final square = const [
       LatLng(0, 0),

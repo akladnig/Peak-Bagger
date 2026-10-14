@@ -680,6 +680,115 @@ class RouteGraphRepository implements RouteGraphImportStorage {
       _storage.manifestForCoverage(routingCoverageKey);
   List<RouteGraphManifest> get manifests => _storage.manifests();
 
+  Future<List<RouteGraphChunk>> chunksForBoundsAsync(
+    String coverage, {
+    required double minLat,
+    required double minLon,
+    required double maxLat,
+    required double maxLon,
+  }) async {
+    if (!hasInteractiveActiveGenerationFor(coverage)) {
+      throw const RouteGraphLoadException(
+        'No validated route graph generation is active.',
+      );
+    }
+    final identity = _manifestReadinessIdentity(manifestForCoverage(coverage));
+    final storage = _storage;
+    final chunks = storage is ObjectBoxRouteGraphStorage
+        ? await storage._store
+              .runInTransactionAsync(TxMode.read, _readBoundedChunks, (
+                coverage: coverage,
+                identity: identity,
+                minLat: minLat,
+                minLon: minLon,
+                maxLat: maxLat,
+                maxLon: maxLon,
+              ))
+        : chunksForBounds(
+            coverage,
+            minLat: minLat,
+            minLon: minLon,
+            maxLat: maxLat,
+            maxLon: maxLon,
+          );
+    if (identity != _manifestReadinessIdentity(manifestForCoverage(coverage))) {
+      throw const RouteGraphLoadException(
+        'Route graph generation changed during planning. Retry the route.',
+      );
+    }
+    return chunks;
+  }
+
+  static List<RouteGraphChunk> _readBoundedChunks(
+    Store store,
+    ({
+      String coverage,
+      String identity,
+      double minLat,
+      double minLon,
+      double maxLat,
+      double maxLon,
+    })
+    request,
+  ) {
+    final repository = RouteGraphRepository.objectBox(store);
+    if (request.identity !=
+        _manifestReadinessIdentity(
+          repository.manifestForCoverage(request.coverage),
+        )) {
+      throw const RouteGraphLoadException(
+        'Route graph generation changed during planning. Retry the route.',
+      );
+    }
+    repository._validatedIdentities[request.coverage] = request.identity;
+    return repository.chunksForBounds(
+      request.coverage,
+      minLat: request.minLat,
+      minLon: request.minLon,
+      maxLat: request.maxLat,
+      maxLon: request.maxLon,
+    );
+  }
+
+  List<RouteGraphChunk> chunksForBounds(
+    String coverage, {
+    required double minLat,
+    required double minLon,
+    required double maxLat,
+    required double maxLon,
+  }) {
+    if (!hasInteractiveActiveGenerationFor(coverage)) return const [];
+    final storage = _storage;
+    if (storage is ObjectBoxRouteGraphStorage) {
+      final query = storage._chunkBox
+          .query(
+            RouteGraphChunk_.routingCoverageKey.equals(coverage) &
+                RouteGraphChunk_.generation.equals(
+                  activeGenerationFor(coverage),
+                ) &
+                RouteGraphChunk_.maxLat.greaterOrEqual(minLat) &
+                RouteGraphChunk_.minLat.lessOrEqual(maxLat) &
+                RouteGraphChunk_.maxLon.greaterOrEqual(minLon) &
+                RouteGraphChunk_.minLon.lessOrEqual(maxLon),
+          )
+          .build();
+      try {
+        return query.find();
+      } finally {
+        query.close();
+      }
+    }
+    return activeChunks(coverage)
+        .where(
+          (chunk) =>
+              chunk.maxLat >= minLat &&
+              chunk.minLat <= maxLat &&
+              chunk.maxLon >= minLon &&
+              chunk.minLon <= maxLon,
+        )
+        .toList(growable: false);
+  }
+
   /// Full stored-graph validation without blocking dashboard frames. The worker
   /// reads one coherent ObjectBox snapshot and closes its attached store before
   /// returning; it transfers no graph payloads or native handles to the UI.
@@ -692,11 +801,27 @@ class RouteGraphRepository implements RouteGraphImportStorage {
         _validateStoredCoverage,
         coverage,
       );
-      return usable &&
-          before == _manifestReadinessIdentity(manifestForCoverage(coverage));
+      final current = _manifestReadinessIdentity(manifestForCoverage(coverage));
+      final valid = usable && before == current;
+      if (valid) {
+        _validatedIdentities[coverage] = current;
+      } else {
+        _validatedIdentities.remove(coverage);
+      }
+      return valid;
     }
     return hasUsableActiveGenerationFor(coverage);
   }
+
+  final Map<String, String> _validatedIdentities = {};
+
+  /// A successful coherent worker validation, still bound to the exact manifest.
+  /// Interactive callers must not repeat full payload validation on the UI.
+  /// Imports/clear invalidate this receipt; explicit async validation always
+  /// rereads stored bytes, including for maintenance corruption checks.
+  bool hasValidatedActiveGenerationFor(String coverage) =>
+      _validatedIdentities[coverage] ==
+      _manifestReadinessIdentity(manifestForCoverage(coverage));
 
   static String _manifestReadinessIdentity(RouteGraphManifest? manifest) =>
       jsonEncode(
@@ -724,9 +849,25 @@ class RouteGraphRepository implements RouteGraphImportStorage {
   static bool _validateStoredCoverage(Store store, String coverage) =>
       RouteGraphRepository.objectBox(
         store,
-      ).hasUsableActiveGenerationFor(coverage);
+      )._validateActiveGenerationFor(coverage);
 
   bool hasUsableActiveGenerationFor(String coverage) {
+    if (hasValidatedActiveGenerationFor(coverage)) return true;
+    final usable = _validateActiveGenerationFor(coverage);
+    if (usable && _storage is ObjectBoxRouteGraphStorage) {
+      _validatedIdentities[coverage] = activeGenerationIdentityFor(coverage);
+    }
+    return usable;
+  }
+
+  bool hasInteractiveActiveGenerationFor(String coverage) {
+    if (_storage is ObjectBoxRouteGraphStorage) {
+      return hasValidatedActiveGenerationFor(coverage);
+    }
+    return _validateActiveGenerationFor(coverage);
+  }
+
+  bool _validateActiveGenerationFor(String coverage) {
     final manifest = manifestForCoverage(coverage);
     if (manifest?.hasActiveGeneration != true || coverage.isEmpty) {
       return false;
@@ -800,6 +941,8 @@ class RouteGraphRepository implements RouteGraphImportStorage {
       hasUsableActiveGenerationFor(defaultRouteGraphCoverageKey);
   int activeGenerationFor(String coverage) =>
       manifestForCoverage(coverage)?.activeGeneration ?? 0;
+  String activeGenerationIdentityFor(String coverage) =>
+      _manifestReadinessIdentity(manifestForCoverage(coverage));
   int get activeGeneration => activeGenerationFor(defaultRouteGraphCoverageKey);
 
   List<RouteGraphChunk> activeChunks([
@@ -990,15 +1133,17 @@ class RouteGraphRepository implements RouteGraphImportStorage {
 
   Future<void> clearAll() async {
     _caches.clear();
+    _validatedIdentities.clear();
     await _storage.clearAll();
   }
 
   _RouteGraphCoverageCache _cacheFor(String coverage) {
     final manifest = manifestForCoverage(coverage);
     final cache = _caches.putIfAbsent(coverage, _RouteGraphCoverageCache.new);
-    if (cache.generation != manifest?.activeGeneration) {
+    final identity = _manifestReadinessIdentity(manifest);
+    if (cache.identity != identity) {
       cache
-        ..generation = manifest?.activeGeneration
+        ..identity = identity
         ..chunks = null
         ..wayIndexRows = null
         ..trailDisplayChunks = null;
@@ -1008,7 +1153,10 @@ class RouteGraphRepository implements RouteGraphImportStorage {
     return cache;
   }
 
-  void _invalidateCache(String coverage) => _caches.remove(coverage);
+  void _invalidateCache(String coverage) {
+    _caches.remove(coverage);
+    _validatedIdentities.remove(coverage);
+  }
 
   RouteGraphPreparedGeneration _qualifyPreparedGeneration(
     RouteGraphPreparedGeneration prepared, {
@@ -1083,7 +1231,7 @@ class RouteGraphRepository implements RouteGraphImportStorage {
 class _RouteGraphCoverageCache {
   List<String>? countPayloads;
   ({int nodes, int ways})? counts;
-  int? generation;
+  String? identity;
   List<RouteGraphChunk>? chunks;
   List<RouteGraphWayIndex>? wayIndexRows;
   List<RouteGraphTrailDisplayChunk>? trailDisplayChunks;

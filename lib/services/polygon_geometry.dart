@@ -17,6 +17,42 @@ class PolygonTextParseResult {
 
 bool polygonContainsPoint(LatLng point, List<LatLng> vertices) {
   final normalizedVertices = _normalizeVertices(vertices);
+  return _containsNormalized(point, normalizedVertices);
+}
+
+/// A validated immutable ring reused by catalog lookups. Avoids allocating and
+/// stringifying every vertex on every point/route classification.
+class PreparedPolygon {
+  PreparedPolygon(List<LatLng> vertices)
+    : _vertices = List.unmodifiable(_normalizeVertices(vertices));
+
+  final List<LatLng> _vertices;
+  late final double _minLat = _vertices
+      .map((point) => point.latitude)
+      .reduce((a, b) => a < b ? a : b);
+  late final double _maxLat = _vertices
+      .map((point) => point.latitude)
+      .reduce((a, b) => a > b ? a : b);
+  late final double _minLon = _vertices
+      .map((point) => point.longitude)
+      .reduce((a, b) => a < b ? a : b);
+  late final double _maxLon = _vertices
+      .map((point) => point.longitude)
+      .reduce((a, b) => a > b ? a : b);
+
+  bool contains(LatLng point) {
+    const epsilon = 1e-12; // Same inclusive tolerance as _pointOnSegment.
+    if (point.latitude < _minLat - epsilon ||
+        point.latitude > _maxLat + epsilon ||
+        point.longitude < _minLon - epsilon ||
+        point.longitude > _maxLon + epsilon) {
+      return false;
+    }
+    return _containsNormalized(point, _vertices);
+  }
+}
+
+bool _containsNormalized(LatLng point, List<LatLng> normalizedVertices) {
   var inside = false;
 
   for (

@@ -12,6 +12,7 @@ import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
+import 'package:peak_bagger/services/route_elevation_worker.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/mapping_runtime_selection.dart';
@@ -98,7 +99,7 @@ void main() {
       addTearDown(container.dispose);
       expect(
         container.read(routeElevationSamplerProvider),
-        isA<RegionAwareRouteElevationSampler>(),
+        isA<WorkerRouteElevationSampler>(),
       );
     },
   );

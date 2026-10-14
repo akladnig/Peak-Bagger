@@ -97,6 +97,12 @@ abstract interface class RouteElevationSampler {
   Future<List<double?>> samplePointElevations(List<LatLng> points);
 }
 
+/// Optional lazy source preparation, with no elevation/summary calculation.
+/// May overlap routing only after a subsequent point/action has been accepted.
+abstract interface class RouteElevationPreparation {
+  Future<void> prepareForPoints(List<LatLng> points);
+}
+
 class NoopRouteElevationSampler implements RouteElevationSampler {
   const NoopRouteElevationSampler();
 
@@ -147,7 +153,10 @@ class GdalDemDatasetOpener implements DemDatasetOpener {
     // Source open/parse failures below remain Mapping-store failures.
     late final Gdal gdal;
     try {
-      gdal = libraryLoader(libraryPathResolver());
+      gdal = performanceMeasurement.phaseSync(
+        'route.dem-library-load',
+        () => libraryLoader(libraryPathResolver()),
+      );
     } on Object {
       throw const RouteElevationSamplingException.tasmaniaDataUnavailable();
     }
@@ -216,7 +225,8 @@ class RouteElevationDemResolver {
   }
 }
 
-class RegionAwareRouteElevationSampler implements RouteElevationSampler {
+class RegionAwareRouteElevationSampler
+    implements RouteElevationSampler, RouteElevationPreparation {
   RegionAwareRouteElevationSampler({
     required MappingCatalog catalog,
     RouteElevationDemResolver? demResolver,
@@ -272,6 +282,14 @@ class RegionAwareRouteElevationSampler implements RouteElevationSampler {
     } catch (_) {
       release?.call();
       rethrow;
+    }
+  }
+
+  @override
+  Future<void> prepareForPoints(List<LatLng> points) async {
+    final resolution = _demResolver.resolveForPoints(points);
+    if (resolution.kind != RouteElevationDemKind.none) {
+      await _openDataset(resolution);
     }
   }
 
@@ -504,19 +522,25 @@ class GdalDemDataset implements DisposableDemDataset {
     _configureGdalDataPaths(gdal);
     gdal.setConfigOption('GDAL_PAM_ENABLED', 'NO');
     gdal.setConfigOption('GDAL_DISABLE_READDIR_ON_OPEN', 'EMPTY_DIR');
-    final source = gdal.openGeoTiffSource(datasetPath);
+    final source = performanceMeasurement.phaseSync(
+      'route.dem-source-open',
+      () => gdal.openGeoTiffSource(datasetPath),
+    );
     SpatialReference? wgs84;
     SpatialReference? datasetSrs;
     CoordinateTransform? toDataset;
     try {
       wgs84 = gdal.spatialReferenceFromEpsg(4326);
       datasetSrs = source.dataset.spatialReference;
-      toDataset = gdal.coordinateTransform(wgs84, datasetSrs);
+      toDataset = performanceMeasurement.phaseSync(
+        'route.dem-transform',
+        () => gdal.coordinateTransform(wgs84!, datasetSrs!),
+      );
       return GdalDemDataset._(
         source,
         wgs84,
         datasetSrs,
-        toDataset,
+        toDataset!,
         source.band(1),
         source.geoTransform,
         source.width,

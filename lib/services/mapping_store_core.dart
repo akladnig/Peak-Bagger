@@ -304,8 +304,12 @@ class MappingCatalogRegion {
   final List<String> highways;
   final String? fingerprint;
 
+  late final List<PreparedPolygon> _preparedPolygons = polygons
+      .map(PreparedPolygon.new)
+      .toList(growable: false);
+
   bool containsPoint(LatLng point) =>
-      polygons.any((polygon) => polygonContainsPoint(point, polygon));
+      _preparedPolygons.any((polygon) => polygon.contains(point));
 }
 
 class MappingCatalog {

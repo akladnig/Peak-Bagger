@@ -426,6 +426,15 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
     required LatLng end,
     required double maxSnapDistanceMeters,
   }) async {
+    final queryService = _routeGraphQueryService;
+    if (queryService != null) {
+      return queryService.planSegmentInWorker(
+        routingCoverageKey: defaultRouteGraphCoverageKey,
+        start: start,
+        end: end,
+        maxSnapDistanceMeters: maxSnapDistanceMeters,
+      );
+    }
     final tripService = await _tripServiceForRoute(start: start, end: end);
     return tripService.findAnchoredSegment(
       start: start,
@@ -439,6 +448,14 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
     required LatLng point,
     required double maxSnapDistanceMeters,
   }) async {
+    final queryService = _routeGraphQueryService;
+    if (queryService != null) {
+      return queryService.probeEndpointInWorker(
+        routingCoverageKey: defaultRouteGraphCoverageKey,
+        point: point,
+        maxSnapDistanceMeters: maxSnapDistanceMeters,
+      );
+    }
     final tripService = await _tripServiceForPoint(point: point);
     return tripService.probeEndpointAnchor(
       point: point,
@@ -581,6 +598,17 @@ class TripRoutingRoutePlanner extends RoutePlanner {
       );
     }
     try {
+      final queryService = client._routeGraphQueryService;
+      if (queryService != null) {
+        return _mapSegmentResult(
+          await queryService.planSegmentInWorker(
+            routingCoverageKey: routingCoverageKey,
+            start: start,
+            end: end,
+            maxSnapDistanceMeters: maxSnapDistanceMeters,
+          ),
+        );
+      }
       final service = await performanceMeasurement.phase(
         'route.graph-loading',
         () => client.tripServiceForCoverageRoute(
@@ -741,6 +769,19 @@ class TripRoutingRoutePlanner extends RoutePlanner {
       );
     }
     try {
+      final queryService = client._routeGraphQueryService;
+      if (queryService != null) {
+        final result = await queryService.probeEndpointInWorker(
+          routingCoverageKey: routingCoverageKey,
+          point: point,
+          maxSnapDistanceMeters: maxSnapDistanceMeters,
+        );
+        return RouteEndpointProbeResult(
+          isOnTrack: result.isOnTrack,
+          anchor: _mapAnchor(result.anchor),
+          errorMessage: result.errors.isEmpty ? null : result.errors.join('\n'),
+        );
+      }
       final service = await client.tripServiceForCoveragePoint(
         routingCoverageKey: routingCoverageKey,
         point: point,

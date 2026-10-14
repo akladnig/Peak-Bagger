@@ -48,6 +48,7 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/waypoints_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
+import 'package:peak_bagger/services/route_elevation_worker.dart';
 import 'package:peak_bagger/providers/local_data_load_outcome_provider.dart';
 import 'package:peak_bagger/services/performance_measurement.dart';
 import 'package:peak_bagger/services/route_planner.dart';
@@ -94,6 +95,9 @@ typedef _SearchPopupCriteria = ({
 
 Peak? _peakAtPoint(Iterable<Peak> peaks, LatLng point) {
   for (final peak in peaks) {
+    // Conservative latitude bound (less than the minimum metres per degree)
+    // rejects distant peaks without changing the existing exact 5 m test/order.
+    if ((peak.latitude - point.latitude).abs() > 5 / 110000) continue;
     final peakLocation = LatLng(peak.latitude, peak.longitude);
     if (_distance.as(LengthUnit.Meter, point, peakLocation) <= 5) {
       return peak;
@@ -1425,7 +1429,7 @@ typedef _PersistedPeakListSelectionState = ({
 });
 
 final routeElevationSamplerProvider = Provider<RouteElevationSampler>((ref) {
-  final sampler = RegionAwareRouteElevationSampler(
+  final sampler = WorkerRouteElevationSampler(
     catalog: ref.watch(mappingCatalogProvider),
   );
   ref.onDispose(() => unawaited(sampler.dispose()));
@@ -4076,14 +4080,14 @@ class MapNotifier extends Notifier<MapState> {
     );
   }
 
-  void _pushRouteDraftHistory() {
+  void _pushRouteDraftHistory({bool publishAvailability = true}) {
     if (!state.isRouteDrafting || _isRestoringRouteDraftHistory) {
       return;
     }
 
     _routeDraftUndoStack.add(_captureRouteDraftSnapshot());
     _routeDraftRedoStack.clear();
-    _syncRouteDraftHistoryAvailability();
+    if (publishAvailability) _syncRouteDraftHistoryAvailability();
   }
 
   void _restoreRouteDraftSnapshot(
@@ -4741,6 +4745,7 @@ class MapNotifier extends Notifier<MapState> {
 
   void _setRouteDraftControlState({
     required List<RouteDraftControlEndpoint> controlEndpoints,
+    List<LatLng>? committedPoints,
     String? provisionalEndpointId,
     required RouteDraftStage stage,
     required List<LatLng> provisionalPoints,
@@ -4757,6 +4762,9 @@ class MapNotifier extends Notifier<MapState> {
     int? nextMarkerId,
   }) {
     state = state.copyWith(
+      routeDraftCommittedPoints: committedPoints,
+      routeDraftCanUndo: _routeDraftUndoStack.isNotEmpty,
+      routeDraftCanRedo: _routeDraftRedoStack.isNotEmpty,
       routeDraftControlEndpoints: List<RouteDraftControlEndpoint>.unmodifiable(
         controlEndpoints,
       ),
@@ -4937,22 +4945,29 @@ class MapNotifier extends Notifier<MapState> {
           _startRouteDraftToPeakFrom(point);
           return;
         }
-        final endpoint = _createControlEndpoint(
-          point: point,
-          kind: _manualEndpointKindForPoint(point),
+        final endpoint = performanceMeasurement.phaseSync(
+          'route.start-endpoint',
+          () => _createControlEndpoint(
+            point: point,
+            kind: _manualEndpointKindForPoint(point),
+          ),
         );
-        _pushRouteDraftHistory();
-        _setRouteDraftControlState(
-          controlEndpoints: [endpoint],
-          stage: RouteDraftStage.awaitingNextPoint,
-          provisionalPoints: const [],
-          offTrackProbeActive: false,
-          clearRouteDraftError: true,
-          nextMarkerId: state.routeDraftNextMarkerId + 1,
+        performanceMeasurement.phaseSync(
+          'route.start-history',
+          () => _pushRouteDraftHistory(publishAvailability: false),
         );
-        if (useStraightLine) {
-          state = state.copyWith(routeDraftCommittedPoints: [point]);
-        }
+        performanceMeasurement.phaseSync(
+          'route.start-state',
+          () => _setRouteDraftControlState(
+            controlEndpoints: [endpoint],
+            committedPoints: useStraightLine ? [point] : null,
+            stage: RouteDraftStage.awaitingNextPoint,
+            provisionalPoints: const [],
+            offTrackProbeActive: false,
+            clearRouteDraftError: true,
+            nextMarkerId: state.routeDraftNextMarkerId + 1,
+          ),
+        );
       case RouteDraftStage.awaitingNextPoint:
       case RouteDraftStage.segmentFailure:
         final start = state.routeDraftControlEndpoints.isEmpty
@@ -5345,6 +5360,24 @@ class MapNotifier extends Notifier<MapState> {
             : RoutePlanningFailureKind.routeGraphLoad,
       );
       return;
+    }
+    final sampler = _routeElevationSampler;
+    if (sampler is RouteElevationPreparation) {
+      // Both lazy costs are inside this accepted subsequent placement. Never
+      // pre-open on an ordinary start, and never wait for DEM before graph work.
+      // Actual committed/snapped sampling below remains authoritative and retries
+      // source errors through the existing Mapping operation coordinator.
+      unawaited(
+        (sampler as RouteElevationPreparation)
+            .prepareForPoints([startEndpoint.point, endEndpoint.point])
+            .catchError((Object error, StackTrace stack) {
+              developer.log(
+                'Route DEM preparation failed at ${mappingCatalog.rootPath}',
+                error: error,
+                stackTrace: stack,
+              );
+            }),
+      );
     }
     final result = selection.routingCoverageKey == null
         ? await _routePlanner.planSegmentResult(
