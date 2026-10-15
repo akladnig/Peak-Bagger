@@ -5362,13 +5362,10 @@ class MapNotifier extends Notifier<MapState> {
       return;
     }
     final sampler = _routeElevationSampler;
-    if (sampler is RouteElevationPreparation) {
-      // Both lazy costs are inside this accepted subsequent placement. Never
-      // pre-open on an ordinary start, and never wait for DEM before graph work.
-      // Actual committed/snapped sampling below remains authoritative and retries
-      // source errors through the existing Mapping operation coordinator.
-      unawaited(
-        (sampler as RouteElevationPreparation)
+    Future<void> prepareElevation() async {
+      if (!_isActiveRouteDraftRequest(requestId)) return;
+      if (sampler is RouteElevationPreparation) {
+        await (sampler as RouteElevationPreparation)
             .prepareForPoints([startEndpoint.point, endEndpoint.point])
             .catchError((Object error, StackTrace stack) {
               developer.log(
@@ -5376,10 +5373,36 @@ class MapNotifier extends Notifier<MapState> {
                 error: error,
                 stackTrace: stack,
               );
-            }),
-      );
+            });
+      }
     }
-    final result = selection.routingCoverageKey == null
+
+    final planner = _routePlanner;
+    final stagedPreparation =
+        planner is TripRoutingRoutePlanner &&
+        selection.routingCoverageKey != null;
+    if (!stagedPreparation && sampler is RouteElevationPreparation) {
+      // Keep cold dyld loading separate from a new ObjectBox worker's lazy
+      // FFI symbol lookup: dlsym can wait on dlopen inside a VM bootstrap native
+      // and block group safepoints/UI GC even when both jobs use isolates.
+      // Both costs remain inside the accepted subsequent placement; ordinary
+      // starts still neither open nor sample a DEM.
+      // Actual committed/snapped sampling below remains authoritative and retries
+      // source errors through the existing Mapping operation coordinator.
+      await prepareElevation();
+      if (!_isActiveRouteDraftRequest(requestId)) return;
+    }
+    final result = stagedPreparation
+        ? await planner.planSegmentForCoverage(
+            routingCoverageKey: selection.routingCoverageKey!,
+            start: startEndpoint.point,
+            end: endEndpoint.point,
+            maxSnapDistanceMeters: _routeSnapDistanceMeters(
+              state.routeDraftMode,
+            ),
+            prepareElevation: prepareElevation,
+          )
+        : selection.routingCoverageKey == null
         ? await _routePlanner.planSegmentResult(
             start: startEndpoint.point,
             end: endEndpoint.point,
@@ -5579,7 +5602,9 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   bool _isActiveRouteDraftRequest(int requestId) {
-    return state.isRouteDrafting && state.routeDraftRequestId == requestId;
+    return ref.mounted &&
+        state.isRouteDrafting &&
+        state.routeDraftRequestId == requestId;
   }
 
   RouteElevationSummary _routeDraftElevationSummaryForSave() {

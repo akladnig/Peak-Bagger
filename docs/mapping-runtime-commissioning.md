@@ -1,10 +1,13 @@
 # Local Mapping runtime commissioning — 2026-10-14
 
 Spec 0063, [Work Item 11](../ai_specs/peak-lists/0063-macbook-local-mapping-runtime-replica/work-items/11-commission-and-publish-operating-evidence.md).
-**Status: in progress; release acceptance is not complete.** The installed pipeline,
-local/offline app reads and required route-update ceilings have executed evidence.
-The disconnected startup sample is **5,091.930 ms**, above **5,000 ms**. Actual
-login persistence passed; remaining live lifecycle/performance checks are below.
+**Current status:** the four open checks were completed in the
+[2026-10-15 follow-up](mapping-runtime-commissioning-follow-up.md), with explicit
+native/disposable verification scopes and retained residual findings. The sections
+below preserve the **2026-10-14 checkpoint**, including its **5,091.930 ms** result.
+Raw-log review subsequently found that both old startup samples had diagnostic
+workload summaries enabled, contrary to this checkpoint's prose; see the correction
+and fresh summary-disabled online/offline timings in the follow-up.
 
 ADS-1.0 / Desktop wide / macOS apply. Observed benchmark dimensions do not resolve
 the profile's pending minimum/window decisions. This commissioning introduces no
@@ -382,7 +385,12 @@ operator's canonical dataset or personal database.
 - Result: `pass`
 - Remaining risk: fixture timing does not prove native ceilings; new native timings and unmet startup/stretch results are reported separately.
 
-## Remaining commissioning gates
+## Historical remaining commissioning gates — 2026-10-14
+
+The four scoped checks below are superseded by the executed
+[follow-up](mapping-runtime-commissioning-follow-up.md). Retain the original
+failures, unexecuted physical-power-loss/developer-switch boundaries, and the
+distinction between controlled fixture lifecycle and canonical production changes.
 
 1. **Startup ceiling remains unmet in disconnected repetition 2** by **91.930 ms**.
    Preserve that sample and workload/clock evidence; diagnose before claiming

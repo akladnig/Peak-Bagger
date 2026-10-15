@@ -21,7 +21,30 @@ import '../harness/route_elevation_fixture.dart';
 
 void main() {
   test(
-    'lazy DEM preparation overlaps subsequent routing and canceled results stay obsolete',
+    'disposal during lazy preparation does not dispatch obsolete graph work',
+    () async {
+      final planner = _ControlledRoutePlanner();
+      final sampler = _PreparingRouteElevationSampler();
+      final notifier = await _buildRouteTestNotifier(
+        routePlanner: planner,
+        routeElevationSampler: sampler,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => notifier)],
+      );
+      container.read(mapProvider.notifier).beginRouteDraft();
+      notifier.addRouteDraftMarker(elevationRoutePoints.first);
+      notifier.addRouteDraftMarker(elevationRoutePoints.last);
+      await Future<void>.delayed(Duration.zero);
+      container.dispose();
+      sampler.preparation.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(planner.requests, isEmpty);
+    },
+  );
+
+  test(
+    'lazy DEM preparation finishes before graph dispatch and canceled results stay obsolete',
     () async {
       final planner = _ControlledRoutePlanner();
       final sampler = _PreparingRouteElevationSampler();
@@ -39,17 +62,21 @@ void main() {
       notifier.addRouteDraftMarker(elevationRoutePoints.last);
       await Future<void>.delayed(Duration.zero);
       expect(sampler.prepared, [elevationRoutePoints]);
+      expect(planner.requests, isEmpty);
+      expect(
+        container.read(mapProvider).routeDraftStage,
+        RouteDraftStage.routingSegment,
+      );
+      sampler.preparation.complete();
+      await Future<void>.delayed(Duration.zero);
       expect(planner.requests, hasLength(1));
+      notifier.cancelRouteDraft();
       planner.completeNext(
         const PlannedRouteSegment(
           points: elevationRoutePoints,
           distanceMeters: 140,
         ),
       );
-      await Future<void>.delayed(Duration.zero);
-      expect(container.read(mapProvider).routeDraftElevationLoading, isTrue);
-      notifier.cancelRouteDraft();
-      sampler.preparation.complete();
       await Future<void>.delayed(Duration.zero);
       expect(container.read(mapProvider).isRouteDrafting, isFalse);
       expect(container.read(mapProvider).routeDraftElevationSummary, isNull);

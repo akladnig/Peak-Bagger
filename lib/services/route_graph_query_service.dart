@@ -560,6 +560,7 @@ class RouteGraphQueryService implements NamedRouteGraphWaySearch {
     required LatLng start,
     required LatLng end,
     required double maxSnapDistanceMeters,
+    Future<void> Function()? prepareElevation,
   }) async {
     final generation = activeGenerationFor(routingCoverageKey);
     final identity = _repository.activeGenerationIdentityFor(
@@ -587,7 +588,11 @@ class RouteGraphQueryService implements NamedRouteGraphWaySearch {
     }
     // Capture only the immutable bounded snapshot, never this service/repository
     // or its native Store. A* and graph construction both run off the UI isolate.
-    final result = await performanceMeasurement.phase(
+    // The native snapshot worker has exited before cold GDAL loading starts.
+    // Its lazy FFI lookups must not contend with dyld's loading lock. Pure graph
+    // computation can still overlap DEM preparation without that VM stall.
+    final preparation = prepareElevation?.call();
+    final planning = performanceMeasurement.phase(
       'route.graph-planning',
       () => _planSnapshot(chunks, start, end, maxSnapDistanceMeters),
       {
@@ -596,6 +601,8 @@ class RouteGraphQueryService implements NamedRouteGraphWaySearch {
         'chunks': chunks.length,
       },
     );
+    final results = await Future.wait<Object?>([planning, ?preparation]);
+    final result = results.first as trip_routing.AnchoredSegmentResult;
     if (identity !=
         _repository.activeGenerationIdentityFor(routingCoverageKey)) {
       throw const RouteGraphLoadException(

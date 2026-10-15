@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
+import 'dart:ffi';
 import 'dart:math' as math;
 
+import 'package:ffi/ffi.dart';
 import 'package:gdal_dart/gdal_dart.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
@@ -145,7 +147,40 @@ class GdalDemDatasetOpener implements DemDatasetOpener {
   final String? Function() libraryPathResolver;
   final Gdal Function(String? libraryPath) libraryLoader;
 
-  static Gdal _loadGdal(String? libraryPath) => Gdal(libraryPath: libraryPath);
+  static Gdal _loadGdal(String? libraryPath) {
+    if (!Platform.isMacOS || libraryPath == null) {
+      return Gdal(libraryPath: libraryPath);
+    }
+    // DynamicLibrary.open's VM bootstrap native holds up group safepoints
+    // during cold dyld loading, even when called in our elevation isolate.
+    // A non-leaf FFI call enters native state, letting UI allocation/GC and
+    // frames continue. GDAL then acquires its own reference to the loaded image.
+    final process = DynamicLibrary.process();
+    final open = process
+        .lookupFunction<
+          Pointer<Void> Function(Pointer<Utf8>, Int32),
+          Pointer<Void> Function(Pointer<Utf8>, int)
+        >('dlopen');
+    final close = process
+        .lookupFunction<
+          Int32 Function(Pointer<Void>),
+          int Function(Pointer<Void>)
+        >('dlclose');
+    final path = libraryPath.toNativeUtf8();
+    Pointer<Void> handle = nullptr;
+    try {
+      // Darwin RTLD_LAZY | RTLD_LOCAL, matching Dart's lazy host loader. Eager
+      // relocation of every optional GDAL driver adds unrelated first-use work.
+      handle = open(path, 0x1 | 0x4);
+      if (handle == nullptr) {
+        throw StateError('Unable to load host GDAL library: $libraryPath');
+      }
+      return Gdal(libraryPath: libraryPath);
+    } finally {
+      if (handle != nullptr) close(handle);
+      calloc.free(path);
+    }
+  }
 
   @override
   Future<DemDataset> open(String datasetPath) async {

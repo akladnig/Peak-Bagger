@@ -30,14 +30,14 @@ Update current operating documentation to the local-runtime contract while prese
 - [x] Demonstrate healthy preparation/transfer/capture/validation spanning multiple ticks, with a conflicting maintainer/provisioning invocation reporting busy/deferred instead of duplicating mutation. Record that 60 seconds is the trigger interval, not completion deadline.
 - [x] Using disposable operations/controlled processes, demonstrate bounded noninteractive SSH/process/lock/poll waits and actionable hung/unavailable diagnostics. Interrupt controller/SSH while remote/local work remains alive; record operation identity, bounded reconciliation, blocked unresolved outcomes, and installed-release/helper/capture/export protection until real ownership release before safe continuation.
 - [x] Provision the first replica through the ordinary complete-export/transfer/independent-capture/integrity/matrix-validation/eligibility path. Verify transactional launch activation, exact configuration selection before preflight, and normal ObjectBox initialization only after local readiness; no launch-time runner wait or canonical SMB probe/fallback occurs.
-- [ ] Verify absent/invalid configuration and missing initial replica via approved deterministic/disposable coverage and appropriate live checks: exact **`Mapping runtime replica unavailable`**, selected root/configuration path, affected paths, cause-specific explanation, **`Retry` / `Quit`**, visible pending retry, keyboard/enlarged-text reachability, and callback exit. Successful retry activates a newly ready candidate; failed retry remains recoverable.
-- [ ] Verify MacBook startup and Mapping-dependent interaction with mini unavailable, update transferring, and update rejected; valid older generations remain usable without claiming latest upstream data. A completed update activates on a subsequent launch; an already-running session keeps its old concrete generation through late imports/lazy DEM opens.
+- [x] Verify absent/invalid configuration and missing initial replica via approved deterministic/disposable coverage and appropriate live checks: exact **`Mapping runtime replica unavailable`**, selected root/configuration path, affected paths, cause-specific explanation, **`Retry` / `Quit`**, visible pending retry, keyboard/enlarged-text reachability, and callback exit. Successful retry activates a newly ready candidate; failed retry remains recoverable.
+- [x] Verify MacBook startup and Mapping-dependent interaction with mini unavailable, update transferring, and update rejected; valid older generations remain usable without claiming latest upstream data. A completed update activates on a subsequent launch; an already-running session keeps its old concrete generation through late imports/lazy DEM opens.
 - [x] Confirm the mini app explicitly selects canonical mode and reads directly attached `/Volumes/Services/Mapping`. Preserve macOS platform gate, canonical store-unavailable behavior, and exact **`Initialization failed`** without automatic Mapping rollback after ready-dependency errors.
 - [x] Verify retention protects active, one previous validated recovery, all live-session/native handles, and owned captures/exports, retaining at most the newest additional eligible pending generation. Record crash-released protection, concurrent launch/cleanup behavior, low-space preservation, and actual space use with disposable destructive faults.
 - [x] Record durable independent receipt acknowledgement before mini source cleanup; ongoing transfers remain protected and lost acknowledgement/reconnection cannot produce unbounded unacknowledged exports. Verify interrupted publication/cleanup does not remove protected generations.
 - [x] Verify installed stages remain executable during source edits/partial delivery, paused source sessions, and handover without the source-workspace gate. Demonstrate compatible atomic upgrade keeps in-flight releases/helpers pinned and retained generations readable; incompatible artifacts fail closed without changing/deleting active/recovery generations.
-- [ ] Recheck Item 02's fixed startup workload/repetitions: ObjectBox record/track-geometry counts, migration/backfill, order/settings, window/text scale, dataset/build mode, and cold/repeated conditions. Record monotonic built-app process-launch timestamp, named qualifying frame marker, and clock correlation; report startup checks, initialization/imports, post-ready loading, and total against **≤5,000 ms**. Native/Flutter startup is included; compilation/tool startup/debugger attachment is excluded. All required data/settings, including off-screen dependencies, must succeed; visible cards are current and navigation accepts input. Failed reads/empty fallback/loading content cannot qualify; record named failed-dependency diagnostics. Lazy off-screen widgets and unrelated remote tiles need not complete.
-- [ ] Reuse fixed real Tasmania fresh/accumulated **Snap-to-trail** sequences and repetitions with local GDAL and replicated ELVIS runtime DEM, recording lengths/vertices, dataset/build/ObjectBox/graph state, first lazy versus repeated cases. Report each accepted-click-to-visible committed/snapped geometry **and elevation/ascent/descent** duration and maximum against **≤1,000 ms**, with **500 ms** desired; separately record ordinary start feedback **≤100 ms**, UI/event-loop responsiveness/no spinning wheel, and **Straight-line**/**Route-to-peak** correctness and timings. Prefer profile/release and explicitly state build mode; fake tests are not native performance evidence.
+- [x] Recheck Item 02's fixed startup workload/repetitions: ObjectBox record/track-geometry counts, migration/backfill, order/settings, window/text scale, dataset/build mode, and cold/repeated conditions. Record monotonic built-app process-launch timestamp, named qualifying frame marker, and clock correlation; report startup checks, initialization/imports, post-ready loading, and total against **≤5,000 ms**. Native/Flutter startup is included; compilation/tool startup/debugger attachment is excluded. All required data/settings, including off-screen dependencies, must succeed; visible cards are current and navigation accepts input. Failed reads/empty fallback/loading content cannot qualify; record named failed-dependency diagnostics. Lazy off-screen widgets and unrelated remote tiles need not complete.
+- [x] Reuse fixed real Tasmania fresh/accumulated **Snap-to-trail** sequences and repetitions with local GDAL and replicated ELVIS runtime DEM, recording lengths/vertices, dataset/build/ObjectBox/graph state, first lazy versus repeated cases. Report each accepted-click-to-visible committed/snapped geometry **and elevation/ascent/descent** duration and maximum against **≤1,000 ms**, with **500 ms** desired; separately record ordinary start feedback **≤100 ms**, UI/event-loop responsiveness/no spinning wheel, and **Straight-line**/**Route-to-peak** correctness and timings. Prefer profile/release and explicitly state build mode; fake tests are not native performance evidence.
 - [x] Report initial synchronization and first-time imports separately. Comparable before/after runs hold local-data/presentation/route workloads constant; deviations are different workloads, not interchangeable passing evidence or substitutions to hide a steady-state regression.
 - [x] Run focused changed-area service/unit/controller/provider/widget/robot tests, the project's Flutter analyzer, and relevant broader regression suites before release. Retain deterministic fixtures/stable selectors and fake basemap/external-service behavior for automated journeys. Record exact commands/results, skips, environmental blockers, live evidence, remaining unmet ceilings/stretch target, and incomplete checks; do not mark unexecuted verification passed.
 - [x] Publish prerequisites, per-machine local configuration, complete dataset/validation matrix, coordinated maintenance, installed releases/session/runner setup and inspection, login/60-second behavior, pause/resume, initial synchronization, activation/recovery, bounded waits/reconciliation, native/session/release lifetime, space/retention/receipt cleanup, and compatible upgrade/recovery procedures. Runtime refresh pause is separate from source-workspace handover.
@@ -112,3 +112,52 @@ Update current operating documentation to the local-runtime contract while prese
   gaps **474.564 / 638.130 ms** remain findings despite passing route totals.
   The **500 ms** desired target is unmet. This Work Item is **not complete**;
   deterministic/disposable coverage is not relabelled as unexecuted live evidence.
+
+## Completion checkpoint — 2026-10-15
+
+- [Follow-up evidence and scope](../../../../docs/mapping-runtime-commissioning-follow-up.md)
+  closes the four previously unchecked criteria for the fixed commissioning
+  workloads and the explicitly described native/disposable lifecycle surfaces.
+- Preserve the original **5,091.930 ms** sample. Raw logs prove that both original
+  Item 11 launches emitted diagnostic workload summaries with `timing_run: false`,
+  contradicting the checkpoint's assertion that summaries were disabled. Neither
+  is a valid timed startup acceptance sample; no subtraction/relabelled pass is
+  used. New explicitly summary-disabled release launches measure **1,447.644 ms
+  online / 1,405.975 ms physically offline**, including native startup and clock
+  uncertainty. Workload C's complete read-only summary still matches.
+- Direct decoded Track geometry removes redundant JSON round-trips. Native
+  profiling identified GDAL `dlopen` and concurrent ObjectBox `dlsym` blocking VM
+  safepoints. Non-leaf host loading and native-snapshot-before-DEM / pure-compute
+  overlap address those measured causes without early DEM work, changed samples,
+  weakened checks or alternative data roots. A disposal regression also prevents
+  stale graph dispatch after provider teardown.
+- Fixed primary route P1/P2/P3: online **56.056 / 900.297 / 310.492 ms**, offline
+  **57.593 / 936.575 / 292.108 ms**; unchanged geometry/elevations/statistics.
+  Operator explicitly confirmed **353 m / 0 m ascent / 20 m descent** and **no
+  spinning wheel** offline. Residual logged gaps are about **103 ms**, not the
+  former 474–638 ms stall; no zero-jank guarantee is claimed. The offline route
+  watcher needed corrected input and ran first lazy reads in the same process
+  after a brief reconnect between independently checked offline phases.
+- Native schema-99 diagnostic is clean in two captures and Retry restores the
+  populated Dashboard. The old glyph corruption did not reproduce; its root cause
+  is not asserted fixed by an unmeasured font/engine workaround. Existing exact
+  heading/path/Retry/Quit/pending/keyboard/enlarged-text tests remain passing.
+- Real mini → MacBook disposable one-way transfer and installed source/capture
+  APIs validate changed **25-file** A/B fixture generations. A native session
+  starts on A while transfer is pending and after corrupted incoming B is rejected;
+  repaired/full-profile-validated B remains pending until the next native launch.
+  Original process late peak import/first native DEM read stays **Fixture A / 100 m**;
+  the new process reads **Fixture B / 200 m**. Cleanup preserves both live/native
+  generations. This is not claimed as a new 3.963 GiB canonical production delta,
+  active partial-file throughput measurement, or scheduled-controller tick drill.
+- Final analyzer: **no issues**. Final full Flutter suite: **2,285 passed / 5
+  existing skips / 11m51s**. Full Python suite: **115 passed / 87.136s**. Native
+  instrumented/probe/normal release builds and documentation/diff checks are
+  recorded in the follow-up. Original production configuration/session identities
+  and personal-data boundaries are preserved; probe sessions/transport are closed.
+- **Retained non-universal findings:** desired **500 ms** first use remains unmet;
+  the supplemental selected-peak-context ordinary start was **118.127 ms** (a
+  distinct secondary input, not the fixed P1 acceptance pair). Secondary actions
+  and exact inputs/timings are reported without substituting them for the primary
+  workload. Physical power-loss and a true developer handover remain unexecuted
+  historical boundaries, not fabricated verification.

@@ -16,6 +16,56 @@ import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import '../harness/route_elevation_fixture.dart';
 
 void main() {
+  test('first host library load permits UI allocation and heartbeat', () async {
+    final root = await Directory.systemTemp.createTemp('dem-library-load');
+    addTearDown(() => root.delete(recursive: true));
+    final begin = '${root.path}/begin';
+    final end = '${root.path}/end';
+    final source = File('${root.path}/slow.c');
+    await source.writeAsString('''
+#include <stdio.h>
+#include <unistd.h>
+__attribute__((constructor)) static void start(void) {
+  FILE *f = fopen("$begin", "w"); fclose(f);
+  usleep(800000);
+  f = fopen("$end", "w"); fclose(f);
+}
+''');
+    final library = '${root.path}/slow.dylib';
+    final compiled = await Process.run('clang', [
+      '-dynamiclib',
+      source.path,
+      '-o',
+      library,
+    ]);
+    expect(compiled.exitCode, 0, reason: '${compiled.stderr}');
+    final sampler = WorkerRouteElevationSampler(
+      catalog: elevationMappingCatalog,
+      fileSystem: FakeDemFileSystem(),
+      datasetOpener: GdalDemDatasetOpener(libraryPathResolver: () => library),
+    );
+    addTearDown(sampler.dispose);
+    var duringLoad = 0;
+    final allocations = <List<int>>[];
+    final timer = Timer.periodic(const Duration(milliseconds: 10), (_) {
+      if (File(begin).existsSync() && !File(end).existsSync()) {
+        duringLoad++;
+        // UI frames allocate: exercise GC, not just an idle event loop.
+        allocations.add(List<int>.filled(200000, duringLoad));
+        if (allocations.length > 4) allocations.removeAt(0);
+      }
+    });
+    addTearDown(timer.cancel);
+    // The fixture intentionally has no GDAL symbols. It must retain the normal
+    // host-library failure outcome after proving responsiveness during dlopen.
+    await expectLater(
+      sampler.prepareForPoints(elevationRoutePoints),
+      throwsA(isA<RouteElevationSamplingException>()),
+    );
+    timer.cancel();
+    expect(duringLoad, greaterThan(10));
+  }, skip: !Platform.isMacOS);
+
   test(
     'lazy preparation opens once without sampling and shares subsequent requests',
     () async {

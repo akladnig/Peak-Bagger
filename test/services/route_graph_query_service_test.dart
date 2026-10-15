@@ -12,6 +12,48 @@ import 'package:peak_bagger/services/route_graph_errors.dart';
 
 void main() {
   test(
+    'DEM preparation starts after native snapshot and joins worker planning',
+    () async {
+      final storage = InMemoryRouteGraphStorage(
+        manifest: _manifest,
+        chunks: [
+          _chunk('1|0_0', '0_0', -42, 146, -41, 147, payloadJson: _payload),
+        ],
+      );
+      final repository = _PendingSnapshotRepository(storage);
+      final preparation = Completer<void>();
+      var preparing = false;
+      var completed = false;
+      final planning = RouteGraphQueryService(repository)
+          .planSegmentInWorker(
+            routingCoverageKey: defaultRouteGraphCoverageKey,
+            start: const LatLng(-41.5, 146.5),
+            end: const LatLng(-41.6, 146.6),
+            maxSnapDistanceMeters: 100,
+            prepareElevation: () {
+              preparing = true;
+              return preparation.future;
+            },
+          )
+          .then((result) {
+            completed = true;
+            return result;
+          });
+      await Future<void>.delayed(Duration.zero);
+      expect(preparing, isFalse);
+      repository.pending.complete(
+        storage.activeChunks(defaultRouteGraphCoverageKey),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(preparing, isTrue);
+      expect(completed, isFalse);
+      preparation.complete();
+      final result = await planning;
+      expect(result.route, isNotEmpty);
+    },
+  );
+
+  test(
     'worker result rejects a changed manifest even with the same generation',
     () async {
       final storage = InMemoryRouteGraphStorage(

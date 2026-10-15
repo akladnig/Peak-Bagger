@@ -313,8 +313,12 @@ The shared visual treatment for tabular and row-based data browsing surfaces, in
 _Avoid_: calling every participating surface a table
 
 **Mapping data store**:
-The external local, app-read-only dataset root at `/Volumes/Services/Mapping` that is the canonical source for Peak Bagger's non-UI mapping data.
+The external, app-read-only dataset root at `/Volumes/Services/Mapping` on the mini that is the canonical source for Peak Bagger's non-UI mapping data.
 _Avoid_: bundled app assets, project assets folder
+
+**Mapping runtime replica**:
+A MacBook-local copy of the manifest-required app datasets from the canonical Mapping data store on the mini.
+_Avoid_: canonical Mapping data store, project source mirror, ObjectBox database
 
 **Mapping data manifest**:
 The store-relative manifest at `/Volumes/Services/Mapping/region_manifest.json` that identifies Peak Bagger's regional peak, highway, and polygon datasets.

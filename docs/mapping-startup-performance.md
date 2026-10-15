@@ -4,6 +4,11 @@ Spec 0063, Work Item 09. This record separates the historical SMB workloads in
 `mapping-performance-baseline.md` from the current local-replica workload. The
 endpoint and clock protocol remain `mapping-performance-measurement.md`.
 
+The [Item 11 follow-up](mapping-runtime-commissioning-follow-up.md) adds the
+2026-10-15 direct decoded-geometry path and exact-workload online/offline startup
+recheck (**1,447.644 / 1,405.975 ms**). It also corrects the later Item 11
+summary-enabled timing classification; the Item 09 history below retains its date.
+
 ## Fixed workload C — recorded before optimization, 2026-10-14
 
 The separate read-only summary run `d6a352da-1f83-4a74-a311-5b590caecadc`

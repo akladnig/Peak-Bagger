@@ -120,6 +120,14 @@ stored geometry is intentionally expensive: **rebuild without this flag for
 timed runs**. A summary failure is reported, not silently considered an empty
 workload. Capture again after runs and compare counts/settings/generations.
 
+Explicitly pass `--dart-define=MEASURE_WORKLOAD=false` for timed builds and inspect
+the **actual log** before accepting a startup number: any
+`workload.read-only-summary` / `timing_run: false` record disqualifies that launch
+as a timed acceptance sample, regardless of the intended build command. Preserve
+such observations and explain their different diagnostic workload. Item 11's
+[follow-up](mapping-runtime-commissioning-follow-up.md) corrects two misclassified
+summary-enabled samples; do not subtract their summary cost to invent a result.
+
 Freeze window size/text scale, dataset inventory/identity, ObjectBox workload,
 migration state, launch conditions and repetitions before optimization. Preserve
 individual samples and maximum; different workloads must have different labels.

@@ -588,9 +588,11 @@ class TripRoutingRoutePlanner extends RoutePlanner {
     required LatLng start,
     required LatLng end,
     double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
+    Future<void> Function()? prepareElevation,
   }) async {
     final client = _client;
     if (client is! LocalFileTripRoutingClient) {
+      await prepareElevation?.call();
       return planSegmentResult(
         start: start,
         end: end,
@@ -606,6 +608,7 @@ class TripRoutingRoutePlanner extends RoutePlanner {
             start: start,
             end: end,
             maxSnapDistanceMeters: maxSnapDistanceMeters,
+            prepareElevation: prepareElevation,
           ),
         );
       }
@@ -618,6 +621,7 @@ class TripRoutingRoutePlanner extends RoutePlanner {
         ),
         {'coverage': routingCoverageKey},
       );
+      await prepareElevation?.call();
       return _mapSegmentResult(
         await performanceMeasurement.phase(
           'route.graph-planning',

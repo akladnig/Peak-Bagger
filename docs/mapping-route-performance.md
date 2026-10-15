@@ -4,6 +4,14 @@ Spec 0063, Work Item 10. ADS-1.0 / Desktop wide / macOS apply. This slice
 changes computation and ownership, with no dimension-dependent layout work or
 foundation exception. Profile minima remain Pending.
 
+The [Item 11 follow-up](mapping-runtime-commissioning-follow-up.md) supersedes
+the first-use scheduling details below: non-leaf native library loading plus
+native-snapshot-before-DEM / pure-computation overlap removes the measured dyld/
+VM-safepoint stall. Final new online/offline P2/P3 results are
+**900.297 / 310.492 ms** and **936.575 / 292.108 ms**, with scoped no-wheel evidence
+and residual gaps/stretch/secondary findings retained. The Item 10 measurements
+and prior scheduling description below are dated history, not new final samples.
+
 ## Fixed pre-optimization workload — 2026-10-14
 
 Retain the exact Item 02 primary Snap-to-trail sequence:
