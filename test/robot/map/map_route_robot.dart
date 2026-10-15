@@ -240,6 +240,34 @@ class MapRouteRobot {
     await tester.pumpAndSettle();
   }
 
+  void expectElevationPending() {
+    expect(
+      find.byKey(const Key('route-elevation-loading-text')),
+      findsOneWidget,
+    );
+    expect(routeAscentText, findsNothing);
+  }
+
+  Future<void> typeRouteName(String name) async {
+    await tester.enterText(find.byKey(const Key('route-name-field')), name);
+    await tester.pump();
+    expect(container().read(mapProvider).routeDraftName, name);
+  }
+
+  void expectCompletedStatistics({
+    required String ascent,
+    required String descent,
+  }) {
+    expect(find.byKey(const Key('route-elevation-loading-text')), findsNothing);
+    expect(tester.widget<Text>(routeAscentText).data, ascent);
+    expect(tester.widget<Text>(routeDescentText).data, descent);
+  }
+
+  Future<void> cancelRoute() async {
+    await tester.tap(find.byKey(const Key('route-cancel-button')));
+    await tester.pumpAndSettle();
+  }
+
   Future<void> selectMapLocation(Offset offset) async {
     await tapRoutePoint(offset);
     await tester.tap(find.byKey(const Key('map-tap-action-drop-marker')));

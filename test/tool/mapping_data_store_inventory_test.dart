@@ -5,6 +5,13 @@ import 'package:path/path.dart' as p;
 
 void main() {
   const nonDart = {
+    'tool/mapping_source.py': 'resolver-validated',
+    'tool/mapping_replica.py': 'resolver-validated',
+    'tool/mapping_retention.py': 'resolver-validated',
+    'tool/mapping_releases.py': 'store-isolated',
+    'tool/mapping_release_launcher.py': 'store-isolated',
+    'tool/mapping_controller.py': 'store-isolated',
+    'tool/mapping_transport.py': 'store-isolated',
     'tool/convert_osm_boundary_to_poly.sh': 'store-isolated',
     'tool/publish_thelist_dem.sh': 'resolver-validated',
     'elvis_dem.sh': 'store-isolated',
@@ -30,6 +37,14 @@ void main() {
     'tool/sync_peakbagger_csv.dart': 9,
     'tool/rank_fvg_peaks.dart': 6,
     'tool/slovenia_hribi_source_peak_list.dart': 1,
+    'tool/mapping_source_restore.dart': 1,
+  };
+  // New role-specific owners: one resolver-authorized source open followed by
+  // checked non-store capture writes; opaque read-only GDAL validation + host
+  // dependency probes. Their direct callsites are frozen, not broadly allowed.
+  const sourcePipelineIo = {
+    'tool/mapping_source_io.dart': 3,
+    'tool/mapping_source_dem.dart': 3,
   };
   final directIo = RegExp(
     r'\b(File|Directory|RandomAccessFile)\s*\(|\bProcess\.',
@@ -60,6 +75,52 @@ void main() {
     expect(inventory, contains('veneto.poly'));
     expect(inventory, contains('all-peaks-sorted-p100.csv'));
   });
+
+  test(
+    'app runtime metadata ownership has fixed sites and zero dataset-write authority',
+    () {
+      const owners = {
+        'lib/services/mapping_runtime_io.dart': 8,
+        'lib/services/mapping_runtime_config.dart': 0,
+        'lib/services/mapping_replica_records.dart': 0,
+        'lib/services/mapping_runtime_selection.dart': 0,
+        'lib/services/mapping_runtime_startup.dart': 0,
+        'lib/services/mapping_session_protection.dart': 0,
+      };
+      final inventory = File('docs/mapping-data-store.md').readAsStringSync();
+      for (final entry in owners.entries) {
+        final source = File(entry.key).readAsStringSync();
+        expect(inventory, contains('<!-- inventory:${entry.key} -->'));
+        expect(
+          directIo.allMatches(source),
+          hasLength(entry.value),
+          reason: entry.key,
+        );
+        expect(source, isNot(contains('Process.')), reason: entry.key);
+      }
+      final io = File(
+        'lib/services/mapping_runtime_io.dart',
+      ).readAsStringSync();
+      expect(io, contains("relative != 'selection.json'"));
+      expect(io, contains("relative != 'selection-transaction.json'"));
+      expect(io, contains('sessions|app-failures'));
+      expect(io, contains('O_NOFOLLOW | O_CLOEXEC'));
+      expect(io, contains('MNT_NOWAIT'));
+      expect(io, contains('sync(p.dirname(path))'));
+      final selector = File(
+        'lib/services/mapping_runtime_selection.dart',
+      ).readAsStringSync();
+      expect(selector, contains('selection-retention.lock'));
+      expect(
+        selector,
+        contains('catalog.authorizedPaths.containsAll(generation.paths)'),
+      );
+      expect(selector, isNot(contains('incoming')));
+      final main = File('lib/main.dart').readAsStringSync();
+      expect(main, contains('prepareCatalog: mappingRuntime.launch'));
+      expect(main, isNot(contains('mappingDataStore: MappingDataStore()')));
+    },
+  );
 
   test(
     'Mapping-aware runtime I/O is restricted to resolver and named non-store adapters',
@@ -122,10 +183,164 @@ void main() {
         } else {
           expect(
             directIo.allMatches(source).length,
-            nonStoreToolIo[file.path] ?? 0,
+            nonStoreToolIo[file.path] ?? sourcePipelineIo[file.path] ?? 0,
             reason: file.path,
           );
         }
+      }
+    },
+  );
+
+  test(
+    'source pipeline owners keep canonical reads behind production capabilities',
+    () {
+      final dataset = File(
+        'tool/mapping_source_dataset.dart',
+      ).readAsStringSync();
+      expect(dataset, contains('catalog.authorizedPaths'));
+      expect(dataset, contains('reader.open('));
+      expect(dataset, contains('prepareRouteGraphGeneration('));
+      final io = File('tool/mapping_source_io.dart').readAsStringSync();
+      expect(io, contains('requireNonMappingPath(destination'));
+      expect(io, contains('rejectLinks(destination)'));
+      expect(io, isNot(contains('Process.')));
+      final coordinator = File('tool/mapping_source.py').readAsStringSync();
+      expect(coordinator, contains('class DatasetBridge:'));
+      expect(
+        coordinator,
+        contains('check_layout(self.base, workspace_roots())'),
+      );
+      expect(
+        coordinator,
+        contains('externalGuardSha256=external_guard_identity()'),
+      );
+      expect(
+        RegExp(
+          r'CANONICAL_ROOT\)\.(?:write|unlink|rename)',
+        ).hasMatch(coordinator),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'local replica owner confines writes outside incoming and uses the shared profile',
+    () {
+      final replica = File('tool/mapping_replica.py').readAsStringSync();
+      expect(replica, contains('check_layout(self.base, workspace_roots())'));
+      expect(replica, contains("path.is_relative_to(self.base/'incoming')"));
+      expect(replica, contains('self.publish(self.local_path(path), value)'));
+      expect(replica, contains('os.O_NOFOLLOW'));
+      expect(replica, contains("with target.open('xb')"));
+      expect(replica, isNot(contains('os.link(')));
+      expect(replica, contains('integrity=inventory'));
+      expect(replica, contains("'tool/mapping_source_dataset.dart'"));
+      expect(replica, contains('pass_fds=tuple(self.controller._fds)'));
+      expect(replica, contains('sourceCompletionSha256=completion_sha'));
+      expect(
+        RegExp(
+          r'\.open\(|\bos\.open\(|\bsubprocess\.Popen\(|\bos\.rename\(',
+        ).allMatches(replica),
+        hasLength(7),
+        reason:
+            'Freeze the incoming-read/independent-copy, local locks/logs, validator and generation-rename sites.',
+      );
+      expect(RegExp(r'\.mkdir\(').allMatches(replica), hasLength(5));
+    },
+  );
+
+  test(
+    'controller retention helper has only scoped non-store destructive sites',
+    () {
+      final helper = File('tool/mapping_retention.py').readAsStringSync();
+      expect(helper, isNot(contains('CANONICAL_ROOT')));
+      expect(helper, isNot(contains('subprocess.')));
+      expect(helper, isNot(contains('os.open(')));
+      expect(helper, contains("controller.lock('selection-retention')"));
+      expect(
+        helper,
+        contains("controller.lock('session-' + path.stem, wait=0)"),
+      );
+      expect(helper, contains('remove_tree(controller.local_path(path))'));
+      expect(helper, contains('coordinator.publication_lock(\'dispatch\')'));
+      expect(helper, contains("children(base/'prepared')"));
+      expect(helper, contains("children(base/'captures')"));
+      expect(helper, contains('reject_links(path)'));
+      expect(helper, contains('mode.st_nlink != 1'));
+      expect(RegExp(r'os\.walk\(').allMatches(helper), hasLength(3));
+      expect(RegExp(r'\.chmod\(').allMatches(helper), hasLength(1));
+      expect(RegExp(r'shutil\.rmtree\(').allMatches(helper), hasLength(1));
+      expect(RegExp(r'\.unlink\(').allMatches(helper), hasLength(3));
+    },
+  );
+
+  test(
+    'refresh controller has narrow metadata/process boundaries independent of app startup',
+    () {
+      for (final entry in {
+        'tool/mapping_controller.py': 3,
+        'tool/mapping_transport.py': 1,
+      }.entries) {
+        final source = File(entry.key).readAsStringSync();
+        expect(
+          RegExp(
+            r'\.open\(|\bos\.rename\(|\bsubprocess\.run\(',
+          ).allMatches(source),
+          hasLength(entry.value),
+        );
+        expect(source, isNot(contains('mutagen_workspace')));
+        expect(source, isNot(contains('shutil.rmtree')));
+      }
+      final transport = File('tool/mapping_transport.py').readAsStringSync();
+      expect(transport, contains("'one-way-replica'"));
+      expect(transport, contains("'BatchMode=yes'"));
+      expect(transport, contains("'ConnectTimeout=10'"));
+      expect(transport, contains("'/prepared'"));
+      final controller = File('tool/mapping_controller.py').readAsStringSync();
+      expect(controller, contains("'refresh'/'state.json'"));
+      expect(controller, contains('StartInterval=60'));
+      for (final file
+          in Directory('lib')
+              .listSync(recursive: true)
+              .whereType<File>()
+              .where((file) => file.path.endsWith('.dart'))) {
+        expect(
+          file.readAsStringSync(),
+          isNot(contains('mapping_controller.py')),
+        );
+        expect(
+          file.readAsStringSync(),
+          isNot(contains('mapping-runtime-replica')),
+        );
+      }
+    },
+  );
+
+  test(
+    'release publication is non-store and cannot use the workspace readiness gate',
+    () {
+      final installer = File('tool/mapping_releases.py').readAsStringSync();
+      final launcher = File(
+        'tool/mapping_release_launcher.py',
+      ).readAsStringSync();
+      expect(installer, contains('check_layout(self.base,'));
+      expect(installer, contains('transport/dataset payload namespaces'));
+      expect(installer, contains('self.check_retained(value, data_base)'));
+      expect(
+        installer,
+        contains('remove_tree(self.base/\'releases\'/identity)'),
+      );
+      expect(installer, contains('pass_fds=(pinned[\'fd\'],)'));
+      expect(
+        RegExp(
+          r'\.open\(|\bos\.rename\(|\bshutil\.copyfile\(|\bshutil\.copytree\(|\bsubprocess\.run\(',
+        ).allMatches(installer),
+        hasLength(15),
+      );
+      for (final source in [installer, launcher]) {
+        expect(source, isNot(contains('mutagen_workspace')));
+        expect(source, isNot(contains('mutagen_operations')));
+        expect(source, isNot(contains('CANONICAL_ROOT')));
       }
     },
   );

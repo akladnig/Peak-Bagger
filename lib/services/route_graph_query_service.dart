@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'dart:isolate';
 import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
@@ -10,7 +11,10 @@ import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 
 import 'route_graph_errors.dart';
+import 'route_graph_trail_metadata.dart';
+export 'route_graph_trail_metadata.dart';
 import 'route_graph_repository.dart';
+import 'performance_measurement.dart';
 
 typedef RouteGraphWaySearchDiagnostic = void Function(String message);
 
@@ -58,7 +62,7 @@ class RouteGraphQueryService implements NamedRouteGraphWaySearch {
       _repository.selectExactlyOneActiveCoverage(point);
 
   bool hasUsableCoverage(String key) =>
-      _repository.hasUsableActiveGenerationFor(key);
+      _repository.hasInteractiveActiveGenerationFor(key);
 
   String? selectExactlyOneUnavailableCoverage(LatLng point) =>
       _repository.selectExactlyOneUnavailableCoverage(point);
@@ -323,10 +327,13 @@ class RouteGraphQueryService implements NamedRouteGraphWaySearch {
       maxLon: maxLon,
     ).expand(extraBufferMeters ?? bufferMeters);
 
-    return _repository
-        .activeChunks(routingCoverageKey)
-        .where(expanded.intersects)
-        .toList(growable: false);
+    return _repository.chunksForBounds(
+      routingCoverageKey,
+      minLat: expanded.minLat,
+      minLon: expanded.minLon,
+      maxLat: expanded.maxLat,
+      maxLon: expanded.maxLon,
+    );
   }
 
   List<RouteGraphChunk> queryTrailChunksForBounds({
@@ -548,6 +555,145 @@ class RouteGraphQueryService implements NamedRouteGraphWaySearch {
     );
   }
 
+  Future<trip_routing.AnchoredSegmentResult> planSegmentInWorker({
+    required String routingCoverageKey,
+    required LatLng start,
+    required LatLng end,
+    required double maxSnapDistanceMeters,
+    Future<void> Function()? prepareElevation,
+  }) async {
+    final generation = activeGenerationFor(routingCoverageKey);
+    final identity = _repository.activeGenerationIdentityFor(
+      routingCoverageKey,
+    );
+    final bounds = _RouteGraphBounds.fromPoints(
+      start,
+      end,
+    ).expand(bufferMeters);
+    final chunks = await performanceMeasurement.phase(
+      'route.graph-loading',
+      () => _repository.chunksForBoundsAsync(
+        routingCoverageKey,
+        minLat: bounds.minLat,
+        minLon: bounds.minLon,
+        maxLat: bounds.maxLat,
+        maxLon: bounds.maxLon,
+      ),
+      {'coverage': routingCoverageKey, 'generation': generation},
+    );
+    if (chunks.isEmpty) {
+      throw const RouteGraphLoadException(
+        'No usable route graph coverage for requested route.',
+      );
+    }
+    // Capture only the immutable bounded snapshot, never this service/repository
+    // or its native Store. A* and graph construction both run off the UI isolate.
+    // The native snapshot worker has exited before cold GDAL loading starts.
+    // Its lazy FFI lookups must not contend with dyld's loading lock. Pure graph
+    // computation can still overlap DEM preparation without that VM stall.
+    final preparation = prepareElevation?.call();
+    final planning = performanceMeasurement.phase(
+      'route.graph-planning',
+      () => _planSnapshot(chunks, start, end, maxSnapDistanceMeters),
+      {
+        'coverage': routingCoverageKey,
+        'generation': generation,
+        'chunks': chunks.length,
+      },
+    );
+    final results = await Future.wait<Object?>([planning, ?preparation]);
+    final result = results.first as trip_routing.AnchoredSegmentResult;
+    if (identity !=
+        _repository.activeGenerationIdentityFor(routingCoverageKey)) {
+      throw const RouteGraphLoadException(
+        'Route graph generation changed during planning. Retry the route.',
+      );
+    }
+    return result;
+  }
+
+  static Future<trip_routing.AnchoredSegmentResult> _planSnapshot(
+    List<RouteGraphChunk> chunks,
+    LatLng start,
+    LatLng end,
+    double snapDistance,
+  ) {
+    final context = Map<String, Object?>.of(performanceMeasurement.context);
+    return Isolate.run(() async {
+      performanceMeasurement.context.addAll(context);
+      final service = trip_routing.TripService();
+      await performanceMeasurement.phase(
+        'route.graph-worker-construction',
+        () => service.loadOverpassTilePayloads(
+          [_mergeChunksIntoPayload(chunks)],
+          preferWalkingPaths: true,
+          source:
+              'objectbox://route_graph/${chunks.first.routingCoverageKey}/${chunks.first.generation}',
+        ),
+      );
+      return performanceMeasurement.phase(
+        'route.graph-worker-search',
+        () => service.findAnchoredSegment(
+          start: start,
+          end: end,
+          maxSnapDistanceMeters: snapDistance,
+        ),
+      );
+    }, debugName: 'route-planning');
+  }
+
+  Future<trip_routing.EndpointProbeResult> probeEndpointInWorker({
+    required String routingCoverageKey,
+    required LatLng point,
+    required double maxSnapDistanceMeters,
+  }) async {
+    final identity = _repository.activeGenerationIdentityFor(
+      routingCoverageKey,
+    );
+    final bounds = _RouteGraphBounds.fromPoints(
+      point,
+      point,
+    ).expand(bufferMeters);
+    final chunks = await _repository.chunksForBoundsAsync(
+      routingCoverageKey,
+      minLat: bounds.minLat,
+      minLon: bounds.minLon,
+      maxLat: bounds.maxLat,
+      maxLon: bounds.maxLon,
+    );
+    if (chunks.isEmpty) {
+      throw const RouteGraphLoadException(
+        'No usable route graph coverage for requested point.',
+      );
+    }
+    final result = await _probeSnapshot(chunks, point, maxSnapDistanceMeters);
+    if (identity !=
+        _repository.activeGenerationIdentityFor(routingCoverageKey)) {
+      throw const RouteGraphLoadException(
+        'Route graph generation changed during planning. Retry the route.',
+      );
+    }
+    return result;
+  }
+
+  static Future<trip_routing.EndpointProbeResult> _probeSnapshot(
+    List<RouteGraphChunk> chunks,
+    LatLng point,
+    double snapDistance,
+  ) => Isolate.run(() async {
+    final service = trip_routing.TripService();
+    await service.loadOverpassTilePayloads(
+      [_mergeChunksIntoPayload(chunks)],
+      preferWalkingPaths: true,
+      source:
+          'objectbox://route_graph/${chunks.first.routingCoverageKey}/${chunks.first.generation}',
+    );
+    return service.probeEndpointAnchor(
+      point: point,
+      maxSnapDistanceMeters: snapDistance,
+    );
+  }, debugName: 'route-endpoint-probe');
+
   Future<trip_routing.TripService> buildTripServiceForCoverageRoute({
     required String routingCoverageKey,
     required LatLng start,
@@ -734,40 +880,6 @@ class RouteGraphQueryService implements NamedRouteGraphWaySearch {
   }
 }
 
-bool isRouteGraphTrailWayMetadata({
-  required String? highway,
-  required String? surface,
-  required String? footway,
-  required String? foot,
-  required String? route,
-  required String? access,
-  required int lengthMeters,
-  required int tagCount,
-}) {
-  if (access == 'private' ||
-      <String>{
-        'concrete',
-        'asphalt',
-        'paved',
-        'paving_stones',
-      }.contains(surface) ||
-      footway == 'sidewalk' ||
-      foot == 'no' ||
-      route == 'mtb') {
-    return false;
-  }
-
-  if (highway == 'path') {
-    return true;
-  }
-
-  if (highway == 'track' && ((surface == 'earth') || (surface == 'dirt'))) {
-    return true;
-  }
-
-  return highway == 'footway' && lengthMeters > 500 && tagCount > 1;
-}
-
 bool isRouteGraphDriveEtaWayMetadata({
   required String? highway,
   required String? surface,
@@ -896,13 +1008,6 @@ class _RouteGraphBounds {
       maxLat: maxLat + latitudePadding,
       maxLon: maxLon + longitudePadding,
     );
-  }
-
-  bool intersects(RouteGraphChunk chunk) {
-    return chunk.maxLat >= minLat &&
-        chunk.minLat <= maxLat &&
-        chunk.maxLon >= minLon &&
-        chunk.minLon <= maxLon;
   }
 }
 

@@ -5,6 +5,7 @@ import 'package:peak_bagger/services/route_graph_import_service.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_errors.dart';
 import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
+import 'package:peak_bagger/services/performance_measurement.dart';
 
 enum RouteGraphCoverageImportStatus { queued, importing, ready, failed }
 
@@ -84,6 +85,13 @@ class RouteGraphImportCoordinator extends ChangeNotifier {
 
   Future<RouteGraphImportBatchResult>? _activeBatch;
   RouteGraphImportBatchResult? _lastCompletedBatch;
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   List<RouteGraphCoverageImportState> get states =>
       List.unmodifiable(_states.values);
@@ -238,7 +246,10 @@ class RouteGraphImportCoordinator extends ChangeNotifier {
     late final List<RouteGraphCoverageDefinition> definitions;
     try {
       definitions = _coverageResolver.routingCoverageDefinitions();
-      await _repository.ensureMultiCoverageMigration();
+      await performanceMeasurement.phase(
+        'route-graph.legacy-migration',
+        _repository.ensureMultiCoverageMigration,
+      );
     } catch (_) {
       return _complete(const RouteGraphImportBatchConfigurationFailure());
     }
@@ -256,6 +267,17 @@ class RouteGraphImportCoordinator extends ChangeNotifier {
             elementCount: outcome.elementCount,
           );
         } catch (error) {
+          // A worker/read failure must also reach readiness listeners; a batch
+          // outcome alone would leave them indefinitely in preloading.
+          if (stateFor(definition.key)?.status !=
+              RouteGraphCoverageImportStatus.failed) {
+            _setState(
+              definition,
+              RouteGraphCoverageImportStatus.failed,
+              hasActiveGeneration: false,
+              error: _sanitizeCoverageError(error),
+            );
+          }
           return RouteGraphCoverageImportOutcome.failed(
             routingCoverageKey: definition.key,
             displayName: definition.displayName,
@@ -287,8 +309,13 @@ class RouteGraphImportCoordinator extends ChangeNotifier {
   Future<RouteGraphImportOutcome> _importCatalogCoverage(
     RouteGraphCoverageDefinition definition, {
     required bool bootstrap,
-  }) {
-    if (bootstrap && _repository.hasUsableActiveGenerationFor(definition.key)) {
+  }) async {
+    final hasActiveGeneration = await performanceMeasurement.phase(
+      'route-graph.stored-validation',
+      () => _repository.hasUsableActiveGenerationForAsync(definition.key),
+      {'coverage': definition.key},
+    );
+    if (bootstrap && hasActiveGeneration) {
       _setState(
         definition,
         RouteGraphCoverageImportStatus.ready,
@@ -304,9 +331,7 @@ class RouteGraphImportCoordinator extends ChangeNotifier {
       _setState(
         definition,
         RouteGraphCoverageImportStatus.importing,
-        hasActiveGeneration: _repository.hasUsableActiveGenerationFor(
-          definition.key,
-        ),
+        hasActiveGeneration: hasActiveGeneration,
       );
       try {
         final input = await _coverageResolver.resolveCoverage(definition);
@@ -348,9 +373,8 @@ class RouteGraphImportCoordinator extends ChangeNotifier {
         _setState(
           definition,
           RouteGraphCoverageImportStatus.failed,
-          hasActiveGeneration: _repository.hasUsableActiveGenerationFor(
-            definition.key,
-          ),
+          hasActiveGeneration: await _repository
+              .hasUsableActiveGenerationForAsync(definition.key),
           error: _sanitizeCoverageError(failure),
         );
         Error.throwWithStackTrace(failure, stackTrace);
@@ -367,6 +391,7 @@ class RouteGraphImportCoordinator extends ChangeNotifier {
   }
 
   RouteGraphImportBatchResult _complete(RouteGraphImportBatchResult result) {
+    if (_disposed) return result;
     _lastCompletedBatch = result;
     notifyListeners();
     return result;
@@ -378,6 +403,7 @@ class RouteGraphImportCoordinator extends ChangeNotifier {
     required bool hasActiveGeneration,
     String? error,
   }) {
+    if (_disposed) return;
     _states[definition.key] = RouteGraphCoverageImportState(
       routingCoverageKey: definition.key,
       displayName: definition.displayName,

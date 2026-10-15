@@ -84,6 +84,7 @@ class MappingToolResolver {
     required this._runner,
     required MappingToolFileCommit commitFile,
     required Map<String, String> environment,
+    required this._requirePublication,
   }) : _repositoryRoot = p.normalize(p.absolute(repositoryRoot)),
        _commit = commitFile,
        _environment = Map.unmodifiable(environment);
@@ -95,6 +96,7 @@ class MappingToolResolver {
     MappingToolProcessRunner runner = _runProcess,
     MappingToolFileCommit commitFile = _commitFile,
     Map<String, String>? environment,
+    bool requirePublication = false,
   }) async {
     final store = await _ToolStore.open(rootPath);
     final path = await store.target('tool_manifest.json', required: true);
@@ -106,6 +108,10 @@ class MappingToolResolver {
       runner: runner,
       commitFile: commitFile,
       environment: environment ?? Platform.environment,
+      requirePublication:
+          requirePublication ||
+          p.equals(store.root, mappingStoreRootPath) ||
+          p.equals(p.normalize(p.absolute(rootPath)), mappingStoreRootPath),
     );
   }
 
@@ -115,6 +121,7 @@ class MappingToolResolver {
   final MappingToolProcessRunner _runner;
   final MappingToolFileCommit _commit;
   final Map<String, String> _environment;
+  final bool _requirePublication;
   bool _running = false;
 
   Future<void> validateInputs() async {
@@ -284,6 +291,9 @@ class MappingToolResolver {
     final stages = <String, _OutputStage>{};
     final outputs = MappingToolOutputs._(stages);
     try {
+      if (_requirePublication && contract.permittedWrites.isNotEmpty) {
+        await _publicationRequest({'action': 'ping'});
+      }
       final replaced = <String, String>{};
       for (final entry in overrides.entries) {
         final declaration = contract.overrides[entry.key];
@@ -339,6 +349,50 @@ class MappingToolResolver {
       // All no-replacement checks above precede even staging writes.
       for (final entry in outputPaths.entries) {
         final output = contract.outputs[entry.key]!;
+        if (_requirePublication &&
+            output.kind == MappingToolPathKind.directory) {
+          final backupRoot = _environment['MAPPING_PUBLICATION_BACKUP'];
+          if (backupRoot == null) {
+            throw StateError('Publication backup capability missing');
+          }
+          await requireNonStorePath(backupRoot);
+          final relative = p.relative(entry.value, from: _store.root);
+          final backup = p.join(backupRoot, 'outputs', relative);
+          final marker = p.join(backup, 'snapshot.json');
+          if (!await File(marker).exists()) {
+            final snapshot = await Directory(entry.value).exists()
+                ? await _store.snapshot(entry.value)
+                : const _Snapshot([], []);
+            await _rejectLinksBetween(backupRoot, backup);
+            await Directory(p.join(backup, 'payload')).create(recursive: true);
+            final files = <Map<String, Object?>>[];
+            for (final child in snapshot.files) {
+              final target = p.join(backup, 'payload', child);
+              await Directory(p.dirname(target)).create(recursive: true);
+              await File(p.join(entry.value, child)).copy(target);
+              final handle = await File(target).open(mode: FileMode.append);
+              try {
+                await handle.flush();
+              } finally {
+                await handle.close();
+              }
+              _flushDirectory(p.dirname(target));
+              final integrity = await const IoMappingStoreFileSystem()
+                  .inspectIntegrity(target);
+              files.add({
+                'path': child,
+                'size': integrity.size,
+                'sha256': integrity.sha256,
+              });
+            }
+            await File(marker).writeAsString(
+              jsonEncode({'directory': relative, 'files': files}),
+              flush: true,
+            );
+            _flushDirectory(backup);
+            _flushDirectory(p.dirname(backup));
+          }
+        }
         await _store.createDirectory(p.dirname(entry.value));
         final temporary = await Directory(
           p.dirname(entry.value),
@@ -484,7 +538,59 @@ class MappingToolResolver {
       }
       outputs._active = false;
       for (final stage in stages.values) {
-        await stage.commit(_store, _commit);
+        await stage.commit(_store, (staged, target, replace) async {
+          final relative = p.relative(target, from: _store.root);
+          if (_requirePublication) {
+            final next = await const IoMappingStoreFileSystem()
+                .inspectIntegrity(staged);
+            String? prior;
+            if (await File(target).exists()) {
+              prior = (await const IoMappingStoreFileSystem().inspectIntegrity(
+                target,
+              )).sha256;
+              final backupRoot = _environment['MAPPING_PUBLICATION_BACKUP'];
+              if (backupRoot == null) {
+                throw StateError('Publication backup capability missing');
+              }
+              await requireNonStorePath(backupRoot);
+              final initial = p.join(backupRoot, 'payload', relative);
+              final backup = p.join(backupRoot, 'extra', relative);
+              if (!await File(initial).exists() &&
+                  !await File(backup).exists()) {
+                await _rejectLinksBetween(backupRoot, backup);
+                await Directory(p.dirname(backup)).create(recursive: true);
+                await File(target).copy(backup);
+                final handle = await File(backup).open(mode: FileMode.append);
+                try {
+                  await handle.flush();
+                } finally {
+                  await handle.close();
+                }
+                _flushDirectory(p.dirname(backup));
+              }
+            }
+            await _publicationRequest({
+              'action': 'prepare',
+              'path': relative,
+              'priorSha256': prior,
+              'nextSha256': next.sha256,
+            });
+          }
+          await _commit(staged, target, replace);
+          if (_requirePublication) {
+            final file = await File(target).open(mode: FileMode.append);
+            try {
+              await file.flush();
+            } finally {
+              await file.close();
+            }
+            _flushDirectory(p.dirname(target));
+            await _publicationRequest({
+              'action': 'published',
+              'path': relative,
+            });
+          }
+        });
       }
     } finally {
       outputs._active = false;
@@ -492,6 +598,44 @@ class MappingToolResolver {
         await stage.cleanup();
       }
       _running = false;
+    }
+  }
+
+  Future<void> _publicationRequest(Map<String, Object?> request) async {
+    final address = _environment['MAPPING_PUBLICATION_SOCKET'];
+    final token = _environment['MAPPING_PUBLICATION_TOKEN'];
+    if (address == null || token == null) {
+      throw StateError(
+        'Canonical publication requires mapping_source.py maintenance run; ${contract.toolId} retains its exact output authority.',
+      );
+    }
+    final socket = await Socket.connect(
+      InternetAddress(address, type: InternetAddressType.unix),
+      0,
+      timeout: const Duration(seconds: 5),
+    );
+    try {
+      socket.writeln(
+        jsonEncode({
+          ...request,
+          'ownershipToken': token,
+          'toolId': contract.toolId,
+          'root': _store.root,
+        }),
+      );
+      await socket.flush();
+      final response = await socket
+          .cast<List<int>>()
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .first
+          .timeout(const Duration(seconds: 30));
+      final decoded = jsonDecode(response) as Map;
+      if (decoded['ok'] != true) {
+        throw StateError('Publication refused: ${decoded['error']}');
+      }
+    } finally {
+      socket.destroy();
     }
   }
 
@@ -539,6 +683,43 @@ class MappingToolResolver {
       await _store.requireKind(path, input.kind);
     }
     return [path];
+  }
+}
+
+void _flushDirectory(String directory) {
+  final native = DynamicLibrary.process();
+  final open = native
+      .lookupFunction<
+        Int32 Function(Pointer<Utf8>, Int32),
+        int Function(Pointer<Utf8>, int)
+      >('open');
+  final sync = native.lookupFunction<Int32 Function(Int32), int Function(int)>(
+    'fsync',
+  );
+  final close = native.lookupFunction<Int32 Function(Int32), int Function(int)>(
+    'close',
+  );
+  final path = directory.toNativeUtf8();
+  try {
+    final descriptor = open(path, 0);
+    if (descriptor < 0) {
+      throw FileSystemException(
+        'Cannot open publication directory for flush',
+        directory,
+      );
+    }
+    try {
+      if (sync(descriptor) != 0) {
+        throw FileSystemException(
+          'Publication directory flush failed',
+          directory,
+        );
+      }
+    } finally {
+      close(descriptor);
+    }
+  } finally {
+    malloc.free(path);
   }
 }
 
@@ -868,6 +1049,62 @@ RegExp _globExpression(String pattern) {
 class MappingToolManifestBootstrap {
   const MappingToolManifestBootstrap();
 
+  /// Explicit reviewed tool-contract replacement, a separate exact-file
+  /// capability. It cannot publish an app dataset or widen any tool's outputs.
+  Future<void> replaceReviewed({
+    required String fixtureText,
+    String rootPath = mappingStoreRootPath,
+  }) => _publishReviewed(
+    fixtureText: fixtureText,
+    rootPath: rootPath,
+    replace: true,
+  );
+
+  Future<void> _publishReviewed({
+    required String fixtureText,
+    required String rootPath,
+    required bool replace,
+  }) async {
+    MappingToolManifest.parse(fixtureText);
+    final store = await _ToolStore.open(rootPath);
+    final resolver = MappingToolResolver._(
+      store: store,
+      contract: MappingToolContract(
+        toolId: 'mapping-tool-manifest-maintenance',
+        executable: 'dart',
+        arguments: const [],
+        inputs: const {},
+        outputs: {
+          'tools': MappingToolPath(
+            id: 'tools',
+            path: 'tool_manifest.json',
+            kind: MappingToolPathKind.file,
+            required: true,
+            replace: replace,
+            atomic: true,
+          ),
+        },
+        permittedWrites: const ['tools'],
+        overrides: const {},
+      ),
+      repositoryRoot: Directory.current.path,
+      runner: _runProcess,
+      commitFile: _commitFile,
+      environment: Platform.environment,
+      requirePublication:
+          p.equals(store.root, mappingStoreRootPath) ||
+          p.equals(p.normalize(p.absolute(rootPath)), mappingStoreRootPath),
+    );
+    await resolver.writeOutputs(
+      (outputs) => outputs.writeText('tools', fixtureText),
+    );
+  }
+
+  Future<void> restoreNonStore(String source) async {
+    await requireNonMappingPath(source);
+    await replaceReviewed(fixtureText: await File(source).readAsString());
+  }
+
   Future<bool> install({
     required String fixtureText,
     String rootPath = mappingStoreRootPath,
@@ -885,6 +1122,15 @@ class MappingToolManifestBootstrap {
         );
       }
       return false;
+    }
+    if (p.equals(store.root, mappingStoreRootPath) ||
+        p.equals(p.normalize(p.absolute(rootPath)), mappingStoreRootPath)) {
+      await _publishReviewed(
+        fixtureText: fixtureText,
+        rootPath: rootPath,
+        replace: false,
+      );
+      return true;
     }
     final temporary = await Directory(
       store.root,

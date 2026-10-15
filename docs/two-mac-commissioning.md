@@ -1,5 +1,11 @@
 # Two-Mac workspace commissioning record
 
+This is the dated **source-workspace** migration record for Spec 0062. Its
+historical SMB-only runtime restrictions are superseded by Spec 0063's
+[local Mapping runtime commissioning](mapping-runtime-commissioning.md), which
+has separate acceptance/results. Source ownership, three-session handover,
+verified backups and personal-data boundaries below remain applicable.
+
 **Status: completed.** Live migration, synchronization, both-Mac builds/tests,
 fully disconnected recompilation and actual logout/login verification passed.
 Development is released to the selected **MacBook**; switching to mini requires

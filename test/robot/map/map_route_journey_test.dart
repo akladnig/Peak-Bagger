@@ -17,6 +17,64 @@ import 'map_route_robot.dart';
 
 void main() {
   testWidgets(
+    'complete route journey keeps pending frames interactive and restores undo redo',
+    (tester) async {
+      final pending = Completer<RouteElevationSummary>();
+      final robot = MapRouteRobot(
+        tester,
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+        ),
+        routePlanningOutcomes: const [],
+        routeElevationOutcomes: [pending],
+      );
+      await robot.pumpApp();
+      addTearDown(robot.dispose);
+      await robot.openMap();
+      await robot.enterRouteMode();
+      await robot.selectRouteMode(RouteMode.straightLine);
+      await robot.clickRoutePoint(const Offset(-40, 0));
+      await robot.clickRoutePoint(const Offset(40, 0));
+      robot.expectElevationPending();
+      await robot.typeRouteName('Pending route');
+      await tester.pump(const Duration(milliseconds: 100));
+      robot.expectElevationPending();
+      pending.complete(
+        const RouteElevationSummary(
+          requestId: 1,
+          geometryVersion: 1,
+          startElevation: 100,
+          endElevation: 130,
+          ascent: 30,
+          descent: 4,
+          distance3d: 140,
+        ),
+      );
+      await tester.pumpAndSettle();
+      robot.expectCompletedStatistics(ascent: '30 m', descent: '4 m');
+      final geometry = robot
+          .container()
+          .read(mapProvider)
+          .routeDraftCommittedPoints;
+      await robot.undoRouteEdit();
+      expect(
+        robot.container().read(mapProvider).routeDraftCommittedPoints,
+        hasLength(1),
+      );
+      await robot.redoRouteEdit();
+      expect(
+        robot.container().read(mapProvider).routeDraftCommittedPoints,
+        geometry,
+      );
+      await robot.cancelRoute();
+      robot.expectRouteDraftOverlaysHidden();
+      expect(robot.savedRoutes(), isEmpty);
+    },
+  );
+
+  testWidgets(
     'route journey routes from one tap to the peak marker and saves',
     (tester) async {
       final robot = MapRouteRobot(
@@ -370,8 +428,14 @@ void main() {
 
       robot.expectRouteDraftOverlaysHidden();
       expect(robot.savedRoutes(), hasLength(1));
-      expect(robot.savedRoutes().single.gpxRoute, contains(const LatLng(-41.58, 146.58)));
-      expect(robot.savedRoutes().single.gpxRoute, contains(const LatLng(-41.54, 146.54)));
+      expect(
+        robot.savedRoutes().single.gpxRoute,
+        contains(const LatLng(-41.58, 146.58)),
+      );
+      expect(
+        robot.savedRoutes().single.gpxRoute,
+        contains(const LatLng(-41.54, 146.54)),
+      );
       expect(robot.savedRoutes().single.routeWaypoints, isEmpty);
       expect(robot.container().read(mapProvider).showRoutes, isTrue);
     },

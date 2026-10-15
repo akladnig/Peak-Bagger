@@ -2,11 +2,122 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:peak_bagger/startup_shell.dart';
 
 void main() {
+  testWidgets(
+    'pending retry is visible, single-flight and preserves updated failures',
+    (tester) async {
+      final coordinator = _PendingRetryCoordinator();
+      await tester.pumpWidget(
+        StartupShell(
+          coordinator: coordinator,
+          readyBuilder: (_) => const MaterialApp(home: Text('ready app')),
+        ),
+      );
+      await tester.pump();
+      final retry = tester
+          .widget<FilledButton>(
+            find.byKey(const Key('mapping-store-unavailable-retry')),
+          )
+          .onPressed!;
+      retry();
+      retry();
+      await tester.pump();
+      expect(coordinator.retryCalls, 1);
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Retry'), findsNothing);
+      expect(find.text('ready app'), findsNothing);
+      coordinator.pending.complete(
+        StartupResult.unavailable(
+          ['/local/new-failure'],
+          rootPath: '/local/replica',
+          isReplica: true,
+          diagnostic: 'Updated validation failure.',
+        ),
+      );
+      await tester.pump();
+      expect(find.text('/local/new-failure'), findsOneWidget);
+      expect(find.text('Updated validation failure.'), findsOneWidget);
+      coordinator.pending = Completer<StartupResult>();
+      await tester.tap(
+        find.byKey(const Key('mapping-store-unavailable-retry')),
+      );
+      await tester.pump();
+      coordinator.pending.complete(StartupResult.ready(_catalog));
+      await tester.pump();
+      expect(find.text('ready app'), findsOneWidget);
+    },
+  );
+  testWidgets(
+    'long local paths scroll at enlarged text scale while controls remain reachable',
+    (tester) async {
+      tester.view.physicalSize = const Size(640, 300);
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 3;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      var quits = 0;
+      await tester.pumpWidget(
+        StartupShell(
+          coordinator: _FakeStartupCoordinator(
+            StartupResult.unavailable(
+              List.generate(40, (i) => '/local/replica/missing/$i'),
+              rootPath:
+                  '/Users/a/Library/Application Support/${'long-path/' * 20}',
+              isReplica: true,
+              diagnostic: 'Local replica validation failed.',
+            ),
+          ),
+          readyBuilder: (_) => const Text('ready app'),
+          onQuit: () => quits++,
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await tester.drag(
+        find.byKey(const Key('mapping-store-unavailable-path-list')),
+        const Offset(0, -500),
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('mapping-store-unavailable-quit')));
+      expect(quits, 1);
+    },
+  );
+  testWidgets(
+    'replica startup shows exact local diagnostics and keyboard-reachable Quit',
+    (tester) async {
+      var quits = 0;
+      await tester.pumpWidget(
+        StartupShell(
+          coordinator: _FakeStartupCoordinator(
+            StartupResult.unavailable(
+              ['/local/replica/generations/broken/payload/DEM/cop30_hh.tif'],
+              rootPath: '/local/replica',
+              isReplica: true,
+              diagnostic: 'Local replica validation failed.',
+            ),
+          ),
+          readyBuilder: (_) => const Text('ready app'),
+          onQuit: () => quits++,
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Mapping runtime replica unavailable'), findsOneWidget);
+      expect(find.text('/local/replica'), findsOneWidget);
+      expect(find.text('Local replica validation failed.'), findsOneWidget);
+      expect(find.text('/Volumes/Services/Mapping'), findsNothing);
+      expect(find.textContaining('Initial synchronization'), findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(quits, 1);
+    },
+  );
   testWidgets(
     'production root supplies startup context and hands off at ready',
     (tester) async {
@@ -286,4 +397,21 @@ class _PendingStartupCoordinator implements StartupCoordinator {
 
   @override
   Future<StartupResult> retry() async => retryResult ?? await _result.future;
+}
+
+class _PendingRetryCoordinator extends _FakeStartupCoordinator {
+  _PendingRetryCoordinator()
+    : super(
+        StartupResult.unavailable(
+          ['/local/replica'],
+          rootPath: '/local/replica',
+          isReplica: true,
+        ),
+      );
+  var pending = Completer<StartupResult>();
+  @override
+  Future<StartupResult> retry() {
+    retryCalls++;
+    return pending.future;
+  }
 }

@@ -9,9 +9,169 @@ import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/models/route_graph_way_index.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
+import 'package:peak_bagger/services/route_graph_errors.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
 
 void main() {
+  test(
+    'async bounded snapshots reject unvalidated graph generations',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('graph-snapshot');
+      final store = await openStore(directory: directory.path);
+      addTearDown(() async {
+        store.close();
+        await directory.delete(recursive: true);
+      });
+      final repository = RouteGraphRepository.objectBox(store);
+      await repository.writePreparedGeneration(
+        _prepared(generation: 3, chunkKey: 'tas'),
+        routingCoverageKey: 'tasmania',
+        pruneStaleGenerations: true,
+      );
+      Future<List<RouteGraphChunk>> read() => repository.chunksForBoundsAsync(
+        'tasmania',
+        minLat: 0,
+        maxLat: 1,
+        minLon: 0,
+        maxLon: 1,
+      );
+      await expectLater(read(), throwsA(isA<RouteGraphLoadException>()));
+      await repository.hasUsableActiveGenerationForAsync('tasmania');
+      expect((await read()).single.chunkKey, 'tas');
+      await repository.writePreparedGeneration(
+        _prepared(generation: 4, chunkKey: 'new'),
+        routingCoverageKey: 'tasmania',
+        pruneStaleGenerations: true,
+      );
+      await expectLater(read(), throwsA(isA<RouteGraphLoadException>()));
+    },
+  );
+
+  test(
+    'native bounded reads require validation and preserve inclusive bounds',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('graph-bounds');
+      final store = await openStore(directory: directory.path);
+      addTearDown(() async {
+        store.close();
+        await directory.delete(recursive: true);
+      });
+      final repository = RouteGraphRepository.objectBox(store);
+      await repository.writePreparedGeneration(
+        _prepared(generation: 3, chunkKey: 'tas'),
+        routingCoverageKey: 'tasmania',
+        pruneStaleGenerations: true,
+      );
+      List<RouteGraphChunk> read(double latitude) => repository.chunksForBounds(
+        'tasmania',
+        minLat: latitude,
+        maxLat: latitude,
+        minLon: 1,
+        maxLon: 1,
+      );
+      expect(read(1), isEmpty);
+      expect(
+        await repository.hasUsableActiveGenerationForAsync('tasmania'),
+        isTrue,
+      );
+      expect(read(1).single.chunkKey, 'tas');
+      expect(read(2), isEmpty);
+    },
+  );
+
+  test(
+    'validated generation readiness is pinned to the full manifest identity',
+    () async {
+      final directory = await Directory.systemTemp.createTemp('graph-validity');
+      final store = await openStore(directory: directory.path);
+      addTearDown(() async {
+        store.close();
+        await directory.delete(recursive: true);
+      });
+      final repository = RouteGraphRepository.objectBox(store);
+      await repository.writePreparedGeneration(
+        _prepared(generation: 3, chunkKey: 'tas'),
+        routingCoverageKey: 'tasmania',
+        pruneStaleGenerations: true,
+      );
+      expect(repository.hasValidatedActiveGenerationFor('tasmania'), isFalse);
+      expect(
+        await repository.hasUsableActiveGenerationForAsync('tasmania'),
+        isTrue,
+      );
+      expect(repository.hasValidatedActiveGenerationFor('tasmania'), isTrue);
+      final manifest = store.box<RouteGraphManifest>().getAll().single;
+      manifest.sourceHash = 'changed';
+      store.box<RouteGraphManifest>().put(manifest);
+      expect(repository.hasValidatedActiveGenerationFor('tasmania'), isFalse);
+    },
+  );
+
+  test(
+    'async readiness rejects a generation replaced while validation runs',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'graph-validation-version',
+      );
+      final store = await openStore(directory: directory.path);
+      addTearDown(() async {
+        store.close();
+        await directory.delete(recursive: true);
+      });
+      final repository = RouteGraphRepository.objectBox(store);
+      await repository.writePreparedGeneration(
+        _prepared(generation: 3, chunkKey: 'old'),
+        routingCoverageKey: 'tasmania',
+        pruneStaleGenerations: true,
+      );
+      final validation = repository.hasUsableActiveGenerationForAsync(
+        'tasmania',
+      );
+      await repository.writePreparedGeneration(
+        _prepared(generation: 4, chunkKey: 'new'),
+        routingCoverageKey: 'tasmania',
+        pruneStaleGenerations: true,
+      );
+      expect(await validation, isFalse);
+      expect(
+        await repository.hasUsableActiveGenerationForAsync('tasmania'),
+        isTrue,
+      );
+    },
+  );
+
+  test('async ObjectBox readiness validates current stored payloads', () async {
+    final directory = await Directory.systemTemp.createTemp('graph-readiness');
+    final store = await openStore(directory: directory.path);
+    addTearDown(() async {
+      store.close();
+      await directory.delete(recursive: true);
+    });
+    final repository = RouteGraphRepository.objectBox(store);
+    await repository.writePreparedGeneration(
+      _prepared(generation: 3, chunkKey: 'tas'),
+      routingCoverageKey: 'tasmania',
+      sourceRegionKeys: const ['tasmania'],
+      pruneStaleGenerations: true,
+    );
+
+    expect(
+      await repository.hasUsableActiveGenerationForAsync('tasmania'),
+      isTrue,
+    );
+    final row = store.box<RouteGraphChunk>().getAll().single;
+    row.payloadJson = '{"elements":[]}';
+    store.box<RouteGraphChunk>().put(row);
+    expect(
+      await repository.hasUsableActiveGenerationForAsync('tasmania'),
+      isFalse,
+    );
+    expect(
+      await repository.hasUsableActiveGenerationForAsync('missing'),
+      isFalse,
+    );
+  });
+
   test(
     'writePreparedGeneration activates new generation and prunes stale chunks',
     () async {

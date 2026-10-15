@@ -20,6 +20,69 @@ import '../harness/test_tasmap_repository.dart';
 import '../harness/route_elevation_fixture.dart';
 
 void main() {
+  test(
+    'disposal during lazy preparation does not dispatch obsolete graph work',
+    () async {
+      final planner = _ControlledRoutePlanner();
+      final sampler = _PreparingRouteElevationSampler();
+      final notifier = await _buildRouteTestNotifier(
+        routePlanner: planner,
+        routeElevationSampler: sampler,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => notifier)],
+      );
+      container.read(mapProvider.notifier).beginRouteDraft();
+      notifier.addRouteDraftMarker(elevationRoutePoints.first);
+      notifier.addRouteDraftMarker(elevationRoutePoints.last);
+      await Future<void>.delayed(Duration.zero);
+      container.dispose();
+      sampler.preparation.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(planner.requests, isEmpty);
+    },
+  );
+
+  test(
+    'lazy DEM preparation finishes before graph dispatch and canceled results stay obsolete',
+    () async {
+      final planner = _ControlledRoutePlanner();
+      final sampler = _PreparingRouteElevationSampler();
+      final notifier = await _buildRouteTestNotifier(
+        routePlanner: planner,
+        routeElevationSampler: sampler,
+      );
+      final container = ProviderContainer(
+        overrides: [mapProvider.overrideWith(() => notifier)],
+      );
+      addTearDown(container.dispose);
+      container.read(mapProvider.notifier).beginRouteDraft();
+      notifier.addRouteDraftMarker(elevationRoutePoints.first);
+      expect(sampler.prepared, isEmpty);
+      notifier.addRouteDraftMarker(elevationRoutePoints.last);
+      await Future<void>.delayed(Duration.zero);
+      expect(sampler.prepared, [elevationRoutePoints]);
+      expect(planner.requests, isEmpty);
+      expect(
+        container.read(mapProvider).routeDraftStage,
+        RouteDraftStage.routingSegment,
+      );
+      sampler.preparation.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(planner.requests, hasLength(1));
+      notifier.cancelRouteDraft();
+      planner.completeNext(
+        const PlannedRouteSegment(
+          points: elevationRoutePoints,
+          distanceMeters: 140,
+        ),
+      );
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(mapProvider).isRouteDrafting, isFalse);
+      expect(container.read(mapProvider).routeDraftElevationSummary, isNull);
+    },
+  );
+
   test('route draft starts clean and clears selected map state', () async {
     final realNotifier = await _buildRouteTestNotifier(
       routePlanner: const _ImmediateStraightRoutePlanner(),
@@ -3652,6 +3715,24 @@ class _ImmediateZeroRouteElevationSampler implements RouteElevationSampler {
       (index) => 100.0 + (index * 10),
       growable: false,
     );
+  }
+}
+
+class _PreparingRouteElevationSampler
+    extends _ImmediateZeroRouteElevationSampler
+    implements RouteElevationPreparation {
+  final prepared = <List<LatLng>>[];
+  final preparation = Completer<void>();
+  @override
+  Future<void> prepareForPoints(List<LatLng> points) {
+    prepared.add(List.of(points));
+    return preparation.future;
+  }
+
+  @override
+  Future<List<double?>> samplePointElevations(List<LatLng> points) async {
+    await preparation.future;
+    return super.samplePointElevations(points);
   }
 }
 

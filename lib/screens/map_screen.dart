@@ -54,6 +54,11 @@ import 'package:peak_bagger/services/track_hover_detector.dart';
 import 'package:peak_bagger/services/map_chart_hover_resolver.dart';
 import 'package:peak_bagger/services/map_trackpad_gesture_classifier.dart';
 import 'package:peak_bagger/services/live_location_service.dart';
+import 'package:peak_bagger/services/route_placement_measurement.dart';
+import 'package:peak_bagger/providers/route_mode_measurement_provider.dart';
+import 'package:peak_bagger/services/performance_frame.dart';
+import 'package:peak_bagger/providers/dashboard_readiness_provider.dart'
+    show performanceMeasurementProvider;
 import 'package:peak_bagger/services/map_search_region_filter.dart';
 import 'package:peak_bagger/services/open_route_service.dart';
 import 'package:peak_bagger/services/route_graph_drive_eta_hit_service.dart';
@@ -212,12 +217,25 @@ class _MapScreenState extends ConsumerState<MapScreen>
   List<RouteHoverCandidate>? _cachedRouteHoverCandidates;
   StreamSubscription<String>? _overlayOutageSubscription;
   int _driveEtaRequestId = 0;
+  RoutePlacementMeasurement? _placementMeasurement;
+  int? _placementRoutingRequestId;
+  int _placementCount = 0;
+  int _subsequentPlacementCount = 0;
+  final List<VoidCallback> _cancelFrameMeasurements = [];
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _mapController = MapController();
     _mapNotifier = ref.read(mapProvider.notifier);
+    ref.listenManual(mapProvider, (_, next) => _observeMeasuredPlacement(next));
+    ref.listenManual(routeModeMeasurementProvider, (_, next) {
+      if (next == null) return;
+      _placementMeasurement = next.timing;
+      _placementRoutingRequestId = next.routingRequestId;
+      _placementCount++;
+      _observeMeasuredPlacement(ref.read(mapProvider));
+    });
     _mapChartHoverNotifier = ref.read(mapChartHoverProvider.notifier);
     _overlayOutageSubscription = ref
         .read(localTopoOverlayOutageReporterProvider)
@@ -2514,8 +2532,144 @@ class _MapScreenState extends ConsumerState<MapScreen>
     }
   }
 
+  void _addMeasuredRoutePoint(LatLng point) {
+    final recorder = ref.read(performanceMeasurementProvider);
+    final before = ref.read(mapProvider);
+    final timing = recorder.enabled
+        ? RoutePlacementMeasurement(
+            mode: before.routeDraftMode,
+            ordinaryStart:
+                before.routeDraftControlEndpoints.isEmpty &&
+                before.routeDraftMode != RouteMode.routeToPeak,
+            beforeDistanceMeters: before.routeDraftDistanceMeters,
+            beforeGeometryVersion: before.routeDraftGeometryVersion,
+          )
+        : null;
+    recorder.phaseSync(
+      'route.acceptance-and-dispatch',
+      () => _mapNotifier.addRouteDraftMarker(
+        point,
+        straightLine: before.routeDraftMode == RouteMode.straightLine,
+      ),
+    );
+    final after = ref.read(mapProvider);
+    // The existing guards/no-op duplicate handling define acceptance.
+    if (timing == null ||
+        after.routeDraftControlEndpoints.length <=
+            before.routeDraftControlEndpoints.length) {
+      return;
+    }
+    if (_placementMeasurement != null) {
+      recorder.event('route.placement.superseded');
+    }
+    _placementMeasurement = timing;
+    _placementRoutingRequestId = after.routeDraftRequestId;
+    _placementCount++;
+    if (!timing.ordinaryStart) _subsequentPlacementCount++;
+    recorder.event('route.placement.accepted', {
+      'dart_monotonic_us': timing.acceptedDartUs,
+      'accepted_dart_us': timing.acceptedDartUs,
+      'placement': _placementCount,
+      'mode': timing.mode.name,
+      'ordinary_start': timing.ordinaryStart,
+      'clicked_coordinate': [point.latitude, point.longitude],
+      'control_coordinates': [
+        for (final e in after.routeDraftControlEndpoints)
+          [e.point.latitude, e.point.longitude],
+      ],
+      'draft_condition': before.routeDraftControlEndpoints.length <= 1
+          ? 'fresh'
+          : 'accumulated',
+      'subsequent_condition': timing.ordinaryStart
+          ? 'ordinary-start'
+          : _subsequentPlacementCount == 1
+          ? 'first-subsequent-this-screen'
+          : 'repeated-use',
+    });
+    _observeMeasuredPlacement(after);
+  }
+
+  void _observeMeasuredPlacement(MapState next) {
+    final timing = _placementMeasurement;
+    if (timing == null) return;
+    final recorder = ref.read(performanceMeasurementProvider);
+    final eventPrefix = timing.modeAction
+        ? 'route.mode-action'
+        : 'route.placement';
+    if (!next.isRouteDrafting ||
+        next.routeDraftRequestId != _placementRoutingRequestId) {
+      recorder.event('$eventPrefix.invalidated', {
+        'placement': _placementCount,
+      });
+      timing.clock.stop();
+      _placementMeasurement = null;
+      return;
+    }
+    if (next.routeDraftStage == RouteDraftStage.segmentFailure ||
+        next.routeDraftElevationError != null) {
+      recorder.event('$eventPrefix.failed', {
+        'placement': _placementCount,
+        'error': next.routeDraftError ?? next.routeDraftElevationError,
+        'elapsed_us': timing.clock.elapsedMicroseconds,
+      });
+      timing.clock.stop();
+      _placementMeasurement = null;
+      return;
+    }
+    if (!timing.isComplete(next) || timing.frameScheduled) return;
+    timing.frameScheduled = true;
+    final points = next.routeDraftCommittedPoints;
+    final summary = next.routeDraftElevationSummary;
+    final geometryVersion = next.routeDraftGeometryVersion;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      timing.frameScheduled = false;
+      if (!mounted || _placementMeasurement != timing) return;
+      final current = ref.read(mapProvider);
+      if (!timing.isComplete(current) ||
+          current.routeDraftGeometryVersion != geometryVersion ||
+          !identical(current.routeDraftCommittedPoints, points) ||
+          !identical(current.routeDraftElevationSummary, summary) ||
+          !TickerMode.valuesOf(context).enabled ||
+          !(ModalRoute.of(context)?.isCurrent ?? true)) {
+        return;
+      }
+      final event = timing.modeAction
+          ? 'route.mode-action.complete.frame'
+          : timing.ordinaryStart
+          ? 'route.start-feedback.frame'
+          : 'route.complete-update.frame';
+      final fields = <String, Object?>{
+        'accepted_dart_us': timing.acceptedDartUs,
+        'endpoint': 'framework-frame-complete',
+        'placement': _placementCount,
+        'mode': timing.mode.name,
+        'elapsed_us': timing.clock.elapsedMicroseconds,
+        'new_segment_meters':
+            current.routeDraftDistanceMeters - timing.beforeDistanceMeters,
+        'cumulative_meters': current.routeDraftDistanceMeters,
+        'geometry_vertices': points.length,
+        'geometry_version': geometryVersion,
+        'elevation_request_id': current.routeDraftElevationRequestId,
+        'ascent': summary?.ascent,
+        'descent': summary?.descent,
+        'start_elevation': summary?.startElevation,
+        'end_elevation': summary?.endElevation,
+      };
+      recorder.event(event, fields);
+      timing.clock.stop();
+      _cancelFrameMeasurements.add(
+        recordRasterizedPerformanceFrame(recorder, event, fields),
+      );
+      _placementMeasurement = null;
+    });
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
   @override
   void dispose() {
+    for (final cancel in _cancelFrameMeasurements) {
+      cancel();
+    }
     _mapChartHoverNotifier.clear();
     _overlayOutageSubscription?.cancel();
     _removeRouteDraftOverlays();
@@ -3307,11 +3461,8 @@ class _MapScreenState extends ConsumerState<MapScreen>
                                                   .commitHoveredRouteDraftSegmentPreview();
                                               return;
                                             }
-                                            notifier.addRouteDraftMarker(
+                                            _addMeasuredRoutePoint(
                                               tappedLocation,
-                                              straightLine:
-                                                  routeChrome.routeDraftMode ==
-                                                  RouteMode.straightLine,
                                             );
                                             return;
                                           }

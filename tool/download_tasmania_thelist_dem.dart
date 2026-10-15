@@ -49,7 +49,12 @@ Future<void> main(List<String> args) async {
   final resolver = await openMappingTool('download-tasmania-thelist-dem');
   await resolver.validateOverrides({'--output-file': ?options.outputFile});
   final outputDirectory =
-      options.outputDirectory ?? p.join('build', 'dem', 'thelist_25m');
+      options.outputDirectory ??
+      p.join(
+        Platform.environment['MAPPING_PREPARATION_BASE'] ??
+            p.join('build', 'dem'),
+        'thelist_25m',
+      );
   await resolver.requireNonStorePath(outputDirectory);
   final zipUrls = await _discoverZipUrls();
   if (options.listOnly) {

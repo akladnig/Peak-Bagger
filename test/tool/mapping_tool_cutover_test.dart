@@ -103,6 +103,7 @@ void main() {
       expect(
         manifest.tools.keys,
         unorderedEquals([
+          'mapping-maintenance-promote',
           'mapping-store-provision',
           'route-graph-peak-list',
           'update-region-peak-fingerprints',

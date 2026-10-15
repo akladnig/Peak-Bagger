@@ -1,5 +1,6 @@
 import 'package:objectbox/objectbox.dart';
 import 'package:peak_bagger/models/natural_feature.dart';
+import 'natural_feature_refresh_service.dart' show NaturalFeatureRefreshStorage;
 
 import '../objectbox.g.dart';
 
@@ -160,7 +161,7 @@ class InMemoryNaturalFeatureStorage implements NaturalFeatureStorage {
   }
 }
 
-class NaturalFeatureRepository {
+class NaturalFeatureRepository implements NaturalFeatureRefreshStorage {
   NaturalFeatureRepository(Store store)
     : _storage = ObjectBoxNaturalFeatureStorage(store);
 
@@ -169,6 +170,7 @@ class NaturalFeatureRepository {
 
   final NaturalFeatureStorage _storage;
 
+  @override
   List<NaturalFeature> getAllNaturalFeatures() => _storage.getAll();
 
   NaturalFeature? findById(int id) => _storage.getById(id);
@@ -199,6 +201,7 @@ class NaturalFeatureRepository {
 
   bool isEmpty() => _storage.getAll().isEmpty;
 
+  @override
   void reconcileAtomically({
     required List<NaturalFeature> upserts,
     required List<int> deletedIds,

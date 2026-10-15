@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
+import '../services/display_zoom.dart';
 
 enum PeakClusterAlgorithm {
   compactCircular,
@@ -36,8 +37,8 @@ abstract final class MapConstants {
   static const peakViewportPadding = 24.0;
   static const peakMaxZoom = 18;
   static const driveEtaMinZoom = 6.0;
-  static const trackMinZoom = 6;
-  static const trackMaxZoom = 18;
+  static const trackMinZoom = trackMinDisplayZoom;
+  static const trackMaxZoom = trackMaxDisplayZoom;
   static const clearPeakInfo = 8;
   static const mapGridBorderWidth = 2.0;
   static const mapMgrsGridBorderWidth = 1.0;

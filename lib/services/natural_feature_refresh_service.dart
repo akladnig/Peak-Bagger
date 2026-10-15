@@ -5,9 +5,8 @@ import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/models/natural_feature.dart';
-import 'package:peak_bagger/services/natural_feature_repository.dart';
-import 'package:peak_bagger/services/mapping_data_store.dart';
-import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
+import 'package:peak_bagger/services/mapping_store_core.dart';
+import 'package:peak_bagger/services/mapping_store_file_access.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 
 typedef NaturalFeatureFileReader = Future<String> Function(String path);
@@ -18,6 +17,14 @@ typedef NaturalFeatureRefreshPersistence =
       required List<int> deletedIds,
     });
 typedef NaturalFeatureDiagnosticLogger = void Function(String message);
+
+abstract interface class NaturalFeatureRefreshStorage {
+  List<NaturalFeature> getAllNaturalFeatures();
+  void reconcileAtomically({
+    required List<NaturalFeature> upserts,
+    required List<int> deletedIds,
+  });
+}
 
 class NaturalFeatureRefreshResult {
   const NaturalFeatureRefreshResult({
@@ -48,7 +55,7 @@ class NaturalFeatureRefreshService {
        _persistence = persistence ?? _repositoryPersistence(_repository),
        _diagnosticLogger = diagnosticLogger ?? _logDiagnostic;
 
-  final NaturalFeatureRepository _repository;
+  final NaturalFeatureRefreshStorage _repository;
   final MappingCatalog? catalog;
   final NaturalFeatureFileReader? fileReader;
   final MappingStoreFileSystem _fileSystem;
@@ -57,7 +64,7 @@ class NaturalFeatureRefreshService {
   final NaturalFeatureDiagnosticLogger _diagnosticLogger;
 
   static NaturalFeatureRefreshPersistence _repositoryPersistence(
-    NaturalFeatureRepository repository,
+    NaturalFeatureRefreshStorage repository,
   ) {
     return repository.reconcileAtomically;
   }

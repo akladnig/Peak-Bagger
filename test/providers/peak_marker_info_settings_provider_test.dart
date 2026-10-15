@@ -69,9 +69,11 @@ void main() {
     );
     addTearDown(container.dispose);
 
+    container.read(peakMarkerInfoSettingsProvider);
     await _drainAsync();
 
     expect(container.read(peakMarkerInfoSettingsProvider), isFalse);
+    expect(container.read(peakMarkerInfoReadProvider).hasError, isTrue);
   });
 }
 

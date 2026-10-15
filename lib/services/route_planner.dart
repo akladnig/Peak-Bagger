@@ -4,6 +4,7 @@ import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:trip_routing/trip_routing.dart' as trip_routing;
+import 'performance_measurement.dart';
 
 class PlannedRouteSegment {
   const PlannedRouteSegment({
@@ -176,7 +177,9 @@ abstract class RoutePlanner {
         break;
     }
 
-    final reconnectAnchor = _usableLoopReconnectAnchor(directResult.startAnchor);
+    final reconnectAnchor = _usableLoopReconnectAnchor(
+      directResult.startAnchor,
+    );
     final probe = reconnectAnchor == null
         ? await probeEndpoint(
             point: currentPoint,
@@ -185,7 +188,9 @@ abstract class RoutePlanner {
         : null;
     final resolvedReconnectAnchor =
         reconnectAnchor ??
-        ((probe?.isOnTrack ?? false) ? _usableLoopReconnectAnchor(probe?.anchor) : null);
+        ((probe?.isOnTrack ?? false)
+            ? _usableLoopReconnectAnchor(probe?.anchor)
+            : null);
 
     if (resolvedReconnectAnchor != null) {
       final reconnectResult = await planSegmentResult(
@@ -421,6 +426,15 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
     required LatLng end,
     required double maxSnapDistanceMeters,
   }) async {
+    final queryService = _routeGraphQueryService;
+    if (queryService != null) {
+      return queryService.planSegmentInWorker(
+        routingCoverageKey: defaultRouteGraphCoverageKey,
+        start: start,
+        end: end,
+        maxSnapDistanceMeters: maxSnapDistanceMeters,
+      );
+    }
     final tripService = await _tripServiceForRoute(start: start, end: end);
     return tripService.findAnchoredSegment(
       start: start,
@@ -434,6 +448,14 @@ class LocalFileTripRoutingClient implements TripRoutingClient {
     required LatLng point,
     required double maxSnapDistanceMeters,
   }) async {
+    final queryService = _routeGraphQueryService;
+    if (queryService != null) {
+      return queryService.probeEndpointInWorker(
+        routingCoverageKey: defaultRouteGraphCoverageKey,
+        point: point,
+        maxSnapDistanceMeters: maxSnapDistanceMeters,
+      );
+    }
     final tripService = await _tripServiceForPoint(point: point);
     return tripService.probeEndpointAnchor(
       point: point,
@@ -566,9 +588,11 @@ class TripRoutingRoutePlanner extends RoutePlanner {
     required LatLng start,
     required LatLng end,
     double maxSnapDistanceMeters = RouteConstants.maxSnapDistanceMeters,
+    Future<void> Function()? prepareElevation,
   }) async {
     final client = _client;
     if (client is! LocalFileTripRoutingClient) {
+      await prepareElevation?.call();
       return planSegmentResult(
         start: start,
         end: end,
@@ -576,16 +600,40 @@ class TripRoutingRoutePlanner extends RoutePlanner {
       );
     }
     try {
-      final service = await client.tripServiceForCoverageRoute(
-        routingCoverageKey: routingCoverageKey,
-        start: start,
-        end: end,
-      );
-      return _mapSegmentResult(
-        await service.findAnchoredSegment(
+      final queryService = client._routeGraphQueryService;
+      if (queryService != null) {
+        return _mapSegmentResult(
+          await queryService.planSegmentInWorker(
+            routingCoverageKey: routingCoverageKey,
+            start: start,
+            end: end,
+            maxSnapDistanceMeters: maxSnapDistanceMeters,
+            prepareElevation: prepareElevation,
+          ),
+        );
+      }
+      final service = await performanceMeasurement.phase(
+        'route.graph-loading',
+        () => client.tripServiceForCoverageRoute(
+          routingCoverageKey: routingCoverageKey,
           start: start,
           end: end,
-          maxSnapDistanceMeters: maxSnapDistanceMeters,
+        ),
+        {'coverage': routingCoverageKey},
+      );
+      await prepareElevation?.call();
+      return _mapSegmentResult(
+        await performanceMeasurement.phase(
+          'route.graph-planning',
+          () => service.findAnchoredSegment(
+            start: start,
+            end: end,
+            maxSnapDistanceMeters: maxSnapDistanceMeters,
+          ),
+          {
+            'start': [start.latitude, start.longitude],
+            'end': [end.latitude, end.longitude],
+          },
         ),
       );
     } on RouteGraphLoadException catch (error) {
@@ -725,6 +773,19 @@ class TripRoutingRoutePlanner extends RoutePlanner {
       );
     }
     try {
+      final queryService = client._routeGraphQueryService;
+      if (queryService != null) {
+        final result = await queryService.probeEndpointInWorker(
+          routingCoverageKey: routingCoverageKey,
+          point: point,
+          maxSnapDistanceMeters: maxSnapDistanceMeters,
+        );
+        return RouteEndpointProbeResult(
+          isOnTrack: result.isOnTrack,
+          anchor: _mapAnchor(result.anchor),
+          errorMessage: result.errors.isEmpty ? null : result.errors.join('\n'),
+        );
+      }
       final service = await client.tripServiceForCoveragePoint(
         routingCoverageKey: routingCoverageKey,
         point: point,

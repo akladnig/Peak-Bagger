@@ -11,6 +11,90 @@ import 'package:peak_bagger/services/route_graph_repository.dart';
 
 void main() {
   test(
+    'failed async graph read publishes failure rather than readiness',
+    () async {
+      final validation = Completer<bool>();
+      final repository = _PendingReadinessRepository(validation.future);
+      final coordinator = RouteGraphImportCoordinator(
+        coverageResolver: _CatalogResolver(),
+        importService: RouteGraphImportService(repository),
+        repository: repository,
+      );
+      addTearDown(coordinator.dispose);
+      final bootstrap = coordinator.bootstrap();
+      await Future<void>.delayed(Duration.zero);
+      validation.completeError(StateError('stored graph read failed'));
+      final result = await bootstrap as RouteGraphImportBatchCompleted;
+      expect(
+        result.outcomes.single.status,
+        RouteGraphCoverageOutcomeStatus.failed,
+      );
+      expect(
+        coordinator.stateFor('tasmania')?.status,
+        RouteGraphCoverageImportStatus.failed,
+      );
+      expect(coordinator.stateFor('tasmania')?.hasActiveGeneration, isFalse);
+      expect(
+        coordinator.stateFor('tasmania')?.error,
+        contains('stored graph read failed'),
+      );
+    },
+  );
+
+  test(
+    'disposed coordinator ignores delayed stored validation publication',
+    () async {
+      final validation = Completer<bool>();
+      final repository = _PendingReadinessRepository(validation.future);
+      final coordinator = RouteGraphImportCoordinator(
+        coverageResolver: _CatalogResolver(),
+        importService: RouteGraphImportService(repository),
+        repository: repository,
+      );
+      var notifications = 0;
+      coordinator.addListener(() => notifications++);
+      final bootstrap = coordinator.bootstrap();
+      await Future<void>.delayed(Duration.zero);
+      coordinator.dispose();
+      validation.complete(true);
+      await bootstrap;
+      expect(notifications, 0);
+      expect(coordinator.states, isEmpty);
+    },
+  );
+
+  test(
+    'catalog bootstrap awaits stored validation without blocking callers',
+    () async {
+      final validation = Completer<bool>();
+      final repository = _PendingReadinessRepository(validation.future);
+      final coordinator = RouteGraphImportCoordinator(
+        coverageResolver: _CatalogResolver(),
+        importService: RouteGraphImportService(repository),
+        repository: repository,
+      );
+      addTearDown(coordinator.dispose);
+      var completed = false;
+      final bootstrap = coordinator.bootstrap().then((result) {
+        completed = true;
+        return result;
+      });
+      await Future<void>.delayed(Duration.zero);
+      expect(completed, isFalse);
+      expect(
+        coordinator.states.any((state) => state.hasActiveGeneration),
+        isFalse,
+      );
+      validation.complete(true);
+      expect(await bootstrap, isA<RouteGraphImportBatchCompleted>());
+      expect(
+        coordinator.stateFor('tasmania')?.status,
+        RouteGraphCoverageImportStatus.ready,
+      );
+    },
+  );
+
+  test(
     'runs coverage imports sequentially, continues failures, and joins',
     () async {
       final firstImportHold = Completer<void>();
@@ -146,6 +230,42 @@ class _Resolver extends RouteGraphCoverageResolver {
 
   @override
   Future<List<RouteGraphCoverageImportInput>> resolve() async => _inputs;
+}
+
+class _CatalogResolver extends RouteGraphCoverageResolver {
+  _CatalogResolver() : super(assetLoader: (_) async => '{}');
+
+  @override
+  bool get usesMappingCatalog => true;
+
+  @override
+  List<RouteGraphCoverageDefinition> routingCoverageDefinitions() => [
+    _input('tasmania').definition,
+  ];
+}
+
+class _PendingReadinessRepository extends RouteGraphRepository {
+  _PendingReadinessRepository(this.validation)
+    : super.test(
+        InMemoryRouteGraphStorage(
+          manifests: [
+            RouteGraphManifest(
+              routingCoverageKey: 'tasmania',
+              activeGeneration: 3,
+              readinessState: RouteGraphManifest.readinessReady,
+            ),
+          ],
+        ),
+      );
+
+  final Future<bool> validation;
+
+  @override
+  bool hasUsableActiveGenerationFor(String coverage) =>
+      throw StateError('Synchronous graph validation blocks startup');
+
+  @override
+  Future<bool> hasUsableActiveGenerationForAsync(String coverage) => validation;
 }
 
 class _FailingResolver extends RouteGraphCoverageResolver {

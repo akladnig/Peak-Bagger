@@ -16,6 +16,15 @@ import '../../services/tile_cache_service.dart';
 import '../../theme.dart';
 import '../peak_marker_glyph.dart';
 
+final latestWalkTileProviderFactoryProvider = Provider<TileProvider Function()>(
+  (ref) {
+    return () => buildLatestWalkTileProvider(
+      cacheAvailable:
+          TileCacheService.getStoreForBasemap(Basemap.openstreetmap) != null,
+    );
+  },
+);
+
 class LatestWalkCard extends StatefulWidget {
   const LatestWalkCard({
     super.key,
@@ -303,13 +312,9 @@ class _LatestWalkMiniMap extends ConsumerWidget {
                       catalog: ref.watch(mappingCatalogProvider),
                     ),
                     userAgentPackageName: 'com.peak_bagger.app',
-                    tileProvider: buildLatestWalkTileProvider(
-                      cacheAvailable:
-                          TileCacheService.getStoreForBasemap(
-                            Basemap.openstreetmap,
-                          ) !=
-                          null,
-                    ),
+                    tileProvider: ref.read(
+                      latestWalkTileProviderFactoryProvider,
+                    )(),
                   ),
                   if (points.length == 1)
                     CircleLayer(

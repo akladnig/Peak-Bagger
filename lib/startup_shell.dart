@@ -1,6 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/performance_measurement.dart';
+import 'package:peak_bagger/services/mapping_runtime_config.dart';
+import 'package:peak_bagger/services/mapping_runtime_selection.dart';
 
 enum StartupState {
   checking,
@@ -17,13 +20,22 @@ class StartupResult {
     this.catalog,
     this.pathFailures = const [],
     this.diagnostic,
+    this.rootPath = mappingStoreRootPath,
+    this.isReplica = false,
   });
 
-  StartupResult.unavailable(Iterable<String> pathFailures)
-    : this._(
-        state: StartupState.unavailable,
-        pathFailures: List.unmodifiable(pathFailures),
-      );
+  StartupResult.unavailable(
+    Iterable<String> pathFailures, {
+    String rootPath = mappingStoreRootPath,
+    bool isReplica = false,
+    String? diagnostic,
+  }) : this._(
+         state: StartupState.unavailable,
+         pathFailures: List.unmodifiable(pathFailures),
+         rootPath: rootPath,
+         isReplica: isReplica,
+         diagnostic: diagnostic,
+       );
 
   const StartupResult.unsupportedPlatform()
     : this._(state: StartupState.unsupportedPlatform);
@@ -38,6 +50,8 @@ class StartupResult {
   final MappingCatalog? catalog;
   final List<String> pathFailures;
   final String? diagnostic;
+  final String rootPath;
+  final bool isReplica;
 }
 
 abstract interface class StartupCoordinator {
@@ -52,13 +66,17 @@ typedef MappingCatalogInitializer =
 class MappingStoreStartupCoordinator implements StartupCoordinator {
   MappingStoreStartupCoordinator({
     required this.isMacOS,
-    required this.mappingDataStore,
+    this.mappingDataStore,
+    this.prepareCatalog,
     required this.initialize,
-  });
+  }) : assert((mappingDataStore == null) != (prepareCatalog == null));
 
   final bool isMacOS;
-  final MappingDataStore mappingDataStore;
+  final MappingDataStore? mappingDataStore;
+  final Future<MappingCatalog> Function()? prepareCatalog;
   final MappingCatalogInitializer initialize;
+  Future<StartupResult>? _attempt;
+  StartupResult? _terminal;
   final ValueNotifier<StartupState> _state = ValueNotifier(
     StartupState.checking,
   );
@@ -67,10 +85,24 @@ class MappingStoreStartupCoordinator implements StartupCoordinator {
   ValueListenable<StartupState> get state => _state;
 
   @override
-  Future<StartupResult> start() => _start();
+  Future<StartupResult> start() => _runOnce();
 
   @override
-  Future<StartupResult> retry() => _start();
+  Future<StartupResult> retry() => _runOnce();
+
+  Future<StartupResult> _runOnce() {
+    if (_terminal != null) return Future.value(_terminal);
+    return _attempt ??= _start()
+        .then((result) {
+          if (result.state == StartupState.ready ||
+              result.state == StartupState.initializationFailed) {
+            _terminal = result;
+          }
+          _state.value = result.state;
+          return result;
+        })
+        .whenComplete(() => _attempt = null);
+  }
 
   Future<StartupResult> _start() async {
     _state.value = StartupState.checking;
@@ -78,9 +110,43 @@ class MappingStoreStartupCoordinator implements StartupCoordinator {
       return const StartupResult.unsupportedPlatform();
     }
     final MappingCatalog catalog;
+    if (mappingDataStore != null) {
+      performanceMeasurement.context['selected_root'] =
+          mappingDataStore!.rootPath;
+    }
+    performanceMeasurement.context['filesystem_transport'] =
+        const String.fromEnvironment(
+          'MEASUREMENT_TRANSPORT',
+          defaultValue: 'unspecified',
+        );
     try {
-      final preflight = await mappingDataStore.preflight();
-      catalog = await mappingDataStore.loadCatalogFromPreflight(preflight);
+      if (prepareCatalog != null) {
+        catalog = await prepareCatalog!();
+      } else {
+        final preflight = await performanceMeasurement.phase(
+          'startup.manifest-path-validation',
+          mappingDataStore!.preflight,
+        );
+        catalog = await performanceMeasurement.phase(
+          'startup.polygon-catalog',
+          () => mappingDataStore!.loadCatalogFromPreflight(preflight),
+        );
+      }
+      performanceMeasurement.context['selected_root'] = catalog.rootPath;
+    } on MappingRuntimeConfigurationFailure catch (error) {
+      return StartupResult.unavailable(
+        [error.path],
+        rootPath: error.path,
+        isReplica: true,
+        diagnostic: error.toString(),
+      );
+    } on MappingRuntimeUnavailable catch (error) {
+      return StartupResult.unavailable(
+        error.paths,
+        rootPath: error.rootPath,
+        isReplica: error.isReplica,
+        diagnostic: error.diagnostic,
+      );
     } on MappingStoreFailure catch (error) {
       return StartupResult.unavailable(error.paths);
     } catch (error) {
@@ -88,7 +154,11 @@ class MappingStoreStartupCoordinator implements StartupCoordinator {
     }
     try {
       _state.value = StartupState.initializing;
-      await initialize(catalog);
+      await performanceMeasurement.phase(
+        'startup.ready-dependencies',
+        () => initialize(catalog),
+      );
+      performanceMeasurement.event('startup.shell-handoff');
       return StartupResult.ready(catalog);
     } catch (error) {
       return StartupResult.initializationFailed(error.toString());
@@ -114,6 +184,7 @@ class StartupShell extends StatefulWidget {
 
 class _StartupShellState extends State<StartupShell> {
   StartupResult? _result;
+  bool _running = false;
   late StartupState _state;
 
   @override
@@ -137,6 +208,8 @@ class _StartupShellState extends State<StartupShell> {
   }
 
   Future<void> _run({required bool retry}) async {
+    if (_running) return;
+    _running = true;
     setState(() {
       _result = null;
       _state = StartupState.checking;
@@ -144,6 +217,7 @@ class _StartupShellState extends State<StartupShell> {
     final result = retry
         ? await widget.coordinator.retry()
         : await widget.coordinator.start();
+    _running = false;
     if (mounted) {
       setState(() {
         _result = result;
@@ -169,6 +243,9 @@ class _StartupShellState extends State<StartupShell> {
       ),
       StartupState.unavailable => _UnavailableStore(
         paths: result!.pathFailures,
+        rootPath: result.rootPath,
+        isReplica: result.isReplica,
+        diagnostic: result.diagnostic,
         onRetry: () => _run(retry: true),
         onQuit: widget.onQuit,
       ),
@@ -236,10 +313,16 @@ class _UnavailableStore extends StatelessWidget {
   const _UnavailableStore({
     required this.paths,
     required this.onRetry,
+    required this.rootPath,
+    required this.isReplica,
+    this.diagnostic,
     this.onQuit,
   });
 
   final List<String> paths;
+  final String rootPath;
+  final bool isReplica;
+  final String? diagnostic;
   final VoidCallback onRetry;
   final VoidCallback? onQuit;
 
@@ -254,14 +337,21 @@ class _UnavailableStore extends StatelessWidget {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  const Text('Mapping data store unavailable'),
-                  const SizedBox(height: 16),
-                  const Text('/Volumes/Services/Mapping'),
-                  const SizedBox(height: 16),
                   Expanded(
                     child: ListView(
                       key: const Key('mapping-store-unavailable-path-list'),
-                      children: [for (final path in paths) Text(path)],
+                      children: [
+                        Text(
+                          isReplica
+                              ? 'Mapping runtime replica unavailable'
+                              : 'Mapping data store unavailable',
+                        ),
+                        const SizedBox(height: 16),
+                        Text(rootPath),
+                        const SizedBox(height: 16),
+                        if (diagnostic != null) Text(diagnostic!),
+                        for (final path in paths) Text(path),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),

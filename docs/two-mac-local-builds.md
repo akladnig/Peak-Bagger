@@ -9,6 +9,16 @@ The earlier verification records below preserve their historical scope.
 
 ## Sibling layout and local artifacts
 
+Mapping runtime refresh uses [versioned installed pipeline releases](mapping-pipeline-releases.md),
+including AOT helpers and host dependency inspection. These live outside the three
+source roots; source-workspace SDK provisioning below is build-time preparation,
+not an installed-refresh runtime dependency.
+App runtime additionally needs machine-local selection: mini explicitly chooses
+its attached canonical store; MacBook uses the validated local replica. See
+[current runtime commissioning](mapping-runtime-commissioning.md). Offline local
+Mapping reads are now exercised separately from this guide's historical offline
+source recompilation; remote basemap availability is still separate.
+
 Use the existing roots; do not create substitute directories for an absent volume.
 Set this in a **Bash** terminal on the machine being provisioned:
 

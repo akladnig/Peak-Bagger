@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'mapping_session_protection.dart';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
+import 'performance_measurement.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:path/path.dart' as p;
 import 'package:peak_bagger/services/manifest_priority.dart';
@@ -49,6 +51,26 @@ class IoMappingStoreFileSystem implements MappingStoreFileSystem {
   @override
   Future<String> readText(String absolutePath) =>
       File(absolutePath).readAsString();
+
+  /// Trusted binary adapters, invoked only with resolver-authorized paths.
+  Future<List<int>> readBytes(String absolutePath) =>
+      File(absolutePath).readAsBytes();
+
+  Future<({int size, String sha256})> inspectIntegrity(
+    String absolutePath,
+  ) async {
+    final file = File(absolutePath);
+    final before = await file.stat();
+    final digest = await sha256.bind(file.openRead()).single;
+    final after = await file.stat();
+    if (before.size != after.size || before.modified != after.modified) {
+      throw FileSystemException(
+        'File changed during read-only audit',
+        absolutePath,
+      );
+    }
+    return (size: after.size, sha256: digest.toString());
+  }
 
   @override
   Future<bool> fileExists(String absolutePath) async =>
@@ -282,8 +304,12 @@ class MappingCatalogRegion {
   final List<String> highways;
   final String? fingerprint;
 
+  late final List<PreparedPolygon> _preparedPolygons = polygons
+      .map(PreparedPolygon.new)
+      .toList(growable: false);
+
   bool containsPoint(LatLng point) =>
-      polygons.any((polygon) => polygonContainsPoint(point, polygon));
+      _preparedPolygons.any((polygon) => polygon.contains(point));
 }
 
 class MappingCatalog {
@@ -296,6 +322,7 @@ class MappingCatalog {
     required Map<String, String> demSources,
     required Map<String, List<String>> routingCoverageRegionKeys,
     Iterable<String> polygonDisplayPaths = const [],
+    this.sessionProtection,
   }) : regions = List.unmodifiable(regions),
        polygonDisplayPaths = Set.unmodifiable(polygonDisplayPaths),
        basemaps = List.unmodifiable(basemaps),
@@ -308,6 +335,21 @@ class MappingCatalog {
        _basemapsByKey = {for (final basemap in basemaps) basemap.key: basemap};
 
   final String rootPath;
+
+  final MappingSessionProtection? sessionProtection;
+
+  MappingCatalog withSessionProtection(MappingSessionProtection protection) =>
+      MappingCatalog(
+        rootPath: rootPath,
+        regions: regions,
+        basemaps: basemaps,
+        tasmapCatalogPath: tasmapCatalogPath,
+        naturalFeaturesCatalogPath: naturalFeaturesCatalogPath,
+        demSources: demSources,
+        routingCoverageRegionKeys: routingCoverageRegionKeys,
+        polygonDisplayPaths: polygonDisplayPaths,
+        sessionProtection: protection,
+      );
 
   /// Structurally validated entries from Polygons/manifest.json. Optional
   /// entries have not been resolved, opened, or parsed during startup.
@@ -453,16 +495,17 @@ class MappingDataStoreCore {
 
   Future<MappingStorePreflight> preflight() async {
     final failures = <String>[];
-    final root = await _canonicalRoot(failures);
-    final regionJson = await _readManifest(
-      root ?? rootPath,
-      _regionManifestPath,
-      failures,
+    final root = await performanceMeasurement.phase(
+      'mapping.canonical-root',
+      () => _canonicalRoot(failures),
     );
-    final polygonJson = await _readManifest(
-      root ?? rootPath,
-      _polygonManifestPath,
-      failures,
+    final regionJson = await performanceMeasurement.phase(
+      'mapping.region-manifest',
+      () => _readManifest(root ?? rootPath, _regionManifestPath, failures),
+    );
+    final polygonJson = await performanceMeasurement.phase(
+      'mapping.polygon-manifest',
+      () => _readManifest(root ?? rootPath, _polygonManifestPath, failures),
     );
     if (root == null || regionJson == null || polygonJson == null) {
       throw MappingStoreFailure(failures);
@@ -494,7 +537,11 @@ class MappingDataStoreCore {
       for (final region in parsed.regions) ...region.highways,
     };
     for (final path in references) {
-      await _checkReferencedPath(root, path, failures);
+      await performanceMeasurement.phase(
+        'mapping.referenced-path',
+        () => _checkReferencedPath(root, path, failures),
+        {'relative_path': path},
+      );
     }
     if (failures.isNotEmpty) {
       throw MappingStoreFailure(failures);
@@ -758,7 +805,9 @@ class MappingDataStoreCore {
       );
       if (target == null) return null;
       final polygonManifest = await _readText(target);
-      return _sha256('$regionManifest\u0000$polygonManifest');
+      final hash = _sha256('$regionManifest\u0000$polygonManifest');
+      performanceMeasurement.context['manifest_pair_sha256'] = hash;
+      return hash;
     } on Object {
       failures.add(_polygonManifestPath);
       return null;

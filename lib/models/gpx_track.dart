@@ -241,21 +241,12 @@ class GpxTrack {
       if (zoom == null || entry.value is! List) {
         continue;
       }
-      caches[zoom] = _decodeSegments(json.encode(entry.value));
+      caches[zoom] = _decodeSegments(entry.value as List);
     }
     return caches;
   }
 
-  static List<List<LatLng>> _decodeSegments(String jsonString) {
-    if (jsonString.isEmpty || jsonString == '[]') {
-      return const [];
-    }
-
-    final dynamic decoded = json.decode(jsonString);
-    if (decoded is! List) {
-      return const [];
-    }
-
+  static List<List<LatLng>> _decodeSegments(List decoded) {
     final segments = <List<LatLng>>[];
     for (final segment in decoded) {
       if (segment is! List) continue;

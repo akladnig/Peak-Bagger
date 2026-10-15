@@ -25,6 +25,7 @@ import 'package:peak_bagger/services/route_graph_coverage_resolver.dart';
 import 'package:peak_bagger/services/route_graph_repository.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
 import 'package:peak_bagger/services/mapping_data_store.dart';
+import 'package:peak_bagger/services/mapping_runtime_startup.dart';
 import 'package:peak_bagger/services/mapping_store_operation_coordinator.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
@@ -38,6 +39,9 @@ import 'package:peak_bagger/services/peak_region_asset_import_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/startup_shell.dart';
 import 'package:peak_bagger/router.dart' show createRouter, router;
+import 'package:peak_bagger/services/performance_measurement.dart';
+import 'package:peak_bagger/services/native_performance_clock.dart';
+import 'package:peak_bagger/services/performance_workload_summary.dart';
 
 late final Store objectboxStore;
 late final Widget Function(MappingCatalog catalog) _readyAppBuilder;
@@ -52,7 +56,7 @@ Future<T> _runStartupPhase<T>(String label, Future<T> Function() action) async {
   final stopwatch = Stopwatch()..start();
   _logStartup('Starting $label');
   try {
-    final result = await action();
+    final result = await performanceMeasurement.phase('startup.$label', action);
     _logStartup('Finished $label in ${stopwatch.elapsedMilliseconds}ms');
     return result;
   } catch (error) {
@@ -65,17 +69,22 @@ Future<T> _runStartupPhase<T>(String label, Future<T> Function() action) async {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  unawaited(initializeNativePerformanceClock());
   _logStartup('Widgets binding initialized');
+  final mappingRuntime = MappingRuntimeLauncher();
 
   runApp(
     StartupShell(
       coordinator: MappingStoreStartupCoordinator(
         isMacOS: Platform.isMacOS,
-        mappingDataStore: MappingDataStore(),
+        prepareCatalog: mappingRuntime.launch,
         initialize: _initializeReadyDependencies,
       ),
       readyBuilder: (catalog) => _readyAppBuilder(catalog),
-      onQuit: () => exit(0),
+      onQuit: () {
+        mappingRuntime.close();
+        exit(0);
+      },
     ),
   );
 }
@@ -113,6 +122,18 @@ Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
       'SharedPreferences load',
       SharedPreferences.getInstance,
     );
+    if (const bool.fromEnvironment('MEASURE_WORKLOAD')) {
+      try {
+        performanceMeasurement.event('workload.read-only-summary', {
+          'timing_run': false,
+          ...capturePerformanceWorkload(initializedStore, themePreferences),
+        });
+      } catch (error) {
+        performanceMeasurement.event('workload.summary-failed', {
+          'error': '$error',
+        });
+      }
+    }
 
     final peakListRewritePort = ObjectBoxPeakListRewritePort(initializedStore);
     final peakDeleteGuard = PeakDeleteGuard(

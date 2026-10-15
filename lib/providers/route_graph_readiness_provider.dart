@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/services/route_graph_import_coordinator.dart';
 import 'package:peak_bagger/services/route_graph_store.dart';
+import 'package:peak_bagger/services/performance_measurement.dart';
 
 final routeGraphStoreProvider = Provider<RouteGraphStore>((ref) {
   throw UnimplementedError('routeGraphStoreProvider must be overridden');
@@ -106,7 +107,10 @@ final routeGraphBootstrapProvider =
             ? store.importCoordinator
             : null;
         if (coordinator == null) {
-          await store.bootstrapData();
+          await performanceMeasurement.phase(
+            'startup.graph-bootstrap',
+            store.bootstrapData,
+          );
           readiness.markReady();
           return null;
         }
@@ -126,7 +130,10 @@ final routeGraphBootstrapProvider =
         coordinator.addListener(syncCoverageReadiness);
         ref.onDispose(() => coordinator.removeListener(syncCoverageReadiness));
 
-        final result = await coordinator.bootstrap();
+        final result = await performanceMeasurement.phase(
+          'startup.graph-bootstrap',
+          coordinator.bootstrap,
+        );
         final hasUsableGraph = coordinator.states.any(
           (state) => state.hasActiveGeneration,
         );

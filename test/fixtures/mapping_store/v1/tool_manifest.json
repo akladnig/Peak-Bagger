@@ -1,4 +1,37 @@
 {
+  "mapping-maintenance-promote": {
+    "command": {"executable": "dart", "arguments": ["run", "tool/mapping_source_promote.dart"]},
+    "inputs": [],
+    "outputs": [
+      {"id":"regions","path":"region_manifest.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"polygons","path":"Polygons/manifest.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"tasmania-peaks","path":"Peaks/tasmania-peaks.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"nsw-peaks","path":"Peaks/new-south-wales-peaks.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"ne-peaks","path":"Peaks/italy-nord-est-peaks.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"nw-peaks","path":"Peaks/italy-nord-ovest-peaks.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"slovenia-peaks","path":"Peaks/slovenia-peaks.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"croatia-peaks","path":"Peaks/croatia-peaks.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"tasmania-highways","path":"Highways/tasmania-highways.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"fvg-highways","path":"Highways/friuli-venezia-giulia-highways.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"veneto-highways","path":"Highways/veneto-highways.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"slovenia-highways","path":"Highways/slovenia-highways.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"natural-features","path":"Features/tasmania_natural_features.json","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"tasmap","path":"Maps/tasmap50k.csv","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"runtime-dem","path":"DEM/Elvis/elvis_runtime_10m.tif","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"thelist-dem","path":"DEM/tasmania_dem_25m.tif","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"cop30-dem","path":"DEM/cop30_hh.tif","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"ne-poly","path":"Polygons/italy-nord-est.poly","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"nw-poly","path":"Polygons/italy-nord-ovest.poly","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"fvg-mainland-poly","path":"Polygons/friuli-venezia-giulia-mainland.poly","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"fvg-islet-poly","path":"Polygons/friuli-venezia-giulia-islet.poly","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"nsw-poly","path":"Polygons/new-south-wales.poly","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"slovenia-poly","path":"Polygons/slovenia.poly","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"croatia-poly","path":"Polygons/croatia.poly","kind":"file","required":false,"replace":true,"atomic":true},
+      {"id":"tasmania-poly","path":"Polygons/tasmania.poly","kind":"file","required":false,"replace":true,"atomic":true}
+    ],
+    "permittedWrites": ["regions","polygons","tasmania-peaks","nsw-peaks","ne-peaks","nw-peaks","slovenia-peaks","croatia-peaks","tasmania-highways","fvg-highways","veneto-highways","slovenia-highways","natural-features","tasmap","runtime-dem","thelist-dem","cop30-dem","ne-poly","nw-poly","fvg-mainland-poly","fvg-islet-poly","nsw-poly","slovenia-poly","croatia-poly","tasmania-poly"],
+    "overrides": []
+  },
   "mapping-store-provision": {
     "command": {"executable": "dart", "arguments": ["run", "tool/mapping_store.dart", "provision-or-verify"]},
     "inputs": [{"id": "tools", "path": "tool_manifest.json", "kind": "file", "required": true}],

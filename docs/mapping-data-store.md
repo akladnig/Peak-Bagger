@@ -25,6 +25,17 @@ external sources**. These classifications do not grant Mapping-store writes.
 The **Northeast Alps routing coverage** is FVG, Veneto and Slovenia, including
 the required `Highways/slovenia-highways.json` source.
 
+Spec 0063 keeps the mini authoritative and changes MacBook app access to a
+**Mapping runtime replica**: a manifest-derived immutable local generation,
+prepared/transferred/independently validated in the background and selected only
+at app launch. Machine-local configuration is separate from private defines.
+Canonical mode requires the mini's attached disk; MacBook SMB is not an app
+runtime fallback. All read entrypoints below receive the session's concrete
+catalog root, including late imports and lazy native elevation opens. See
+[current operating/commissioning evidence](mapping-runtime-commissioning.md) and
+[configuration/activation](mapping-runtime-startup.md). The three source sessions,
+mini-only canonical publication and personal-data locality remain intact.
+
 ## Runtime entrypoints
 
 All Mapping reads below receive validated catalog references; no runtime
@@ -33,6 +44,12 @@ Mapping writes are permitted.
 | Entrypoint | Mapping inputs and non-store ownership |
 | --- | --- |
 | `lib/main.dart` <!-- inventory:lib/main.dart --> | Startup manifest pair, immutable catalog, ready-only user ObjectBox and tile cache. |
+| `lib/services/mapping_runtime_startup.dart` <!-- inventory:lib/services/mapping_runtime_startup.dart --> | Application Support configuration before local readiness; session catalog handoff before ObjectBox. No transport/controller invocation. |
+| `lib/services/mapping_runtime_config.dart` <!-- inventory:lib/services/mapping_runtime_config.dart --> | Strict machine-local replica/canonical configuration, local-mount and source-sync containment checks. No dataset content I/O. |
+| `lib/services/mapping_replica_records.dart` <!-- inventory:lib/services/mapping_replica_records.dart --> | Small version-1 inventory/completion/report/eligibility/outcome identity checks. No launch-time payload hashing or Mapping writes. |
+| `lib/services/mapping_runtime_selection.dart` <!-- inventory:lib/services/mapping_runtime_selection.dart --> | Coordinated atomic selection, old/new transaction recovery and process-lifetime session pinning; dataset readiness delegates to the production store. |
+| `lib/services/mapping_runtime_io.dart` <!-- inventory:lib/services/mapping_runtime_io.dart --> | Narrow local metadata/mount/immutability/OS-lock adapter, eight frozen direct-I/O sites. Writes only selection/transaction/session/failure metadata and temporary siblings; no payload writes. Darwin `flock`, `MNT_NOWAIT`, `fsync`/`F_FULLFSYNC` are not dataset capabilities. |
+| `lib/services/mapping_session_protection.dart` <!-- inventory:lib/services/mapping_session_protection.dart --> | Session/native-owner reference lifetime only. Releases the process lock after session close and final native resource closure. No I/O. |
 | `lib/services/peak_region_asset_import_service.dart` <!-- inventory:lib/services/peak_region_asset_import_service.dart --> | Regional `peaks` references; peaks and fingerprint records are user ObjectBox data. |
 | `lib/services/route_graph_coverage_resolver.dart` <!-- inventory:lib/services/route_graph_coverage_resolver.dart --> | Coverage-qualified `highways` references; route-graph rows are user ObjectBox data. |
 | `lib/services/polygon_asset_repository.dart` <!-- inventory:lib/services/polygon_asset_repository.dart --> | Lazy display reads from `Polygons/manifest.json`; parsed geometry is cache. |
@@ -117,6 +134,19 @@ paths targeting one declared placeholder only.
 | `tool/non_store_paths.dart PATH...` <!-- inventory:tool/non_store_paths.dart --> | Store-isolated validation bridge for shell external/cache/report operands. Reads only path metadata through the shared boundary, grants no Mapping content or write permissions, and needs no tool-manifest entry. |
 | `tool/publish_thelist_dem.sh` <!-- inventory:tool/publish_thelist_dem.sh --> | **Non-Dart: resolver-validated paths only**. Internal GDAL publication worker receives the staged Mapping output as its first operand and a checked non-store VRT as its second (default `build/dem/thelist_25m/tasmania_dem_25m.vrt`). No Mapping input or final-target path construction; PAM sidecars are disabled. |
 | `dart run tool/mapping_store.dart provision-or-verify` <!-- inventory:tool/mapping_store.dart --> | ID `mapping-store-provision`: shared parser reads runtime pair and named `tools` input `tool_manifest.json`; fixtures are version-controlled non-store input. No Mapping writes. Bootstrap is a separate restricted capability. |
+| `dart run tool/mapping_runtime_inventory.dart [--root PATH]` <!-- inventory:tool/mapping_runtime_inventory.dart --> | Read-only diagnostic: production preflight/catalog/read resolver derives the complete app set, including display-only polygons. Trusted binary adapters in `IoMappingStoreFileSystem` stream SHA-256 and read raw peak bytes only after resolver authorization. No tool manifest, glob authority, dataset writes, export, or eligibility publication. See [replica audit/contracts](mapping-runtime-replica-contracts.md). |
+| `python3 tool/mapping_source.py maintenance run\|recover`, `prepare`, `status`, `reconcile`, `enable`, `install-external-guard`, `acknowledge`, `cleanup`, `space` <!-- inventory:tool/mapping_source.py --> | **Non-Dart: resolver-validated**. Mini-local process-lifetime publication/preparation/release ownership, external journals/backups/exports, bounded detached supervision and durable receipt/retention/space policy. Canonical content I/O delegates to the existing capabilities. See [exact transactions/recovery](mapping-source-publication.md) and [controller cleanup](mapping-runtime-retention.md). |
+| `tool/mapping_source_dataset.dart capture\|inspect\|validate\|capabilities` <!-- inventory:tool/mapping_source_dataset.dart --> | Production catalog-authorized app-set reads only; independently captured, hashed and profile-validated through resolver/native adapters. Capability inspection is separate named-tool coordinator work. No canonical dataset writes or ObjectBox opens. |
+| `tool/mapping_source_io.dart` <!-- inventory:tool/mapping_source_io.dart --> | Narrow trusted snapshot-read/non-store-export adapter: source opens are resolver-authorized; destinations reject Mapping/source-workspace paths and symlinks. Three frozen direct-I/O sites. |
+| `tool/mapping_source_dem.dart` <!-- inventory:tool/mapping_source_dem.dart --> | Read-only opaque GTiff/BigTIFF full-band validator invoked by a resolver open, plus host-library/PROJ probes. Three frozen I/O sites; no PAM or sidecar publication. |
+| `tool/mapping_source_promote.dart` <!-- inventory:tool/mapping_source_promote.dart --> | New ID `mapping-maintenance-promote`: exact registered optional file outputs, no globs/directories/overrides. Requires a live guarded outer transaction; preserves all existing publisher permissions. |
+| `tool/mapping_source_restore.dart` <!-- inventory:tool/mapping_source_restore.dart --> | Recovery through the original named file/directory output capabilities. One guarded non-store snapshot metadata read; verified backup members are copied by the resolver. No generic canonical I/O. |
+| `python3 tool/mapping_replica.py --base PATH capture\|status\|reconcile\|eligible\|receipt\|cleanup\|space` <!-- inventory:tool/mapping_replica.py --> | **Non-Dart: resolver-validated**, incoming-only local read owner. Independent new-inode copies outside staging, exact completed-inventory SHA-256/size checks, shared production profile via a pinned dataset command; immutable generation publication and external eligibility/receipt/operation records. Controller cleanup protects selection/session/native/operation identities and confirms durable source receipt. No canonical content reads/writes, Mutagen dispatch or app activation. Seven frozen open/process/rename sites and five directory creation sites; all local write operands pass the replica namespace/symlink guard. See [local capture](mapping-replica-capture.md) and [retention/space/receipt](mapping-runtime-retention.md). |
+| `tool/mapping_retention.py` <!-- inventory:tool/mapping_retention.py --> | **Non-Dart: resolver-validated**, non-store controller policy helper with no standalone authority. Namespace-checked selection/session/operation/receipt reads, incoming occupation observation, symlink/nonregular/hardlink rejection, unprotected replica/source tree removal and durable pruning intent/status. No canonical I/O, transport, incoming mutation, lock deletion or release-artifact pruning. Installed alongside both owners; destructive sites are separately frozen by the inventory guard. |
+| `tool/mapping_releases.py build\|seal\|install\|select\|inspect\|run\|reconcile-release\|retire\|install-launcher` <!-- inventory:tool/mapping_releases.py --> | **Non-Dart: store-isolated**. Complete AOT/helper/fixture packaging, SHA-256 dependency/artifact inspection, disjoint release namespaces, durable atomic release selection, local reader compatibility publication and inherited invocation lifetime locks. Reads small retained protocol evidence without dataset mutation; retirement only removes unselected release trees after ownership reconciliation. Fifteen frozen copy/open/rename/process sites. See [installed release operations](mapping-pipeline-releases.md). |
+| `tool/mapping_release_launcher.py` <!-- inventory:tool/mapping_release_launcher.py --> | **Non-Dart: store-isolated**, stdlib-only installed dispatcher. Resolves and pins one selected manager under installation coordination before importing it; verifies helper hashes, never calls the source-workspace readiness/handover gate. Live-manager flock protects manager artifacts. |
+| `tool/mapping_controller.py` <!-- inventory:tool/mapping_controller.py --> | **Non-Dart: store-isolated**. Installed controller owns single-flight refresh intent/status/configuration and user LaunchAgent publication only; three frozen lock/plist open/rename sites, no payload copy/deletion or canonical I/O. Calls existing capture/retention/receipt owners and installed remote stages. Writes metadata/logs outside incoming; activation remains the app launch transaction. See [automatic controller](mapping-runtime-controller.md). |
+| `tool/mapping_transport.py` <!-- inventory:tool/mapping_transport.py --> | **Non-Dart: store-isolated**. One bounded process-dispatch site: normal noninteractive SSH alias `mini`, exact installed release dispatchers, incoming-only one-way Mutagen, and bounded session/operation inspection. No source-workspace gate, payload I/O, credentials, database sync or direct canonical writes. |
 
 ## Local Topo non-Dart classification
 
@@ -182,15 +212,15 @@ repair or mutate source data.
 
 If the existing manifest is an empty `{}` placeholder, review and explicitly
 provision the **complete** `test/fixtures/mapping_store/v1/tool_manifest.json`.
-It declares 13 named tools; adding only `mapping-store-provision` is insufficient
+It declares 14 named tools; adding only `mapping-store-provision` is insufficient
 for retained-contract verification. Keep a backup outside Mapping and stage the
 replacement beside its target for a same-filesystem atomic rename:
 
 ```sh
-# Run from the repository root, after reviewing the fixture's capabilities.
-cp /Volumes/Services/Mapping/tool_manifest.json /tmp/peak-bagger-tool_manifest.before.json
-cp test/fixtures/mapping_store/v1/tool_manifest.json /Volumes/Services/Mapping/.tool_manifest.json.reviewed
-mv /Volumes/Services/Mapping/.tool_manifest.json.reviewed /Volumes/Services/Mapping/tool_manifest.json
+# On the mini, save a non-store plan containing:
+# [{"publisher":"tool-contract","arguments":[]}]
+python3 tool/mapping_source.py maintenance run --plan /tmp/reviewed-tool-contract-plan.json
+# Inspect the returned operation until succeeded before verification.
 dart run tool/mapping_store.dart provision-or-verify
 ```
 
@@ -272,10 +302,24 @@ are tested without the mounted store or live services.
 
 ## Two-Mac runtime access and offline planning
 
-The mini reads its attached Services volume; the MacBook must mount its Services
-SMB share at exactly `/Volumes/Services`, retaining the canonical Mapping root.
-See [SMB setup, runtime checks and the measured 25-file offline planning
-inventory](two-mac-mapping-runtime.md) for current evidence, pending environmental
-checks, byte-count validation and remeasurement guidance. Independent offline
-runtime remains a separate follow-up; source editing/builds do not bypass the
-Mapping startup contract.
+The app now reads [machine-local configuration and immutable runtime selection](mapping-runtime-startup.md)
+before readiness: replica mode defaults to Application Support; explicit canonical
+mode requires the mini's attached local Mapping filesystem. MacBook SMB runtime
+is rejected. Maintainer tools retain canonical authority independently of this
+configuration. Spec 0063's [audit/contracts](mapping-runtime-replica-contracts.md)
+and [capture pipeline](mapping-replica-capture.md) define generation eligibility;
+automated installation/controller and live commissioning remain later slices.
+The [2026-10-10 SMB commissioning record](two-mac-mapping-runtime.md) preserves
+historical measurements, not current app-runtime instructions. Source editing,
+ObjectBox and geometry caches never bypass Mapping startup readiness.
+
+## Coordinated canonical publication
+
+All canonical resolver writers, including fingerprints, theLIST, ELVIS and exact
+manual promotions, require the live outer publication lease. Bootstrap retains its
+absent-only capability; reviewed tool-contract replacement and recovery have separate
+fixed-target capabilities. Use [guarded plans, full source validation and recovery](mapping-source-publication.md)
+for every registered manual/automated maintenance operation. Publication/capture
+locks, immutable exports and metadata are mini-local and outside Mapping/source
+sync roots. Automatic export stays disabled until the registered procedures and
+external Slovenia cwd guard have passed the explicit compliance gate.

@@ -3,11 +3,11 @@ import 'dart:math' as math;
 
 import 'package:latlong2/latlong.dart';
 
-import '../core/constants.dart';
+import 'display_zoom.dart';
 
 class TrackDisplayCacheBuilder {
-  static const minZoom = MapConstants.trackMinZoom;
-  static const maxZoom = MapConstants.trackMaxZoom;
+  static const minZoom = trackMinDisplayZoom;
+  static const maxZoom = trackMaxDisplayZoom;
 
   static String buildJson(List<List<LatLng>> segments) {
     final caches = <String, List<List<List<double>>>>{};

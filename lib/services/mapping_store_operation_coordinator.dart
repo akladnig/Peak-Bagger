@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
-import 'package:peak_bagger/services/mapping_data_store.dart';
-import 'package:peak_bagger/services/mapping_store_resolver.dart';
+import 'mapping_store_file_access.dart';
+export 'mapping_store_file_access.dart';
 
 enum MappingStoreOperationKind {
   peakSeed,
@@ -143,20 +143,6 @@ class MappingStoreOperationKey {
   }
 }
 
-/// A source read failed after the application had reached its ready scope.
-class MappingStoreOperationException implements Exception {
-  MappingStoreOperationException({required Iterable<String> paths, this.cause})
-    : paths = List.unmodifiable(_uniquePaths(paths));
-
-  final List<String> paths;
-  final Object? cause;
-
-  @override
-  String toString() => cause == null
-      ? 'Mapping data store operation failed: ${paths.join(', ')}'
-      : 'Mapping data store operation failed: $cause';
-}
-
 class MappingStoreOperationFailure {
   MappingStoreOperationFailure({
     required this.key,
@@ -174,48 +160,6 @@ class MappingStoreOperationFailure {
   String toString() => '${key.description}: ${cause ?? paths.join(', ')}';
 
   Future<void> retry() => retryAction();
-}
-
-/// Revalidates a source path immediately before the caller opens it.
-class MappingStoreOperationFileAccess {
-  MappingStoreOperationFileAccess({
-    required MappingCatalog catalog,
-    MappingStoreFileSystem fileSystem = const IoMappingStoreFileSystem(),
-  }) : _resolver = MappingStoreReadResolver.catalog(
-         catalog: catalog,
-         fileSystem: fileSystem,
-       );
-
-  MappingStoreOperationFileAccess.test({
-    required String rootPath,
-    required MappingStoreFileSystem fileSystem,
-    required Iterable<String> paths,
-  }) : _resolver = MappingStoreReadResolver.test(
-         rootPath: rootPath,
-         fileSystem: fileSystem,
-         paths: paths,
-       );
-
-  final MappingStoreReadResolver _resolver;
-
-  Future<T> open<T>({
-    required String relativePath,
-    required Future<T> Function(String canonicalPath) opener,
-  }) async {
-    try {
-      return await _resolver.open(relativePath: relativePath, opener: opener);
-    } on MappingStoreFailure catch (error) {
-      throw MappingStoreOperationException(paths: error.paths, cause: error);
-    }
-  }
-
-  Future<String> readText(String relativePath) async {
-    try {
-      return await _resolver.readText(relativePath);
-    } on Object catch (error) {
-      throw MappingStoreOperationException(paths: [relativePath], cause: error);
-    }
-  }
 }
 
 /// Coordinates Mapping-store operations after startup without owning feature state.
