@@ -4,6 +4,14 @@ This glossary captures stable project-specific terms used across planning and im
 
 ## Terminology
 
+**App Development Standard**:
+The reusable written contract for the shared technical foundation, visual design, and interaction conventions of this project's family of Flutter apps.
+_Avoid_: Starter app when referring to the written standard
+
+**Desktop wide**:
+The macOS-only app profile for wide desktop interfaces, distinct from an adaptive profile that includes compact layouts.
+_Avoid_: full screen only when referring to layout scope rather than native macOS full-screen mode
+
 **Starter app**:
 A project-owned reusable Flutter app foundation extracted from this repository for generating new apps with shared UI and infrastructure.
 _Avoid_: Flutter template, SDK template
