@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
-import 'package:peak_bagger/services/summary_card_service.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/dashboard/distance_card.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_card.dart';
@@ -444,9 +443,7 @@ void main() {
           DashboardUI.rodWidthFor(
             DashboardUI.columnWidthFor(
               availableWidth: 560 - 24 - DashboardUI.yAxisLabelWidth,
-              visibleColumnCount: visibleColumnCountForPeriod(
-                SummaryPeriodPreset.month,
-              ),
+              visibleColumnCount: 31,
             ),
           ),
           1e-9,

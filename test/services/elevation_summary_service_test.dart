@@ -95,7 +95,10 @@ void main() {
           now: now,
         );
 
-        expect(timeline.buckets, hasLength(11));
+        expect(timeline.buckets, hasLength(14));
+        expect(timeline.windowStart, DateTime(2026, 3));
+        expect(timeline.windowEndExclusive, DateTime(2026, 6));
+        expect(timeline.buckets.first.endExclusive, DateTime(2026, 3, 2));
         expect(
           timeline.buckets.where((bucket) => bucket.label == 'Mar'),
           isNotEmpty,
@@ -108,7 +111,7 @@ void main() {
       },
     );
 
-    test('builds 26 weekly buckets for the 6 month window', () {
+    test('builds the calendar-required weekly buckets for six months', () {
       final service = ElevationSummaryService();
       final now = DateTime(2026, 5, 15, 12);
 
@@ -121,7 +124,9 @@ void main() {
         now: now,
       );
 
-      expect(timeline.buckets, hasLength(20));
+      expect(timeline.buckets, hasLength(26));
+      expect(timeline.windowStart, DateTime(2025, 12));
+      expect(timeline.windowEndExclusive, DateTime(2026, 6));
       expect(
         timeline.buckets.where((bucket) => bucket.label == 'Jan'),
         isNotEmpty,
@@ -153,27 +158,8 @@ void main() {
       expect(timeline.totalMetres, 150);
     });
 
-    test('shifts window start by half the visible range and clamps', () {
+    test('retains rounding and daily/weekly/monthly average roles', () {
       final service = ElevationSummaryService();
-
-      expect(
-        service.shiftWindowStartIndex(
-          currentStartIndex: 10,
-          visibleBucketCount: 6,
-          bucketCount: 20,
-          forward: true,
-        ),
-        13,
-      );
-      expect(
-        service.shiftWindowStartIndex(
-          currentStartIndex: 2,
-          visibleBucketCount: 6,
-          bucketCount: 20,
-          forward: false,
-        ),
-        0,
-      );
       expect(
         service.visibleAverageMetres([
           ElevationBucket(

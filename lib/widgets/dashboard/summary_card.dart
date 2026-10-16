@@ -102,55 +102,22 @@ class SummaryCard extends ConsumerStatefulWidget {
 class _SummaryCardState extends ConsumerState<SummaryCard> {
   final SummaryCardService _service = const SummaryCardService();
   final ScrollController _scrollController = ScrollController();
-  final Map<SummaryPeriodPreset, SummaryTimeline> _primaryTimelineCache = {};
-  final Map<SummaryPeriodPreset, SummaryTimeline> _secondaryTimelineCache = {};
-
   final Object _cardIdentity = Object();
   SummaryPeriodPreset get _period =>
       ref.read(summaryPageControllerProvider(_cardIdentity)).period;
   late SummaryDisplayMode _mode;
-  bool _anchoredToLatest = false;
-  double _viewportWidth = 0;
-  double _maxScrollExtent = 0;
   SummaryVisibleSummary? _lastVisibleSummary;
-  DateTime? _cachedReferenceDate;
-  List<GpxTrack>? _cachedTracks;
-  SummaryCardMetricAdapter? _cachedAdapter;
 
   @override
   void initState() {
     super.initState();
     _mode = widget.initialMode;
-    _scrollController.addListener(_handleScroll);
-  }
-
-  @override
-  void didUpdateWidget(covariant SummaryCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.tracks != widget.tracks ||
-        oldWidget.isLoading != widget.isLoading) {
-      _anchoredToLatest = false;
-    }
-
-    if (oldWidget.tracks != widget.tracks ||
-        oldWidget.now != widget.now ||
-        oldWidget.adapter != widget.adapter) {
-      _clearTimelineCaches();
-    }
   }
 
   @override
   void dispose() {
-    _scrollController
-      ..removeListener(_handleScroll)
-      ..dispose();
+    _scrollController.dispose();
     super.dispose();
-  }
-
-  void _handleScroll() {
-    if (mounted) {
-      setState(() {});
-    }
   }
 
   void _selectPeriod(SummaryPeriodPreset? next) {
@@ -165,7 +132,6 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
       ref
           .read(summaryPageControllerProvider(_cardIdentity).notifier)
           .selectPeriod(next);
-      _anchoredToLatest = false;
     });
   }
 
@@ -176,24 +142,6 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
         SummaryDisplayMode.line => SummaryDisplayMode.columns,
       };
     });
-  }
-
-  void _shiftWindow(bool forward) {
-    if (!_scrollController.hasClients || _maxScrollExtent <= 0) {
-      return;
-    }
-
-    final target = _service.shiftScrollOffset(
-      currentOffset: _scrollController.offset,
-      viewportWidth: _viewportWidth,
-      maxScrollExtent: _maxScrollExtent,
-      forward: forward,
-    );
-    _scrollController.animateTo(
-      target,
-      duration: const Duration(seconds: 1),
-      curve: Curves.easeInOut,
-    );
   }
 
   void _reportVisibleSummary(SummaryVisibleSummary? summary) {
@@ -217,43 +165,6 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
     return widget.isLoading ? _buildLoadingState() : _buildContent();
   }
 
-  void _clearTimelineCaches() {
-    _primaryTimelineCache.clear();
-    _secondaryTimelineCache.clear();
-    _cachedReferenceDate = null;
-    _cachedTracks = null;
-    _cachedAdapter = null;
-  }
-
-  void _ensureTimelineCaches(DateTime referenceDate) {
-    if (_cachedTracks == widget.tracks &&
-        _cachedReferenceDate == referenceDate &&
-        _cachedAdapter == widget.adapter) {
-      return;
-    }
-
-    _clearTimelineCaches();
-    _cachedTracks = widget.tracks;
-    _cachedReferenceDate = referenceDate;
-    _cachedAdapter = widget.adapter;
-  }
-
-  SummaryTimeline _timelineFor({
-    required Map<SummaryPeriodPreset, SummaryTimeline> cache,
-    required SummaryMetricDefinition metric,
-    required DateTime referenceDate,
-  }) {
-    return cache.putIfAbsent(
-      _period,
-      () => _service.buildTimeline(
-        tracks: widget.tracks,
-        period: _period,
-        metric: metric,
-        now: referenceDate,
-      ),
-    );
-  }
-
   Widget _buildLoadingState() {
     _reportVisibleSummary(null);
     return Center(
@@ -269,146 +180,7 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
     final now = (widget.now ?? ref.read(dashboardReferenceClockProvider)())
         .toLocal();
     final referenceDate = DateTime(now.year, now.month, now.day);
-    if (_period.hasDailyCalendarPages) {
-      return _buildCalendarContent(referenceDate);
-    }
-    _ensureTimelineCaches(referenceDate);
-    final timeline = _timelineFor(
-      cache: _primaryTimelineCache,
-      metric: widget.adapter.metric,
-      referenceDate: referenceDate,
-    );
-    final secondaryTimeline = widget.adapter.secondaryMetric == null
-        ? null
-        : _timelineFor(
-            cache: _secondaryTimelineCache,
-            metric: widget.adapter.secondaryMetric!,
-            referenceDate: referenceDate,
-          );
-
-    if (timeline.isEmpty) {
-      _reportVisibleSummary(null);
-      return Center(
-        key: Key('${widget.adapter.keyPrefix}-empty-state'),
-        child: Text(
-          widget.adapter.emptyStateText,
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final chartViewportWidth = math.max<double>(
-                  constraints.maxWidth - DashboardUI.yAxisLabelWidth,
-                  1,
-                );
-                _viewportWidth = chartViewportWidth;
-                final visibleColumnCount = math.min(
-                  visibleColumnCountForPeriod(_period),
-                  timeline.buckets.length,
-                );
-                final bucketExtent = DashboardUI.columnWidthFor(
-                  availableWidth: chartViewportWidth,
-                  visibleColumnCount: visibleColumnCount,
-                );
-                final contentWidth = math.max<double>(
-                  (timeline.buckets.length * bucketExtent).ceilToDouble() +
-                      0.01,
-                  1,
-                );
-                _maxScrollExtent = math.max(
-                  0,
-                  contentWidth - chartViewportWidth,
-                );
-                _syncScrollPosition(timeline.buckets.length);
-
-                final visibleBuckets = _visibleBuckets(
-                  timeline.buckets,
-                  chartViewportWidth,
-                );
-                final visibleTotal = _service.visibleTotalValue(visibleBuckets);
-                final averageBuckets = _averageBucketsForPeriod(
-                  period: _period,
-                  allBuckets: timeline.buckets,
-                  visibleBuckets: visibleBuckets,
-                  referenceDate: referenceDate,
-                );
-                final visibleAverage = _service.visibleAverageValueForPeriod(
-                  period: _period,
-                  buckets: averageBuckets,
-                  referenceDate: referenceDate,
-                );
-                final visibleRangeText = formatSummaryDateRange(
-                  visibleBuckets.first.start,
-                  visibleBuckets.last.start,
-                );
-                _reportVisibleSummary(
-                  SummaryVisibleSummary(
-                    period: _period,
-                    totalValue: visibleTotal,
-                    averageValue: visibleAverage,
-                  ),
-                );
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _SummaryHeader(
-                      keyPrefix: widget.adapter.keyPrefix,
-                      period: _period,
-                      mode: _mode,
-                      visibleRangeText: visibleRangeText,
-                      onPeriodChanged: _selectPeriod,
-                      onToggleMode: _toggleMode,
-                      onPrevious: () => _shiftWindow(false),
-                      onNext: () => _shiftWindow(true),
-                      onFirst: () => _scrollController.jumpTo(0),
-                      onLast: () => _scrollController.jumpTo(_maxScrollExtent),
-                      canMoveFirst: _canMovePrevious(timeline.buckets.length),
-                      canMoveLast: _canMoveNext(timeline.buckets.length),
-                      canMovePrevious: _canMovePrevious(
-                        timeline.buckets.length,
-                      ),
-                      canMoveNext: _canMoveNext(timeline.buckets.length),
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: SummaryChart(
-                        key: Key('${widget.adapter.keyPrefix}-scroll-view'),
-                        keyPrefix: widget.adapter.keyPrefix,
-                        controller: _scrollController,
-                        buckets: timeline.buckets,
-                        secondaryBuckets: secondaryTimeline?.buckets,
-                        mode: _mode,
-                        barSeriesStyle: widget.adapter.barSeriesStyle,
-                        bucketExtent: bucketExtent,
-                        period: _period,
-                        referenceDate: referenceDate,
-                        chartMaxYFor: widget.adapter.chartMaxYFor,
-                        tooltipValueTexts: widget.adapter.tooltipValueTexts,
-                        tooltipValueTextColors:
-                            widget.adapter.tooltipValueTextColors,
-                        tooltipTitleText: widget.adapter.tooltipTitleText,
-                        yAxisLabelText: widget.adapter.yAxisLabelText,
-                        secondarySeriesOnTop:
-                            widget.adapter.secondarySeriesOnTop,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
+    return _buildCalendarContent(referenceDate);
   }
 
   Widget _buildCalendarContent(DateTime referenceDate) {
@@ -515,101 +287,6 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
         ],
       ),
     );
-  }
-
-  bool _canMovePrevious(int bucketCount) {
-    if (_period == SummaryPeriodPreset.yearToDate ||
-        bucketCount <= 0 ||
-        !_scrollController.hasClients) {
-      return false;
-    }
-    return _scrollController.offset > 0;
-  }
-
-  bool _canMoveNext(int bucketCount) {
-    if (_period == SummaryPeriodPreset.yearToDate ||
-        bucketCount <= 0 ||
-        !_scrollController.hasClients) {
-      return false;
-    }
-    return _scrollController.offset < _maxScrollExtent;
-  }
-
-  void _syncScrollPosition(int bucketCount) {
-    if (bucketCount == 0) {
-      return;
-    }
-
-    final period = _period;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || period != _period) {
-        return;
-      }
-
-      if (!_scrollController.hasClients) {
-        _syncScrollPosition(bucketCount);
-        return;
-      }
-
-      final target = _anchoredToLatest
-          ? _scrollController.offset.clamp(0.0, _maxScrollExtent).toDouble()
-          : _maxScrollExtent;
-      if (!_anchoredToLatest) {
-        _anchoredToLatest = true;
-      }
-
-      if ((_scrollController.offset - target).abs() > 0.5) {
-        _scrollController.jumpTo(target);
-      }
-    });
-  }
-
-  List<SummaryBucket> _visibleBuckets(
-    List<SummaryBucket> buckets,
-    double viewportWidth,
-  ) {
-    if (buckets.isEmpty) {
-      return const [];
-    }
-
-    final visibleCount = math.min(
-      buckets.length,
-      visibleColumnCountForPeriod(_period),
-    );
-    final maxStartIndex = math.max(0, buckets.length - visibleCount);
-    if (!_scrollController.hasClients) {
-      return buckets.sublist(maxStartIndex, buckets.length);
-    }
-
-    final bucketExtent = DashboardUI.columnWidthFor(
-      availableWidth: viewportWidth,
-      visibleColumnCount: visibleColumnCountForPeriod(_period),
-    );
-    final currentOffset = _scrollController.offset
-        .clamp(0.0, _maxScrollExtent)
-        .toDouble();
-    final startIndex = _anchoredToLatest
-        ? math.min(
-            maxStartIndex,
-            math.max(0, (currentOffset / bucketExtent).floor()),
-          )
-        : maxStartIndex;
-    final endIndex = math.min(buckets.length, startIndex + visibleCount);
-    return buckets.sublist(startIndex, endIndex);
-  }
-
-  Iterable<SummaryBucket> _averageBucketsForPeriod({
-    required SummaryPeriodPreset period,
-    required List<SummaryBucket> allBuckets,
-    required List<SummaryBucket> visibleBuckets,
-    required DateTime referenceDate,
-  }) {
-    return switch (period) {
-      SummaryPeriodPreset.yearToDate => allBuckets.where(
-        (bucket) => !bucket.start.isAfter(referenceDate),
-      ),
-      _ => visibleBuckets,
-    };
   }
 }
 
@@ -804,18 +481,6 @@ class _SummaryHeader extends StatelessWidget {
       ],
     );
   }
-}
-
-int visibleColumnCountForPeriod(SummaryPeriodPreset period) {
-  return switch (period) {
-    SummaryPeriodPreset.week => 7,
-    SummaryPeriodPreset.month => 31,
-    SummaryPeriodPreset.last3Months => 13,
-    SummaryPeriodPreset.last6Months => 26,
-    SummaryPeriodPreset.last12Months ||
-    SummaryPeriodPreset.yearToDate ||
-    SummaryPeriodPreset.allTime => 12,
-  };
 }
 
 String defaultAverageLabelText(SummaryPeriodPreset period) =>

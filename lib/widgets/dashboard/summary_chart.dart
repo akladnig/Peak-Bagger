@@ -974,9 +974,16 @@ String defaultTooltipTitleText(
 ) {
   return switch (period) {
     SummaryPeriodPreset.month => formatSummaryWeekdayDayMonth(bucket.start),
-    SummaryPeriodPreset.week ||
+    SummaryPeriodPreset.week => formatSummaryDayMonth(bucket.start),
     SummaryPeriodPreset.last3Months ||
-    SummaryPeriodPreset.last6Months => formatSummaryDayMonth(bucket.start),
+    SummaryPeriodPreset.last6Months => formatSummaryDateRange(
+      bucket.start,
+      DateTime(
+        bucket.endExclusive.year,
+        bucket.endExclusive.month,
+        bucket.endExclusive.day - 1,
+      ),
+    ),
     SummaryPeriodPreset.last12Months ||
     SummaryPeriodPreset.yearToDate ||
     SummaryPeriodPreset.allTime => bucket.label,

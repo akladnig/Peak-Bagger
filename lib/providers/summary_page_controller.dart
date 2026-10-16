@@ -15,7 +15,7 @@ class SummaryPageSelection {
 
   final SummaryPeriodPreset period;
 
-  /// Null selects the current page; pixel offsets never identify daily pages.
+  /// Null selects the current page; pixel offsets never identify calendar pages.
   final DateTime? pageStart;
 }
 

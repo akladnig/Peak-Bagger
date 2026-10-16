@@ -14,8 +14,12 @@ enum SummaryPeriodPreset {
 }
 
 extension SummaryPeriodPresetLabel on SummaryPeriodPreset {
-  bool get hasDailyCalendarPages =>
-      this == SummaryPeriodPreset.week || this == SummaryPeriodPreset.month;
+  int get monthsPerPage => switch (this) {
+    SummaryPeriodPreset.last3Months => 3,
+    SummaryPeriodPreset.last6Months => 6,
+    SummaryPeriodPreset.last12Months => 12,
+    _ => 1,
+  };
 
   String get previousTooltip => 'Previous $navigationUnit';
   String get nextTooltip => 'Next $navigationUnit';
@@ -130,25 +134,39 @@ class SummaryPageNavigation {
   final SummaryCalendarPage last;
   final SummaryCalendarPage current;
 
-  bool get canFirst => selected.start != first.start;
-  bool get canPrevious => selected.start.isAfter(first.start);
-  bool get canNext => selected.start.isBefore(current.start);
-  bool get canLast => selected.start != last.start;
+  bool get _fixed => period == SummaryPeriodPreset.yearToDate;
+  bool get canFirst => !_fixed && selected.start != first.start;
+  bool get canPrevious => !_fixed && selected.start.isAfter(first.start);
+  bool get canNext => !_fixed && selected.start.isBefore(current.start);
+  bool get canLast => !_fixed && selected.start != last.start;
 
-  SummaryCalendarPage adjacent(bool forward) =>
-      const SummaryCardService().calendarPage(
-        period: period,
-        day: period == SummaryPeriodPreset.week
-            ? DateTime(
-                selected.start.year,
-                selected.start.month,
-                selected.start.day + (forward ? 7 : -7),
-              )
-            : DateTime(
-                selected.start.year,
-                selected.start.month + (forward ? 1 : -1),
-              ),
-      );
+  SummaryCalendarPage adjacent(bool forward) {
+    if (_fixed) return current;
+    final direction = forward ? 1 : -1;
+    // Use the end year for a potentially shortened oldest All Time page.
+    final day = switch (period) {
+      SummaryPeriodPreset.week => DateTime(
+        selected.start.year,
+        selected.start.month,
+        selected.start.day + direction * 7,
+      ),
+      SummaryPeriodPreset.allTime => DateTime(
+        selected.endExclusive.year - 1 + direction * 12,
+      ),
+      _ => DateTime(
+        selected.start.year,
+        selected.start.month + direction * period.monthsPerPage,
+      ),
+    };
+    final destination = const SummaryCardService().calendarPage(
+      period: period,
+      day: day,
+      referenceDate: current.lastDay,
+    );
+    if (destination.start.isBefore(first.start)) return first;
+    if (destination.start.isAfter(current.start)) return current;
+    return destination;
+  }
 }
 
 class SummaryCardService {
@@ -157,16 +175,38 @@ class SummaryCardService {
   SummaryCalendarPage calendarPage({
     required SummaryPeriodPreset period,
     required DateTime day,
+    DateTime? referenceDate,
   }) {
-    assert(period.hasDailyCalendarPages);
-    final start = period == SummaryPeriodPreset.week
-        ? DateTime(day.year, day.month, day.day - day.weekday + 1)
-        : DateTime(day.year, day.month);
+    final reference = referenceDate ?? day;
+    if (period == SummaryPeriodPreset.week) {
+      final start = DateTime(day.year, day.month, day.day - day.weekday + 1);
+      return SummaryCalendarPage(start: start, endExclusive: _nextWeek(start));
+    }
+    if (period == SummaryPeriodPreset.yearToDate) {
+      return SummaryCalendarPage(
+        start: DateTime(reference.year),
+        endExclusive: DateTime(reference.year + 1),
+      );
+    }
+    if (period == SummaryPeriodPreset.allTime) {
+      final pagesBack = ((reference.year - day.year) / 12).floor();
+      final endYear = reference.year + 1 - pagesBack * 12;
+      return SummaryCalendarPage(
+        start: DateTime(endYear - 12),
+        endExclusive: DateTime(endYear),
+      );
+    }
+    final months = period.monthsPerPage;
+    final monthDelta =
+        (reference.year - day.year) * 12 + reference.month - day.month;
+    final pagesBack = (monthDelta / months).floor();
+    final end = DateTime(
+      reference.year,
+      reference.month + 1 - pagesBack * months,
+    );
     return SummaryCalendarPage(
-      start: start,
-      endExclusive: period == SummaryPeriodPreset.week
-          ? DateTime(start.year, start.month, start.day + 7)
-          : DateTime(start.year, start.month + 1),
+      start: DateTime(end.year, end.month - months),
+      endExclusive: end,
     );
   }
 
@@ -188,11 +228,28 @@ class SummaryCardService {
       if (earliest == null || day.isBefore(earliest)) earliest = day;
       if (latest == null || day.isAfter(latest)) latest = day;
     }
-    if (earliest == null) return null;
-    final first = calendarPage(period: period, day: earliest);
-    final last = calendarPage(period: period, day: latest!);
-    final current = calendarPage(period: period, day: reference);
-    var selected = calendarPage(period: period, day: selectedDay ?? reference);
+    final earliestDay = earliest;
+    if (earliestDay == null) return null;
+    SummaryCalendarPage pageFor(DateTime day) {
+      final page = calendarPage(
+        period: period,
+        day: day.isBefore(earliestDay) ? earliestDay : day,
+        referenceDate: reference,
+      );
+      // Do not invent years before recorded history on the oldest yearly page.
+      return period == SummaryPeriodPreset.allTime &&
+              page.start.year < earliestDay.year
+          ? SummaryCalendarPage(
+              start: DateTime(earliestDay.year),
+              endExclusive: page.endExclusive,
+            )
+          : page;
+    }
+
+    final first = pageFor(earliestDay);
+    final last = pageFor(latest!);
+    final current = pageFor(reference);
+    var selected = pageFor(selectedDay ?? reference);
     if (selected.start.isBefore(first.start)) selected = first;
     if (selected.start.isAfter(current.start)) selected = current;
     return SummaryPageNavigation(
@@ -236,29 +293,15 @@ class SummaryCardService {
       return SummaryTimeline.empty(period: period);
     }
 
-    final dailyPage =
-        page ??
-        (period.hasDailyCalendarPages
-            ? calendarPage(period: period, day: referenceDate)
-            : null);
+    final selectedPage =
+        page ?? calendarPage(period: period, day: referenceDate);
     final windowStart =
-        dailyPage?.start ??
-        switch (period) {
-          SummaryPeriodPreset.week || SummaryPeriodPreset.month =>
-            throw StateError('Daily calendar page required'),
-          SummaryPeriodPreset.yearToDate => _startOfYear(referenceDate),
-          _ => _timelineStart(period, earliestDate!),
-        };
-    final windowEndExclusive =
-        dailyPage?.endExclusive ??
-        switch (period) {
-          SummaryPeriodPreset.week || SummaryPeriodPreset.month =>
-            throw StateError('Daily calendar page required'),
-          SummaryPeriodPreset.yearToDate => _nextYear(
-            _startOfYear(referenceDate),
-          ),
-          _ => _startOfDay(referenceDate.add(const Duration(days: 1))),
-        };
+        page == null &&
+            period == SummaryPeriodPreset.allTime &&
+            earliestDate!.isAfter(selectedPage.start)
+        ? DateTime(earliestDate.year)
+        : selectedPage.start;
+    final windowEndExclusive = selectedPage.endExclusive;
     final buckets = _buildBuckets(
       tracks: usableTracks,
       period: period,
@@ -272,36 +315,6 @@ class SummaryCardService {
       windowEndExclusive: windowEndExclusive,
       buckets: buckets,
     );
-  }
-
-  int shiftWindowStartIndex({
-    required int currentStartIndex,
-    required int visibleBucketCount,
-    required int bucketCount,
-    required bool forward,
-  }) {
-    if (bucketCount <= 0) {
-      return 0;
-    }
-
-    final safeVisibleCount = math.max(1, visibleBucketCount);
-    final maxStartIndex = math.max(0, bucketCount - safeVisibleCount);
-    final delta = math.max(1, (safeVisibleCount / 2).round());
-    final next = forward
-        ? currentStartIndex + delta
-        : currentStartIndex - delta;
-    return next.clamp(0, maxStartIndex);
-  }
-
-  double shiftScrollOffset({
-    required double currentOffset,
-    required double viewportWidth,
-    required double maxScrollExtent,
-    required bool forward,
-  }) {
-    final delta = math.max(1.0, viewportWidth / 2);
-    final next = forward ? currentOffset + delta : currentOffset - delta;
-    return next.clamp(0.0, maxScrollExtent);
   }
 
   double visibleAverageValue(Iterable<SummaryBucket> buckets) =>
@@ -382,29 +395,17 @@ double _averageByMonth(Iterable<SummaryBucket> buckets) {
     return 0;
   }
 
-  final monthlyTotals = <DateTime, double>{};
-  for (final bucket in bucketList) {
-    final monthStart = DateTime(bucket.start.year, bucket.start.month);
-    monthlyTotals.update(
-      monthStart,
-      (value) => value + bucket.value,
-      ifAbsent: () => bucket.value,
-    );
-  }
-
-  final total = monthlyTotals.values.fold<double>(
-    0,
-    (sum, value) => sum + value,
-  );
-  return total / monthlyTotals.length;
+  final start = bucketList.first.start;
+  final end = bucketList.last.endExclusive;
+  final lastDay = DateTime(end.year, end.month, end.day - 1);
+  final months =
+      (lastDay.year - start.year) * 12 + lastDay.month - start.month + 1;
+  return bucketList.fold<double>(0, (sum, bucket) => sum + bucket.value) /
+      months;
 }
 
 DateTime _startOfDay(DateTime date) =>
     DateTime(date.year, date.month, date.day);
-
-DateTime _startOfMonth(DateTime date) => DateTime(date.year, date.month);
-
-DateTime _startOfYear(DateTime date) => DateTime(date.year);
 
 DateTime _addMonthsClamped(DateTime date, int months) {
   final totalMonths = (date.year * 12) + (date.month - 1) + months;
@@ -426,18 +427,6 @@ DateTime _nextMonth(DateTime date) => _addMonthsClamped(date, 1);
 
 DateTime _nextYear(DateTime date) => DateTime(date.year + 1);
 
-DateTime _timelineStart(SummaryPeriodPreset period, DateTime earliestDate) {
-  return switch (period) {
-    SummaryPeriodPreset.week => earliestDate,
-    SummaryPeriodPreset.month ||
-    SummaryPeriodPreset.last3Months ||
-    SummaryPeriodPreset.last6Months ||
-    SummaryPeriodPreset.last12Months => _startOfMonth(earliestDate),
-    SummaryPeriodPreset.yearToDate => _startOfYear(earliestDate),
-    SummaryPeriodPreset.allTime => _startOfYear(earliestDate),
-  };
-}
-
 List<SummaryBucket> _buildBuckets({
   required List<_UsableTrack> tracks,
   required SummaryPeriodPreset period,
@@ -450,8 +439,8 @@ List<SummaryBucket> _buildBuckets({
   while (cursor.isBefore(windowEndExclusive)) {
     final next = switch (period) {
       SummaryPeriodPreset.week || SummaryPeriodPreset.month => _nextDay(cursor),
-      SummaryPeriodPreset.last3Months ||
-      SummaryPeriodPreset.last6Months => _nextWeek(cursor),
+      SummaryPeriodPreset.last3Months || SummaryPeriodPreset.last6Months =>
+        DateTime(cursor.year, cursor.month, cursor.day + 8 - cursor.weekday),
       SummaryPeriodPreset.last12Months => _nextMonth(cursor),
       SummaryPeriodPreset.yearToDate => _nextMonth(cursor),
       SummaryPeriodPreset.allTime => _nextYear(cursor),
@@ -460,7 +449,9 @@ List<SummaryBucket> _buildBuckets({
     buckets.add(
       _BucketBuilder(
         start: cursor,
-        endExclusive: next,
+        endExclusive: next.isAfter(windowEndExclusive)
+            ? windowEndExclusive
+            : next,
         label: _labelFor(period, cursor),
       ),
     );
@@ -509,7 +500,10 @@ int? _bucketIndexFor({
     SummaryPeriodPreset.week || SummaryPeriodPreset.month =>
       _dateOnlyDifferenceInDays(trackDate, windowStart),
     SummaryPeriodPreset.last3Months || SummaryPeriodPreset.last6Months =>
-      _dateOnlyDifferenceInDays(trackDate, windowStart) ~/ 7,
+      (_dateOnlyDifferenceInDays(trackDate, windowStart) +
+              windowStart.weekday -
+              1) ~/
+          7,
     SummaryPeriodPreset.last12Months =>
       ((trackDate.year - windowStart.year) * 12) +
           (trackDate.month - windowStart.month),

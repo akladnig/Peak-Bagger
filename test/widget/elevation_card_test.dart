@@ -415,7 +415,7 @@ void main() {
         tester
             .widget<Text>(find.byKey(const Key('elevation-period-range')))
             .data,
-        'Wed, 1 Apr - Wed, 13 May 2026',
+        'Sun, 1 Mar - Sun, 31 May 2026',
       );
     });
 

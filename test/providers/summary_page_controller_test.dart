@@ -5,6 +5,38 @@ import 'package:peak_bagger/providers/summary_page_controller.dart';
 import 'package:peak_bagger/services/summary_card_service.dart';
 
 void main() {
+  for (final period in SummaryPeriodPreset.values.skip(2)) {
+    test(
+      '${period.label} shares independent provider selection and current-page entry',
+      () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final provider = summaryPageControllerProvider('elevation');
+        final other = summaryPageControllerProvider('distance');
+        final sub = container.listen(provider, (_, _) {});
+        final otherSub = container.listen(other, (_, _) {});
+        addTearDown(sub.close);
+        addTearDown(otherSub.close);
+        final controller = container.read(provider.notifier);
+        controller.selectPeriod(period);
+        expect(container.read(provider).pageStart, isNull);
+        final page = const SummaryCardService().calendarPage(
+          period: period,
+          day: DateTime(2005, 6),
+          referenceDate: DateTime(2026, 10, 15),
+        );
+        controller.selectPage(page);
+        expect(container.read(provider).pageStart, page.start);
+        expect(container.read(other).pageStart, isNull);
+        controller.selectPeriod(period);
+        expect(container.read(provider).pageStart, page.start);
+        controller.selectPeriod(SummaryPeriodPreset.month);
+        controller.selectPeriod(period);
+        expect(container.read(provider).pageStart, isNull);
+      },
+    );
+  }
+
   test(
     'cards select independent calendar pages and a different preset returns to current',
     () {

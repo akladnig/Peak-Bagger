@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/track_date_status.dart';
+import 'package:peak_bagger/services/summary_card_service.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/dashboard/distance_card.dart';
 import 'package:peak_bagger/widgets/dashboard/elevation_card.dart';
@@ -15,6 +16,270 @@ import 'package:peak_bagger/widgets/dashboard/summary_chart.dart';
 void main() {
   for (final kind in ['elevation', 'distance', 'peaks-bagged']) {
     for (final mode in SummaryDisplayMode.values) {
+      testWidgets(
+        '$kind ${mode.name} anchored presets share pages, bounds and summaries',
+        (tester) async {
+          SummaryVisibleSummary? summary;
+          await _pump(
+            tester,
+            kind: kind,
+            tracks: [
+              _track(1, DateTime.utc(1989, 2, 28)),
+              _track(2, DateTime.utc(2005, 6, 15)),
+              _track(3, DateTime.utc(2026, 6, 15)),
+            ],
+            onSummary: (value) => summary = value,
+          );
+          // Default current page includes November 2025 through October 2026.
+          expect(_chart(tester).period, SummaryPeriodPreset.last12Months);
+          expect(_chart(tester).buckets.first.start, DateTime(2025, 11));
+          expect(_chart(tester).buckets.last.endExclusive, DateTime(2026, 11));
+          if (_chart(tester).mode != mode) {
+            await tester.tap(find.byKey(const Key('summary-mode-fab')));
+            await tester.pumpAndSettle();
+          }
+          final unitValue = kind == 'elevation'
+              ? 70
+              : kind == 'distance'
+              ? 700
+              : 1;
+          for (final fixture in [
+            (
+              SummaryPeriodPreset.last3Months,
+              DateTime(2026, 8),
+              DateTime(2026, 5),
+              DateTime(1989, 2),
+              '3 Months',
+              3,
+            ),
+            (
+              SummaryPeriodPreset.last6Months,
+              DateTime(2026, 5),
+              DateTime(2025, 11),
+              DateTime(1988, 11),
+              '6 Months',
+              6,
+            ),
+            (
+              SummaryPeriodPreset.last12Months,
+              DateTime(2025, 11),
+              DateTime(2024, 11),
+              DateTime(1988, 11),
+              '12 Months',
+              12,
+            ),
+            (
+              SummaryPeriodPreset.allTime,
+              DateTime(2015),
+              DateTime(2003),
+              DateTime(1989),
+              '12 Years',
+              12,
+            ),
+            (
+              SummaryPeriodPreset.yearToDate,
+              DateTime(2026),
+              DateTime(2026),
+              DateTime(2026),
+              'period (Year to Date is fixed)',
+              10,
+            ),
+          ]) {
+            await _selectPeriod(tester, fixture.$1.label);
+            expect(_chart(tester).buckets.first.start, fixture.$2);
+            expect(_button(tester, 'prev').tooltip, 'Previous ${fixture.$5}');
+            expect(_button(tester, 'next').tooltip, 'Next ${fixture.$5}');
+            expect(_button(tester, 'first').tooltip, 'first');
+            expect(_button(tester, 'last').tooltip, 'last');
+            expect(_button(tester, 'next').onPressed, isNull);
+            final currentTotal = fixture.$1 == SummaryPeriodPreset.last3Months
+                ? 0
+                : unitValue;
+            expect(summary?.totalValue, currentTotal);
+            expect(summary?.averageValue, currentTotal / fixture.$6);
+            expect(find.byKey(Key('$kind-empty-state')), findsNothing);
+            if (fixture.$1 == SummaryPeriodPreset.yearToDate) {
+              for (final action in ['first', 'prev', 'next', 'last']) {
+                expect(_button(tester, action).onPressed, isNull);
+                expect(
+                  _button(tester, action).mouseCursor,
+                  SystemMouseCursors.basic,
+                );
+              }
+              expect(_chart(tester).buckets, hasLength(12));
+              continue;
+            }
+            await tester.tap(_control('prev'));
+            await tester.pumpAndSettle();
+            expect(_chart(tester).buckets.first.start, fixture.$3);
+            expect(
+              summary?.totalValue,
+              fixture.$1 == SummaryPeriodPreset.last3Months ||
+                      fixture.$1 == SummaryPeriodPreset.allTime
+                  ? unitValue
+                  : 0,
+            );
+            if (fixture.$1 == SummaryPeriodPreset.last3Months) {
+              // June belongs to May–July, even though October anchors the sequence.
+              expect(_button(tester, 'last').onPressed, isNull);
+              expect(_button(tester, 'next').onPressed, isNotNull);
+            }
+            await tester.tap(_control('first'));
+            await tester.pumpAndSettle();
+            expect(_chart(tester).buckets.first.start, fixture.$4);
+            expect(_button(tester, 'prev').onPressed, isNull);
+            expect(_button(tester, 'first').onPressed, isNull);
+            expect(_button(tester, 'next').onPressed, isNotNull);
+            expect(summary?.totalValue, unitValue);
+            expect(
+              summary?.averageValue,
+              unitValue /
+                  (fixture.$1 == SummaryPeriodPreset.allTime ? 2 : fixture.$6),
+            );
+            if (kind != 'elevation') {
+              final chart = _chart(tester);
+              expect(
+                chart.secondaryBuckets!.map((b) => (b.start, b.endExclusive)),
+                chart.buckets.map((b) => (b.start, b.endExclusive)),
+              );
+            }
+            final beforeMode = _chart(tester).buckets.first.start;
+            await tester.tap(find.byKey(const Key('summary-mode-fab')));
+            await tester.pumpAndSettle();
+            expect(_chart(tester).buckets.first.start, beforeMode);
+            await tester.tap(find.byKey(const Key('summary-mode-fab')));
+            await tester.pumpAndSettle();
+            await tester.tap(_control('last'));
+            await tester.pumpAndSettle();
+            expect(
+              _chart(tester).buckets.first.start,
+              fixture.$1 == SummaryPeriodPreset.last3Months
+                  ? DateTime(2026, 5)
+                  : fixture.$2,
+            );
+            expect(_button(tester, 'last').onPressed, isNull);
+            expect(summary?.totalValue, unitValue);
+            if (kind == 'peaks-bagged') {
+              expect(
+                _chart(tester).secondaryBuckets!.every((b) => b.value == 0),
+                isTrue,
+              );
+            }
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
+
+      testWidgets(
+        '$kind ${mode.name} clipped edge-week inspection and future cutoff',
+        (tester) async {
+          SummaryVisibleSummary? summary;
+          await _pump(
+            tester,
+            kind: kind,
+            tracks: [
+              _track(1, DateTime.utc(2026, 7, 31))..distance3d = 770,
+              _track(2, DateTime.utc(2026, 8, 1))..distance3d = 770,
+              _track(3, DateTime.utc(2026, 8, 2))..distance3d = 770,
+              _track(4, DateTime.utc(2026, 10, 16))..distance3d = 770,
+              _track(5, DateTime.utc(2030))..distance3d = 770,
+            ],
+            onSummary: (value) => summary = value,
+          );
+          await _selectPeriod(tester, 'Last 3 Months');
+          if (_chart(tester).mode != mode) {
+            await tester.tap(find.byKey(const Key('summary-mode-fab')));
+            await tester.pumpAndSettle();
+          }
+          expect(_chart(tester).buckets, hasLength(14));
+          expect(_chart(tester).buckets.first.trackCount, 2);
+          expect(
+            summary?.totalValue,
+            kind == 'elevation'
+                ? 140
+                : kind == 'distance'
+                ? 1400
+                : 2,
+          );
+          expect(summary?.averageValue, summary!.totalValue / 3);
+          expect(find.text('Sat, 1 Aug - Sat, 31 Oct 2026'), findsOneWidget);
+          if (kind == 'distance') {
+            expect(_chart(tester).secondaryBuckets!.first.value, 1540);
+          }
+          await tester.tap(find.byKey(Key('$kind-bucket-0')));
+          await tester.pumpAndSettle();
+          expect(find.text('Sat, 1 Aug - Sun, 2 Aug 2026'), findsOneWidget);
+          await tester.tap(_control('prev'));
+          await tester.pumpAndSettle();
+          expect(find.byKey(Key('$kind-tooltip')), findsNothing);
+          expect(_chart(tester).buckets.last.trackCount, 1);
+          await tester.tap(
+            find.byKey(
+              Key('$kind-bucket-${_chart(tester).buckets.length - 1}'),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Mon, 27 Jul - Fri, 31 Jul 2026'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        },
+      );
+
+      testWidgets(
+        '$kind ${mode.name} all remaining presets exclude both future series',
+        (tester) async {
+          await _pump(
+            tester,
+            kind: kind,
+            tracks: [
+              _track(1, DateTime.utc(2026, 10, 14))..distance3d = 770,
+              _track(2, DateTime.utc(2026, 10, 16))..distance3d = 770,
+              _track(3, DateTime.utc(2030))..distance3d = 770,
+            ],
+          );
+          if (_chart(tester).mode != mode) {
+            await tester.tap(find.byKey(const Key('summary-mode-fab')));
+            await tester.pumpAndSettle();
+          }
+          for (final preset in SummaryPeriodPreset.values.skip(2)) {
+            await _selectPeriod(tester, preset.label);
+            final chart = _chart(tester);
+            expect(
+              chart.buckets.fold<int>(0, (sum, b) => sum + b.trackCount),
+              1,
+            );
+            expect(
+              chart.buckets.fold<double>(0, (sum, b) => sum + b.value),
+              kind == 'elevation'
+                  ? 70
+                  : kind == 'distance'
+                  ? 700
+                  : 1,
+            );
+            if (kind == 'distance') {
+              expect(
+                chart.secondaryBuckets!.fold<double>(
+                  0,
+                  (sum, b) => sum + b.value,
+                ),
+                770,
+              );
+            }
+            if (kind == 'peaks-bagged') {
+              expect(
+                chart.secondaryBuckets!.fold<double>(
+                  0,
+                  (sum, b) => sum + b.value,
+                ),
+                1,
+              );
+            }
+            for (final action in ['first', 'prev', 'next', 'last']) {
+              expect(_button(tester, action).onPressed, isNull);
+            }
+          }
+        },
+      );
+
       for (final period in ['Week', 'Month']) {
         testWidgets(
           '$kind ${mode.name} $period visits full history and empty gaps',
@@ -245,7 +510,7 @@ void main() {
             _track(2, DateTime.utc(2026, 8)),
           ],
         );
-        await _selectPeriod(tester, 'Month');
+        await _selectPeriod(tester, 'Last 6 Months');
         final first = _control('first');
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         final focus = Focus.of(
@@ -282,7 +547,7 @@ void main() {
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
-        expect(_chart(tester).buckets.first.start, DateTime(2020));
+        expect(_chart(tester).buckets.first.start, DateTime(2019, 11));
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
         // Disabled first/previous are skipped; next is the following action.

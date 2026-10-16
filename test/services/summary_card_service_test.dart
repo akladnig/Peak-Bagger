@@ -8,6 +8,397 @@ void main() {
   group('SummaryCardService', () {
     const service = SummaryCardService();
 
+    for (final fixture in [
+      (
+        SummaryPeriodPreset.last3Months,
+        3,
+        DateTime(2026, 8),
+        DateTime(2026, 5),
+      ),
+      (
+        SummaryPeriodPreset.last6Months,
+        6,
+        DateTime(2026, 5),
+        DateTime(2025, 11),
+      ),
+      (
+        SummaryPeriodPreset.last12Months,
+        12,
+        DateTime(2025, 11),
+        DateTime(2024, 11),
+      ),
+    ]) {
+      test('${fixture.$1.label} keeps October anchored whole-month pages', () {
+        final tracks = [
+          _track(1, DateTime(2020, 2, 29), distance2d: 10, ascent: 10),
+          _track(2, DateTime(2026, 6, 15), distance2d: 20, ascent: 20),
+        ];
+        SummaryPageNavigation navigation([DateTime? selected]) =>
+            service.pageNavigation(
+              tracks: tracks,
+              metric: DistanceCard.metric,
+              period: fixture.$1,
+              now: DateTime(2026, 10, 15),
+              selectedDay: selected,
+            )!;
+        final current = navigation();
+        expect(current.selected.start, fixture.$3);
+        expect(current.selected.endExclusive, DateTime(2026, 11));
+        final currentTimeline = service.buildTimeline(
+          tracks: tracks,
+          period: fixture.$1,
+          metric: DistanceCard.metric,
+          now: DateTime(2026, 10, 15),
+        );
+        expect(
+          currentTimeline.buckets,
+          hasLength(switch (fixture.$2) {
+            3 => 14,
+            6 => 27,
+            _ => 12,
+          }),
+        );
+        expect(current.adjacent(false).start, fixture.$4);
+        expect(current.adjacent(true).start, fixture.$3);
+        final last = navigation(current.last.start);
+        expect(
+          last.selected.start,
+          fixture.$1 == SummaryPeriodPreset.last3Months
+              ? DateTime(2026, 5)
+              : fixture.$3,
+        );
+        expect(last.canLast, isFalse);
+        expect(last.canNext, fixture.$1 == SummaryPeriodPreset.last3Months);
+        final first = navigation(current.first.start);
+        expect(first.selected.start, current.first.start);
+        expect(first.canFirst, isFalse);
+        expect(first.canPrevious, isFalse);
+        expect(first.adjacent(false).start, first.first.start);
+        expect(
+          first.adjacent(true).start,
+          DateTime(
+            first.first.start.year,
+            first.first.start.month + fixture.$2,
+          ),
+        );
+        expect(navigation(DateTime(1900)).selected.start, first.first.start);
+        expect(
+          navigation(DateTime(2100)).selected.start,
+          current.current.start,
+        );
+        final emptyPage = service.buildTimeline(
+          tracks: tracks,
+          period: fixture.$1,
+          metric: DistanceCard.metric,
+          now: DateTime(2026, 10, 15),
+          page: first.adjacent(true),
+        );
+        expect(emptyPage.isEmpty, isFalse);
+        expect(emptyPage.totalValue, 0);
+        expect(
+          service.visibleAverageValueForPeriod(
+            period: fixture.$1,
+            buckets: emptyPage.buckets,
+          ),
+          0,
+        );
+      });
+    }
+
+    test(
+      'Monday edge weeks clip July and November without dropping or duplicating days',
+      () {
+        final tracks = [
+          for (
+            var day = DateTime(2026, 5);
+            day.isBefore(DateTime(2026, 11));
+            day = DateTime(day.year, day.month, day.day + 1)
+          )
+            _track(
+              day.millisecondsSinceEpoch,
+              DateTime.utc(day.year, day.month, day.day),
+              distance2d: 1,
+              ascent: 1,
+            )..trackDateStatus = TrackDateStatus.resolved,
+        ];
+        final current = service.pageNavigation(
+          tracks: tracks,
+          metric: DistanceCard.metric,
+          period: SummaryPeriodPreset.last3Months,
+          now: DateTime(2026, 10, 31),
+        )!;
+        SummaryTimeline build(
+          SummaryCalendarPage page,
+          SummaryMetricDefinition metric,
+        ) => service.buildTimeline(
+          tracks: tracks,
+          metric: metric,
+          period: SummaryPeriodPreset.last3Months,
+          now: DateTime(2026, 10, 31),
+          page: page,
+        );
+        final august = build(current.selected, DistanceCard.metric);
+        final may = build(current.adjacent(false), DistanceCard.metric);
+        expect(august.buckets, hasLength(14));
+        expect(august.buckets.first.start, DateTime(2026, 8, 1));
+        expect(august.buckets.first.endExclusive, DateTime(2026, 8, 3));
+        expect(august.buckets.first.value, 2);
+        expect(august.buckets[1].start, DateTime(2026, 8, 3));
+        expect(august.buckets.last.start, DateTime(2026, 10, 26));
+        expect(august.buckets.last.endExclusive, DateTime(2026, 11));
+        expect(august.buckets.last.value, 6);
+        expect(august.totalValue, 92);
+        expect(may.totalValue, 92);
+        expect(august.totalValue + may.totalValue, tracks.length);
+        expect(
+          service.visibleAverageValueForPeriod(
+            period: august.period,
+            buckets: august.buckets,
+          ),
+          92 / 3,
+        );
+        final secondary = build(
+          current.selected,
+          const SummaryMetricDefinition(valueOf: _noValue),
+        );
+        expect(
+          secondary.buckets.map((b) => (b.start, b.endExclusive)),
+          august.buckets.map((b) => (b.start, b.endExclusive)),
+        );
+        expect(secondary.totalValue, 0);
+      },
+    );
+
+    for (final fixture in [(4, 5, 11, 10), (10, 4, 10, 11)]) {
+      test(
+        'multi-month buckets retain each Hobart DST day in month ${fixture.$1}',
+        () {
+          final month = fixture.$1;
+          expect(
+            DateTime(2026, month, fixture.$2 - 1, 12).timeZoneOffset,
+            Duration(hours: fixture.$3),
+          );
+          expect(
+            DateTime(2026, month, fixture.$2, 12).timeZoneOffset,
+            Duration(hours: fixture.$4),
+          );
+          for (final period in [
+            SummaryPeriodPreset.last3Months,
+            SummaryPeriodPreset.last6Months,
+            SummaryPeriodPreset.last12Months,
+          ]) {
+            final page = service.calendarPage(
+              period: period,
+              day: DateTime(2026, month),
+            );
+            final tracks = [
+              for (
+                var day = page.start;
+                day.isBefore(page.endExclusive);
+                day = DateTime(day.year, day.month, day.day + 1)
+              )
+                _track(
+                  day.millisecondsSinceEpoch,
+                  DateTime.utc(day.year, day.month, day.day),
+                  distance2d: 1,
+                  ascent: 1,
+                )..trackDateStatus = TrackDateStatus.resolved,
+            ];
+            final timeline = service.buildTimeline(
+              tracks: tracks,
+              period: period,
+              metric: DistanceCard.metric,
+              now: DateTime(2026, 12, 31),
+              page: page,
+            );
+            expect(timeline.totalValue, tracks.length);
+            for (final bucket in timeline.buckets) {
+              final days =
+                  DateTime.utc(
+                        bucket.endExclusive.year,
+                        bucket.endExclusive.month,
+                        bucket.endExclusive.day,
+                      )
+                      .difference(
+                        DateTime.utc(
+                          bucket.start.year,
+                          bucket.start.month,
+                          bucket.start.day,
+                        ),
+                      )
+                      .inDays;
+              expect(bucket.value, days);
+              expect(bucket.trackCount, days);
+            }
+            expect(
+              service.visibleAverageValueForPeriod(
+                period: period,
+                buckets: timeline.buckets,
+              ),
+              tracks.length / period.monthsPerPage,
+            );
+          }
+        },
+      );
+    }
+
+    test(
+      'All Time uses anchored twelve-year steps and a shorter oldest page',
+      () {
+        final tracks = [
+          _track(1, DateTime(1989, 12, 31), distance2d: 40, ascent: 40),
+          _track(2, DateTime(2005, 6), distance2d: 80, ascent: 80),
+        ];
+        SummaryPageNavigation navigation([DateTime? selected]) =>
+            service.pageNavigation(
+              tracks: tracks,
+              metric: DistanceCard.metric,
+              period: SummaryPeriodPreset.allTime,
+              now: DateTime(2026, 10, 15),
+              selectedDay: selected,
+            )!;
+        final current = navigation();
+        expect(current.current.start, DateTime(2015));
+        expect(current.current.endExclusive, DateTime(2027));
+        expect(current.last.start, DateTime(2003));
+        expect(current.last.endExclusive, DateTime(2015));
+        expect(current.first.start, DateTime(1989));
+        expect(current.first.endExclusive, DateTime(1991));
+        final oldest = navigation(current.first.start);
+        expect(navigation(DateTime(1900)).selected.start, DateTime(1989));
+        expect(
+          navigation(DateTime(1900)).selected.endExclusive,
+          DateTime(1991),
+        );
+        expect(
+          navigation(DateTime(2100)).selected.endExclusive,
+          DateTime(2027),
+        );
+        expect(oldest.canPrevious, isFalse);
+        expect(oldest.canNext, isTrue);
+        expect(oldest.adjacent(true).start, DateTime(1991));
+        expect(
+          navigation(DateTime(1991)).adjacent(false).start,
+          DateTime(1989),
+        );
+        final timeline = service.buildTimeline(
+          tracks: tracks,
+          metric: DistanceCard.metric,
+          period: SummaryPeriodPreset.allTime,
+          now: DateTime(2026, 10, 15),
+          page: oldest.selected,
+        );
+        expect(timeline.buckets.map((b) => b.label), ['1989', '1990']);
+        expect(timeline.totalValue, 40);
+        expect(
+          service.visibleAverageValueForPeriod(
+            period: timeline.period,
+            buckets: timeline.buckets,
+          ),
+          20,
+        );
+        expect(
+          service
+              .buildTimeline(
+                tracks: tracks,
+                metric: DistanceCard.metric,
+                period: SummaryPeriodPreset.allTime,
+                now: DateTime(2026, 10, 15),
+              )
+              .buckets,
+          hasLength(12),
+        );
+      },
+    );
+
+    for (final period in SummaryPeriodPreset.values) {
+      test('${period.label} cuts off future dates in values and endpoints', () {
+        final old = _track(
+          1,
+          DateTime.utc(2026, 10, 14),
+          distance2d: 120,
+          ascent: 120,
+        )..trackDateStatus = TrackDateStatus.resolved;
+        final tomorrow = _track(
+          2,
+          DateTime.utc(2026, 10, 16),
+          distance2d: 240,
+          ascent: 240,
+        )..trackDateStatus = TrackDateStatus.resolved;
+        final later = _track(
+          3,
+          DateTime.utc(2030),
+          distance2d: 999,
+          ascent: 999,
+        )..trackDateStatus = TrackDateStatus.resolved;
+        final tracks = [old, tomorrow, later];
+        final now = DateTime(2026, 10, 15);
+        final timeline = service.buildTimeline(
+          tracks: tracks,
+          metric: DistanceCard.metric,
+          period: period,
+          now: now,
+        );
+        expect(timeline.totalValue, 120);
+        expect(timeline.buckets.fold<int>(0, (s, b) => s + b.trackCount), 1);
+        final nav = service.pageNavigation(
+          tracks: tracks,
+          metric: DistanceCard.metric,
+          period: period,
+          now: now,
+        )!;
+        expect(nav.first.start, nav.last.start);
+        expect(nav.canNext, isFalse);
+        if (period == SummaryPeriodPreset.yearToDate) {
+          expect([
+            nav.canFirst,
+            nav.canPrevious,
+            nav.canNext,
+            nav.canLast,
+          ], everyElement(isFalse));
+          expect(
+            service.visibleAverageValueForPeriod(
+              period: period,
+              buckets: timeline.buckets,
+              referenceDate: now,
+            ),
+            12,
+          );
+        }
+        expect(
+          service
+              .buildTimeline(
+                tracks: [tomorrow, later],
+                metric: DistanceCard.metric,
+                period: period,
+                now: now,
+              )
+              .isEmpty,
+          isTrue,
+        );
+        expect(
+          service.pageNavigation(
+            tracks: [tomorrow, later],
+            metric: DistanceCard.metric,
+            period: period,
+            now: now,
+          ),
+          isNull,
+        );
+        expect(
+          service
+              .buildTimeline(
+                tracks: tracks,
+                metric: DistanceCard.metric,
+                period: period,
+                now: DateTime(2026, 10, 16),
+              )
+              .totalValue,
+          360,
+        );
+      });
+    }
+
     test('Monday week includes both sides of a year boundary', () {
       final timeline = service.buildTimeline(
         tracks: [
@@ -24,6 +415,48 @@ void main() {
       expect(timeline.buckets[2].value, 70);
       expect(timeline.buckets[3].start, DateTime(2026, 1, 1));
     });
+
+    for (final period in [
+      SummaryPeriodPreset.last3Months,
+      SummaryPeriodPreset.last6Months,
+      SummaryPeriodPreset.last12Months,
+      SummaryPeriodPreset.allTime,
+    ]) {
+      test(
+        '${period.label} one historical activity page retains forward range',
+        () {
+          final track = _track(
+            1,
+            DateTime(2005, 6, 15),
+            distance2d: 10,
+            ascent: 10,
+          );
+          final nav = service.pageNavigation(
+            tracks: [track],
+            metric: DistanceCard.metric,
+            period: period,
+            now: DateTime(2026, 10, 15),
+            selectedDay: track.trackDate,
+          )!;
+          expect(nav.first.start, nav.last.start);
+          expect([
+            nav.canFirst,
+            nav.canPrevious,
+            nav.canLast,
+          ], everyElement(isFalse));
+          expect(nav.canNext, isTrue);
+          expect(nav.adjacent(true).start.isAfter(nav.selected.start), isTrue);
+          final current = service.buildTimeline(
+            tracks: [track],
+            metric: DistanceCard.metric,
+            period: period,
+            now: DateTime(2026, 10, 15),
+          );
+          expect(current.isEmpty, isFalse);
+          expect(current.totalValue, 0);
+        },
+      );
+    }
 
     for (final fixture in [
       (2023, 2, 28),

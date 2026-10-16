@@ -611,7 +611,8 @@ void main() {
           matching: find.byIcon(Icons.drag_indicator),
         );
 
-        expect(tester.widget<Text>(averageMetric).data, 'Monthly Avg: 1234 m');
+        // The complete default page includes eleven zero-valued months.
+        expect(tester.widget<Text>(averageMetric).data, 'Monthly Avg: 103 m');
         expect(
           tester.getRect(averageMetric).right,
           lessThanOrEqualTo(tester.getRect(dragIndicator).left),
