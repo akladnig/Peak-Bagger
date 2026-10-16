@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'track_date_calendar_codec.dart';
 
 enum SummaryPeriodPreset {
   week,
@@ -102,7 +103,7 @@ class SummaryCardService {
     DateTime? earliestDate;
 
     for (final track in tracks) {
-      final trackDate = track.trackDate?.toLocal();
+      final trackDate = TrackDateCalendarCodec.day(track);
       final value = metric.valueOf(track);
       if (trackDate == null || value == null) {
         continue;

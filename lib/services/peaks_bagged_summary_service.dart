@@ -1,4 +1,5 @@
 import 'package:peak_bagger/models/gpx_track.dart';
+import 'track_date_calendar_codec.dart';
 
 class PeaksBaggedSeries {
   const PeaksBaggedSeries({
@@ -28,7 +29,8 @@ class PeaksBaggedSummaryService {
     final orderedOccurrences = <_PeakOccurrence>[];
 
     for (final track in tracks) {
-      if (track.gpxTrackId <= 0 || track.trackDate == null) {
+      final day = TrackDateCalendarCodec.day(track, localizeLegacy: false);
+      if (track.gpxTrackId <= 0 || day == null) {
         continue;
       }
 
@@ -48,7 +50,7 @@ class PeaksBaggedSummaryService {
         orderedOccurrences.add(
           _PeakOccurrence(
             trackId: track.gpxTrackId,
-            trackDate: track.trackDate!,
+            trackDate: day,
             peakId: peakId,
           ),
         );

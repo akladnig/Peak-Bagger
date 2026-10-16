@@ -352,7 +352,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 8449374379554926112),
     name: 'GpxTrack',
-    lastPropertyId: const obx_int.IdUid(36, 6865718623478699060),
+    lastPropertyId: const obx_int.IdUid(40, 5326322304943373350),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -539,6 +539,30 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(36, 6865718623478699060),
         name: 'maxSpeedKmh',
         type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(37, 8293351804335450882),
+        name: 'trackDateStatus',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(38, 4375809035462038491),
+        name: 'trackDateDerivationVersion',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(39, 7915504643779771175),
+        name: 'trackDateTimezoneId',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(40, 5326322304943373350),
+        name: 'trackDateFailureReason',
+        type: 9,
         flags: 0,
       ),
     ],
@@ -1941,7 +1965,14 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final elevationProfileOffset = fbb.writeString(object.elevationProfile);
         final filteredTrackOffset = fbb.writeString(object.filteredTrack);
         final gpxFileRepairedOffset = fbb.writeString(object.gpxFileRepaired);
-        fbb.startTable(37);
+        final trackDateTimezoneIdOffset = object.trackDateTimezoneId == null
+            ? null
+            : fbb.writeString(object.trackDateTimezoneId!);
+        final trackDateFailureReasonOffset =
+            object.trackDateFailureReason == null
+            ? null
+            : fbb.writeString(object.trackDateFailureReason!);
+        fbb.startTable(41);
         fbb.addInt64(0, object.gpxTrackId);
         fbb.addOffset(2, trackNameOffset);
         fbb.addInt64(3, object.startDateTime?.millisecondsSinceEpoch);
@@ -1973,6 +2004,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addFloat64(33, object.averageSpeedKmh);
         fbb.addFloat64(34, object.movingSpeedKmh);
         fbb.addFloat64(35, object.maxSpeedKmh);
+        fbb.addInt64(36, object.trackDateStatus);
+        fbb.addInt64(37, object.trackDateDerivationVersion);
+        fbb.addOffset(38, trackDateTimezoneIdOffset);
+        fbb.addOffset(39, trackDateFailureReasonOffset);
         fbb.finish(fbb.endTable());
         return object.gpxTrackId;
       },
@@ -2009,6 +2044,20 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final trackDateParam = trackDateValue == null
             ? null
             : DateTime.fromMillisecondsSinceEpoch(trackDateValue, isUtc: true);
+        final trackDateStatusParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          76,
+          0,
+        );
+        final trackDateDerivationVersionParam = const fb.Int64Reader()
+            .vTableGet(buffer, rootOffset, 78, 0);
+        final trackDateTimezoneIdParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 80);
+        final trackDateFailureReasonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 82);
         final gpxFileParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 28, '');
@@ -2156,6 +2205,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
           contentHash: contentHashParam,
           trackName: trackNameParam,
           trackDate: trackDateParam,
+          trackDateStatus: trackDateStatusParam,
+          trackDateDerivationVersion: trackDateDerivationVersionParam,
+          trackDateTimezoneId: trackDateTimezoneIdParam,
+          trackDateFailureReason: trackDateFailureReasonParam,
           gpxFile: gpxFileParam,
           gpxFileRepaired: gpxFileRepairedParam,
           filteredTrack: filteredTrackParam,
@@ -3831,6 +3884,26 @@ class GpxTrack_ {
   /// See [GpxTrack.maxSpeedKmh].
   static final maxSpeedKmh = obx.QueryDoubleProperty<GpxTrack>(
     _entities[2].properties[30],
+  );
+
+  /// See [GpxTrack.trackDateStatus].
+  static final trackDateStatus = obx.QueryIntegerProperty<GpxTrack>(
+    _entities[2].properties[31],
+  );
+
+  /// See [GpxTrack.trackDateDerivationVersion].
+  static final trackDateDerivationVersion = obx.QueryIntegerProperty<GpxTrack>(
+    _entities[2].properties[32],
+  );
+
+  /// See [GpxTrack.trackDateTimezoneId].
+  static final trackDateTimezoneId = obx.QueryStringProperty<GpxTrack>(
+    _entities[2].properties[33],
+  );
+
+  /// See [GpxTrack.trackDateFailureReason].
+  static final trackDateFailureReason = obx.QueryStringProperty<GpxTrack>(
+    _entities[2].properties[34],
   );
 
   /// see [GpxTrack.peaks]

@@ -59,6 +59,8 @@ import 'package:peak_bagger/services/track_peak_correlation_service.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/services/track_date_query_parser.dart';
 import 'package:peak_bagger/services/track_derived_data_persistence.dart';
+import 'package:peak_bagger/services/track_date_derivation_service.dart';
+import 'package:peak_bagger/providers/track_date_derivation_provider.dart';
 import 'package:peak_bagger/services/track_replacement_recovery_issue_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/grid_reference_parser.dart';
@@ -2135,7 +2137,8 @@ class MapNotifier extends Notifier<MapState> {
     }
 
     try {
-      await _peaksBaggedRepository.rebuildFromTracks(tracks);
+      await _peaksBaggedRepository.syncFromTracks(tracks);
+      ref.read(peaksBaggedRevisionProvider.notifier).increment();
       await _migrationMarkerStore.markPeaksBaggedBackfillComplete();
       _pendingStartupBackfillWarningMessage = null;
       state = state.copyWith(clearTrackImportError: true);
@@ -2158,7 +2161,9 @@ class MapNotifier extends Notifier<MapState> {
       if (!track.hasValidOptimizedDisplayData()) {
         return true;
       }
-      if (track.contentHash.isEmpty || track.trackDate == null) {
+      if (track.contentHash.isEmpty ||
+          (track.trackDate == null &&
+              track.trackDateStatus != TrackDateStatus.unresolvedImport)) {
         return true;
       }
     }
@@ -2194,7 +2199,12 @@ class MapNotifier extends Notifier<MapState> {
           if (track.gpxTrackId != 0) track.gpxTrackId: _cloneTrack(track),
       };
       final surfaceNotifications = resetExisting || state.tracks.isNotEmpty;
-      final importer = GpxImporter(mappingCatalog: mappingCatalog);
+      final importer = GpxImporter(
+        mappingCatalog: mappingCatalog,
+        trackDateDerivationService: ref.read(
+          trackDateDerivationServiceProvider,
+        ),
+      );
       final filterConfig = await ref.read(gpxFilterSettingsProvider.future);
       final result = await importer.importTracks(
         includeTasmaniaFolder: includeTasmaniaFolder,
@@ -2231,17 +2241,17 @@ class MapNotifier extends Notifier<MapState> {
         }
       }
 
-      if (resetExisting || state.tracks.isEmpty) {
+      if (resetExisting) {
         _gpxTrackRepository.deleteAll();
       }
 
       for (final track in correlatedTracks) {
-        _gpxTrackRepository.putTrack(track);
+        _trackDerivedDataPersistence.importTrackAndSync(track);
       }
 
       final allTracks = _gpxTrackRepository.getAllTracks();
       if (syncPeaksBagged) {
-        await _peaksBaggedRepository.rebuildFromTracks(allTracks);
+        await _peaksBaggedRepository.syncFromTracks(allTracks);
         ref.read(peaksBaggedRevisionProvider.notifier).increment();
         if (markPeaksBaggedBackfillComplete) {
           await _migrationMarkerStore.markPeaksBaggedBackfillComplete();
@@ -2249,6 +2259,9 @@ class MapNotifier extends Notifier<MapState> {
         _pendingStartupBackfillWarningMessage = null;
       }
       _refreshCorrelatedPeakIds(allTracks);
+      if (!syncPeaksBagged && correlatedTracks.isNotEmpty) {
+        ref.read(peaksBaggedRevisionProvider.notifier).increment();
+      }
       final hasRecoveryIssue = _hasTrackRecoveryIssue(allTracks);
       if (hasRecoveryIssue && !state.hasTrackRecoveryIssue) {
         _recoverySnackbarShown = false;
@@ -2256,8 +2269,10 @@ class MapNotifier extends Notifier<MapState> {
       final statusMessage = result.noGpxFilesFound
           ? 'No GPX files found in watched folder'
           : 'Imported ${formatCount(result.importedCount)}, replaced ${formatCount(result.replacedCount)}, unchanged ${formatCount(result.unchangedCount)}, unsupported ${formatCount(result.unsupportedCount)}, errors ${formatCount(result.errorSkippedCount)}';
-      if (surfaceNotifications) {
-        _pendingTrackSnackbarMessage = statusMessage;
+      if (surfaceNotifications || result.warning != null) {
+        _pendingTrackSnackbarMessage = result.warning == null
+            ? statusMessage
+            : '$statusMessage. ${result.warning}';
       }
       state = state.copyWith(
         tracks: allTracks,
@@ -2333,7 +2348,12 @@ class MapNotifier extends Notifier<MapState> {
         reportProgress(currentFileName: p.basename(orderedPaths.first));
       }
 
-      final importer = GpxImporter(mappingCatalog: mappingCatalog);
+      final importer = GpxImporter(
+        mappingCatalog: mappingCatalog,
+        trackDateDerivationService: ref.read(
+          trackDateDerivationServiceProvider,
+        ),
+      );
       final plan = await importer.planSelectiveImport(
         paths: pathToEditedNames.keys.toList(),
         pathToEditedNames: pathToEditedNames,
@@ -2392,7 +2412,7 @@ class MapNotifier extends Notifier<MapState> {
               replacedCount += 1;
             }
           } else {
-            _gpxTrackRepository.putTrack(item.track);
+            _trackDerivedDataPersistence.importTrackAndSync(item.track);
             if (item.shouldPlaceInManagedStorage &&
                 item.plannedManagedRelativePath != null) {
               await _placeFileInManagedStorage(
@@ -2404,9 +2424,16 @@ class MapNotifier extends Notifier<MapState> {
             completedItems.add(GpxTrackImportItem(track: item.track));
             addedCount += 1;
           }
-        } catch (_) {
-          const reason =
-              'Cannot replace Track because the Track replacement could not be persisted.';
+        } catch (error, stackTrace) {
+          developer.log(
+            'GPX Track import failed',
+            name: 'gpx_import',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          final reason = item.isReplacement
+              ? 'Cannot replace Track because the Track replacement could not be persisted.'
+              : 'Cannot import Track because it could not be persisted. Check storage and retry.';
           executionErrors.add(
             GpxTrackImportError(sourcePath: item.sourcePath, reason: reason),
           );
@@ -2418,7 +2445,6 @@ class MapNotifier extends Notifier<MapState> {
 
       final allTracks = _gpxTrackRepository.getAllTracks();
       if (completedItems.isNotEmpty) {
-        await _peaksBaggedRepository.syncFromTracks(allTracks);
         ref.read(peaksBaggedRevisionProvider.notifier).increment();
       }
 
@@ -2448,6 +2474,7 @@ class MapNotifier extends Notifier<MapState> {
         isLoadingTracks: false,
         hasTrackRecoveryIssue: _hasTrackRecoveryIssue(allTracks),
         trackOperationStatus: statusMessage,
+        trackOperationWarning: plan.warningMessage,
         clearHoveredTrackId: true,
       );
       if (completedItems.isNotEmpty) {

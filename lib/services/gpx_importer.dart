@@ -22,6 +22,8 @@ import 'package:peak_bagger/services/track_name_normalisation.dart';
 import 'package:peak_bagger/services/gpx_point_sample.dart';
 import 'package:peak_bagger/services/gpx_filter.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
+import 'package:peak_bagger/services/track_date_derivation_service.dart';
+import 'package:peak_bagger/services/track_date_calendar_codec.dart';
 
 import '../core/constants.dart';
 
@@ -100,6 +102,7 @@ class GpxImporter {
   String tasmaniaFolder;
   String routesFolder;
   final GpxStorageDestinationResolver _storageDestinationResolver;
+  final TrackDateDerivationService _trackDateDerivation;
 
   GpxImporter({
     String? tracksFolder,
@@ -107,9 +110,12 @@ class GpxImporter {
     String? routesFolder,
     PolygonAssetRepository? polygonAssetRepository,
     MappingCatalog? mappingCatalog,
+    TrackDateDerivationService? trackDateDerivationService,
   }) : tracksFolder = tracksFolder ?? _defaultTracksFolder(),
        tasmaniaFolder = tasmaniaFolder ?? _defaultTasmaniaFolder(),
        routesFolder = routesFolder ?? _defaultRoutesFolder(),
+       _trackDateDerivation =
+           trackDateDerivationService ?? TrackDateDerivationService.offline(),
        _storageDestinationResolver = GpxStorageDestinationResolver(
          polygonAssetRepository: polygonAssetRepository,
          mappingCatalog: mappingCatalog,
@@ -235,16 +241,7 @@ class GpxImporter {
       final doc = XmlDocument.parse(content);
 
       final trackName = _extractTrackName(doc, filePath);
-      final firstPoint = _extractFirstPoint(doc);
-
-      if (firstPoint == null) {
-        return null;
-      }
-
-      final modified = file.lastModifiedSync();
-      final trackDate = _normalizeTrackDate(
-        _extractStartDateTime(doc) ?? modified,
-      );
+      final date = _trackDateDerivation.derive(content);
       final segments = _extractAllSegments(doc);
       final stats = GpxTrackStatisticsCalculator().calculateDocument(doc);
       final contentHash = sha256.convert(bytes).toString();
@@ -256,7 +253,13 @@ class GpxImporter {
       return GpxTrack(
         contentHash: contentHash,
         trackName: trackName,
-        trackDate: trackDate,
+        trackDate: date.day,
+        trackDateStatus: date.failure == null
+            ? TrackDateStatus.resolved
+            : TrackDateStatus.unresolvedImport,
+        trackDateDerivationVersion: TrackDateDerivationService.version,
+        trackDateTimezoneId: date.timezoneId,
+        trackDateFailureReason: date.failure?.code,
         gpxFile: content,
         gpxFileRepaired: persistRepairedXml ? repairResult.repairedXml : '',
         displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson(segments),
@@ -427,8 +430,8 @@ class GpxImporter {
           if (latStr != null && lonStr != null) {
             final lat = double.tryParse(latStr);
             final lon = double.tryParse(lonStr);
-            if (lat != null && lon != null) {
-              segment.add(LatLng(lat, lon));
+            if (_validCoordinates(lat, lon)) {
+              segment.add(LatLng(lat!, lon!));
             }
           }
         }
@@ -445,8 +448,8 @@ class GpxImporter {
         if (latStr != null && lonStr != null) {
           final lat = double.tryParse(latStr);
           final lon = double.tryParse(lonStr);
-          if (lat != null && lon != null) {
-            routeSegment.add(LatLng(lat, lon));
+          if (_validCoordinates(lat, lon)) {
+            routeSegment.add(LatLng(lat!, lon!));
           }
         }
       }
@@ -524,25 +527,6 @@ class GpxImporter {
       }
     }
     return normaliseTrackName(_basenameWithoutExtension(filePath));
-  }
-
-  DateTime? _extractStartDateTime(XmlDocument doc) {
-    final point = _firstPointElement(doc);
-    if (point == null) return null;
-
-    final time = point.findElements('time').firstOrNull;
-    if (time == null) return null;
-
-    try {
-      return DateTime.parse(time.innerText).toLocal();
-    } catch (e) {
-      return null;
-    }
-  }
-
-  DateTime _normalizeTrackDate(DateTime value) {
-    final local = value.toLocal();
-    return DateTime(local.year, local.month, local.day);
   }
 
   String _basenameWithoutExtension(String filePath) {
@@ -640,10 +624,9 @@ class GpxImporter {
   }
 
   String _formatDateForFilename(DateTime date) {
-    final local = date.toLocal();
-    final day = local.day.toString().padLeft(2, '0');
-    final month = local.month.toString().padLeft(2, '0');
-    final year = local.year.toString().padLeft(4, '0');
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final year = date.year.toString().padLeft(4, '0');
     return '$day-$month-$year';
   }
 
@@ -659,10 +642,20 @@ class GpxImporter {
     final lat = double.tryParse(latStr);
     final lng = double.tryParse(lonStr);
 
-    if (lat == null || lng == null) return null;
+    if (!_validCoordinates(lat, lng)) return null;
 
-    return LatLng(lat, lng);
+    return LatLng(lat!, lng!);
   }
+
+  static bool _validCoordinates(double? lat, double? lon) =>
+      lat != null &&
+      lon != null &&
+      lat.isFinite &&
+      lon.isFinite &&
+      lat >= -90 &&
+      lat <= 90 &&
+      lon >= -180 &&
+      lon <= 180;
 
   XmlElement? _firstPointElement(XmlDocument doc) {
     final trkseg = doc.findAllElements('trkseg').firstOrNull;
@@ -760,16 +753,9 @@ class GpxImporter {
       }
 
       final firstPoint = _getFirstPointFromFile(file.path);
-      if (firstPoint == null) {
-        errorSkippedCount += 1;
-        logWriteFailed = !await _appendImportLog(
-          file.path,
-          'First track point unreadable',
-        );
-        continue;
-      }
-
-      final destination = await _resolveTrackDestination(firstPoint);
+      final destination = firstPoint == null
+          ? const GpxStorageDestination(country: '')
+          : await _resolveTrackDestination(firstPoint);
       if (destination == null) {
         await _organizeFile(
           file.path,
@@ -918,18 +904,19 @@ class GpxImporter {
       unsupportedCount: unsupportedCount,
       errorSkippedCount: errorSkippedCount,
       noGpxFilesFound: false,
-      warning:
-          surfaceWarnings &&
-              (errorSkippedCount > 0 ||
-                  filterFallbackCount > 0 ||
-                  repairWarning != null)
-          ? _buildImportWarning(
-              errorSkippedCount: errorSkippedCount,
-              filterFallbackCount: filterFallbackCount,
-              logWriteFailed: logWriteFailed,
-              repairWarning: repairWarning,
-            )
-          : null,
+      warning: [
+        ...tracks.map(dateWarningForTrack).whereType<String>(),
+        if (surfaceWarnings &&
+            (errorSkippedCount > 0 ||
+                filterFallbackCount > 0 ||
+                repairWarning != null))
+          _buildImportWarning(
+            errorSkippedCount: errorSkippedCount,
+            filterFallbackCount: filterFallbackCount,
+            logWriteFailed: logWriteFailed,
+            repairWarning: repairWarning,
+          ),
+      ].nonNullWarning,
     );
   }
 
@@ -1207,7 +1194,7 @@ class GpxImporter {
     return a.hasMetadataTrackDate &&
         b.hasMetadataTrackDate &&
         normaliseTrackName(a.trackName) == normaliseTrackName(b.trackName) &&
-        a.trackDate == b.trackDate;
+        TrackDateCalendarCodec.day(a) == TrackDateCalendarCodec.day(b);
   }
 
   GpxTrack? _findExistingLogicalMatch(
@@ -1280,19 +1267,14 @@ class GpxImporter {
     }
   }
 
-  /// Derives the track date from GPX XML content or file mtime fallback.
-  ///
-  /// Returns the normalized date (YYYY-MM-DD) from GPX metadata if available,
-  /// otherwise falls back to the file's modification time.
-  DateTime deriveTrackDate(String gpxXml, DateTime fallbackFileMtime) {
-    try {
-      final doc = XmlDocument.parse(gpxXml);
-      final extracted = _extractStartDateTime(doc);
-      return _normalizeTrackDate(extracted ?? fallbackFileMtime);
-    } catch (_) {
-      return _normalizeTrackDate(fallbackFileMtime);
-    }
-  }
+  /// The former file-mtime argument is deliberately ignored: it cannot date a walk.
+  DateTime? deriveTrackDate(String gpxXml, [DateTime? fallbackFileMtime]) =>
+      _trackDateDerivation.derive(gpxXml).day;
+
+  static String? dateWarningForTrack(GpxTrack track) =>
+      track.trackDateStatus == TrackDateStatus.unresolvedImport
+      ? '${track.trackName}: imported with an unknown walk date. ${TrackDateFailure.messageFor(track.trackDateFailureReason)}'
+      : null;
 
   /// Plans a selective GPX file import without persisting.
   ///
@@ -1347,16 +1329,9 @@ class GpxImporter {
       );
 
       final firstPoint = _getFirstPointFromFile(filePath);
-      if (firstPoint == null) {
-        const reason = 'First track point unreadable';
-        errorCount += 1;
-        errors.add(GpxTrackImportError(sourcePath: filePath, reason: reason));
-        logWriteFailed =
-            logWriteFailed || !await _appendImportLog(filePath, reason);
-        continue;
-      }
-
-      final destination = await _resolveTrackDestination(firstPoint);
+      final destination = firstPoint == null
+          ? const GpxStorageDestination(country: '')
+          : await _resolveTrackDestination(firstPoint);
       if (destination == null) {
         unsupportedCount += 1;
         logWriteFailed =
@@ -1404,6 +1379,12 @@ class GpxImporter {
       }
 
       // Plan managed storage placement for supported tracks
+      final dateWarning = dateWarningForTrack(track);
+      if (dateWarning != null) {
+        warnings.add(dateWarning);
+        logWriteFailed =
+            !await _appendImportLog(filePath, dateWarning) || logWriteFailed;
+      }
       final plannedRelativePath = _planManagedRelativePath(
         filePath: filePath,
         track: track,
@@ -1454,4 +1435,8 @@ class GpxImporter {
     final canonicalName = _canonicalFilename(filePath, track.trackDate);
     return 'Tracks/${destination.relativeFolder}/$canonicalName';
   }
+}
+
+extension on List<String> {
+  String? get nonNullWarning => isEmpty ? null : join(' ');
 }

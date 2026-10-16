@@ -91,7 +91,7 @@ void main() {
 </gpx>
 ''';
 
-      final date = importer.deriveTrackDate(gpxWithTime, DateTime(2023, 1, 1));
+      final date = importer.deriveTrackDate(gpxWithTime, DateTime(2023, 1, 1))!;
       expect(date.year, 2024);
       expect(date.month, 3);
       expect(date.day, 15);
@@ -108,8 +108,9 @@ void main() {
 </gpx>
 ''';
 
-      final date = importer.deriveTrackDate(gpxWithTime, DateTime(2023, 1, 1));
-      // Should be normalized to midnight local time
+      final date = importer.deriveTrackDate(gpxWithTime, DateTime(2023, 1, 1))!;
+      // UTC midnight is a calendar carrier, not a local midnight instant.
+      expect(date.isUtc, isTrue);
       expect(date.hour, 0);
       expect(date.minute, 0);
       expect(date.second, 0);
@@ -212,7 +213,7 @@ void main() {
     });
 
     test(
-      'deriveTrackDate falls back to file mtime on missing time element',
+      'deriveTrackDate stays unknown instead of falling back to file mtime',
       () {
         const gpxWithoutTime = '''
 <?xml version="1.0" encoding="UTF-8"?>
@@ -223,9 +224,7 @@ void main() {
 
         final fallbackMtime = DateTime(2023, 6, 15);
         final date = importer.deriveTrackDate(gpxWithoutTime, fallbackMtime);
-        expect(date.year, 2023);
-        expect(date.month, 6);
-        expect(date.day, 15);
+        expect(date, isNull);
       },
     );
   });

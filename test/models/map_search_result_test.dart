@@ -5,23 +5,66 @@ import 'package:peak_bagger/models/map_search_result.dart';
 import 'package:peak_bagger/models/natural_feature.dart';
 
 void main() {
-  test('track result renders the canonical track date in local time', () {
-    final track = GpxTrack(
-      contentHash: 'hash',
-      trackName: 'Arthurs Peak',
-      trackDate: DateTime.utc(2026, 7, 22, 14),
-      startDateTime: DateTime.utc(2026, 7, 22, 23, 39, 42),
-    );
+  test(
+    'legacy track result retains its previous local-time interpretation',
+    () {
+      final track = GpxTrack(
+        contentHash: 'hash',
+        trackName: 'Arthurs Peak',
+        trackDate: DateTime.utc(2026, 7, 22, 14),
+        startDateTime: DateTime.utc(2026, 7, 22, 23, 39, 42),
+      );
 
+      final result = MapSearchResult.track(
+        id: '173',
+        title: track.trackName,
+        subtitle: '',
+        anchor: const LatLng(-43, 147),
+        track: track,
+      );
+
+      expect(result.displayDate, track.trackDate!.toLocal());
+    },
+  );
+
+  test(
+    'resolved calendar date stays component-preserving in search results',
+    () {
+      final track = GpxTrack(
+        contentHash: 'canonical',
+        trackName: 'Walk',
+        trackDateStatus: 1,
+        trackDateDerivationVersion: 1,
+        trackDate: DateTime.utc(2026, 12, 31),
+        startDateTime: DateTime.utc(2027, 1, 1, 7, 30),
+      );
+      final result = MapSearchResult.track(
+        id: '1',
+        title: track.trackName,
+        subtitle: '',
+        anchor: const LatLng(34, -118),
+        track: track,
+      );
+      expect(result.displayDate, DateTime.utc(2026, 12, 31));
+    },
+  );
+
+  test('unresolved new imports cannot fall back to the start timestamp', () {
+    final track = GpxTrack(
+      contentHash: 'unknown',
+      trackName: 'Unknown walk',
+      trackDateStatus: 3,
+      trackDateFailureReason: 'missing_time',
+      startDateTime: DateTime.utc(2027, 1, 1, 7, 30),
+    );
     final result = MapSearchResult.track(
-      id: '173',
+      id: '1',
       title: track.trackName,
       subtitle: '',
-      anchor: const LatLng(-43, 147),
+      anchor: const LatLng(34, -118),
       track: track,
     );
-
-    expect(result.displayDate, track.trackDate!.toLocal());
+    expect(result.displayDate, isNull);
   });
 
   test('natural result retains collision-free OSM identity payload', () {

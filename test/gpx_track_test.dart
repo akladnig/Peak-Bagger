@@ -280,16 +280,19 @@ void main() {
       expect(await store.isMarked(), isTrue);
     });
 
-    test('decides first startup with legacy rows should wipe then import', () {
-      final decision = MigrationMarkerStore.decideStartupAction(
-        migrationMarked: false,
-        hasPersistedTracks: true,
-        hasRecoveryIssue: true,
-      );
+    test(
+      'restored legacy rows without installation flags retain recovery data',
+      () {
+        final decision = MigrationMarkerStore.decideStartupAction(
+          migrationMarked: false,
+          hasPersistedTracks: true,
+          hasRecoveryIssue: true,
+        );
 
-      expect(decision.action, TrackStartupAction.wipeAndImport);
-      expect(decision.markMigrationComplete, isTrue);
-    });
+        expect(decision.action, TrackStartupAction.showRecovery);
+        expect(decision.markMigrationComplete, isTrue);
+      },
+    );
 
     test('decides empty first startup should mark then import', () {
       final decision = MigrationMarkerStore.decideStartupAction(
@@ -315,6 +318,51 @@ void main() {
   });
 
   group('MapNotifier startup migration', () {
+    test(
+      'restored unknown-date import keeps IDs and associations without installation flags',
+      () async {
+        final track = _trackWithGeometry(id: 37, trackDate: null, peakIds: [11])
+          ..trackDateStatus = 3
+          ..trackDateDerivationVersion = 1
+          ..trackDateFailureReason = 'missing_time';
+        final repository = _FakeGpxTrackRepository([track]);
+        final marker = _FakeMigrationMarkerStore(
+          migrationMarked: false,
+          peaksBaggedBackfillMarked: false,
+        );
+        final ascents = PeaksBaggedRepository.test(
+          InMemoryPeaksBaggedStorage([
+            PeaksBagged(baggedId: 91, gpxId: 37, peakId: 11),
+          ]),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            ...mappingCatalogTestOverrides,
+            mapProvider.overrideWith(
+              () => MapNotifier(
+                peakRepository: PeakRepository.test(InMemoryPeakStorage()),
+                tasmapRepository: _NoopTasmapRepository(),
+                gpxTrackRepository: repository,
+                peaksBaggedRepository: ascents,
+                migrationMarkerStore: marker,
+                loadPositionOnBuild: false,
+                loadPeaksOnBuild: false,
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        container.read(mapProvider.notifier);
+        await _drainAsync();
+        expect(container.read(mapProvider).hasTrackRecoveryIssue, isFalse);
+        expect(repository.getAllTracks().single.gpxTrackId, 37);
+        expect(repository.getAllTracks().single.peaks.single.osmId, 11);
+        expect(ascents.getAll().single.baggedId, 91);
+        expect(ascents.getAll().single.date, isNull);
+        expect(await marker.isMarked(), isTrue);
+      },
+    );
+
     test(
       'loadTracks branch backfills peaks bagged and marks completion',
       () async {
@@ -355,7 +403,7 @@ void main() {
 
         expect(container.read(mapProvider).showTracks, isFalse);
         expect(container.read(mapProvider).hasTrackRecoveryIssue, isFalse);
-        expect(peaksRepository.rebuildTrackCounts, [1]);
+        expect(peaksRepository.syncTrackCounts, [1]);
         expect(await markerStore.isPeaksBaggedBackfillMarked(), isTrue);
         expect(notifier.consumeStartupBackfillWarningMessage(), isNull);
         expect(container.read(mapProvider).trackImportError, isNull);
@@ -396,7 +444,7 @@ void main() {
 
       expect(container.read(mapProvider).hasTrackRecoveryIssue, isTrue);
       expect(container.read(mapProvider).showTracks, isFalse);
-      expect(peaksRepository.rebuildTrackCounts, [1]);
+      expect(peaksRepository.syncTrackCounts, [1]);
       expect(await markerStore.isPeaksBaggedBackfillMarked(), isTrue);
     });
 
@@ -411,7 +459,7 @@ void main() {
           ),
         ]);
         final peaksRepository = _RecordingPeaksBaggedRepository(
-          throwOnRebuild: true,
+          throwOnSync: true,
         );
         final markerStore = _FakeMigrationMarkerStore(
           migrationMarked: true,
@@ -469,7 +517,7 @@ void main() {
           ),
         ]);
         final peaksRepository = _RecordingPeaksBaggedRepository(
-          throwOnRebuild: true,
+          throwOnSync: true,
         );
         final markerStore = _FakeMigrationMarkerStore(
           migrationMarked: true,
@@ -499,7 +547,7 @@ void main() {
         await _drainAsync();
         expect(notifier.consumeStartupBackfillWarningMessage(), isNotNull);
 
-        peaksRepository.throwOnRebuild = false;
+        peaksRepository.throwOnSync = false;
         final result = await notifier.recalculateTrackStatistics();
 
         expect(result, isNotNull);
@@ -1767,7 +1815,8 @@ void main() {
 
       expect(track, isNotNull);
       expect(track!.trackName, 'Mt Anne');
-      expect(track.trackDate, DateTime(2024, 1, 15));
+      expect(track.trackDate, DateTime.utc(2024, 1, 15));
+      expect(track.trackDateStatus, 1);
       expect(track.startDateTime, isNotNull);
       expect(track.endDateTime, isNotNull);
       expect(track.contentHash, isNotEmpty);
@@ -2452,12 +2501,8 @@ class _FakeGpxTrackRepository implements GpxTrackRepository {
 }
 
 class _RecordingPeaksBaggedRepository implements PeaksBaggedRepository {
-  _RecordingPeaksBaggedRepository({
-    this.throwOnRebuild = false,
-    this.throwOnSync = false,
-  });
+  _RecordingPeaksBaggedRepository({this.throwOnSync = false});
 
-  bool throwOnRebuild;
   bool throwOnSync;
   final List<int> rebuildTrackCounts = [];
   final List<int> syncTrackCounts = [];
@@ -2467,9 +2512,6 @@ class _RecordingPeaksBaggedRepository implements PeaksBaggedRepository {
     Iterable<GpxTrack> tracks, {
     void Function()? beforePutManyForTest,
   }) async {
-    if (throwOnRebuild) {
-      throw StateError('boom');
-    }
     rebuildTrackCounts.add(tracks.length);
   }
 

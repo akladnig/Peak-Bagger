@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/app.dart';
+import 'package:peak_bagger/core/track_date_data_license.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
@@ -69,6 +70,7 @@ Future<T> _runStartupPhase<T>(String label, Future<T> Function() action) async {
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  registerTrackDateDataLicense();
   unawaited(initializeNativePerformanceClock());
   _logStartup('Widgets binding initialized');
   final mappingRuntime = MappingRuntimeLauncher();

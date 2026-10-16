@@ -20,6 +20,7 @@ import 'package:peak_bagger/services/elevation_profile_series_builder.dart';
 import 'package:peak_bagger/services/map_ruler_scale.dart';
 import 'package:peak_bagger/services/peak_admin_editor.dart';
 import 'package:peak_bagger/services/route_timing_service.dart';
+import 'package:peak_bagger/services/track_date_calendar_codec.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/peak_marker_glyph.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
@@ -350,7 +351,7 @@ class MapTrackInfoPanel extends StatelessWidget {
                                     children: [
                                       Text(
                                         formatTrackDate(
-                                          track!.trackDate?.toLocal(),
+                                          TrackDateCalendarCodec.day(track!),
                                         ),
                                       ),
                                       Text(
@@ -1061,7 +1062,7 @@ class TrackRouteChooserItem {
 
   String get subtitle => switch (kind) {
     TrackRouteChooserItemKind.track =>
-      'Track • ${formatDistance(track!.distance2d, decimalPlaces: 1)} • ${formatTrackDateShortMonth(track!.trackDate)} • ${formatDuration(track!.totalTimeMillis)}',
+      'Track • ${formatDistance(track!.distance2d, decimalPlaces: 1)} • ${formatTrackDateShortMonth(TrackDateCalendarCodec.day(track!, localizeLegacy: false))} • ${formatDuration(track!.totalTimeMillis)}',
     TrackRouteChooserItemKind.route =>
       'Route • ${formatDistance(route!.distance2d, decimalPlaces: 1)}',
   };

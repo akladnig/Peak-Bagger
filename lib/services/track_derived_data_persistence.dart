@@ -5,6 +5,8 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 
 abstract interface class TrackDerivedDataPersistence {
+  void importTrackAndSync(GpxTrack track);
+
   void replaceTrackAndSync({
     required GpxTrack existing,
     required GpxTrack replacement,
@@ -15,9 +17,44 @@ abstract interface class TrackDerivedDataPersistence {
 /// transaction so ObjectBox rolls both changes back together on failure.
 class ObjectBoxTrackDerivedDataPersistence
     implements TrackDerivedDataPersistence {
-  ObjectBoxTrackDerivedDataPersistence(this._store);
+  ObjectBoxTrackDerivedDataPersistence(
+    this._store, {
+    this.beforeBaggedWriteForTest,
+  });
 
   final Store _store;
+  final void Function()? beforeBaggedWriteForTest;
+
+  @override
+  void importTrackAndSync(GpxTrack track) {
+    final originalId = track.gpxTrackId;
+    try {
+      _store.runInTransaction(TxMode.write, () {
+        final tracks = _store.box<GpxTrack>();
+        final previous = originalId == 0 ? null : tracks.get(originalId);
+        if (previous != null) {
+          previous.peaks.clear();
+          tracks.put(previous);
+        }
+        tracks.put(track);
+        _sync();
+      });
+    } catch (_) {
+      track.gpxTrackId = originalId;
+      rethrow;
+    }
+  }
+
+  void _sync() {
+    final bagged = _store.box<PeaksBagged>();
+    final plan = PeaksBaggedRepository.buildSyncPlan(
+      _store.box<GpxTrack>().getAll(),
+      bagged.getAll(),
+    );
+    if (plan.removeIds.isNotEmpty) bagged.removeMany(plan.removeIds);
+    beforeBaggedWriteForTest?.call();
+    if (plan.rows.isNotEmpty) bagged.putMany(plan.rows);
+  }
 
   @override
   void replaceTrackAndSync({
@@ -26,22 +63,12 @@ class ObjectBoxTrackDerivedDataPersistence
   }) {
     _store.runInTransaction(TxMode.write, () {
       final tracks = _store.box<GpxTrack>();
-      final bagged = _store.box<PeaksBagged>();
       replacement.gpxTrackId = existing.gpxTrackId;
       existing.peaks.clear();
       tracks.put(existing);
       tracks.put(replacement);
 
-      final plan = PeaksBaggedRepository.buildSyncPlan(
-        tracks.getAll(),
-        bagged.getAll(),
-      );
-      if (plan.removeIds.isNotEmpty) {
-        bagged.removeMany(plan.removeIds);
-      }
-      if (plan.rows.isNotEmpty) {
-        bagged.putMany(plan.rows);
-      }
+      _sync();
     });
   }
 }
@@ -61,6 +88,35 @@ class RepositoryTrackDerivedDataPersistence
   final GpxTrackRepository tracks;
   final PeaksBaggedRepository peaksBagged;
   final TrackDerivedDataPersistenceFailure? failureForTest;
+
+  @override
+  void importTrackAndSync(GpxTrack track) {
+    final originalId = track.gpxTrackId;
+    final prior = tracks.findById(originalId);
+    final priorRows = _copyRows(peaksBagged.getAll());
+    try {
+      tracks.putTrack(track);
+      if (failureForTest ==
+          TrackDerivedDataPersistenceFailure.beforeBaggedWrite) {
+        throw StateError('Injected failure before bagged-history write');
+      }
+      peaksBagged.applySyncPlan(
+        PeaksBaggedRepository.buildSyncPlan(
+          tracks.getAllTracks(),
+          peaksBagged.getAll(),
+        ),
+      );
+    } catch (_) {
+      if (prior != null) {
+        tracks.putTrack(prior);
+      } else if (track.gpxTrackId != originalId || originalId != 0) {
+        tracks.deleteTrack(track.gpxTrackId);
+      }
+      track.gpxTrackId = originalId;
+      peaksBagged.replaceAllForRecovery(priorRows);
+      rethrow;
+    }
+  }
 
   @override
   void replaceTrackAndSync({

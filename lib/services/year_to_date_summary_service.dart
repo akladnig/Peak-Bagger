@@ -1,5 +1,6 @@
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import 'track_date_calendar_codec.dart';
 
 class YearToDateSummary {
   const YearToDateSummary({
@@ -32,11 +33,13 @@ class YearToDateSummaryService {
     required Iterable<PeaksBagged> peaksBagged,
     required int year,
   }) {
-    final usableTracks = tracks
-        .where((track) => track.trackDate != null)
+    final allTracks = tracks.toList(growable: false);
+    final tracksById = {for (final track in allTracks) track.gpxTrackId: track};
+    final usableTracks = allTracks
+        .where((track) => TrackDateCalendarCodec.day(track) != null)
         .toList(growable: false);
     final yearTracks = usableTracks
-        .where((track) => _localYear(track.trackDate!) == year)
+        .where((track) => TrackDateCalendarCodec.day(track)!.year == year)
         .toList(growable: false);
 
     return YearToDateSummary(
@@ -50,19 +53,24 @@ class YearToDateSummaryService {
         (sum, track) => sum + (track.ascent ?? 0),
       ),
       walkCount: yearTracks.length,
-      peaksClimbed: _countRecordedClimbs(peaksBagged, year),
+      peaksClimbed: peaksBagged
+          .where(
+            (row) =>
+                TrackDateCalendarCodec.ascentDay(
+                  row.date,
+                  tracksById[row.gpxId],
+                )?.year ==
+                year,
+          )
+          .length,
       newPeaksClimbed: _countNewPeaks(usableTracks, year),
     );
   }
 
-  int _countRecordedClimbs(Iterable<PeaksBagged> rows, int year) => rows
-      .where((row) => row.date != null && _localYear(row.date!) == year)
-      .length;
-
   int _countNewPeaks(List<GpxTrack> tracks, int year) {
     final occurrences = <_PeakOccurrence>[];
     for (final track in tracks) {
-      final trackDate = track.trackDate!.toLocal();
+      final trackDate = TrackDateCalendarCodec.day(track)!;
       for (final peakId in _peakIdsForTrack(track)) {
         occurrences.add(
           _PeakOccurrence(
@@ -83,7 +91,7 @@ class YearToDateSummaryService {
         continue;
       }
 
-      if (_localYear(occurrence.trackDate) == year) {
+      if (occurrence.trackDate.year == year) {
         count += 1;
       }
     }
@@ -124,5 +132,3 @@ int _compareOccurrences(_PeakOccurrence left, _PeakOccurrence right) {
 
   return left.peakId.compareTo(right.peakId);
 }
-
-int _localYear(DateTime date) => date.toLocal().year;

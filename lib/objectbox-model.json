@@ -270,7 +270,7 @@
     },
     {
       "id": "3:8449374379554926112",
-      "lastPropertyId": "36:6865718623478699060",
+      "lastPropertyId": "40:5326322304943373350",
       "name": "GpxTrack",
       "properties": [
         {
@@ -428,6 +428,26 @@
           "id": "36:6865718623478699060",
           "name": "maxSpeedKmh",
           "type": 8
+        },
+        {
+          "id": "37:8293351804335450882",
+          "name": "trackDateStatus",
+          "type": 6
+        },
+        {
+          "id": "38:4375809035462038491",
+          "name": "trackDateDerivationVersion",
+          "type": 6
+        },
+        {
+          "id": "39:7915504643779771175",
+          "name": "trackDateTimezoneId",
+          "type": 9
+        },
+        {
+          "id": "40:5326322304943373350",
+          "name": "trackDateFailureReason",
+          "type": 9
         }
       ],
       "relations": [

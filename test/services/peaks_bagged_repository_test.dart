@@ -18,6 +18,8 @@ void main() {
                 contentHash: 'a',
                 trackName: 'Track 1',
                 startDateTime: DateTime.utc(2024, 7, 15, 14, 0),
+                trackDate: DateTime.utc(2024, 7, 16),
+                trackDateStatus: 1,
               )
               ..peaks.addAll([
                 Peak(osmId: 22, name: 'Peak B', latitude: -42, longitude: 146),
@@ -31,6 +33,8 @@ void main() {
                 contentHash: 'b',
                 trackName: 'Track 2',
                 startDateTime: DateTime.utc(2024, 1, 15, 13, 0),
+                trackDate: DateTime.utc(2024, 1, 16),
+                trackDateStatus: 1,
               )
               ..peaks.add(
                 Peak(osmId: 11, name: 'Peak A', latitude: -42, longitude: 146),
@@ -51,7 +55,7 @@ void main() {
       },
     );
 
-    test('deriveRows falls back to trackDate when startDateTime is null', () {
+    test('deriveRows uses the stored Track day without timestamp fallback', () {
       final track =
           GpxTrack(gpxTrackId: 9, contentHash: 'hash', trackName: 'Track')
             ..trackDate = DateTime.utc(2024, 1, 15)

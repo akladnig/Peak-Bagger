@@ -4235,7 +4235,7 @@ _PeakListsDerivedBaseData _resolvePeakListsDerivedBaseData({
   final peaksById = peaksByOsmId;
   final ascentCountsByPeakId = peaksBaggedRepository.ascentCountsByPeakId();
   final latestAscentDatesByPeakId = peaksBaggedRepository
-      .latestAscentDatesByPeakId();
+      .latestAscentCalendarDaysByPeakId();
   final itemsByPeakListId = peakListRepository.getPeakListItemsByPeakListId();
   final mixedPeakListIds = {
     for (final peakList in peakLists)
@@ -4591,8 +4591,7 @@ class _PeakListSummaryRow {
   }
 
   static DateTime _dateOnly(DateTime value) {
-    final local = value.toLocal();
-    return DateTime(local.year, local.month, local.day);
+    return DateTime(value.year, value.month, value.day);
   }
 
   String _formattedCountOrDash(int? value) {
@@ -4743,7 +4742,7 @@ class _PeakDetailRow {
     if (ascentDate == null) {
       return '';
     }
-    return formatCompactDate(ascentDate!);
+    return formatCompactCalendarDate(ascentDate!);
   }
 
   String get ascentCountLabel => ascentCount == 0 ? '' : ascentCount.toString();
@@ -4905,6 +4904,5 @@ String _formatDate(DateTime date) {
     'Nov',
     'Dec',
   ];
-  final local = date.toLocal();
-  return '${local.day} ${monthNames[local.month - 1]} ${local.year}';
+  return '${date.day} ${monthNames[date.month - 1]} ${date.year}';
 }

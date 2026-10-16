@@ -18,6 +18,7 @@ import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/services/route_graph_query_service.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/track_date_query_parser.dart';
+import 'track_date_calendar_codec.dart';
 
 class MapSearchService {
   static const popupPageSize = 20;
@@ -632,7 +633,11 @@ class MapSearchService {
     final loweredQuery = query.toLowerCase();
     final dateMatchedTracks = _gpxTrackRepository
         .getAllTracks()
-        .where((track) => range.containsTrackDate(track.trackDate))
+        .where(
+          (track) => range.containsTrackDate(
+            TrackDateCalendarCodec.day(track, localizeLegacy: false),
+          ),
+        )
         .toList(growable: false);
     final tracks = dateMatchedTracks
         .where(

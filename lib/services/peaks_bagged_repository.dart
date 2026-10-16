@@ -1,5 +1,7 @@
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
+import '../models/track_date_status.dart';
+import 'track_date_calendar_codec.dart';
 
 import '../objectbox.g.dart';
 
@@ -99,11 +101,18 @@ class InMemoryPeaksBaggedStorage implements PeaksBaggedStorage {
 
 class PeaksBaggedRepository {
   PeaksBaggedRepository(Store store)
-    : _storage = ObjectBoxPeaksBaggedStorage(store);
+    : _storage = ObjectBoxPeaksBaggedStorage(store),
+      _loadTracks = store.box<GpxTrack>().getAll;
 
-  PeaksBaggedRepository.test(PeaksBaggedStorage storage) : _storage = storage;
+  PeaksBaggedRepository.test(
+    PeaksBaggedStorage storage, {
+    List<GpxTrack> Function()? loadTracks,
+  }) : _storage = storage,
+       _loadTracks = loadTracks ?? _noTracks;
 
   final PeaksBaggedStorage _storage;
+  final List<GpxTrack> Function() _loadTracks;
+  static List<GpxTrack> _noTracks() => const [];
 
   List<PeaksBagged> getAll() {
     return _storage.getAll();
@@ -119,6 +128,25 @@ class PeaksBaggedRepository {
 
   Map<int, DateTime?> latestAscentDatesByPeakId() {
     return _computeLatestAscentDatesByPeakId(_storage.getAll());
+  }
+
+  /// Display-only calendar projection, preserving legacy local interpretation.
+  Map<int, DateTime?> latestAscentCalendarDaysByPeakId() {
+    final tracksById = {
+      for (final track in _loadTracks()) track.gpxTrackId: track,
+    };
+    return _computeLatestAscentDatesByPeakId([
+      for (final row in _storage.getAll())
+        PeaksBagged(
+          baggedId: row.baggedId,
+          peakId: row.peakId,
+          gpxId: row.gpxId,
+          date: TrackDateCalendarCodec.ascentDay(
+            row.date,
+            tracksById[row.gpxId],
+          ),
+        ),
+    ]);
   }
 
   List<PeaksBagged> ascentsForPeakId(int peakId) {
@@ -164,7 +192,9 @@ class PeaksBaggedRepository {
     Iterable<GpxTrack> tracks,
     Iterable<PeaksBagged> existingRows,
   ) {
-    final desiredRows = deriveRows(tracks);
+    final trackList = tracks.toList(growable: false);
+    final tracksById = {for (final track in trackList) track.gpxTrackId: track};
+    final desiredRows = deriveRows(trackList);
     final sortedExistingRows = existingRows.toList(growable: false)
       ..sort((a, b) => a.baggedId.compareTo(b.baggedId));
 
@@ -194,7 +224,11 @@ class PeaksBaggedRepository {
             baggedId: existingRow.baggedId,
             peakId: desiredRow.peakId,
             gpxId: desiredRow.gpxId,
-            date: desiredRow.date,
+            date: switch (tracksById[desiredRow.gpxId]?.trackDateStatus) {
+              TrackDateStatus.legacy ||
+              TrackDateStatus.legacySkipped => existingRow.date,
+              _ => desiredRow.date,
+            },
           ),
         );
         continue;
@@ -250,61 +284,9 @@ class PeaksBaggedRepository {
   }
 
   static DateTime? _dateForTrack(GpxTrack track) {
-    final startDateTime = track.startDateTime;
-    if (startDateTime == null) {
-      return track.trackDate;
-    }
-
-    final utc = startDateTime.toUtc();
-    final offset = _australiaEasternOffset(utc);
-    final eastern = utc.add(offset);
-    return DateTime.utc(eastern.year, eastern.month, eastern.day);
-  }
-
-  static Duration _australiaEasternOffset(DateTime utc) {
-    if (_isSydneyDaylightSavingTime(utc)) {
-      return const Duration(hours: 11);
-    }
-
-    return const Duration(hours: 10);
-  }
-
-  static bool _isSydneyDaylightSavingTime(DateTime utc) {
-    final year = utc.year;
-    final dstStartThisYear = _dstStartUtc(year);
-    final dstEndThisYear = _dstEndUtc(year);
-
-    if (!utc.isBefore(dstStartThisYear)) {
-      return utc.isBefore(_dstEndUtc(year + 1));
-    }
-
-    return utc.isBefore(dstEndThisYear);
-  }
-
-  static DateTime _dstStartUtc(int year) {
-    final sunday = _firstSundayOfMonth(year, DateTime.october);
-    return DateTime.utc(
-      year,
-      DateTime.october,
-      sunday,
-      2,
-    ).subtract(const Duration(hours: 10));
-  }
-
-  static DateTime _dstEndUtc(int year) {
-    final sunday = _firstSundayOfMonth(year, DateTime.april);
-    return DateTime.utc(
-      year,
-      DateTime.april,
-      sunday,
-      3,
-    ).subtract(const Duration(hours: 11));
-  }
-
-  static int _firstSundayOfMonth(int year, int month) {
-    final firstDay = DateTime.utc(year, month, 1);
-    final daysUntilSunday = (DateTime.sunday - firstDay.weekday) % 7;
-    return 1 + daysUntilSunday;
+    // Legacy rows already present are preserved by buildSyncPlan. New rows have
+    // only the stored Track day available; timestamps are never a fallback.
+    return TrackDateCalendarCodec.day(track, localizeLegacy: false);
   }
 
   static Map<int, DateTime?> _computeLatestAscentDatesByPeakId(
