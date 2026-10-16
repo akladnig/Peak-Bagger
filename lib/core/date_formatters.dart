@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 final DateFormat _dateWithYear = DateFormat('EEE, d MMM y', 'en_US');
 final DateFormat _dateWithoutYear = DateFormat('EEE, d MMM', 'en_US');
 final DateFormat _dayMonth = DateFormat('d MMM', 'en_US');
+final DateFormat _weekdayDayMonth = DateFormat('EEE d MMM', 'en_US');
 const _trackDateWeekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const _trackDateMonths = [
   'January',
@@ -42,6 +43,8 @@ String formatSummaryDateRange(DateTime start, DateTime end) {
 }
 
 String formatSummaryDayMonth(DateTime date) => _dayMonth.format(date);
+String formatSummaryWeekdayDayMonth(DateTime date) =>
+    _weekdayDayMonth.format(date);
 
 String formatCompactDate(DateTime date) {
   return formatCompactCalendarDate(date.toLocal());

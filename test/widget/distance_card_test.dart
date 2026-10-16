@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/services/summary_card_service.dart';
@@ -115,11 +116,11 @@ void main() {
       );
       expect(
         tester.widget<IconButton>(_cardControl('summary-prev-window')).tooltip,
-        isNull,
+        'Previous 12 Months',
       );
       expect(
         tester.widget<IconButton>(_cardControl('summary-next-window')).tooltip,
-        isNull,
+        'Next 12 Months',
       );
 
       await tester.tap(_cardControl('summary-period-dropdown'));
@@ -164,7 +165,7 @@ void main() {
       );
       expect(
         tester.widget<IconButton>(_cardControl('summary-prev-window')).tooltip,
-        'Previous window',
+        'Previous 12 Years',
       );
       _expectControlCursor(
         tester,
@@ -173,7 +174,7 @@ void main() {
       );
       expect(
         tester.widget<IconButton>(_cardControl('summary-next-window')).tooltip,
-        isNull,
+        'Next 12 Years',
       );
 
       await tester.tap(_cardControl('summary-prev-window'));
@@ -350,7 +351,7 @@ void main() {
             distance3d: 12780,
           ),
         ],
-        now: DateTime(2026, 5, 15, 12),
+        now: DateTime(2026, 5, 31, 12),
         width: 560,
         theme: MyTheme.light,
       );
@@ -362,22 +363,22 @@ void main() {
             .widget<Text>(
               find.descendant(
                 of: find.byKey(const Key('distance-scroll-view')),
-                matching: find.text('1'),
+                matching: find.text('3'),
               ),
             )
             .data,
-        '1',
+        '3',
       );
       expect(
         tester
             .widget<Text>(
               find.descendant(
                 of: find.byKey(const Key('distance-scroll-view')),
-                matching: find.text('15'),
+                matching: find.text('17'),
               ),
             )
             .data,
-        '15',
+        '17',
       );
 
       final barChart = tester.widget<BarChart>(find.byType(BarChart));
@@ -564,14 +565,14 @@ void main() {
       expect(topLeftAfter.dx, closeTo(topLeftBefore.dx, 0.5));
       expect(topLeftAfter.dx, lessThan(16));
 
-      await tester.tap(find.byKey(const Key('distance-bucket-30')));
+      await tester.tap(find.byKey(const Key('distance-bucket-0')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('distance-tooltip')), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const Key('distance-tooltip')),
-          matching: find.text('1 May'),
+          matching: find.text('Fri 1 May'),
         ),
         findsOneWidget,
       );
@@ -638,7 +639,7 @@ void main() {
             distance3d: 1278,
           ),
         ],
-        now: DateTime(2026, 5, 15, 12),
+        now: DateTime(2026, 5, 31, 12),
         width: 560,
         theme: MyTheme.light,
       );
@@ -668,17 +669,19 @@ Future<void> _pumpDistanceCard(
   ValueChanged<SummaryVisibleSummary?>? onVisibleSummaryChanged,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      theme: theme,
-      home: Scaffold(
-        body: SizedBox(
-          width: width,
-          height: 320,
-          child: DistanceCard(
-            tracks: tracks,
-            isLoading: isLoading,
-            now: now,
-            onVisibleSummaryChanged: onVisibleSummaryChanged,
+    ProviderScope(
+      child: MaterialApp(
+        theme: theme,
+        home: Scaffold(
+          body: SizedBox(
+            width: width,
+            height: 320,
+            child: DistanceCard(
+              tracks: tracks,
+              isLoading: isLoading,
+              now: now,
+              onVisibleSummaryChanged: onVisibleSummaryChanged,
+            ),
           ),
         ),
       ),

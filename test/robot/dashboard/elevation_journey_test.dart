@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/summary_page_controller.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
@@ -24,7 +24,7 @@ void main() {
     SharedPreferences.setMockInitialValues({});
 
     final robot = DashboardRobot(tester);
-    final now = DateTime.now();
+    var now = DateTime(2026, 10, 15, 12);
     final notifier = TestMapNotifier(
       const MapState(
         center: LatLng(-41.5, 146.5),
@@ -36,6 +36,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         ...mappingCatalogTestOverrides,
+        dashboardReferenceClockProvider.overrideWithValue(() => now),
         mapProvider.overrideWith(() => notifier),
         peakListRepositoryProvider.overrideWithValue(
           PeakListRepository.test(InMemoryPeakListStorage()),
@@ -54,12 +55,17 @@ void main() {
     await robot.openDashboard();
 
     notifier.setTracks([
+      _track(1000, DateTime(2020, 2, 29), ascent: 500),
       for (var day = 1; day <= 15; day++)
         _track(day, DateTime(now.year, now.month, day, 10), ascent: day * 1000),
     ]);
     await tester.pumpAndSettle();
 
     await _selectPeriod(tester, 'Month');
+    expect(
+      tester.widget<Text>(find.byKey(const Key('elevation-period-range'))).data,
+      'Thu, 1 Oct - Sat, 31 Oct 2026',
+    );
 
     final initialSummary = _summary(tester);
     expect(initialSummary.total, isNotEmpty);
@@ -80,10 +86,7 @@ void main() {
     expect(_summary(tester).total, isNotEmpty);
     expect(_summary(tester).average, isNotEmpty);
 
-    for (var i = 0; i < 4; i++) {
-      await tester.tap(_summaryControl('summary-prev-window'));
-      await tester.pumpAndSettle();
-    }
+    await robot.navigateSummary('elevation', 'first');
 
     expect(
       tester
@@ -98,9 +101,7 @@ void main() {
 
     await _hoverBucket(tester, 0);
 
-    final firstBucketLabel = DateFormat(
-      'd MMM',
-    ).format(DateTime(now.year, now.month - 1, 1));
+    const firstBucketLabel = 'Sat 1 Feb';
 
     expect(find.byKey(const Key('elevation-tooltip')), findsOneWidget);
     expect(
@@ -116,6 +117,20 @@ void main() {
         matching: find.text('0 m'),
       ),
       findsOneWidget,
+    );
+    await robot.navigateSummary('elevation', 'last');
+    expect(
+      tester.widget<Text>(find.byKey(const Key('elevation-period-range'))).data,
+      'Thu, 1 Oct - Sat, 31 Oct 2026',
+    );
+    // The actual routed Dashboard, without a constructor now:, reads this clock.
+    now = DateTime(2026, 11, 1, 12);
+    notifier.setTracks([...container.read(mapProvider).tracks]);
+    await tester.pumpAndSettle();
+    await _selectPeriod(tester, 'Week');
+    expect(
+      tester.widget<Text>(find.byKey(const Key('elevation-period-range'))).data,
+      'Mon, 26 Oct - Sun, 1 Nov 2026',
     );
   });
 }

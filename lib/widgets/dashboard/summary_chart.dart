@@ -68,6 +68,23 @@ class _SummaryChartState extends State<SummaryChart> {
   bool _selectedIsPinned = false;
   static const double _tooltipMaxWidth = 220;
 
+  @override
+  void didUpdateWidget(covariant SummaryChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final index = _selectedBucketIndex;
+    // An index only identifies a selection while it represents the same bucket.
+    if (index != null &&
+        (oldWidget.period != widget.period ||
+            index >= widget.buckets.length ||
+            index >= oldWidget.buckets.length ||
+            oldWidget.buckets[index].start != widget.buckets[index].start ||
+            oldWidget.buckets[index].endExclusive !=
+                widget.buckets[index].endExclusive)) {
+      _selectedBucketIndex = null;
+      _selectedIsPinned = false;
+    }
+  }
+
   void _selectBucket(int index, {required bool pinned}) {
     setState(() {
       _selectedBucketIndex = index;
@@ -956,8 +973,8 @@ String defaultTooltipTitleText(
   SummaryPeriodPreset period,
 ) {
   return switch (period) {
+    SummaryPeriodPreset.month => formatSummaryWeekdayDayMonth(bucket.start),
     SummaryPeriodPreset.week ||
-    SummaryPeriodPreset.month ||
     SummaryPeriodPreset.last3Months ||
     SummaryPeriodPreset.last6Months => formatSummaryDayMonth(bucket.start),
     SummaryPeriodPreset.last12Months ||

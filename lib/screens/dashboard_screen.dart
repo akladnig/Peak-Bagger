@@ -7,6 +7,7 @@ import 'package:peak_bagger/core/constants.dart';
 import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
 import '../providers/dashboard_readiness_provider.dart';
+import '../providers/summary_page_controller.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_marker_info_settings_provider.dart';
 import '../providers/peak_list_provider.dart';
@@ -171,6 +172,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final now = widget.now ?? ref.watch(dashboardReferenceClockProvider)();
     _paintedReadiness = ref.watch(dashboardReadinessProvider);
     _paintedHeaderRevision = _headerRevision;
     final order = ref.watch(dashboardLayoutProvider);
@@ -221,7 +223,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     'distance' => DistanceCard(
                       tracks: tracks,
                       isLoading: isLoadingTracks,
-                      now: widget.now,
+                      now: now,
                       onVisibleSummaryChanged: _handleDistanceSummaryChanged,
                     ),
                     'latest-walk' => LatestWalkCard(
@@ -238,7 +240,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     'elevation' => ElevationCard(
                       tracks: tracks,
                       isLoading: isLoadingTracks,
-                      now: widget.now,
+                      now: now,
                       onVisibleSummaryChanged: _handleElevationSummaryChanged,
                     ),
                     'my-ascents' => const MyAscentsCard(),
@@ -246,14 +248,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     'peaks-bagged' => PeaksBaggedCard(
                       tracks: tracks,
                       isLoading: isLoadingTracks,
-                      now: widget.now,
+                      now: now,
                       onVisibleSummaryChanged: _handlePeaksBaggedSummaryChanged,
                     ),
                     'year-to-date' => YearToDateCard(
                       tracks: tracks,
                       peaksBagged: peaksBagged,
                       isLoading: isLoadingTracks,
-                      now: widget.now,
+                      now: now,
                     ),
                     _ => const _DashboardCardBody(),
                   };

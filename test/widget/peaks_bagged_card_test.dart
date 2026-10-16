@@ -3,6 +3,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/theme.dart';
@@ -148,7 +149,7 @@ void main() {
           _track(20, DateTime(2026, 5, 15, 10), peakIds: [22]),
           _track(30, DateTime(2026, 5, 31, 10), peakIds: [11, 33]),
         ],
-        now: DateTime(2026, 5, 15, 12),
+        now: DateTime(2026, 5, 31, 12),
         width: 560,
         theme: MyTheme.light,
       );
@@ -354,17 +355,19 @@ Future<void> _pumpPeaksBaggedCard(
   ValueChanged<SummaryVisibleSummary?>? onVisibleSummaryChanged,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      theme: theme,
-      home: Scaffold(
-        body: SizedBox(
-          width: width,
-          height: 320,
-          child: PeaksBaggedCard(
-            tracks: tracks,
-            isLoading: isLoading,
-            now: now,
-            onVisibleSummaryChanged: onVisibleSummaryChanged,
+    ProviderScope(
+      child: MaterialApp(
+        theme: theme,
+        home: Scaffold(
+          body: SizedBox(
+            width: width,
+            height: 320,
+            child: PeaksBaggedCard(
+              tracks: tracks,
+              isLoading: isLoading,
+              now: now,
+              onVisibleSummaryChanged: onVisibleSummaryChanged,
+            ),
           ),
         ),
       ),

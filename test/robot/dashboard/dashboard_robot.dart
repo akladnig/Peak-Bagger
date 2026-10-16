@@ -59,6 +59,10 @@ class DashboardRobot {
       find.byKey(const Key('my-ascents-sort-toggle'));
 
   Future<void> pumpApp({required ProviderContainer container}) async {
+    // End the previous scope before replacing its container, allowing
+    // auto-disposed per-card state to release its scheduler/listeners.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
     this.container = container;
     await tester.binding.setSurfaceSize(const Size(2200, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -76,6 +80,11 @@ class DashboardRobot {
 
   Future<void> openMap() async {
     await tester.tap(mapButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> navigateSummary(String cardId, String action) async {
+    await tester.tap(summaryControl(cardId, 'summary-$action-window'));
     await tester.pumpAndSettle();
   }
 

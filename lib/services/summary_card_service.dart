@@ -14,6 +14,21 @@ enum SummaryPeriodPreset {
 }
 
 extension SummaryPeriodPresetLabel on SummaryPeriodPreset {
+  bool get hasDailyCalendarPages =>
+      this == SummaryPeriodPreset.week || this == SummaryPeriodPreset.month;
+
+  String get previousTooltip => 'Previous $navigationUnit';
+  String get nextTooltip => 'Next $navigationUnit';
+  String get navigationUnit => switch (this) {
+    SummaryPeriodPreset.week => 'Week',
+    SummaryPeriodPreset.month => 'Month',
+    SummaryPeriodPreset.last3Months => '3 Months',
+    SummaryPeriodPreset.last6Months => '6 Months',
+    SummaryPeriodPreset.last12Months => '12 Months',
+    SummaryPeriodPreset.yearToDate => 'period (Year to Date is fixed)',
+    SummaryPeriodPreset.allTime => '12 Years',
+  };
+
   String get label => switch (this) {
     SummaryPeriodPreset.week => 'Week',
     SummaryPeriodPreset.month => 'Month',
@@ -89,14 +104,112 @@ class SummaryMetricDefinition {
   final double? Function(GpxTrack track) valueOf;
 }
 
+/// Calendar components in the Mac's local zone, with an end-exclusive boundary.
+/// Constructing adjacent dates (rather than adding 24h) preserves DST days.
+class SummaryCalendarPage {
+  const SummaryCalendarPage({required this.start, required this.endExclusive});
+
+  final DateTime start;
+  final DateTime endExclusive;
+  DateTime get lastDay =>
+      DateTime(endExclusive.year, endExclusive.month, endExclusive.day - 1);
+}
+
+class SummaryPageNavigation {
+  const SummaryPageNavigation({
+    required this.period,
+    required this.selected,
+    required this.first,
+    required this.last,
+    required this.current,
+  });
+
+  final SummaryPeriodPreset period;
+  final SummaryCalendarPage selected;
+  final SummaryCalendarPage first;
+  final SummaryCalendarPage last;
+  final SummaryCalendarPage current;
+
+  bool get canFirst => selected.start != first.start;
+  bool get canPrevious => selected.start.isAfter(first.start);
+  bool get canNext => selected.start.isBefore(current.start);
+  bool get canLast => selected.start != last.start;
+
+  SummaryCalendarPage adjacent(bool forward) =>
+      const SummaryCardService().calendarPage(
+        period: period,
+        day: period == SummaryPeriodPreset.week
+            ? DateTime(
+                selected.start.year,
+                selected.start.month,
+                selected.start.day + (forward ? 7 : -7),
+              )
+            : DateTime(
+                selected.start.year,
+                selected.start.month + (forward ? 1 : -1),
+              ),
+      );
+}
+
 class SummaryCardService {
   const SummaryCardService();
+
+  SummaryCalendarPage calendarPage({
+    required SummaryPeriodPreset period,
+    required DateTime day,
+  }) {
+    assert(period.hasDailyCalendarPages);
+    final start = period == SummaryPeriodPreset.week
+        ? DateTime(day.year, day.month, day.day - day.weekday + 1)
+        : DateTime(day.year, day.month);
+    return SummaryCalendarPage(
+      start: start,
+      endExclusive: period == SummaryPeriodPreset.week
+          ? DateTime(start.year, start.month, start.day + 7)
+          : DateTime(start.year, start.month + 1),
+    );
+  }
+
+  SummaryPageNavigation? pageNavigation({
+    required Iterable<GpxTrack> tracks,
+    required SummaryMetricDefinition metric,
+    required SummaryPeriodPreset period,
+    required DateTime now,
+    DateTime? selectedDay,
+  }) {
+    final reference = _startOfDay(now.toLocal());
+    DateTime? earliest;
+    DateTime? latest;
+    for (final track in tracks) {
+      final decoded = TrackDateCalendarCodec.day(track);
+      if (decoded == null || metric.valueOf(track) == null) continue;
+      final day = _startOfDay(decoded);
+      if (day.isAfter(reference)) continue;
+      if (earliest == null || day.isBefore(earliest)) earliest = day;
+      if (latest == null || day.isAfter(latest)) latest = day;
+    }
+    if (earliest == null) return null;
+    final first = calendarPage(period: period, day: earliest);
+    final last = calendarPage(period: period, day: latest!);
+    final current = calendarPage(period: period, day: reference);
+    var selected = calendarPage(period: period, day: selectedDay ?? reference);
+    if (selected.start.isBefore(first.start)) selected = first;
+    if (selected.start.isAfter(current.start)) selected = current;
+    return SummaryPageNavigation(
+      period: period,
+      selected: selected,
+      first: first,
+      last: last,
+      current: current,
+    );
+  }
 
   SummaryTimeline buildTimeline({
     required Iterable<GpxTrack> tracks,
     required SummaryPeriodPreset period,
     required SummaryMetricDefinition metric,
     DateTime? now,
+    SummaryCalendarPage? page,
   }) {
     final usableTracks = <_UsableTrack>[];
     final referenceDate = _startOfDay((now ?? DateTime.now()).toLocal());
@@ -110,8 +223,7 @@ class SummaryCardService {
       }
 
       final day = _startOfDay(trackDate);
-      if (period == SummaryPeriodPreset.yearToDate &&
-          day.isAfter(referenceDate)) {
+      if (day.isAfter(referenceDate)) {
         continue;
       }
       earliestDate = earliestDate == null || day.isBefore(earliestDate)
@@ -120,28 +232,33 @@ class SummaryCardService {
       usableTracks.add(_UsableTrack(date: day, value: value));
     }
 
-    if (usableTracks.isEmpty) {
+    if (usableTracks.isEmpty && page == null) {
       return SummaryTimeline.empty(period: period);
     }
 
-    final windowStart = switch (period) {
-      SummaryPeriodPreset.week => referenceDate.subtract(
-        const Duration(days: 13),
-      ),
-      SummaryPeriodPreset.month => _startOfMonth(
-        _addMonthsClamped(referenceDate, -1),
-      ),
-      SummaryPeriodPreset.yearToDate => _startOfYear(referenceDate),
-      _ => _timelineStart(period, earliestDate!),
-    };
-    final windowEndExclusive = switch (period) {
-      SummaryPeriodPreset.week => _startOfDay(
-        referenceDate.add(const Duration(days: 1)),
-      ),
-      SummaryPeriodPreset.month => _nextMonth(_startOfMonth(referenceDate)),
-      SummaryPeriodPreset.yearToDate => _nextYear(_startOfYear(referenceDate)),
-      _ => _startOfDay(referenceDate.add(const Duration(days: 1))),
-    };
+    final dailyPage =
+        page ??
+        (period.hasDailyCalendarPages
+            ? calendarPage(period: period, day: referenceDate)
+            : null);
+    final windowStart =
+        dailyPage?.start ??
+        switch (period) {
+          SummaryPeriodPreset.week || SummaryPeriodPreset.month =>
+            throw StateError('Daily calendar page required'),
+          SummaryPeriodPreset.yearToDate => _startOfYear(referenceDate),
+          _ => _timelineStart(period, earliestDate!),
+        };
+    final windowEndExclusive =
+        dailyPage?.endExclusive ??
+        switch (period) {
+          SummaryPeriodPreset.week || SummaryPeriodPreset.month =>
+            throw StateError('Daily calendar page required'),
+          SummaryPeriodPreset.yearToDate => _nextYear(
+            _startOfYear(referenceDate),
+          ),
+          _ => _startOfDay(referenceDate.add(const Duration(days: 1))),
+        };
     final buckets = _buildBuckets(
       tracks: usableTracks,
       period: period,
@@ -240,8 +357,10 @@ double _averageByWeek(Iterable<SummaryBucket> buckets) {
 
   final weeklyTotals = <DateTime, double>{};
   for (final bucket in bucketList) {
-    final weekStart = _startOfDay(
-      bucket.start.subtract(Duration(days: bucket.start.weekday - 1)),
+    final weekStart = DateTime(
+      bucket.start.year,
+      bucket.start.month,
+      bucket.start.day - bucket.start.weekday + 1,
     );
     weeklyTotals.update(
       weekStart,
@@ -352,6 +471,10 @@ List<SummaryBucket> _buildBuckets({
   final counts = List<int>.filled(buckets.length, 0);
 
   for (final track in tracks) {
+    if (track.date.isBefore(windowStart) ||
+        !track.date.isBefore(windowEndExclusive)) {
+      continue;
+    }
     final index = _bucketIndexFor(
       period: period,
       windowStart: windowStart,

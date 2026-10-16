@@ -1,11 +1,14 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/constants.dart';
 import '../../core/date_formatters.dart';
 import '../../models/gpx_track.dart';
+import '../../providers/summary_page_controller.dart';
 import '../../services/summary_card_service.dart';
+import '../../theme.dart';
 import 'summary_chart.dart';
 
 class SummaryVisibleSummary {
@@ -74,7 +77,7 @@ class SummaryCardMetricAdapter {
   final SummaryBarSeriesStyle barSeriesStyle;
 }
 
-class SummaryCard extends StatefulWidget {
+class SummaryCard extends ConsumerStatefulWidget {
   const SummaryCard({
     super.key,
     required this.tracks,
@@ -93,16 +96,18 @@ class SummaryCard extends StatefulWidget {
   final ValueChanged<SummaryVisibleSummary?>? onVisibleSummaryChanged;
 
   @override
-  State<SummaryCard> createState() => _SummaryCardState();
+  ConsumerState<SummaryCard> createState() => _SummaryCardState();
 }
 
-class _SummaryCardState extends State<SummaryCard> {
+class _SummaryCardState extends ConsumerState<SummaryCard> {
   final SummaryCardService _service = const SummaryCardService();
   final ScrollController _scrollController = ScrollController();
   final Map<SummaryPeriodPreset, SummaryTimeline> _primaryTimelineCache = {};
   final Map<SummaryPeriodPreset, SummaryTimeline> _secondaryTimelineCache = {};
 
-  SummaryPeriodPreset _period = SummaryPeriodPreset.last12Months;
+  final Object _cardIdentity = Object();
+  SummaryPeriodPreset get _period =>
+      ref.read(summaryPageControllerProvider(_cardIdentity)).period;
   late SummaryDisplayMode _mode;
   bool _anchoredToLatest = false;
   double _viewportWidth = 0;
@@ -153,8 +158,13 @@ class _SummaryCardState extends State<SummaryCard> {
       return;
     }
 
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(_scrollController.offset);
+    }
     setState(() {
-      _period = next;
+      ref
+          .read(summaryPageControllerProvider(_cardIdentity).notifier)
+          .selectPeriod(next);
       _anchoredToLatest = false;
     });
   }
@@ -194,7 +204,7 @@ class _SummaryCardState extends State<SummaryCard> {
 
     _lastVisibleSummary = summary;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (mounted && _lastVisibleSummary == summary) {
         widget.onVisibleSummaryChanged?.call(summary);
       }
     });
@@ -202,6 +212,8 @@ class _SummaryCardState extends State<SummaryCard> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(summaryPageControllerProvider(_cardIdentity));
+    ref.watch(dashboardReferenceClockProvider);
     return widget.isLoading ? _buildLoadingState() : _buildContent();
   }
 
@@ -254,8 +266,12 @@ class _SummaryCardState extends State<SummaryCard> {
   }
 
   Widget _buildContent() {
-    final now = (widget.now ?? DateTime.now()).toLocal();
+    final now = (widget.now ?? ref.read(dashboardReferenceClockProvider)())
+        .toLocal();
     final referenceDate = DateTime(now.year, now.month, now.day);
+    if (_period.hasDailyCalendarPages) {
+      return _buildCalendarContent(referenceDate);
+    }
     _ensureTimelineCaches(referenceDate);
     final timeline = _timelineFor(
       cache: _primaryTimelineCache,
@@ -353,6 +369,10 @@ class _SummaryCardState extends State<SummaryCard> {
                       onToggleMode: _toggleMode,
                       onPrevious: () => _shiftWindow(false),
                       onNext: () => _shiftWindow(true),
+                      onFirst: () => _scrollController.jumpTo(0),
+                      onLast: () => _scrollController.jumpTo(_maxScrollExtent),
+                      canMoveFirst: _canMovePrevious(timeline.buckets.length),
+                      canMoveLast: _canMoveNext(timeline.buckets.length),
                       canMovePrevious: _canMovePrevious(
                         timeline.buckets.length,
                       ),
@@ -391,15 +411,125 @@ class _SummaryCardState extends State<SummaryCard> {
     );
   }
 
+  Widget _buildCalendarContent(DateTime referenceDate) {
+    final selection = ref.read(summaryPageControllerProvider(_cardIdentity));
+    final navigation = _service.pageNavigation(
+      tracks: widget.tracks,
+      metric: widget.adapter.metric,
+      period: selection.period,
+      now: referenceDate,
+      selectedDay: selection.pageStart,
+    );
+    if (navigation == null) {
+      _reportVisibleSummary(null);
+      return Center(
+        key: Key('${widget.adapter.keyPrefix}-empty-state'),
+        child: Text(
+          widget.adapter.emptyStateText,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      );
+    }
+    final page = navigation.selected;
+    final timeline = _service.buildTimeline(
+      tracks: widget.tracks,
+      period: _period,
+      metric: widget.adapter.metric,
+      now: referenceDate,
+      page: page,
+    );
+    final secondary = widget.adapter.secondaryMetric == null
+        ? null
+        : _service.buildTimeline(
+            tracks: widget.tracks,
+            period: _period,
+            metric: widget.adapter.secondaryMetric!,
+            now: referenceDate,
+            page: page,
+          );
+    _reportVisibleSummary(
+      SummaryVisibleSummary(
+        period: _period,
+        totalValue: timeline.totalValue,
+        averageValue: _service.visibleAverageValueForPeriod(
+          period: _period,
+          buckets: timeline.buckets,
+          referenceDate: referenceDate,
+        ),
+      ),
+    );
+    void select(SummaryCalendarPage destination) => ref
+        .read(summaryPageControllerProvider(_cardIdentity).notifier)
+        .selectPage(destination);
+
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _SummaryHeader(
+            keyPrefix: widget.adapter.keyPrefix,
+            period: _period,
+            mode: _mode,
+            visibleRangeText: formatSummaryDateRange(page.start, page.lastDay),
+            onPeriodChanged: _selectPeriod,
+            onToggleMode: _toggleMode,
+            onFirst: () => select(navigation.first),
+            onPrevious: () => select(navigation.adjacent(false)),
+            onNext: () => select(navigation.adjacent(true)),
+            onLast: () => select(navigation.last),
+            canMoveFirst: navigation.canFirst,
+            canMovePrevious: navigation.canPrevious,
+            canMoveNext: navigation.canNext,
+            canMoveLast: navigation.canLast,
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = math.max<double>(
+                  constraints.maxWidth - DashboardUI.yAxisLabelWidth,
+                  1,
+                );
+                return SummaryChart(
+                  key: Key('${widget.adapter.keyPrefix}-scroll-view'),
+                  keyPrefix: widget.adapter.keyPrefix,
+                  controller: _scrollController,
+                  buckets: timeline.buckets,
+                  secondaryBuckets: secondary?.buckets,
+                  mode: _mode,
+                  barSeriesStyle: widget.adapter.barSeriesStyle,
+                  bucketExtent: width / timeline.buckets.length,
+                  period: _period,
+                  referenceDate: referenceDate,
+                  chartMaxYFor: widget.adapter.chartMaxYFor,
+                  tooltipValueTexts: widget.adapter.tooltipValueTexts,
+                  tooltipValueTextColors: widget.adapter.tooltipValueTextColors,
+                  tooltipTitleText: widget.adapter.tooltipTitleText,
+                  yAxisLabelText: widget.adapter.yAxisLabelText,
+                  secondarySeriesOnTop: widget.adapter.secondarySeriesOnTop,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   bool _canMovePrevious(int bucketCount) {
-    if (bucketCount <= 0 || !_scrollController.hasClients) {
+    if (_period == SummaryPeriodPreset.yearToDate ||
+        bucketCount <= 0 ||
+        !_scrollController.hasClients) {
       return false;
     }
     return _scrollController.offset > 0;
   }
 
   bool _canMoveNext(int bucketCount) {
-    if (bucketCount <= 0 || !_scrollController.hasClients) {
+    if (_period == SummaryPeriodPreset.yearToDate ||
+        bucketCount <= 0 ||
+        !_scrollController.hasClients) {
       return false;
     }
     return _scrollController.offset < _maxScrollExtent;
@@ -410,8 +540,9 @@ class _SummaryCardState extends State<SummaryCard> {
       return;
     }
 
+    final period = _period;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
+      if (!mounted || period != _period) {
         return;
       }
 
@@ -494,6 +625,10 @@ class _SummaryHeader extends StatelessWidget {
     required this.onToggleMode,
     required this.onPrevious,
     required this.onNext,
+    required this.onFirst,
+    required this.onLast,
+    required this.canMoveFirst,
+    required this.canMoveLast,
     required this.canMovePrevious,
     required this.canMoveNext,
   });
@@ -506,6 +641,10 @@ class _SummaryHeader extends StatelessWidget {
   final VoidCallback onToggleMode;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
+  final VoidCallback onFirst;
+  final VoidCallback onLast;
+  final bool canMoveFirst;
+  final bool canMoveLast;
   final bool canMovePrevious;
   final bool canMoveNext;
 
@@ -526,94 +665,115 @@ class _SummaryHeader extends StatelessWidget {
                   border: Border.all(color: theme.colorScheme.outline),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Theme(
-                  data: theme.copyWith(
-                    hoverColor: theme.colorScheme.onPrimary.withValues(
-                      alpha: 0.8,
-                    ),
-                  ),
-                  child: MenuAnchor(
-                    style: const MenuStyle(
-                      alignment: AlignmentDirectional.bottomStart,
-                      padding: WidgetStatePropertyAll(EdgeInsets.zero),
-                      shape: WidgetStatePropertyAll(
-                        RoundedRectangleBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
+                child: MenuAnchor(
+                  style: const MenuStyle(
+                    alignment: AlignmentDirectional.bottomStart,
+                    padding: WidgetStatePropertyAll(EdgeInsets.zero),
+                    shape: WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
                       ),
                     ),
-                    menuChildren: [
-                      for (final value in SummaryPeriodPreset.values)
-                        MenuItemButton(
-                          onPressed: () => onPeriodChanged(value),
-                          style: const ButtonStyle(
-                            minimumSize: WidgetStatePropertyAll(
-                              Size(_periodDropdownWidth, 36),
-                            ),
-                            padding: WidgetStatePropertyAll(
-                              EdgeInsets.symmetric(horizontal: 12),
-                            ),
-                            mouseCursor: WidgetStatePropertyAll(
-                              SystemMouseCursors.click,
-                            ),
-                          ),
-                          child: Text(value.label),
-                        ),
-                    ],
-                    builder: (context, controller, child) {
-                      return InkWell(
-                        key: const Key('summary-period-dropdown'),
-                        mouseCursor: SystemMouseCursors.click,
-                        borderRadius: BorderRadius.circular(6),
-                        onTap: () {
-                          if (controller.isOpen) {
-                            controller.close();
-                          } else {
-                            controller.open();
-                          }
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  period.label,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const Icon(Icons.expand_more),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
                   ),
+                  menuChildren: [
+                    for (final value in SummaryPeriodPreset.values)
+                      MenuItemButton(
+                        onPressed: () => onPeriodChanged(value),
+                        style: const ButtonStyle(
+                          minimumSize: WidgetStatePropertyAll(
+                            Size(_periodDropdownWidth, 36),
+                          ),
+                          padding: WidgetStatePropertyAll(
+                            EdgeInsets.symmetric(horizontal: 12),
+                          ),
+                          mouseCursor: WidgetStatePropertyAll(
+                            SystemMouseCursors.click,
+                          ),
+                        ),
+                        child: Text(value.label),
+                      ),
+                  ],
+                  builder: (context, controller, child) {
+                    return InkWell(
+                      key: const Key('summary-period-dropdown'),
+                      mouseCursor: SystemMouseCursors.click,
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: () {
+                        if (controller.isOpen) {
+                          controller.close();
+                        } else {
+                          controller.open();
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                period.label,
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                            ),
+                            const Icon(Icons.expand_more),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
             const SizedBox(width: 12),
             const Spacer(),
             IconButton(
+              key: const Key('summary-first-window'),
+              style: dashboardNavigationButtonStyle(theme.colorScheme),
+              tooltip: 'first',
+              onPressed: canMoveFirst ? onFirst : null,
+              mouseCursor: canMoveFirst
+                  ? SystemMouseCursors.click
+                  : SystemMouseCursors.basic,
+              icon: const Icon(Icons.first_page, semanticLabel: 'first'),
+            ),
+            IconButton(
               key: const Key('summary-prev-window'),
-              tooltip: canMovePrevious ? 'Previous window' : null,
+              style: dashboardNavigationButtonStyle(theme.colorScheme),
+              tooltip: period.previousTooltip,
               onPressed: canMovePrevious ? onPrevious : null,
               mouseCursor: canMovePrevious
                   ? SystemMouseCursors.click
                   : SystemMouseCursors.basic,
-              icon: const Icon(Icons.chevron_left),
+              icon: Icon(
+                Icons.chevron_left,
+                semanticLabel: period.previousTooltip,
+              ),
             ),
             IconButton(
               key: const Key('summary-next-window'),
-              tooltip: canMoveNext ? 'Next window' : null,
+              style: dashboardNavigationButtonStyle(theme.colorScheme),
+              tooltip: period.nextTooltip,
               onPressed: canMoveNext ? onNext : null,
               mouseCursor: canMoveNext
                   ? SystemMouseCursors.click
                   : SystemMouseCursors.basic,
-              icon: const Icon(Icons.chevron_right),
+              icon: Icon(
+                Icons.chevron_right,
+                semanticLabel: period.nextTooltip,
+              ),
+            ),
+            IconButton(
+              key: const Key('summary-last-window'),
+              style: dashboardNavigationButtonStyle(theme.colorScheme),
+              tooltip: 'last',
+              onPressed: canMoveLast ? onLast : null,
+              mouseCursor: canMoveLast
+                  ? SystemMouseCursors.click
+                  : SystemMouseCursors.basic,
+              icon: const Icon(Icons.last_page, semanticLabel: 'last'),
             ),
             const SizedBox(width: 8),
             FloatingActionButton.small(

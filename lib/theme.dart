@@ -5,6 +5,27 @@ import 'package:peak_bagger/core/constants.dart';
 
 const _defaultSeedColor = Color(0xFF7E47EB);
 
+/// Compact pointer/keyboard controls for the shared Dashboard toolbar.
+ButtonStyle dashboardNavigationButtonStyle(ColorScheme colors) => ButtonStyle(
+  minimumSize: const WidgetStatePropertyAll(Size(32, 32)),
+  padding: const WidgetStatePropertyAll(EdgeInsets.all(4)),
+  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  foregroundColor: WidgetStateProperty.resolveWith(
+    (states) => colors.onSurface.withValues(
+      alpha: states.contains(WidgetState.disabled) ? 0.38 : 1,
+    ),
+  ),
+  overlayColor: WidgetStateProperty.resolveWith(
+    (states) => colors.onSurface.withValues(
+      alpha: states.contains(WidgetState.focused)
+          ? 0.16
+          : states.contains(WidgetState.pressed)
+          ? 0.12
+          : 0.08,
+    ),
+  ),
+);
+
 @immutable
 class ThemeSeedSwatch {
   const ThemeSeedSwatch(this.id, this.label, this.color);
