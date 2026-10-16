@@ -33,7 +33,8 @@ class DashboardScreen extends ConsumerStatefulWidget {
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen>
+    with WidgetsBindingObserver {
   SummaryVisibleSummary? _elevationSummary;
   SummaryVisibleSummary? _distanceSummary;
   SummaryVisibleSummary? _peaksBaggedSummary;
@@ -51,6 +52,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(ref.read(dashboardLayoutProvider.notifier).load());
     ref.listenManual(
       dashboardReadinessProvider,
@@ -143,7 +145,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cancelFrameMeasurement?.call();
     super.dispose();
   }
@@ -223,7 +231,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     'distance' => DistanceCard(
                       tracks: tracks,
                       isLoading: isLoadingTracks,
-                      now: now,
+                      now: widget.now,
                       onVisibleSummaryChanged: _handleDistanceSummaryChanged,
                     ),
                     'latest-walk' => LatestWalkCard(
@@ -240,7 +248,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     'elevation' => ElevationCard(
                       tracks: tracks,
                       isLoading: isLoadingTracks,
-                      now: now,
+                      now: widget.now,
                       onVisibleSummaryChanged: _handleElevationSummaryChanged,
                     ),
                     'my-ascents' => const MyAscentsCard(),
@@ -248,7 +256,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     'peaks-bagged' => PeaksBaggedCard(
                       tracks: tracks,
                       isLoading: isLoadingTracks,
-                      now: now,
+                      now: widget.now,
                       onVisibleSummaryChanged: _handlePeaksBaggedSummaryChanged,
                     ),
                     'year-to-date' => YearToDateCard(

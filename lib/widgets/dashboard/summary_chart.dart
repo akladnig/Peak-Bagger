@@ -31,6 +31,9 @@ class SummaryChart extends StatefulWidget {
     required this.tooltipTitleText,
     required this.yAxisLabelText,
     this.secondarySeriesOnTop = false,
+    this.inspectionIdentity,
+    this.scrollable = true,
+    this.onInspect,
   });
 
   final String keyPrefix;
@@ -58,6 +61,9 @@ class SummaryChart extends StatefulWidget {
   tooltipTitleText;
   final String Function(double value) yAxisLabelText;
   final bool secondarySeriesOnTop;
+  final Object? inspectionIdentity;
+  final bool scrollable;
+  final bool Function()? onInspect;
 
   @override
   State<SummaryChart> createState() => _SummaryChartState();
@@ -74,7 +80,8 @@ class _SummaryChartState extends State<SummaryChart> {
     final index = _selectedBucketIndex;
     // An index only identifies a selection while it represents the same bucket.
     if (index != null &&
-        (oldWidget.period != widget.period ||
+        (oldWidget.inspectionIdentity != widget.inspectionIdentity ||
+            oldWidget.period != widget.period ||
             index >= widget.buckets.length ||
             index >= oldWidget.buckets.length ||
             oldWidget.buckets[index].start != widget.buckets[index].start ||
@@ -86,6 +93,7 @@ class _SummaryChartState extends State<SummaryChart> {
   }
 
   void _selectBucket(int index, {required bool pinned}) {
+    if (widget.onInspect?.call() == false) return;
     setState(() {
       _selectedBucketIndex = index;
       _selectedIsPinned = pinned;
@@ -186,6 +194,9 @@ class _SummaryChartState extends State<SummaryChart> {
                     bottom: 0,
                     child: SingleChildScrollView(
                       controller: widget.controller,
+                      physics: widget.scrollable
+                          ? null
+                          : const NeverScrollableScrollPhysics(),
                       scrollDirection: Axis.horizontal,
                       child: SizedBox(
                         width: math.max(bucketContentWidth, chartViewportWidth),

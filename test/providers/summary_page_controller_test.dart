@@ -5,6 +5,112 @@ import 'package:peak_bagger/providers/summary_page_controller.dart';
 import 'package:peak_bagger/services/summary_card_service.dart';
 
 void main() {
+  for (final fixture in [
+    (
+      SummaryPeriodPreset.week,
+      DateTime(2026, 10, 12),
+      DateTime(2026, 11, 2),
+      DateTime(2020, 2, 24),
+      DateTime(2020, 2, 24),
+    ),
+    (
+      SummaryPeriodPreset.month,
+      DateTime(2026, 10),
+      DateTime(2026, 11),
+      DateTime(2020, 2),
+      DateTime(2020, 2),
+    ),
+    (
+      SummaryPeriodPreset.last3Months,
+      DateTime(2026, 8),
+      DateTime(2026, 9),
+      DateTime(2026, 5),
+      DateTime(2026, 6),
+    ),
+    (
+      SummaryPeriodPreset.last6Months,
+      DateTime(2026, 5),
+      DateTime(2026, 6),
+      DateTime(2025, 11),
+      DateTime(2025, 12),
+    ),
+    (
+      SummaryPeriodPreset.last12Months,
+      DateTime(2025, 11),
+      DateTime(2025, 12),
+      DateTime(2024, 11),
+      DateTime(2024, 12),
+    ),
+    (
+      SummaryPeriodPreset.allTime,
+      DateTime(2015),
+      DateTime(2016),
+      DateTime(2003),
+      DateTime(2004),
+    ),
+  ]) {
+    test(
+      '${fixture.$1.label} reconciles current/history using previous last included day',
+      () {
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        final provider = summaryPageControllerProvider('card');
+        final sub = container.listen(provider, (_, _) {});
+        addTearDown(sub.close);
+        final controller = container.read(provider.notifier);
+        controller.selectPeriod(fixture.$1);
+        final oldReference = DateTime(2026, 10, 15);
+        final nextReference = fixture.$1 == SummaryPeriodPreset.allTime
+            ? DateTime(2027, 1, 1)
+            : DateTime(2026, 11, 2);
+        final tracks = [
+          GpxTrack(
+            gpxTrackId: 1,
+            contentHash: '1',
+            trackName: 'Old',
+            trackDate: DateTime(1980),
+            ascent: 1,
+          ),
+        ];
+        final metric = SummaryMetricDefinition(
+          valueOf: (track) => track.ascent,
+        );
+        for (final selected in [fixture.$2, fixture.$4]) {
+          final page = const SummaryCardService().calendarPage(
+            period: fixture.$1,
+            day: selected,
+            referenceDate: oldReference,
+          );
+          controller.selectPage(page, referenceDate: oldReference);
+          final expected = container.read(provider);
+          final nav = expected.navigation(
+            tracks: tracks,
+            metric: metric,
+            now: nextReference,
+          )!;
+          expect(
+            nav.selected.start,
+            selected == fixture.$2 ? fixture.$3 : fixture.$5,
+          );
+          controller.reconcile(
+            expected: expected,
+            navigation: nav,
+            referenceDate: nextReference,
+          );
+          expect(container.read(provider).pageStart, nav.selected.start);
+          // An old frame cannot undo an interaction that followed it.
+          controller.selectPage(nav.first, referenceDate: nextReference);
+          controller.reconcile(
+            expected: expected,
+            navigation: nav,
+            referenceDate: nextReference,
+          );
+          expect(container.read(provider).pageStart, nav.first.start);
+        }
+      },
+    );
+  }
+
   for (final period in SummaryPeriodPreset.values.skip(2)) {
     test(
       '${period.label} shares independent provider selection and current-page entry',
