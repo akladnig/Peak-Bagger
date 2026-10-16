@@ -65,6 +65,7 @@ import 'package:peak_bagger/services/track_replacement_recovery_issue_repository
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/grid_reference_parser.dart';
 import 'package:peak_bagger/services/migration_marker_store.dart';
+import 'track_date_migration_provider.dart';
 import 'package:peak_bagger/services/geo.dart';
 import 'package:xml/xml.dart';
 import 'package:peak_bagger/providers/gpx_filter_settings_provider.dart';
@@ -1903,6 +1904,17 @@ class MapNotifier extends Notifier<MapState> {
   Future<void> _loadDashboardLocalData() async {
     if (!ref.mounted) {
       return;
+    }
+    // The app-root barrier normally prevents this provider from being created
+    // early. Also guard eager/non-route consumers before any Track backfill.
+    final datesReady = await ref
+        .read(trackDateMigrationProvider.notifier)
+        .ensureCurrent();
+    if (!ref.mounted) return;
+    if (!datesReady) {
+      throw StateError(
+        'Walk date recalculation needs retry before loading Tracks',
+      );
     }
     await performanceMeasurement.phase(
       'dashboard.visibility-backfill',

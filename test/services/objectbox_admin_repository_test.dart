@@ -43,6 +43,7 @@ void main() {
       'Contact',
       'NaturalFeature',
       'PeakRegionFingerprint',
+      'TrackDateMigrationMetadata',
     ]);
     expect(
       entities.map((entity) => entity.name).toSet().length,

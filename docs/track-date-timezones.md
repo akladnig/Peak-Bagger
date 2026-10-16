@@ -57,8 +57,41 @@ adapter deliberately passes **longitude before latitude**.
 transactions. `PeaksBaggedRepository.buildSyncPlan` updates existing rows in
 place, preserving IDs and skipped/unprocessed legacy linked dates. Date
 derivation happens before the transaction; consumers refresh after commit.
-The next Work Item owns version-gated database-wide recalculation and writer
-coordination; this slice performs no automatic existing-Track scan.
+`TrackDateMigrationService` runs automatically at app startup for databases
+without completion version `1`. The app-root `TrackDateMigrationHost` holds the
+routed subtree (and its Track/ascent writers) until processing commits and the
+user acknowledges the result. The Map startup boundary also waits before any
+Track visibility/ascent backfill, protecting eager consumers. New imports keep
+the permanent derivation path after the migration has completed.
+
+Preparation reads original stored GPX and resolves dates outside write
+transactions. The repository fingerprints all Track fields/peak memberships and
+linked ascent rows, then revalidates that input in the final ObjectBox write
+transaction. A competing edit/import/deletion/synchronization aborts with an
+actionable retry instead of applying stale results. The transaction updates dates
+and statuses in place, preserves skipped legacy dates, and commits the outcome
+and `TrackDateMigrationMetadata(id: 1)` completion marker together. IDs, relations,
+GPX, start/end timestamps and unrelated fields are retained. Recognized status-3
+unknown imports remain status 3 when unresolved. A resolved Track counts as
+unchanged when its Track and linked dates already agree, even without metadata.
+
+The stable marker key is `track_location_calendar_day`; its record includes
+completion time, geographic/IANA versions, all three counts and skipped identities
+with stable reason codes. It belongs to the database and its backups, not to
+installation preferences. Completed databases avoid scanning on later startup;
+an older backup without the marker runs the retained version-gated path. Empty
+databases commit zero counts without initializing geographic data. Failure or
+interruption before commit leaves no corrected pairs or completed marker and can
+be retried in-app or at next launch. App-scoped Riverpod state owns progress,
+failure and retry; leaving the status widget does not cancel it. Disposing the
+application owner prevents a pending attempt from committing after disposal.
+
+The scrollable startup status shows preparation/commit progress, durable
+updated/unchanged/skipped counts and actionable skipped reasons. Failure keeps
+the writer barrier in place and offers `Retry`; `Continue` opens the original
+route after success. Subsequent launches with a completed marker open the route
+without showing a new result acknowledgement. No page-position preference or
+persisted Dashboard summary is added.
 
 ## Verification
 
@@ -68,3 +101,12 @@ timezone to reopen a closed temporary ObjectBox database, then checks it again
 in the originating process. Each process checks January/July host offsets.
 Independent fixtures include Hobart, Los Angeles, Ljubljana and a full-dataset
 zone link; tests require no network or production database.
+
+For controlled native macOS verification, run
+`flutter run -d macos -t tool/track_date_migration_smoke.dart`. Its isolated
+temporary database injects one completion-write failure; use keyboard/pointer
+`Retry`, inspect counts/skipped reasons, then `Continue`. Debug assertions verify
+rollback and the subsequent durable correction. Quit closes the store and
+deletes the fixture directory. Add
+`--dart-define=MIGRATION_SMOKE_DARK=true` for the dark theme. Never use the normal
+app database as a migration test fixture.

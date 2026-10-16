@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/core/track_date_data_license.dart';
+import 'package:peak_bagger/providers/track_date_migration_provider.dart';
+import 'package:peak_bagger/services/track_date_migration_repository.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
@@ -191,6 +193,9 @@ Future<void> _initializeReadyDependencies(MappingCatalog catalog) async {
       router = createRouter();
       return ProviderScope(
         overrides: [
+          trackDateMigrationRepositoryProvider.overrideWithValue(
+            ObjectBoxTrackDateMigrationRepository(initializedStore),
+          ),
           mappingCatalogProvider.overrideWithValue(catalog),
           mappingStoreOperationCoordinatorProvider.overrideWithValue(
             mappingOperationCoordinator,

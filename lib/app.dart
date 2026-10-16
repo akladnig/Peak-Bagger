@@ -7,6 +7,8 @@ import 'package:peak_bagger/providers/route_graph_readiness_provider.dart';
 import 'package:peak_bagger/router.dart' as app_router;
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/mapping_store_failure_dialog.dart';
+import 'package:peak_bagger/providers/track_date_migration_provider.dart';
+import 'package:peak_bagger/widgets/track_date_migration_status.dart';
 
 class App extends ConsumerWidget {
   const App({this.router, super.key});
@@ -21,6 +23,7 @@ class App extends ConsumerWidget {
     final themeContrastLevel = ref.watch(themeContrastLevelProvider);
     ref.watch(routeGraphBootstrapProvider);
     ref.watch(mappingStoreBootstrapProvider);
+    ref.watch(trackDateMigrationBootstrapProvider);
 
     final themeConfig = ThemeConfig(
       seedColor: themeSeedColor.color,
@@ -34,8 +37,10 @@ class App extends ConsumerWidget {
       darkTheme: MyTheme.darkWith(themeConfig),
       themeMode: themeMode,
       routerConfig: router ?? (app_router.router = app_router.createRouter()),
-      builder: (context, child) => MappingStoreFailureDialogHost(
-        child: child ?? const SizedBox.shrink(),
+      builder: (context, child) => TrackDateMigrationHost(
+        child: MappingStoreFailureDialogHost(
+          child: child ?? const SizedBox.shrink(),
+        ),
       ),
       debugShowCheckedModeBanner: false,
     );

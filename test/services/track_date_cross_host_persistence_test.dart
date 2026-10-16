@@ -7,6 +7,8 @@ import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/track_date_derivation_service.dart';
 import 'package:peak_bagger/services/track_derived_data_persistence.dart';
+import 'package:peak_bagger/services/track_date_migration_repository.dart';
+import 'package:peak_bagger/services/track_date_migration_service.dart';
 import '../harness/track_date_fixtures.dart';
 
 void main() {
@@ -21,6 +23,20 @@ void main() {
         );
         try {
           _expectStoredDays(store);
+          final metadata = ObjectBoxTrackDateMigrationRepository(
+            store,
+          ).readCompletion()!;
+          expect(metadata.completedVersion, 1);
+          expect(
+            (
+              metadata.updatedCount,
+              metadata.unchangedCount,
+              metadata.skippedCount,
+            ),
+            (2, 0, 0),
+          );
+          final completed = await _migration(store).run();
+          expect(completed.alreadyCompleted, isTrue);
           _writeFixture(store, 3, hobart: false);
         } finally {
           store.close();
@@ -38,6 +54,22 @@ void main() {
         );
         _writeFixture(store, 1, hobart: true);
         _writeFixture(store, 2, hobart: false);
+        // Model a legacy database written in this host zone, with both a
+        // host-midnight Track date and an Australian Eastern ascent carrier.
+        for (final track in store.box<GpxTrack>().getAll()) {
+          track.trackDate = DateTime(2027);
+          track.trackDateStatus = 0;
+          track.trackDateDerivationVersion = 0;
+          track.trackDateTimezoneId = null;
+          store.box<GpxTrack>().put(track);
+        }
+        for (final row in store.box<PeaksBagged>().getAll()) {
+          row.date = DateTime.utc(2026, 12, 31, 13);
+          store.box<PeaksBagged>().put(row);
+        }
+        final result = await _migration(store).run();
+        expect(result.alreadyCompleted, isFalse);
+        expect(result.metadata.updatedCount, 2);
       } finally {
         store.close();
       }
@@ -64,6 +96,12 @@ void main() {
       try {
         _expectStoredDays(store);
         expect(
+          ObjectBoxTrackDateMigrationRepository(
+            store,
+          ).readCompletion()!.completedVersion,
+          1,
+        );
+        expect(
           store.box<GpxTrack>().get(3)!.trackDate,
           DateTime.utc(2026, 12, 31),
         );
@@ -82,6 +120,12 @@ void main() {
     timeout: const Timeout(Duration(minutes: 4)),
   );
 }
+
+TrackDateMigrationService _migration(Store store) => TrackDateMigrationService(
+  repository: ObjectBoxTrackDateMigrationRepository(store),
+  derivation: TrackDateDerivationService.offline,
+  clock: () => DateTime.utc(2026, 10, 16),
+);
 
 void _writeFixture(Store store, int id, {required bool hobart}) {
   final gpx = hobart

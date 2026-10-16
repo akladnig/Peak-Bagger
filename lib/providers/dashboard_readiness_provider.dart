@@ -9,6 +9,7 @@ import 'my_ascents_summary_provider.dart';
 import 'my_lists_summary_provider.dart';
 import 'peak_list_selection_provider.dart';
 import 'peak_marker_info_settings_provider.dart';
+import 'track_date_migration_provider.dart';
 
 export 'local_data_load_outcome_provider.dart';
 
@@ -24,7 +25,13 @@ final dashboardReadinessProvider = Provider<Map<String, AsyncValue<Object?>>>((
   final lists = ref.watch(peakListsLoadProvider);
   final listRows = ref.watch(myListsSummaryReadProvider);
   ref.watch(mappingStoreOperationRevisionProvider);
+  final dates = ref.watch(trackDateMigrationProvider);
   return {
+    'track-calendar-dates': dates.isReady
+        ? const AsyncData(null)
+        : dates.error != null
+        ? AsyncError(dates.error!, StackTrace.current)
+        : const AsyncLoading(),
     'main-navigation':
         ref.watch(mappingStoreOperationCoordinatorProvider).activeFailure ==
             null
