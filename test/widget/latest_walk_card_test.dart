@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -6,14 +9,22 @@ import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
-import 'package:peak_bagger/core/date_formatters.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/dashboard/latest_walk_card.dart';
 
 Future<void> _pumpReady(WidgetTester tester, Widget child) => tester.pumpWidget(
-  ProviderScope(overrides: mappingCatalogTestOverrides, child: child),
+  ProviderScope(
+    overrides: [
+      ...mappingCatalogTestOverrides,
+      latestWalkTileProviderFactoryProvider.overrideWithValue(
+        _FixtureTiles.new,
+      ),
+    ],
+    child: child,
+  ),
 );
 
 void main() {
@@ -85,9 +96,7 @@ void main() {
 
     expect(find.text('Track 20'), findsOneWidget);
     expect(
-      find.text(
-        '${formatTrackDateShortMonth(DateTime.utc(2026, 5, 15, 10))} • 12.4 km / 12.7 km • 638 m',
-      ),
+      find.text('Fri, 15 May 2026 • 12.4 km / 12.7 km • 638 m'),
       findsOneWidget,
     );
     expect(find.byKey(const Key('latest-walk-mini-map')), findsOneWidget);
@@ -273,6 +282,132 @@ void main() {
     expect(find.byKey(const ValueKey('latest-walk-map-20')), findsOneWidget);
   });
 
+  for (final brightness in Brightness.values) {
+    testWidgets('local dates survive walk navigation in ${brightness.name}', (
+      tester,
+    ) async {
+      final starts = [
+        DateTime.utc(2026, 10, 14, 23, 30),
+        DateTime.utc(2026, 12, 31, 23, 30),
+      ];
+      for (final start in starts) {
+        expect(start.toLocal().timeZoneOffset, const Duration(hours: 11));
+      }
+      final tracks = [
+        for (var i = 0; i < starts.length; i++)
+          _track(
+              i + 1,
+              starts[i],
+              segments: [
+                [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+              ],
+            )
+            ..trackDate = DateTime.utc(2020, 12, 31)
+            ..endDateTime = starts[i].add(const Duration(hours: 2)),
+      ];
+      final before = tracks.map((track) => track.toMap()).toList();
+      final openedTrackIds = <int>[];
+      await _pumpReady(
+        tester,
+        MaterialApp(
+          theme: brightness == Brightness.light ? MyTheme.light : MyTheme.dark,
+          home: Scaffold(
+            body: SizedBox(
+              width: 420,
+              height: 320,
+              child: LatestWalkCard(
+                tracks: tracks,
+                showPeakInfo: false,
+                onOpenTrack: openedTrackIds.add,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Fri, 1 Jan 2027 • 12.4 km / 12.7 km • 638 m'),
+        findsOneWidget,
+      );
+      expect(tracks.map((track) => track.toMap()).toList(), before);
+      final previous = find.byKey(const Key('latest-walk-prev-track'));
+      final next = find.byKey(const Key('latest-walk-next-track'));
+      expect(tester.widget<IconButton>(previous).tooltip, 'Previous track');
+      expect(tester.widget<IconButton>(next).onPressed, isNull);
+
+      // Activate the focused previous control using the keyboard.
+      final previousIcon = find.descendant(
+        of: previous,
+        matching: find.byType(Icon),
+      );
+      final focus = Focus.of(tester.element(previousIcon));
+      focus.requestFocus();
+      await tester.pump();
+      expect(focus.hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Track 1'), findsOneWidget);
+      expect(
+        find.text('Thu, 15 Oct 2026 • 12.4 km / 12.7 km • 638 m'),
+        findsOneWidget,
+      );
+      expect(tester.widget<IconButton>(previous).onPressed, isNull);
+      expect(tester.widget<IconButton>(previous).mouseCursor, isNull);
+      expect(tester.widget<IconButton>(next).tooltip, 'Next track');
+      expect(
+        tester.widget<IconButton>(next).mouseCursor,
+        SystemMouseCursors.click,
+      );
+      await tester.tap(find.byKey(const Key('latest-walk-track-title-link')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('latest-walk-mini-map-link')));
+      await tester.pump();
+      expect(openedTrackIds, [1, 1]);
+      expect(tracks.map((track) => track.toMap()).toList(), before);
+
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      expect(find.text('Track 2'), findsOneWidget);
+      expect(
+        find.text('Fri, 1 Jan 2027 • 12.4 km / 12.7 km • 638 m'),
+        findsOneWidget,
+      );
+      expect(tracks.map((track) => track.toMap()).toList(), before);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('does not hide the newest walk with empty geometry', (
+    tester,
+  ) async {
+    await _pumpReady(
+      tester,
+      MaterialApp(
+        home: Scaffold(
+          body: LatestWalkCard(
+            tracks: [
+              _track(2, DateTime.utc(2026, 10, 14, 23, 30)),
+              _track(
+                1,
+                DateTime.utc(2026, 10, 13),
+                segments: [
+                  [const LatLng(-41.5, 146.5)],
+                ],
+              ),
+            ],
+            showPeakInfo: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('No walks yet'), findsOneWidget);
+    expect(find.text('Track 1'), findsNothing);
+    expect(find.byType(FlutterMap), findsNothing);
+  });
+
   testWidgets('renders peak markers for correlated peaks', (tester) async {
     await _pumpReady(
       tester,
@@ -421,6 +556,18 @@ void main() {
     expect(fit.padding.bottom, greaterThan(24));
     expect(fit.padding.top, 24);
   });
+}
+
+class _FixtureTiles extends TileProvider {
+  static final _image = MemoryImage(
+    base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+    ),
+  );
+
+  @override
+  ImageProvider getImage(TileCoordinates coordinates, TileLayer options) =>
+      _image;
 }
 
 GpxTrack _track(
