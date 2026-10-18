@@ -97,6 +97,7 @@ class SummaryCard extends ConsumerStatefulWidget {
     this.displayMode,
     this.barSeriesStyle,
     this.chartTypeControlBuilder,
+    this.enableKeyboardInspection = false,
   });
 
   final List<GpxTrack> tracks;
@@ -112,6 +113,7 @@ class SummaryCard extends ConsumerStatefulWidget {
   final SummaryBarSeriesStyle? barSeriesStyle;
   final Widget Function(VoidCallback onOpen, VoidCallback onChanged)?
   chartTypeControlBuilder;
+  final bool enableKeyboardInspection;
 
   @override
   ConsumerState<SummaryCard> createState() => _SummaryCardState();
@@ -128,12 +130,16 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
   SummaryVisibleSummary? _lastVisibleSummary;
   bool _hasReportedSummary = false;
   int _revision = 0;
+  int _inputRevision = 0;
   late List<GpxTrack> _tracks;
   DashboardCardKeyboardController? _keyboard;
+  SummaryChartInspection? _inspection;
+  Object? _inspectionIdentity;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (!TickerMode.valuesOf(context).enabled) _clearInspection();
     final keyboard = DashboardCardKeyboard.maybeOf(context);
     if (_keyboard != keyboard) {
       _unregisterKeyboard();
@@ -143,6 +149,12 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
       }
       if (widget.chartTypeControlBuilder == null) {
         _keyboard?.actions[LogicalKeyboardKey.keyC] = _toggleMode;
+      }
+      if (widget.enableKeyboardInspection) {
+        _keyboard?.focusEvents.addListener(_onKeyboardFocus);
+        for (final entry in _inspectionActions.entries) {
+          _keyboard?.actions[entry.key] = entry.value;
+        }
       }
     }
   }
@@ -162,7 +174,134 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
     LogicalKeyboardKey.end: () => _keyboardNavigate(SummaryPageAction.last),
   };
 
+  late final _inspectionActions = <LogicalKeyboardKey, VoidCallback>{
+    LogicalKeyboardKey.arrowLeft: () => _stepInspection(false),
+    LogicalKeyboardKey.keyH: () => _stepInspection(false),
+    LogicalKeyboardKey.arrowRight: () => _stepInspection(true),
+    LogicalKeyboardKey.keyL: () => _stepInspection(true),
+    LogicalKeyboardKey.escape: _clearKeyboardInspection,
+  };
+
+  void _clearKeyboardInspection() {
+    if (!mounted) return;
+    _inputRevision++;
+    setState(_clearInspection);
+  }
+
+  void _clearInspection() {
+    _inspection = null;
+    _inspectionIdentity = null;
+  }
+
+  Object _chartIdentity(DateTime referenceDate, SummaryCalendarPage page) => (
+    widget.tracks,
+    referenceDate,
+    _period,
+    page.start,
+    page.endExclusive,
+    _revision,
+    TickerMode.valuesOf(context).enabled,
+  );
+
+  // Read the current authoritative page for every key, including keys arriving
+  // before the previous input has painted. Never navigate from a rendered cache.
+  ({Object identity, List<SummaryBucket> buckets})? _inspectionPage() {
+    if (widget.isLoading) return null;
+    final reference = _referenceDate;
+    final navigation = ref
+        .read(summaryPageControllerProvider(_cardIdentity))
+        .navigation(
+          tracks: _tracks,
+          metric: widget.adapter.metric,
+          now: reference,
+        );
+    if (navigation == null) return null;
+    return (
+      identity: _chartIdentity(reference, navigation.selected),
+      buckets: _service
+          .buildTimeline(
+            tracks: _tracks,
+            period: _period,
+            metric: widget.adapter.metric,
+            now: reference,
+            page: navigation.selected,
+          )
+          .buckets,
+    );
+  }
+
+  void _initializeInspection({bool? boundaryForward}) {
+    if (!mounted) return;
+    _inputRevision++;
+    final page = _inspectionPage();
+    if (page == null || page.buckets.isEmpty) return;
+    final latest = page.buckets.lastIndexWhere(
+      (bucket) => bucket.trackCount > 0,
+    );
+    final index = boundaryForward == null
+        ? math.max(0, latest)
+        : boundaryForward
+        ? 0
+        : page.buckets.length - 1;
+    setState(() {
+      _inspectionIdentity = page.identity;
+      _inspection = (index: index, pinned: true);
+    });
+  }
+
+  void _onKeyboardFocus() {
+    final keyboard = _keyboard;
+    if (!mounted || keyboard == null || !keyboard.isActive()) return;
+    switch (keyboard.focusEvents.value.$2) {
+      case DashboardCardFocusReason.entry:
+        // Repeated notifications while the same card owns focus are not entry.
+        if (!keyboard.focusNode.hasPrimaryFocus) _initializeInspection();
+      case DashboardCardFocusReason.menuChanged:
+        setState(_clearInspection);
+      case DashboardCardFocusReason.menuReturn:
+        break;
+    }
+  }
+
+  void _stepInspection(bool forward) {
+    if (!mounted || widget.isLoading) return;
+    _inputRevision++;
+    final selection = ref.read(summaryPageControllerProvider(_cardIdentity));
+    if (selection.referenceDate != _referenceDate) {
+      _navigate(SummaryPageAction.reconcile);
+      return;
+    }
+    final page = _inspectionPage();
+    if (page == null) return;
+    final index = _inspectionIdentity == page.identity
+        ? _inspection?.index
+        : null;
+    if (index == null) {
+      _initializeInspection();
+      return;
+    }
+    final next = index + (forward ? 1 : -1);
+    if (next >= 0 && next < page.buckets.length) {
+      setState(() => _inspection = (index: next, pinned: true));
+      return;
+    }
+    final navigation = selection.navigation(
+      tracks: _tracks,
+      metric: widget.adapter.metric,
+      now: _referenceDate,
+    )!;
+    if (forward ? !navigation.canNext : !navigation.canPrevious) return;
+    _navigate(SummaryPageAction.adjacent, pages: forward ? 1 : -1);
+    _initializeInspection(boundaryForward: forward);
+  }
+
   void _unregisterKeyboard() {
+    _keyboard?.focusEvents.removeListener(_onKeyboardFocus);
+    for (final entry in _inspectionActions.entries) {
+      if (_keyboard?.actions[entry.key] == entry.value) {
+        _keyboard?.actions.remove(entry.key);
+      }
+    }
     for (final key in _pageKeys) {
       if (_keyboard?.actions[key] == _keyActions[key]) {
         _keyboard?.actions.remove(key);
@@ -174,7 +313,7 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
   }
 
   void _keyboardNavigate(SummaryPageAction action, {int pages = 1}) {
-    if (widget.isLoading) return;
+    if (!mounted || widget.isLoading) return;
     final navigation = ref
         .read(summaryPageControllerProvider(_cardIdentity))
         .navigation(
@@ -197,6 +336,10 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
       return;
     }
     _navigate(action, pages: pages);
+    if (widget.enableKeyboardInspection &&
+        action == SummaryPageAction.adjacent) {
+      _initializeInspection();
+    }
   }
 
   void _filterTracks() {
@@ -229,6 +372,7 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
   }
 
   void _invalidate() {
+    _clearInspection();
     _revision++;
     _lastVisibleSummary = null;
     _hasReportedSummary = false;
@@ -305,6 +449,11 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
   }
 
   void _reconcileForChartMenu() {
+    if (widget.enableKeyboardInspection) {
+      // A menu takes temporary ownership from direct chart/page input, while
+      // an unchanged menu must preserve the still-valid inspected bucket.
+      setState(() => _inputRevision++);
+    }
     // Opening/dismissing a menu or choosing the same type must not invalidate
     // still-valid inspection. A changed clock still uses the shared page owner.
     if (ref.read(summaryPageControllerProvider(_cardIdentity)).referenceDate !=
@@ -387,6 +536,12 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
       );
     }
     final page = navigation.selected;
+    // Discard, rather than merely hide, inspection invalidated by activation
+    // or a reference-day projection (which need not increment _revision).
+    if (_inspectionIdentity != null &&
+        _inspectionIdentity != _chartIdentity(referenceDate, page)) {
+      _clearInspection();
+    }
     final timeline = _service.buildTimeline(
       tracks: _tracks,
       period: _period,
@@ -448,24 +603,18 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
                   constraints.maxWidth - DashboardUI.yAxisLabelWidth,
                   1,
                 );
-                final identity = (
-                  widget.tracks,
-                  referenceDate,
-                  _period,
-                  page.start,
-                  page.endExclusive,
-                  _revision,
-                  TickerMode.valuesOf(context).enabled,
-                );
+                final identity = _chartIdentity(referenceDate, page);
+                final inputRevision = _inputRevision;
                 return SummaryPageBrowser(
                   key: Key('${widget.adapter.keyPrefix}-page-browser'),
-                  revision: identity,
+                  revision: (identity, inputRevision),
                   enabled: navigation.canPrevious || navigation.canNext,
                   onPages: (pages) {
                     // Timers run before a queued frame's rebuild. Reject input
                     // synchronously superseded by a toolbar action as well as
                     // the cancellation performed by didUpdateWidget.
                     if (_revision != revision ||
+                        _inputRevision != inputRevision ||
                         !TickerMode.valuesOf(context).enabled) {
                       return;
                     }
@@ -496,6 +645,27 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
                     yAxisLabelText: widget.adapter.yAxisLabelText,
                     secondarySeriesOnTop: widget.adapter.secondarySeriesOnTop,
                     inspectionIdentity: identity,
+                    inspection: _inspectionIdentity == identity
+                        ? _inspection
+                        : null,
+                    onInspectionChanged: !widget.enableKeyboardInspection
+                        ? null
+                        : (inspection) {
+                            if (_revision != revision ||
+                                _referenceDate != referenceDate) {
+                              return;
+                            }
+                            // A tap/key can pin before this frame's hover-exit
+                            // callback has rebuilt with the new presentation.
+                            if (inspection == null &&
+                                _inspection?.pinned == true) {
+                              return;
+                            }
+                            setState(() {
+                              _inspectionIdentity = identity;
+                              _inspection = inspection;
+                            });
+                          },
                     scrollable: false,
                     onInspect: () {
                       if (_revision != revision) return false;

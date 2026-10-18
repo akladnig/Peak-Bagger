@@ -57,6 +57,7 @@ class TimeCard extends ConsumerWidget {
             now: now,
             onVisibleSummaryChanged: onVisibleSummaryChanged,
             adapter: adapter,
+            enableKeyboardInspection: true,
             displayMode: type == TimeChartType.line
                 ? SummaryDisplayMode.line
                 : SummaryDisplayMode.columns,

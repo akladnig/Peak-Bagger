@@ -13,6 +13,9 @@ enum SummaryBarSeriesStyle { stacked, grouped, subsetStacked }
 
 enum SummaryDisplayMode { columns, line }
 
+/// Transient inspection shared by pointer and opt-in card keyboard input.
+typedef SummaryChartInspection = ({int index, bool pinned});
+
 class SummaryChart extends StatefulWidget {
   const SummaryChart({
     super.key,
@@ -35,6 +38,8 @@ class SummaryChart extends StatefulWidget {
     this.scrollable = true,
     this.onInspect,
     this.valueScale = 1,
+    this.inspection,
+    this.onInspectionChanged,
   });
 
   final String keyPrefix;
@@ -65,6 +70,8 @@ class SummaryChart extends StatefulWidget {
   final Object? inspectionIdentity;
   final bool scrollable;
   final bool Function()? onInspect;
+  final SummaryChartInspection? inspection;
+  final ValueChanged<SummaryChartInspection?>? onInspectionChanged;
 
   /// Display-axis units per stored metric unit; inspection retains raw values.
   final double valueScale;
@@ -74,8 +81,10 @@ class SummaryChart extends StatefulWidget {
 }
 
 class _SummaryChartState extends State<SummaryChart> {
-  int? _selectedBucketIndex;
-  bool _selectedIsPinned = false;
+  SummaryChartInspection? _localInspection;
+  SummaryChartInspection? get _inspection =>
+      widget.onInspectionChanged == null ? _localInspection : widget.inspection;
+  int? get _selectedBucketIndex => _inspection?.index;
   static const double _tooltipMaxWidth = 220;
 
   @override
@@ -91,8 +100,7 @@ class _SummaryChartState extends State<SummaryChart> {
             oldWidget.buckets[index].start != widget.buckets[index].start ||
             oldWidget.buckets[index].endExclusive !=
                 widget.buckets[index].endExclusive)) {
-      _selectedBucketIndex = null;
-      _selectedIsPinned = false;
+      _localInspection = null;
     }
   }
 
@@ -103,18 +111,24 @@ class _SummaryChartState extends State<SummaryChart> {
   }) {
     if (!mounted || expectedIdentity != widget.inspectionIdentity) return;
     if (widget.onInspect?.call() == false) return;
-    setState(() {
-      _selectedBucketIndex = index;
-      _selectedIsPinned = pinned;
-    });
+    _changeInspection((index: index, pinned: pinned));
   }
 
-  void _clearHoverSelection(int index) {
-    if (_selectedIsPinned) {
+  void _changeInspection(SummaryChartInspection? inspection) {
+    if (widget.onInspectionChanged case final onChanged?) {
+      onChanged(inspection);
+    } else {
+      setState(() => _localInspection = inspection);
+    }
+  }
+
+  void _clearHoverSelection(int index, Object? expectedIdentity) {
+    if (!mounted || expectedIdentity != widget.inspectionIdentity) return;
+    if (_inspection?.pinned == true) {
       return;
     }
     if (_selectedBucketIndex == index) {
-      setState(() => _selectedBucketIndex = null);
+      _changeInspection(null);
     }
   }
 
@@ -305,8 +319,10 @@ class _SummaryChartState extends State<SummaryChart> {
                                           pinned: false,
                                           expectedIdentity: inspectionIdentity,
                                         ),
-                                        onExit: (_) =>
-                                            _clearHoverSelection(index),
+                                        onExit: (_) => _clearHoverSelection(
+                                          index,
+                                          inspectionIdentity,
+                                        ),
                                         child: GestureDetector(
                                           behavior: HitTestBehavior.opaque,
                                           onTap: () => _selectBucket(
@@ -384,15 +400,28 @@ class _SummaryChartState extends State<SummaryChart> {
                                     ),
                                     child: SizedBox(
                                       width: tooltipWidth,
-                                      child: IgnorePointer(
-                                        child: _SummaryTooltipCard(
-                                          key: Key(
-                                            '${widget.keyPrefix}-tooltip',
+                                      child: Semantics(
+                                        key: Key(
+                                          '${widget.keyPrefix}-inspection',
+                                        ),
+                                        container: true,
+                                        liveRegion:
+                                            widget.onInspectionChanged != null,
+                                        label: [
+                                          tooltipTitleText,
+                                          ...tooltipValueTexts,
+                                        ].join('\n'),
+                                        excludeSemantics: true,
+                                        child: IgnorePointer(
+                                          child: _SummaryTooltipCard(
+                                            key: Key(
+                                              '${widget.keyPrefix}-tooltip',
+                                            ),
+                                            titleText: tooltipTitleText,
+                                            valueTexts: tooltipValueTexts,
+                                            valueTextColors:
+                                                tooltipValueTextColors,
                                           ),
-                                          titleText: tooltipTitleText,
-                                          valueTexts: tooltipValueTexts,
-                                          valueTextColors:
-                                              tooltipValueTextColors,
                                         ),
                                       ),
                                     ),

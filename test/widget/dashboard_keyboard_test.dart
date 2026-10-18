@@ -1,5 +1,6 @@
 import 'dart:ui' show Tristate;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,6 +28,471 @@ import '../harness/test_map_notifier.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final type in TimeChartType.values) {
+    testWidgets(
+      '${type.name} focus, zero activity, keys and accessible pointer equivalence',
+      (tester) async {
+        final h = await _Harness.pump(
+          tester,
+          tracks: [
+            _timeTrack(1, 2026, 8, 10),
+            _timeTrack(2, 2026, 9, 15, total: 0, moving: 0),
+            _timeTrack(3, 2026, 10, 1, total: 1, moving: 2),
+            _timeTrack(4, 2026, 10, 16),
+          ],
+          type: type,
+        );
+        final semantics = tester.ensureSemantics();
+        await h.focus('time');
+        h.expectInspection('Sep', total: '0d 0h 0m', moving: '0d 0h 0m');
+        expect(h.chart('time').inspection?.index, 10);
+        await h.key(LogicalKeyboardKey.arrowLeft);
+        h.expectInspection('Aug');
+        await h.key(LogicalKeyboardKey.keyH);
+        h.expectInspection('Jul', total: '0d 0h 0m', moving: '0d 0h 0m');
+        await h.key(LogicalKeyboardKey.arrowRight);
+        h.expectInspection('Aug');
+        await h.key(LogicalKeyboardKey.keyL);
+        h.expectInspection('Sep', total: '0d 0h 0m', moving: '0d 0h 0m');
+        await h.key(LogicalKeyboardKey.escape);
+        h.expectNoInspection();
+        h.expectFocus('time');
+        // An incidental notification on the same focused card must not re-enter.
+        h.owner('time').focus();
+        await tester.pump();
+        h.expectNoInspection();
+        await h.key(LogicalKeyboardKey.keyH);
+        expect(h.chart('time').inspection?.index, 10);
+        await h.key(LogicalKeyboardKey.keyH);
+        expect(h.chart('time').inspection?.index, 9);
+        final keyboardRows = h.inspectionRows();
+        final label = tester
+            .getSemantics(find.byKey(const Key('time-inspection')))
+            .getSemanticsData()
+            .label;
+        expect(label, keyboardRows.join('\n'));
+        await h.key(LogicalKeyboardKey.escape);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: const Offset(1, 1));
+        await mouse.moveTo(
+          tester.getCenter(h.control('time', 'time-bucket-9')),
+        );
+        await tester.pumpAndSettle();
+        expect(h.inspectionRows(), keyboardRows);
+        await tester.tap(h.control('time', 'time-bucket-9'));
+        await mouse.moveTo(const Offset(1, 1));
+        await tester.pumpAndSettle();
+        expect(h.inspectionRows(), keyboardRows);
+        await mouse.removePointer();
+        semantics.dispose();
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      '${type.name} directional boundaries visit empty pages with last/first landings and bounds',
+      (tester) async {
+        final h = await _Harness.pump(
+          tester,
+          tracks: [_timeTrack(1, 2026, 8, 1), _timeTrack(2, 2026, 10, 15)],
+          type: type,
+        );
+        await h.focus('time');
+        await h.period('time', SummaryPeriodPreset.month);
+        h.expectNoInspection();
+        await h.key(LogicalKeyboardKey.arrowLeft); // initialize, not step
+        h.expectInspection('Thu 15 Oct');
+        for (var i = 0; i < 14; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyH);
+        }
+        await tester.pumpAndSettle();
+        h.expectInspection('Thu 1 Oct', total: '0d 0h 0m', moving: '0d 0h 0m');
+        await h.key(LogicalKeyboardKey.arrowLeft);
+        expect(h.page('time'), DateTime(2026, 9));
+        expect(h.chart('time').inspection?.index, 29);
+        h.expectInspection('Wed 30 Sep', total: '0d 0h 0m', moving: '0d 0h 0m');
+        await h.key(LogicalKeyboardKey.arrowRight);
+        expect(h.page('time'), DateTime(2026, 10));
+        expect(h.chart('time').inspection?.index, 0);
+        // W/B use latest-eligible / first-empty, not directional landing policy.
+        await h.key(LogicalKeyboardKey.keyB);
+        expect(h.chart('time').inspection?.index, 0);
+        h.expectInspection('Tue 1 Sep', total: '0d 0h 0m', moving: '0d 0h 0m');
+        await h.key(LogicalKeyboardKey.keyB);
+        expect(h.chart('time').inspection?.index, 0);
+        h.expectInspection('Sat 1 Aug');
+        final earliest = h.page('time');
+        await h.key(LogicalKeyboardKey.keyH);
+        expect(h.page('time'), earliest);
+        h.expectInspection('Sat 1 Aug');
+        await h.key(LogicalKeyboardKey.keyW);
+        expect(h.chart('time').inspection?.index, 0);
+        await h.key(LogicalKeyboardKey.keyW);
+        h.expectInspection('Thu 15 Oct');
+        for (var i = 0; i < 18; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
+        }
+        await tester.pumpAndSettle();
+        expect(h.page('time'), DateTime(2026, 10));
+        expect(h.chart('time').inspection?.index, 30);
+        h.expectInspection('Sat 31 Oct', total: '0d 0h 0m', moving: '0d 0h 0m');
+        expect(h.button('time', 'next').onPressed, isNull);
+        h.expectFocus('time');
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      '${type.name} menus preserve inspection or clear until directional initialization',
+      (tester) async {
+        final h = await _Harness.pump(
+          tester,
+          type: type,
+          tracks: [_timeTrack(1, 2026, 10, 15)],
+        );
+        await h.focus('time');
+        await h.key(LogicalKeyboardKey.keyH);
+        h.expectInspection('Sep', total: '0d 0h 0m', moving: '0d 0h 0m');
+        for (final key in [LogicalKeyboardKey.keyP, LogicalKeyboardKey.keyC]) {
+          await h.key(key);
+          for (final blocked in [
+            LogicalKeyboardKey.keyH,
+            LogicalKeyboardKey.keyL,
+            LogicalKeyboardKey.arrowLeft,
+            LogicalKeyboardKey.arrowRight,
+            LogicalKeyboardKey.keyW,
+            LogicalKeyboardKey.keyB,
+          ]) {
+            await h.key(blocked);
+          }
+          await h.key(LogicalKeyboardKey.arrowDown);
+          await h.key(LogicalKeyboardKey.keyK);
+          await h.key(LogicalKeyboardKey.escape);
+          h.expectInspection('Sep', total: '0d 0h 0m', moving: '0d 0h 0m');
+          await h.key(key);
+          await h.key(LogicalKeyboardKey.enter); // same selection
+          h.expectInspection('Sep', total: '0d 0h 0m', moving: '0d 0h 0m');
+        }
+        final page = h.page('time');
+        await h.key(LogicalKeyboardKey.keyC);
+        await h.key(LogicalKeyboardKey.keyJ);
+        await h.key(LogicalKeyboardKey.enter);
+        expect(h.page('time'), page);
+        h.expectNoInspection();
+        await h.key(LogicalKeyboardKey.keyC);
+        await h.key(LogicalKeyboardKey.escape);
+        h.expectNoInspection();
+        await h.key(LogicalKeyboardKey.keyL);
+        h.expectInspection('Oct');
+        await h.period('time', SummaryPeriodPreset.month);
+        h.expectNoInspection();
+        await h.key(LogicalKeyboardKey.keyL);
+        h.expectInspection('Thu 15 Oct');
+        await h.key(LogicalKeyboardKey.keyC);
+        await h.key(LogicalKeyboardKey.tab);
+        h.expectFocus('latest-walk');
+        await h.tabBack();
+        h.expectInspection('Thu 15 Oct');
+        await h.key(LogicalKeyboardKey.keyP);
+        await h.tabBack();
+        h.expectFocus('distance');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'Time loading/empty focus has no inspection; empty page starts at first bucket',
+    (tester) async {
+      final h = await _Harness.pump(tester);
+      await h.focus('time');
+      h.expectNoInspection();
+      await h.key(LogicalKeyboardKey.keyL);
+      h.expectNoInspection();
+      h.setTracks([_timeTrack(1, 2024, 6, 15)], loading: true);
+      await tester.pump();
+      h.owner('time').focus();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyH);
+      await tester.pump();
+      expect(h.control('time', 'time-loading-state'), findsOneWidget);
+      h.expectNoInspection();
+      h.setTracks([_timeTrack(1, 2024, 6, 15)]);
+      await tester.pumpAndSettle();
+      h.expectNoInspection();
+      await h.key(LogicalKeyboardKey.keyL);
+      h.expectInspection('Nov', total: '0d 0h 0m', moving: '0d 0h 0m');
+      await h.key(LogicalKeyboardKey.tab);
+      await h.tabBack();
+      expect(h.chart('time').inspection?.index, 0);
+      h.expectFocus('time');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final type in TimeChartType.values) {
+    testWidgets(
+      '${type.name} overlapping page/inspection/menu/data inputs reject stale callbacks',
+      (tester) async {
+        final h = await _Harness.pump(
+          tester,
+          type: type,
+          tracks: [_timeTrack(1, 2026, 8, 1), _timeTrack(2, 2026, 10, 15)],
+        );
+        await h.focus('time');
+        await h.period('time', SummaryPeriodPreset.month);
+        await h.key(LogicalKeyboardKey.keyL);
+        final oldHover = tester
+            .widget<MouseRegion>(h.control('time', 'time-bucket-0'))
+            .onEnter!;
+        // An in-page key supersedes accumulated trackpad input as well.
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getCenter(h.control('time', 'time-page-browser')),
+            scrollDelta: const Offset(-160, 0),
+          ),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyH);
+        await tester.pump(const Duration(milliseconds: 150));
+        expect(h.page('time'), DateTime(2026, 10));
+        h.expectInspection('Wed 14 Oct', total: '0d 0h 0m', moving: '0d 0h 0m');
+        // Reach/cross a boundary and immediately reverse before it paints.
+        for (var i = 0; i < 14; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.keyH);
+        }
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
+        await tester.pump();
+        expect(h.page('time'), DateTime(2026, 10));
+        expect(h.chart('time').inspection?.index, 0);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyW);
+        await tester.pump();
+        h.expectInspection('Thu 15 Oct');
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getCenter(h.control('time', 'time-page-browser')),
+            scrollDelta: const Offset(-160, 0),
+          ),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyC);
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyJ);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        h.setTracks([_timeTrack(1, 2026, 8, 1)]);
+        await tester.pump();
+        oldHover(const PointerEnterEvent());
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpAndSettle();
+        expect(h.page('time'), DateTime(2026, 10));
+        h.expectNoInspection();
+        h.expectFocus('time');
+        expect(h.chart('time').buckets.every((b) => b.value == 0), isTrue);
+        expect(
+          tester
+              .widget<Text>(
+                h.control('time', 'dashboard-card-summary-total-value'),
+              )
+              .data,
+          'Total: 0d 0h 0m',
+        );
+        expect(
+          tester
+              .widget<Text>(
+                h.control('time', 'dashboard-card-summary-average-value'),
+              )
+              .data,
+          'Weekly Avg: 0d 0h 0m',
+        );
+        expect(h.button('time', 'next').onPressed, isNull);
+        await h.key(LogicalKeyboardKey.keyL);
+        h.expectInspection('Thu 1 Oct', total: '0d 0h 0m', moving: '0d 0h 0m');
+        // Refresh before history clamps the page; it must not retain that index.
+        await tester.sendKeyEvent(LogicalKeyboardKey.home);
+        h.setTracks([_timeTrack(3, 2026, 9, 2, total: 0, moving: 0)]);
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 2));
+        expect(h.page('time'), DateTime(2026, 9));
+        h.expectNoInspection();
+        await h.key(LogicalKeyboardKey.keyL);
+        h.expectInspection('Wed 2 Sep', total: '0d 0h 0m', moving: '0d 0h 0m');
+        final owner = h.owner('time');
+        final staleStep = owner.actions[LogicalKeyboardKey.keyH]!;
+        final staleClear = owner.actions[LogicalKeyboardKey.escape]!;
+        await tester.sendEventToBinding(
+          PointerScrollEvent(
+            position: tester.getCenter(h.control('time', 'time-page-browser')),
+            scrollDelta: const Offset(160, 0),
+          ),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyL);
+        await tester.pumpWidget(const SizedBox.shrink());
+        staleStep();
+        staleClear();
+        oldHover(const PointerEnterEvent());
+        await tester.pump(const Duration(seconds: 2));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'Time directional boundaries share every preset toolbar sequence',
+    (tester) async {
+      final h = await _Harness.pump(
+        tester,
+        tracks: [_timeTrack(1, 1989, 2, 1), _timeTrack(2, 2026, 10, 15)],
+      );
+      await h.focus('time');
+      for (final period in SummaryPeriodPreset.values) {
+        await h.period('time', period);
+        await h.key(LogicalKeyboardKey.keyB);
+        final previousPage = h.page('time');
+        final previousLength = h.chart('time').buckets.length;
+        await h.key(LogicalKeyboardKey.keyW);
+        final current = h.page('time');
+        await tester.tap(h.control('time', 'time-bucket-0'));
+        await tester.pump();
+        h.node('time').requestFocus();
+        await tester.pump();
+        await h.key(LogicalKeyboardKey.keyH);
+        expect(h.page('time'), previousPage, reason: period.name);
+        expect(h.chart('time').inspection?.index, previousLength - 1);
+        await h.key(LogicalKeyboardKey.keyL);
+        expect(h.page('time'), current);
+        expect(h.chart('time').inspection?.index, 0);
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Time rollover, historical remapping and inactive contexts clear stale inspection',
+    (tester) async {
+      var now = DateTime(2026, 10, 15);
+      final h = await _Harness.pump(
+        tester,
+        clock: () => now,
+        tracks: [
+          _timeTrack(1, 2026, 2, 1),
+          _timeTrack(2, 2026, 10, 15),
+          _timeTrack(3, 2026, 11, 1, total: 0, moving: 0),
+        ],
+      );
+      await h.focus('time');
+      h.expectInspection('Oct');
+      now = DateTime(2026, 11, 1);
+      await h.key(LogicalKeyboardKey.keyH);
+      expect(h.page('time'), DateTime(2025, 12));
+      h.expectNoInspection();
+      await h.key(LogicalKeyboardKey.keyL);
+      h.expectInspection('Nov', total: '0d 0h 0m', moving: '0d 0h 0m');
+      await h.period('time', SummaryPeriodPreset.last3Months);
+      await h.key(LogicalKeyboardKey.keyB);
+      expect(h.page('time'), DateTime(2026, 6));
+      now = DateTime(2026, 12, 1);
+      await h.key(LogicalKeyboardKey.keyL);
+      expect(h.page('time'), DateTime(2026, 7));
+      h.expectNoInspection();
+      await h.key(LogicalKeyboardKey.keyL);
+      expect(h.chart('time').inspection?.index, 0);
+      // Modified shortcuts, text entry, other cards, shell and inactive Dashboard
+      // must not step/clear Time's inspected value or move its page.
+      final page = h.page('time');
+      final index = h.chart('time').inspection?.index;
+      for (final modifier in [
+        LogicalKeyboardKey.metaLeft,
+        LogicalKeyboardKey.controlLeft,
+        LogicalKeyboardKey.altLeft,
+      ]) {
+        await tester.sendKeyDownEvent(modifier);
+        for (final key in [
+          LogicalKeyboardKey.keyH,
+          LogicalKeyboardKey.keyL,
+          LogicalKeyboardKey.arrowLeft,
+          LogicalKeyboardKey.escape,
+          LogicalKeyboardKey.keyC,
+        ]) {
+          await h.key(key);
+        }
+        await tester.sendKeyUpEvent(modifier);
+      }
+      expect(h.chart('time').inspection?.index, index);
+      h.shellFocus.requestFocus();
+      await tester.pump();
+      await h.key(LogicalKeyboardKey.keyH);
+      h.editFocus.requestFocus();
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'hl');
+      await h.key(LogicalKeyboardKey.keyL);
+      expect(find.text('hl'), findsOneWidget);
+      await h.focus('distance');
+      await h.key(LogicalKeyboardKey.keyH);
+      expect(h.page('time'), page);
+      expect(h.chart('time').inspection?.index, index);
+      await h.focus('time');
+      h.active.value = false;
+      await tester.pump();
+      now = DateTime(2027, 1, 1);
+      await h.key(LogicalKeyboardKey.keyH);
+      h.active.value = true;
+      await tester.pumpAndSettle();
+      expect(h.page('time'), DateTime(2026, 8));
+      h.expectNoInspection();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final theme in [MyTheme.light, MyTheme.dark]) {
+    testWidgets(
+      'Time focus/inspection palette and accessible scaled values ${theme.brightness}',
+      (tester) async {
+        final h = await _Harness.pump(
+          tester,
+          theme: theme,
+          scale: 1.5,
+          tracks: [_timeTrack(1, 2026, 10, 15)],
+        );
+        final semantics = tester.ensureSemantics();
+        await h.focus('time');
+        final palette = theme.extension<ChartSeriesTheme>()!;
+        expect(h.border('time').color, theme.colorScheme.primary);
+        expect(h.border('time').color, isNot(palette.primarySeriesColor));
+        for (final type in TimeChartType.values) {
+          await h.container.read(timeChartTypeProvider.notifier).select(type);
+          await tester.pumpAndSettle();
+          if (h.chart('time').inspection == null) {
+            await h.key(LogicalKeyboardKey.keyL);
+          }
+          h.expectInspection('Oct');
+          final rows = tester
+              .widgetList<Text>(
+                find.descendant(
+                  of: h.control('time', 'time-tooltip'),
+                  matching: find.byType(Text),
+                ),
+              )
+              .toList();
+          expect(rows.skip(1).map((t) => t.style?.color), [
+            lighten(palette.primarySeriesColor),
+            lighten(palette.secondarySeriesColor),
+          ]);
+          expect(
+            tester
+                .getSemantics(find.byKey(const Key('time-inspection')))
+                .getSemanticsData()
+                .label,
+            'Oct\nTotal Time: 0d 5h 0m\nMoving Time: 0d 4h 0m',
+          );
+          expect(
+            MediaQuery.textScalerOf(tester.element(h.card('time'))).scale(1),
+            1.5,
+          );
+        }
+        semantics.dispose();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   for (final size in [const Size(1400, 520), const Size(1600, 520)]) {
     testWidgets('Tab reveals full lazy order and wraps both ways at $size', (
@@ -474,7 +940,14 @@ class _Harness {
     bool populated = false,
     double scale = 1,
     DateTime Function()? clock,
+    List<GpxTrack>? tracks,
+    TimeChartType? type,
   }) async {
+    if (type != null) {
+      SharedPreferences.setMockInitialValues({
+        timeChartTypeStorageKey: type.storageId,
+      });
+    }
     final container = ProviderContainer(
       overrides: [
         ...mappingCatalogTestOverrides,
@@ -484,7 +957,9 @@ class _Harness {
               center: const LatLng(-41.5, 146.5),
               zoom: 10,
               basemap: Basemap.tracestrack,
-              tracks: populated ? [_track(1, 1989, 2), _track(2, 2024, 6)] : [],
+              tracks:
+                  tracks ??
+                  (populated ? [_track(1, 1989, 2), _track(2, 2024, 6)] : []),
             ),
           ),
         ),
@@ -553,6 +1028,33 @@ class _Harness {
   }
 
   Finder card(String id) => find.byKey(Key('dashboard-card-$id'));
+  void setTracks(List<GpxTrack> tracks, {bool loading = false}) {
+    final notifier = container.read(mapProvider.notifier) as TestMapNotifier;
+    notifier.state = container
+        .read(mapProvider)
+        .copyWith(tracks: tracks, isLoadingTracks: loading);
+  }
+
+  List<String?> inspectionRows() => tester
+      .widgetList<Text>(
+        find.descendant(
+          of: control('time', 'time-tooltip'),
+          matching: find.byType(Text),
+        ),
+      )
+      .map((t) => t.data)
+      .toList();
+  void expectInspection(
+    String title, {
+    String total = '0d 5h 0m',
+    String moving = '0d 4h 0m',
+  }) => expect(inspectionRows(), [
+    title,
+    'Total Time: $total',
+    'Moving Time: $moving',
+  ]);
+  void expectNoInspection() =>
+      expect(control('time', 'time-tooltip'), findsNothing);
   Finder control(String id, String key) =>
       find.descendant(of: card(id), matching: find.byKey(Key(key)));
   FocusNode node(String id) => tester
@@ -646,3 +1148,20 @@ GpxTrack _track(int id, int year, int month) {
   );
   return track;
 }
+
+GpxTrack _timeTrack(
+  int id,
+  int year,
+  int month,
+  int day, {
+  int total = 18000000,
+  int moving = 14400000,
+}) => GpxTrack(
+  gpxTrackId: id,
+  contentHash: 'time-keyboard-$id',
+  trackName: 'Track $id',
+  trackDate: DateTime.utc(year, month, day),
+  trackDateStatus: TrackDateStatus.resolved,
+  totalTimeMillis: total,
+  movingTime: moving,
+);
