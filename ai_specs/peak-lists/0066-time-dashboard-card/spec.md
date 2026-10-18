@@ -142,6 +142,7 @@ Add a **Time** card to the existing Dashboard. Derive two series from eligible c
 - **Implementation gate (2026-10-18, L19):** the user selected `Leave layout gated` after Work Item 01's long-summary/enlarged-text regression exposed insufficient remaining plot height. Keep header-height/reachability acceptance incomplete pending the actual supported window/Time layout contract. The existing regression viewport is evidence only. Independent Time work and verification can proceed; see [Work Item 01 progress](work-items/01-time-card-calendar-and-summaries.md#implementation-progress--2026-10-18).
 - **Independent Work Item 02 authorisation (2026-10-18, L20):** the user authorised chart/menu work against Work Item 01's implemented foundation while retaining L19's layout gate and incomplete dependent verification. Work Item 01 remains incomplete.
 - **Independent Work Item 03 authorisation (2026-10-18, L21):** the user authorised preference/recovery, Dashboard feedback/readiness and independent verification against Work Item 02's verified chart/menu foundation. Retain L19's layout gate and incomplete dependent checks; Work Items 01–02 remain incomplete.
+- **Independent Work Item 04 authorisation (2026-10-19, L22):** the user authorised traversal and timeline/menu keyboard behavior against Work Item 02's verified foundation. Retain L19's layout gate and incomplete dependent checks; Work Items 01–02 remain incomplete.
 
 ## Follow-Ups
 

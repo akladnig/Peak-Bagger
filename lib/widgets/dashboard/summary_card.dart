@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/constants.dart';
 import '../../core/date_formatters.dart';
@@ -11,6 +12,8 @@ import '../../services/summary_card_service.dart';
 import '../../theme.dart';
 import 'summary_chart.dart';
 import 'summary_page_browser.dart';
+import 'dashboard_card_keyboard.dart';
+import 'dashboard_dropdown.dart';
 
 class SummaryVisibleSummary {
   const SummaryVisibleSummary({
@@ -126,6 +129,75 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
   bool _hasReportedSummary = false;
   int _revision = 0;
   late List<GpxTrack> _tracks;
+  DashboardCardKeyboardController? _keyboard;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final keyboard = DashboardCardKeyboard.maybeOf(context);
+    if (_keyboard != keyboard) {
+      _unregisterKeyboard();
+      _keyboard = keyboard;
+      for (final key in _pageKeys) {
+        _keyboard?.actions[key] = _keyActions[key]!;
+      }
+      if (widget.chartTypeControlBuilder == null) {
+        _keyboard?.actions[LogicalKeyboardKey.keyC] = _toggleMode;
+      }
+    }
+  }
+
+  static const _pageKeys = [
+    LogicalKeyboardKey.keyW,
+    LogicalKeyboardKey.keyB,
+    LogicalKeyboardKey.home,
+    LogicalKeyboardKey.end,
+  ];
+  late final _keyActions = <LogicalKeyboardKey, VoidCallback>{
+    LogicalKeyboardKey.keyW: () =>
+        _keyboardNavigate(SummaryPageAction.adjacent),
+    LogicalKeyboardKey.keyB: () =>
+        _keyboardNavigate(SummaryPageAction.adjacent, pages: -1),
+    LogicalKeyboardKey.home: () => _keyboardNavigate(SummaryPageAction.first),
+    LogicalKeyboardKey.end: () => _keyboardNavigate(SummaryPageAction.last),
+  };
+
+  void _unregisterKeyboard() {
+    for (final key in _pageKeys) {
+      if (_keyboard?.actions[key] == _keyActions[key]) {
+        _keyboard?.actions.remove(key);
+      }
+    }
+    if (_keyboard?.actions[LogicalKeyboardKey.keyC] == _toggleMode) {
+      _keyboard?.actions.remove(LogicalKeyboardKey.keyC);
+    }
+  }
+
+  void _keyboardNavigate(SummaryPageAction action, {int pages = 1}) {
+    if (widget.isLoading) return;
+    final navigation = ref
+        .read(summaryPageControllerProvider(_cardIdentity))
+        .navigation(
+          tracks: _tracks,
+          metric: widget.adapter.metric,
+          now: _referenceDate,
+        );
+    if (navigation == null) return;
+    final enabled = switch (action) {
+      SummaryPageAction.first => navigation.canFirst,
+      SummaryPageAction.last => navigation.canLast,
+      SummaryPageAction.adjacent =>
+        pages < 0 ? navigation.canPrevious : navigation.canNext,
+      SummaryPageAction.reconcile => true,
+    };
+    if (!enabled) {
+      // A disabled toolbar action is a no-op. Only a changed reference day
+      // requires reconciliation; do not clear valid inspection at a bound.
+      _reconcileForChartMenu();
+      return;
+    }
+    _navigate(action, pages: pages);
+  }
 
   void _filterTracks() {
     final isEligible = widget.adapter.isEligible;
@@ -190,6 +262,7 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
 
   @override
   void dispose() {
+    _unregisterKeyboard();
     _scrollController.dispose();
     super.dispose();
   }
@@ -211,6 +284,17 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
   }
 
   void _toggleMode() {
+    if (widget.isLoading) return;
+    if (ref
+            .read(summaryPageControllerProvider(_cardIdentity))
+            .navigation(
+              tracks: _tracks,
+              metric: widget.adapter.metric,
+              now: _referenceDate,
+            ) ==
+        null) {
+      return;
+    }
     _navigate(SummaryPageAction.reconcile);
     setState(() {
       _mode = switch (_mode) {
@@ -345,7 +429,7 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
             ),
             visibleRangeText: formatSummaryDateRange(page.start, page.lastDay),
             onPeriodChanged: _selectPeriod,
-            onOpenPeriod: () => _navigate(SummaryPageAction.reconcile),
+            onOpenPeriod: _reconcileForChartMenu,
             onToggleMode: _toggleMode,
             onFirst: () => _navigate(SummaryPageAction.first),
             onPrevious: () => _navigate(SummaryPageAction.adjacent, pages: -1),
@@ -486,47 +570,29 @@ class _SummaryHeader extends StatelessWidget {
                   border: Border.all(color: theme.colorScheme.outline),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: MenuAnchor(
-                  style: const MenuStyle(
-                    alignment: AlignmentDirectional.bottomStart,
-                    padding: WidgetStatePropertyAll(EdgeInsets.zero),
-                    shape: WidgetStatePropertyAll(
-                      RoundedRectangleBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                      ),
-                    ),
-                  ),
-                  menuChildren: [
+                child: DashboardDropdown<SummaryPeriodPreset>(
+                  selected: period,
+                  shortcut: LogicalKeyboardKey.keyP,
+                  minimumWidth: _periodDropdownWidth,
+                  onOpen: onOpenPeriod,
+                  onSelected: (value) {
+                    if (value != period) onPeriodChanged(value);
+                  },
+                  choices: [
                     for (final value in SummaryPeriodPreset.values)
-                      MenuItemButton(
-                        onPressed: () => onPeriodChanged(value),
-                        style: const ButtonStyle(
-                          minimumSize: WidgetStatePropertyAll(
-                            Size(_periodDropdownWidth, 36),
-                          ),
-                          padding: WidgetStatePropertyAll(
-                            EdgeInsets.symmetric(horizontal: 12),
-                          ),
-                          mouseCursor: WidgetStatePropertyAll(
-                            SystemMouseCursors.click,
-                          ),
-                        ),
-                        child: Text(value.label),
+                      DashboardDropdownChoice(
+                        key: Key('$keyPrefix-period-${value.name}'),
+                        value: value,
+                        label: value.label,
                       ),
                   ],
-                  builder: (context, controller, child) {
+                  buttonBuilder: (focusNode, toggle) {
                     return InkWell(
                       key: const Key('summary-period-dropdown'),
+                      focusNode: focusNode,
                       mouseCursor: SystemMouseCursors.click,
                       borderRadius: BorderRadius.circular(6),
-                      onTap: () {
-                        if (controller.isOpen) {
-                          controller.close();
-                        } else {
-                          onOpenPeriod();
-                          controller.open();
-                        }
-                      },
+                      onTap: toggle,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,

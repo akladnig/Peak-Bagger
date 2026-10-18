@@ -331,3 +331,15 @@ Answer: `Authorize independent 03`.
 Decision: Proceed with app-owned preference persistence/recovery, Dashboard feedback and readiness integration, and independent verification. Carry forward L19's layout gate and incomplete dependent checks; do not resolve Pending dimensions or declare Work Items 01–02 complete.
 
 Source: Work Item 03 implementation authorisation, 2026-10-18.
+
+### L22
+
+Status: current
+
+Question: May independent Work Item 04 traversal and timeline/menu keyboard work proceed using Work Item 02's verified foundation while its inherited layout checks remain incomplete?
+
+Answer: `Authorize independent 04`.
+
+Decision: Proceed with full-order traversal, scoped timeline/dropdown actions, focus coordination and independent verification. Retain L19's wrapping-header height/reachability gate and incomplete dependent checks. Do not resolve Pending dimensions or declare Work Items 01–02 complete.
+
+Source: Work Item 04 implementation authorisation, 2026-10-19.

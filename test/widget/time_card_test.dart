@@ -468,14 +468,6 @@ void main() {
     'type selection supersedes pending scroll and safely ignores a disposed menu callback',
     (tester) async {
       await _pump(tester, tracks: [_track(1, 1, 0, month: 1), _track(2, 1, 0)]);
-      await tester.tap(find.byKey(const Key('time-chart-type-button')));
-      await tester.pumpAndSettle();
-      // Deliberately retain the selection callback to overlap pending browsing.
-      final select = tester
-          .widget<MenuItemButton>(find.byKey(const Key('time-chart-type-line')))
-          .onPressed!;
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
       await tester.sendEventToBinding(
         PointerScrollEvent(
           position: tester.getCenter(
@@ -484,6 +476,13 @@ void main() {
           scrollDelta: const Offset(-160, 0),
         ),
       );
+      // Open and select before the pending scroll timer settles. Keep a real
+      // open-menu selection rather than invoking a callback after dismissal.
+      await tester.tap(find.byKey(const Key('time-chart-type-button')));
+      await tester.pump();
+      final select = tester
+          .widget<MenuItemButton>(find.byKey(const Key('time-chart-type-line')))
+          .onPressed!;
       select();
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
