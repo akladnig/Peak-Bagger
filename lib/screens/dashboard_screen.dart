@@ -28,6 +28,7 @@ import '../widgets/dashboard/peaks_bagged_card.dart';
 import '../widgets/dashboard/year_to_date_card.dart';
 import '../widgets/dashboard/summary_card.dart';
 import '../widgets/dashboard/dashboard_card_keyboard.dart';
+import '../widgets/shell_destination_keyboard.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key, this.now});
@@ -93,7 +94,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     _revealAndFocus(order[next]);
   }
 
-  void _revealAndFocus(String id) {
+  void _revealAndFocus(
+    String id, [
+    DashboardCardFocusReason reason = DashboardCardFocusReason.entry,
+  ]) {
     _focusTarget = id;
     final revision = ++_focusRevision;
     // Keep ownership while the lazy grid constructs an unmounted target.
@@ -128,7 +132,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         return;
       }
       _focusTarget = null;
-      keyboard!.focus();
+      keyboard!.focus(reason);
     }
 
     WidgetsBinding.instance.addPostFrameCallback(reveal);
@@ -152,6 +156,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     }
     if (focused == null || HardwareKeyboard.instance.isShiftPressed) {
       return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.f6) {
+      final id = _cardKeyboards.entries
+          .firstWhere((e) => identical(e.value, focused))
+          .key;
+      final shell = ShellDestinationKeyboard.maybeOf(context);
+      if (shell == null) return KeyEventResult.ignored;
+      shell.enter((forward) {
+        if (!_active) return;
+        if (forward == null) {
+          _revealAndFocus(id, DashboardCardFocusReason.menuReturn);
+        } else {
+          _traverse(forward, from: id);
+        }
+      });
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.keyR) {
+      // Feedback owns actual presentation and the identical pointer/R action.
+      TimeChartPreferenceFeedback.retryVisible(focused.focusNode.context!);
+      return KeyEventResult.handled;
     }
     final action = focused.actions[event.logicalKey];
     if (action == null) return KeyEventResult.ignored;

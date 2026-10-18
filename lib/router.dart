@@ -16,6 +16,7 @@ import 'package:peak_bagger/widgets/background_jobs_panel.dart';
 import 'package:peak_bagger/widgets/peak_list_control_visual_style.dart';
 import 'package:peak_bagger/widgets/peak_list_selection_summary.dart';
 import 'package:peak_bagger/widgets/side_menu.dart';
+import 'package:peak_bagger/widgets/shell_destination_keyboard.dart';
 
 import 'core/constants.dart';
 import 'core/app_sizes.dart';
@@ -354,35 +355,44 @@ GoRouter createRouter() {
                     )
                   : ref.watch(peakListSelectionSummaryProvider);
 
-              return Scaffold(
-                appBar: AppBar(
-                  key: const Key('shared-app-bar'),
-                  automaticallyImplyLeading: false,
-                  centerTitle: false,
-                  titleSpacing: 0,
-                  title: _SharedAppBarTitle(
-                    currentDestination: currentDestination,
-                    showSearch: currentDestination.branchIndex == 1,
-                    summary: peakListSummary,
-                  ),
-                  actions: [
-                    if (backgroundJobsState.hasJobs)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: TextButton.icon(
-                          key: const Key('background-jobs-entry'),
-                          onPressed: () {
-                            ref
-                                .read(backgroundJobsProvider.notifier)
-                                .togglePanel();
-                          },
-                          icon: const Icon(Icons.work_history_outlined),
-                          label: const Text('Background Jobs'),
+              return ShellDestinationKeyboard(
+                labels: [
+                  for (final destination in shellDestinations)
+                    destination.label,
+                ],
+                selectedIndex: navigationShell.currentIndex,
+                onActivate: (index) =>
+                    goToDestination(shellDestinations[index]),
+                child: Scaffold(
+                  appBar: AppBar(
+                    key: const Key('shared-app-bar'),
+                    automaticallyImplyLeading: false,
+                    centerTitle: false,
+                    titleSpacing: 0,
+                    title: _SharedAppBarTitle(
+                      currentDestination: currentDestination,
+                      showSearch: currentDestination.branchIndex == 1,
+                      summary: peakListSummary,
+                    ),
+                    actions: [
+                      if (backgroundJobsState.hasJobs)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: TextButton.icon(
+                            key: const Key('background-jobs-entry'),
+                            onPressed: () {
+                              ref
+                                  .read(backgroundJobsProvider.notifier)
+                                  .togglePanel();
+                            },
+                            icon: const Icon(Icons.work_history_outlined),
+                            label: const Text('Background Jobs'),
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
+                  body: buildShellBody(),
                 ),
-                body: buildShellBody(),
               );
             },
           );

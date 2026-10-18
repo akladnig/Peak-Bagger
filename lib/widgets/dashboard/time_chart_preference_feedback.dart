@@ -10,6 +10,9 @@ class TimeChartPreferenceFeedback extends ConsumerStatefulWidget {
   const TimeChartPreferenceFeedback({required this.child, super.key});
   final Widget child;
 
+  static void retryVisible(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<_TimePreferenceRetry>()?.retry();
+
   @override
   ConsumerState<TimeChartPreferenceFeedback> createState() =>
       _TimeChartPreferenceFeedbackState();
@@ -90,10 +93,7 @@ class _TimeChartPreferenceFeedbackState
                 style: TextButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.inversePrimary,
                 ),
-                onPressed: () {
-                  unawaited(controller.retryWarning(id));
-                  _snackBar?.close();
-                },
+                onPressed: _retryVisible,
                 child: const Text('Retry'),
               ),
             ],
@@ -124,6 +124,13 @@ class _TimeChartPreferenceFeedbackState
     ref.read(timeChartTypeProvider.notifier).dismissWarning(id);
   }
 
+  void _retryVisible() {
+    final id = ref.read(timeChartTypeProvider).visibleWarningId;
+    if (!_active || id == null || id != _shownId) return;
+    unawaited(_controller.retryVisibleWarning());
+    _snackBar?.close();
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -140,5 +147,13 @@ class _TimeChartPreferenceFeedbackState
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) =>
+      _TimePreferenceRetry(retry: _retryVisible, child: widget.child);
+}
+
+class _TimePreferenceRetry extends InheritedWidget {
+  const _TimePreferenceRetry({required this.retry, required super.child});
+  final VoidCallback retry;
+  @override
+  bool updateShouldNotify(_TimePreferenceRetry oldWidget) => false;
 }

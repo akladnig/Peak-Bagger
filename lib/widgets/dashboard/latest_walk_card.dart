@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -15,6 +16,8 @@ import '../../services/latest_walk_summary.dart';
 import '../../services/tile_cache_service.dart';
 import '../../theme.dart';
 import '../peak_marker_glyph.dart';
+import '../../providers/dashboard_browsing_provider.dart';
+import 'dashboard_card_keyboard.dart';
 
 final latestWalkTileProviderFactoryProvider = Provider<TileProvider Function()>(
   (ref) {
@@ -25,7 +28,7 @@ final latestWalkTileProviderFactoryProvider = Provider<TileProvider Function()>(
   },
 );
 
-class LatestWalkCard extends StatefulWidget {
+class LatestWalkCard extends ConsumerStatefulWidget {
   const LatestWalkCard({
     super.key,
     required this.tracks,
@@ -38,41 +41,15 @@ class LatestWalkCard extends StatefulWidget {
   final ValueChanged<int>? onOpenTrack;
 
   @override
-  State<LatestWalkCard> createState() => _LatestWalkCardState();
+  ConsumerState<LatestWalkCard> createState() => _LatestWalkCardState();
 }
 
-class _LatestWalkCardState extends State<LatestWalkCard> {
-  int? _selectedTrackId;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedTrackId = LatestWalkSummary.selectLatestTrack(
-      widget.tracks,
-    )?.gpxTrackId;
-  }
-
-  @override
-  void didUpdateWidget(covariant LatestWalkCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (_selectedTrackId == null) {
-      _selectedTrackId = LatestWalkSummary.selectLatestTrack(
-        widget.tracks,
-      )?.gpxTrackId;
-      return;
-    }
-
-    final orderedTracks = LatestWalkSummary.orderedTracks(widget.tracks);
-    if (LatestWalkSummary.indexOfTrackId(orderedTracks, _selectedTrackId!) ==
-        -1) {
-      _selectedTrackId = LatestWalkSummary.selectLatestTrack(
-        widget.tracks,
-      )?.gpxTrackId;
-    }
-  }
+class _LatestWalkCardState extends ConsumerState<LatestWalkCard> {
+  final _identity = Object();
 
   @override
   Widget build(BuildContext context) {
+    final selectedId = ref.watch(dashboardTrackSelectionProvider(_identity));
     final orderedTracks = LatestWalkSummary.orderedTracks(widget.tracks);
     if (orderedTracks.isEmpty) {
       return const KeyedSubtree(
@@ -81,48 +58,69 @@ class _LatestWalkCardState extends State<LatestWalkCard> {
       );
     }
 
-    final selectedIndex = _resolveSelectedIndex(orderedTracks);
+    final index = selectedId == null
+        ? -1
+        : LatestWalkSummary.indexOfTrackId(orderedTracks, selectedId);
+    final selectedIndex = index < 0 ? 0 : index;
     final selectedTrack = orderedTracks[selectedIndex];
     final summary = LatestWalkSummary.fromTrack(selectedTrack);
-    return KeyedSubtree(
-      key: const Key('latest-walk-card'),
-      child: summary.isEmpty
-          ? const _LatestWalkEmptyState()
-          : _LatestWalkContent(
-              summary: summary,
-              selectedIndex: selectedIndex,
-              trackCount: orderedTracks.length,
-              showPeakInfo: widget.showPeakInfo,
-              onOpenTrack: widget.onOpenTrack,
-              onPrevious: () =>
-                  _selectTrack(orderedTracks[selectedIndex + 1].gpxTrackId),
-              onNext: () =>
-                  _selectTrack(orderedTracks[selectedIndex - 1].gpxTrackId),
-            ),
+    return DashboardCardActions(
+      actions: {
+        LogicalKeyboardKey.keyB: () => _browse(false),
+        LogicalKeyboardKey.keyW: () => _browse(true),
+        LogicalKeyboardKey.enter: _openSelected,
+      },
+      child: KeyedSubtree(
+        key: const Key('latest-walk-card'),
+        child: summary.isEmpty
+            ? const _LatestWalkEmptyState()
+            : _LatestWalkContent(
+                summary: summary,
+                selectedIndex: selectedIndex,
+                trackCount: orderedTracks.length,
+                showPeakInfo: widget.showPeakInfo,
+                onOpenTrack: widget.onOpenTrack,
+                onPrevious: () => _browse(false),
+                onNext: () => _browse(true),
+              ),
+      ),
     );
   }
 
-  int _resolveSelectedIndex(List<GpxTrack> orderedTracks) {
-    final selectedTrackId = _selectedTrackId;
-    if (selectedTrackId != null) {
-      final selectedIndex = LatestWalkSummary.indexOfTrackId(
-        orderedTracks,
-        selectedTrackId,
-      );
-      if (selectedIndex != -1) {
-        return selectedIndex;
-      }
-    }
+  int _currentIndex(List<GpxTrack> tracks) {
+    final id = ref.read(dashboardTrackSelectionProvider(_identity));
+    return id == null
+        ? 0
+        : LatestWalkSummary.indexOfTrackId(
+            tracks,
+            id,
+          ).clamp(0, tracks.length - 1);
+  }
 
-    _selectedTrackId = orderedTracks.first.gpxTrackId;
-    return 0;
+  void _browse(bool forward) {
+    final tracks = LatestWalkSummary.orderedTracks(widget.tracks);
+    if (tracks.isEmpty) return;
+    final index = _currentIndex(tracks);
+    if (LatestWalkSummary.fromTrack(tracks[index]).isEmpty) return;
+    final next = index + (forward ? -1 : 1);
+    if (next >= 0 && next < tracks.length) {
+      _selectTrack(tracks[next].gpxTrackId);
+    }
+  }
+
+  void _openSelected() {
+    final tracks = LatestWalkSummary.orderedTracks(widget.tracks);
+    if (tracks.isEmpty) return;
+    final track = tracks[_currentIndex(tracks)];
+    if (!LatestWalkSummary.fromTrack(track).isEmpty) {
+      widget.onOpenTrack?.call(track.gpxTrackId);
+    }
   }
 
   void _selectTrack(int trackId) {
-    if (_selectedTrackId == trackId) {
-      return;
-    }
-    setState(() => _selectedTrackId = trackId);
+    ref
+        .read(dashboardTrackSelectionProvider(_identity).notifier)
+        .select(trackId);
   }
 }
 

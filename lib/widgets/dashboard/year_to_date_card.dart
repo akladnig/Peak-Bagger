@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/number_formatters.dart';
 import '../../models/gpx_track.dart';
 import '../../models/peaks_bagged.dart';
 import '../../services/year_to_date_summary_service.dart';
+import '../../providers/dashboard_browsing_provider.dart';
+import 'dashboard_card_keyboard.dart';
 
-class YearToDateCard extends StatefulWidget {
+class YearToDateCard extends ConsumerStatefulWidget {
   const YearToDateCard({
     super.key,
     required this.tracks,
@@ -20,63 +24,73 @@ class YearToDateCard extends StatefulWidget {
   final DateTime? now;
 
   @override
-  State<YearToDateCard> createState() => _YearToDateCardState();
+  ConsumerState<YearToDateCard> createState() => _YearToDateCardState();
 }
 
-class _YearToDateCardState extends State<YearToDateCard> {
+class _YearToDateCardState extends ConsumerState<YearToDateCard> {
   static const _service = YearToDateSummaryService();
 
-  late int _selectedYear;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedYear = _service.initialYear(now: widget.now);
-  }
+  final _identity = Object();
+  late final _initialYear = _service.initialYear(now: widget.now);
+  int get _selectedYear =>
+      ref.read(dashboardYearSelectionProvider(_identity)) ?? _initialYear;
 
   void _previousYear() {
-    setState(() {
-      _selectedYear = _service.shiftYear(year: _selectedYear, forward: false);
-    });
+    if (widget.isLoading) return;
+    ref
+        .read(dashboardYearSelectionProvider(_identity).notifier)
+        .select(_service.shiftYear(year: _selectedYear, forward: false));
   }
 
   void _nextYear() {
-    setState(() {
-      _selectedYear = _service.shiftYear(year: _selectedYear, forward: true);
-    });
+    if (widget.isLoading ||
+        _selectedYear >= _service.initialYear(now: widget.now)) {
+      return;
+    }
+    ref
+        .read(dashboardYearSelectionProvider(_identity).notifier)
+        .select(_service.shiftYear(year: _selectedYear, forward: true));
   }
 
   @override
   Widget build(BuildContext context) {
     final currentYear = _service.initialYear(now: widget.now);
-    return KeyedSubtree(
-      key: const Key('year-to-date-card'),
-      child: widget.isLoading
-          ? const _YearToDateLoadingState()
-          : Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _YearToDateHeader(
-                    year: _selectedYear,
-                    onPrevious: _previousYear,
-                    onNext: _nextYear,
-                    canMoveNext: _selectedYear < currentYear,
-                  ),
-                  const SizedBox(height: 12),
-                  Expanded(
-                    child: _YearToDateMetrics(
-                      summary: _service.buildSummary(
-                        tracks: widget.tracks,
-                        peaksBagged: widget.peaksBagged,
-                        year: _selectedYear,
+    final selectedYear =
+        ref.watch(dashboardYearSelectionProvider(_identity)) ?? _initialYear;
+    return DashboardCardActions(
+      actions: {
+        LogicalKeyboardKey.keyB: _previousYear,
+        LogicalKeyboardKey.keyW: _nextYear,
+      },
+      child: KeyedSubtree(
+        key: const Key('year-to-date-card'),
+        child: widget.isLoading
+            ? const _YearToDateLoadingState()
+            : Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _YearToDateHeader(
+                      year: selectedYear,
+                      onPrevious: _previousYear,
+                      onNext: _nextYear,
+                      canMoveNext: selectedYear < currentYear,
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: _YearToDateMetrics(
+                        summary: _service.buildSummary(
+                          tracks: widget.tracks,
+                          peaksBagged: widget.peaksBagged,
+                          year: selectedYear,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 }
