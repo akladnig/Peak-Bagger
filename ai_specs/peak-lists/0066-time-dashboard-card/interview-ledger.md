@@ -319,3 +319,15 @@ Answer: "Authorize independent Work Item 02 work"
 Decision: Proceed with Work Item 02's chart-type state, pointer menu, renderers and independent verification using the implemented Work Item 01 foundation. Carry forward the wrapping-header height/reachability gate and its dependent verification. Do not resolve Pending dimensions, change window/card geometry, or declare Work Item 01 complete.
 
 Source: Work Item 02 implementation authorisation, 2026-10-18.
+
+### L21
+
+Status: current
+
+Question: May independent Work Item 03 preference/recovery implementation proceed using Work Item 02's verified chart/menu foundation while its inherited layout criterion remains incomplete?
+
+Answer: `Authorize independent 03`.
+
+Decision: Proceed with app-owned preference persistence/recovery, Dashboard feedback and readiness integration, and independent verification. Carry forward L19's layout gate and incomplete dependent checks; do not resolve Pending dimensions or declare Work Items 01–02 complete.
+
+Source: Work Item 03 implementation authorisation, 2026-10-18.

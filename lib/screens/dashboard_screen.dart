@@ -8,6 +8,7 @@ import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
 import '../providers/dashboard_readiness_provider.dart';
 import '../providers/summary_page_controller.dart';
+import '../providers/time_chart_type_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_marker_info_settings_provider.dart';
 import '../providers/peak_list_provider.dart';
@@ -17,6 +18,7 @@ import '../services/performance_frame.dart';
 import '../services/summary_card_service.dart';
 import '../widgets/dashboard/distance_card.dart';
 import '../widgets/dashboard/time_card.dart';
+import '../widgets/dashboard/time_chart_preference_feedback.dart';
 import '../widgets/dashboard/elevation_card.dart';
 import '../widgets/dashboard/latest_walk_card.dart';
 import '../widgets/dashboard/my_ascents_card.dart';
@@ -206,128 +208,148 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final isLoadingTracks = ref.watch(
       mapProvider.select((state) => state.isLoadingTracks),
     );
+    final isLoadingTimePreference = ref.watch(
+      timeChartTypeProvider.select((state) => state.isHydrating),
+    );
 
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = _resolveColumnCount(constraints.maxWidth);
-              return GridView.builder(
-                key: const Key('dashboard-board'),
-                findChildIndexCallback: (key) {
-                  final valueKey = key is ValueKey<String> ? key.value : null;
-                  if (valueKey == null ||
-                      !valueKey.startsWith('dashboard-card-')) {
-                    return null;
-                  }
+    return ScaffoldMessenger(
+      child: Scaffold(
+        body: TimeChartPreferenceFeedback(
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final columns = _resolveColumnCount(constraints.maxWidth);
+                  return GridView.builder(
+                    key: const Key('dashboard-board'),
+                    findChildIndexCallback: (key) {
+                      final valueKey = key is ValueKey<String>
+                          ? key.value
+                          : null;
+                      if (valueKey == null ||
+                          !valueKey.startsWith('dashboard-card-')) {
+                        return null;
+                      }
 
-                  final cardId = valueKey.substring('dashboard-card-'.length);
-                  return order.indexOf(cardId);
-                },
-                itemCount: order.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: columns,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: dashboardCardAspectRatio,
-                ),
-                itemBuilder: (context, index) {
-                  final definition = dashboardCards.firstWhere(
-                    (card) => card.id == order[index],
-                  );
-                  final body = switch (definition.id) {
-                    'distance' => DistanceCard(
-                      tracks: tracks,
-                      isLoading: isLoadingTracks,
-                      now: widget.now,
-                      onVisibleSummaryChanged: _handleDistanceSummaryChanged,
-                    ),
-                    'time' => TimeCard(
-                      tracks: tracks,
-                      isLoading: isLoadingTracks,
-                      now: widget.now,
-                      onVisibleSummaryChanged: _handleTimeSummaryChanged,
-                    ),
-                    'latest-walk' => LatestWalkCard(
-                      key: ValueKey(
-                        'latest-walk-card-${latestWalkTrackId ?? 'empty'}',
-                      ),
-                      tracks: tracks,
-                      showPeakInfo: showPeakInfo,
-                      onOpenTrack: (trackId) {
-                        ref.read(mapProvider.notifier).showTrack(trackId);
-                        router.go('/map');
-                      },
-                    ),
-                    'elevation' => ElevationCard(
-                      tracks: tracks,
-                      isLoading: isLoadingTracks,
-                      now: widget.now,
-                      onVisibleSummaryChanged: _handleElevationSummaryChanged,
-                    ),
-                    'my-ascents' => const MyAscentsCard(),
-                    'my-lists' => const MyListsCard(),
-                    'peaks-bagged' => PeaksBaggedCard(
-                      tracks: tracks,
-                      isLoading: isLoadingTracks,
-                      now: widget.now,
-                      onVisibleSummaryChanged: _handlePeaksBaggedSummaryChanged,
-                    ),
-                    'year-to-date' => YearToDateCard(
-                      tracks: tracks,
-                      peaksBagged: peaksBagged,
-                      isLoading: isLoadingTracks,
-                      now: now,
-                    ),
-                    _ => const _DashboardCardBody(),
-                  };
-                  return _DashboardCard(
-                    key: ValueKey('dashboard-card-${definition.id}'),
-                    definition: definition,
-                    headerTrailing: switch (definition.id) {
-                      'elevation' when _elevationSummary != null =>
-                        _DashboardCardHeaderMetrics(
-                          summary: _elevationSummary!,
-                          valueFormatter: ElevationCard.adapter.headerValueText,
-                          averageLabelText:
-                              ElevationCard.adapter.averageLabelText,
-                        ),
-                      'distance' when _distanceSummary != null =>
-                        _DashboardCardHeaderMetrics(
-                          summary: _distanceSummary!,
-                          valueFormatter: DistanceCard.adapter.headerValueText,
-                          averageLabelText:
-                              DistanceCard.adapter.averageLabelText,
-                        ),
-                      'time' when _timeSummary != null && !isLoadingTracks =>
-                        _DashboardCardHeaderMetrics(
-                          summary: _timeSummary!,
-                          valueFormatter: TimeCard.adapter.headerValueText,
-                          averageLabelText: TimeCard.adapter.averageLabelText,
-                          wrap: true,
-                        ),
-                      'peaks-bagged' when _peaksBaggedSummary != null =>
-                        _DashboardCardHeaderMetrics(
-                          summary: _peaksBaggedSummary!,
-                          valueFormatter: _formatCountValue,
-                          averageLabelText: defaultAverageLabelText,
-                        ),
-                      _ => null,
+                      final cardId = valueKey.substring(
+                        'dashboard-card-'.length,
+                      );
+                      return order.indexOf(cardId);
                     },
-                    body: body,
-                    onMove: (draggedId, targetId) {
-                      unawaited(
-                        ref
-                            .read(dashboardLayoutProvider.notifier)
-                            .moveCard(draggedId, targetId),
+                    itemCount: order.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: dashboardCardAspectRatio,
+                    ),
+                    itemBuilder: (context, index) {
+                      final definition = dashboardCards.firstWhere(
+                        (card) => card.id == order[index],
+                      );
+                      final body = switch (definition.id) {
+                        'distance' => DistanceCard(
+                          tracks: tracks,
+                          isLoading: isLoadingTracks,
+                          now: widget.now,
+                          onVisibleSummaryChanged:
+                              _handleDistanceSummaryChanged,
+                        ),
+                        'time' => TimeCard(
+                          tracks: tracks,
+                          isLoading: isLoadingTracks,
+                          now: widget.now,
+                          onVisibleSummaryChanged: _handleTimeSummaryChanged,
+                        ),
+                        'latest-walk' => LatestWalkCard(
+                          key: ValueKey(
+                            'latest-walk-card-${latestWalkTrackId ?? 'empty'}',
+                          ),
+                          tracks: tracks,
+                          showPeakInfo: showPeakInfo,
+                          onOpenTrack: (trackId) {
+                            ref.read(mapProvider.notifier).showTrack(trackId);
+                            router.go('/map');
+                          },
+                        ),
+                        'elevation' => ElevationCard(
+                          tracks: tracks,
+                          isLoading: isLoadingTracks,
+                          now: widget.now,
+                          onVisibleSummaryChanged:
+                              _handleElevationSummaryChanged,
+                        ),
+                        'my-ascents' => const MyAscentsCard(),
+                        'my-lists' => const MyListsCard(),
+                        'peaks-bagged' => PeaksBaggedCard(
+                          tracks: tracks,
+                          isLoading: isLoadingTracks,
+                          now: widget.now,
+                          onVisibleSummaryChanged:
+                              _handlePeaksBaggedSummaryChanged,
+                        ),
+                        'year-to-date' => YearToDateCard(
+                          tracks: tracks,
+                          peaksBagged: peaksBagged,
+                          isLoading: isLoadingTracks,
+                          now: now,
+                        ),
+                        _ => const _DashboardCardBody(),
+                      };
+                      return _DashboardCard(
+                        key: ValueKey('dashboard-card-${definition.id}'),
+                        definition: definition,
+                        headerTrailing: switch (definition.id) {
+                          'elevation' when _elevationSummary != null =>
+                            _DashboardCardHeaderMetrics(
+                              summary: _elevationSummary!,
+                              valueFormatter:
+                                  ElevationCard.adapter.headerValueText,
+                              averageLabelText:
+                                  ElevationCard.adapter.averageLabelText,
+                            ),
+                          'distance' when _distanceSummary != null =>
+                            _DashboardCardHeaderMetrics(
+                              summary: _distanceSummary!,
+                              valueFormatter:
+                                  DistanceCard.adapter.headerValueText,
+                              averageLabelText:
+                                  DistanceCard.adapter.averageLabelText,
+                            ),
+                          'time'
+                              when _timeSummary != null &&
+                                  !isLoadingTracks &&
+                                  !isLoadingTimePreference =>
+                            _DashboardCardHeaderMetrics(
+                              summary: _timeSummary!,
+                              valueFormatter: TimeCard.adapter.headerValueText,
+                              averageLabelText:
+                                  TimeCard.adapter.averageLabelText,
+                              wrap: true,
+                            ),
+                          'peaks-bagged' when _peaksBaggedSummary != null =>
+                            _DashboardCardHeaderMetrics(
+                              summary: _peaksBaggedSummary!,
+                              valueFormatter: _formatCountValue,
+                              averageLabelText: defaultAverageLabelText,
+                            ),
+                          _ => null,
+                        },
+                        body: body,
+                        onMove: (draggedId, targetId) {
+                          unawaited(
+                            ref
+                                .read(dashboardLayoutProvider.notifier)
+                                .moveCard(draggedId, targetId),
+                          );
+                        },
                       );
                     },
                   );
                 },
-              );
-            },
+              ),
+            ),
           ),
         ),
       ),

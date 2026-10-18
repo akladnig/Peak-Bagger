@@ -10,6 +10,7 @@ import 'my_lists_summary_provider.dart';
 import 'peak_list_selection_provider.dart';
 import 'peak_marker_info_settings_provider.dart';
 import 'track_date_migration_provider.dart';
+import 'time_chart_type_provider.dart';
 
 export 'local_data_load_outcome_provider.dart';
 
@@ -38,6 +39,9 @@ final dashboardReadinessProvider = Provider<Map<String, AsyncValue<Object?>>>((
         ? const AsyncData(null)
         : const AsyncLoading(),
     'dashboard-layout': ref.watch(dashboardLayoutReadProvider),
+    'time-chart-preference': ref.watch(
+      timeChartTypeProvider.select((state) => state.readOutcome),
+    ),
     'peak-info-settings': ref.watch(peakMarkerInfoReadProvider),
     'peak-info-hydration': ref.watch(peakMarkerInfoHydrationProvider),
     'tracks-migrations-settings': ref.watch(mapDashboardLoadProvider),

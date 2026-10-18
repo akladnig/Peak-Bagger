@@ -15,12 +15,14 @@ import 'package:peak_bagger/screens/map_screen.dart';
 import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:peak_bagger/widgets/tasmap_outline_layer.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('selected map label renders on one Tasmap layer', (tester) async {
     final map = _adamsons();
     final repository = await TestTasmapRepository.create(maps: [map]);

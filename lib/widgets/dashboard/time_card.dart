@@ -45,23 +45,41 @@ class TimeCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final type = ref.watch(timeChartTypeProvider);
+    final preference = ref.watch(timeChartTypeProvider);
+    final type = preference.selected;
     return KeyedSubtree(
       key: const Key('time-card'),
-      child: SummaryCard(
-        tracks: tracks,
-        isLoading: isLoading,
-        now: now,
-        onVisibleSummaryChanged: onVisibleSummaryChanged,
-        adapter: adapter,
-        displayMode: type == TimeChartType.line
-            ? SummaryDisplayMode.line
-            : SummaryDisplayMode.columns,
-        barSeriesStyle: type == TimeChartType.clusteredColumn
-            ? SummaryBarSeriesStyle.grouped
-            : SummaryBarSeriesStyle.subsetStacked,
-        chartTypeControlBuilder: (onOpen, onChanged) =>
-            TimeChartTypeMenu(onOpen: onOpen, onChanged: onChanged),
+      child: Stack(
+        children: [
+          SummaryCard(
+            tracks: tracks,
+            isLoading: isLoading || preference.isHydrating,
+            now: now,
+            onVisibleSummaryChanged: onVisibleSummaryChanged,
+            adapter: adapter,
+            displayMode: type == TimeChartType.line
+                ? SummaryDisplayMode.line
+                : SummaryDisplayMode.columns,
+            barSeriesStyle: type == TimeChartType.clusteredColumn
+                ? SummaryBarSeriesStyle.grouped
+                : SummaryBarSeriesStyle.subsetStacked,
+            chartTypeControlBuilder: (onOpen, onChanged) =>
+                TimeChartTypeMenu(onOpen: onOpen, onChanged: onChanged),
+          ),
+          if (preference.saveOutcome?.isLoading == true ||
+              (!preference.isHydrating && preference.readOutcome.isLoading))
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: LinearProgressIndicator(
+                key: const Key('time-preference-pending'),
+                semanticsLabel: preference.saveOutcome?.isLoading == true
+                    ? 'Saving Time chart preference'
+                    : 'Loading Time chart preference',
+              ),
+            ),
+        ],
       ),
     );
   }

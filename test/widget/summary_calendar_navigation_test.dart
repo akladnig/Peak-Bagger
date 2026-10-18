@@ -14,10 +14,12 @@ import 'package:peak_bagger/widgets/dashboard/peaks_bagged_card.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_card.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_chart.dart';
 import 'package:peak_bagger/widgets/dashboard/time_card.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/summary_chart_controls.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final kind in ['elevation', 'distance', 'peaks-bagged', 'time']) {
     for (final view in summaryTestViews(kind)) {
       testWidgets(

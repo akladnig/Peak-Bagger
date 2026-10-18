@@ -12,8 +12,10 @@ import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_card.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_chart.dart';
 import 'package:peak_bagger/widgets/dashboard/time_card.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   for (final theme in [
     MyTheme.light,
     MyTheme.dark,

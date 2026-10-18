@@ -42,7 +42,7 @@ class _TimeChartTypeMenuState extends ConsumerState<TimeChartTypeMenu> {
 
   @override
   Widget build(BuildContext context) {
-    final selected = ref.watch(timeChartTypeProvider);
+    final selected = ref.watch(timeChartTypeProvider.select((s) => s.selected));
     return MenuAnchor(
       childFocusNode: _buttonFocus,
       style: const MenuStyle(

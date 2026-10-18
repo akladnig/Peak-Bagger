@@ -9,6 +9,7 @@ import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/mapping_store_failure_dialog.dart';
 import 'package:peak_bagger/providers/track_date_migration_provider.dart';
 import 'package:peak_bagger/widgets/track_date_migration_status.dart';
+import 'package:peak_bagger/providers/time_chart_type_provider.dart';
 
 class App extends ConsumerWidget {
   const App({this.router, super.key});
@@ -24,6 +25,7 @@ class App extends ConsumerWidget {
     ref.watch(routeGraphBootstrapProvider);
     ref.watch(mappingStoreBootstrapProvider);
     ref.watch(trackDateMigrationBootstrapProvider);
+    ref.watch(timeChartTypeProvider.notifier);
 
     final themeConfig = ThemeConfig(
       seedColor: themeSeedColor.color,

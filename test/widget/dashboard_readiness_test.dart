@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
 import 'package:peak_bagger/providers/dashboard_readiness_provider.dart';
+import 'package:peak_bagger/providers/time_chart_type_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/my_ascents_summary_provider.dart';
@@ -65,6 +66,7 @@ void main() {
     addTearDown(container.dispose);
     await container.read(dashboardLayoutReadProvider.future);
     await container.read(peakMarkerInfoHydrationProvider.future);
+    await container.read(timeChartTypeProvider.notifier).load();
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -159,6 +161,7 @@ void main() {
     addTearDown(container.dispose);
     await container.read(dashboardLayoutProvider.notifier).load();
     await container.read(peakMarkerInfoHydrationProvider.future);
+    await container.read(timeChartTypeProvider.notifier).load();
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
