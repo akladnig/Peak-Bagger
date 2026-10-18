@@ -8,6 +8,23 @@ final NumberFormat _elevationNumberFormat = NumberFormat.decimalPattern(
 
 String formatCount(int value) => _wholeNumberFormat.format(value);
 
+/// Recorded duration, not a calendar interval. Truncate only the final display.
+String formatDurationMillis(double milliseconds) {
+  final minutes = (milliseconds / Duration.millisecondsPerMinute).truncate();
+  return '${minutes ~/ Duration.minutesPerDay}d '
+      '${(minutes ~/ Duration.minutesPerHour) % Duration.hoursPerDay}h '
+      '${minutes % Duration.minutesPerHour}m';
+}
+
+/// Compact chart days; retain distinguishable ticks even below one minute.
+String formatDurationDaysAxis(double days) {
+  if (days == 0) return '0d';
+  final magnitude = days.abs();
+  if (magnitude < 0.000001) return '${days.toStringAsPrecision(3)}d';
+  final text = days.toStringAsFixed(6).replaceFirst(RegExp(r'\.?0+$'), '');
+  return '${text}d';
+}
+
 String formatDistance(double value, {int decimalPlaces = 0}) {
   final roundedMeters = value.round();
   if (roundedMeters < 1000) {

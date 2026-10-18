@@ -8,6 +8,125 @@ void main() {
   group('SummaryCardService', () {
     const service = SummaryCardService();
 
+    test(
+      'Year to Date bounds each destination and visits complete empty years',
+      () {
+        final tracks = [
+          _track(1, DateTime.utc(2010), distance2d: 1, ascent: null),
+          _track(2, DateTime.utc(2020, 2, 29), distance2d: 120, ascent: 120),
+          _track(3, DateTime.utc(2024, 12, 31), distance2d: 120, ascent: 120),
+          _track(4, DateTime.utc(2026, 10, 16), distance2d: 999, ascent: 999),
+          _track(5, DateTime.utc(2030), distance2d: 999, ascent: 999),
+        ];
+        final metric = SummaryMetricDefinition(valueOf: _trackAscent);
+        final now = DateTime(2026, 10, 15);
+        SummaryPageNavigation navigation([DateTime? selected]) =>
+            service.pageNavigation(
+              tracks: tracks,
+              metric: metric,
+              period: SummaryPeriodPreset.yearToDate,
+              now: now,
+              selectedDay: selected,
+            )!;
+        final current = navigation();
+        expect(current.selected.start, DateTime(2026));
+        expect(current.selected.endExclusive, DateTime(2027));
+        expect(current.first.start, DateTime(2020));
+        expect(current.last.start, DateTime(2024));
+        expect(current.canNext, isFalse);
+        expect(current.canLast, isTrue);
+        expect(current.adjacent(false).start, DateTime(2025));
+        final latest = navigation(current.last.start);
+        expect(latest.canLast, isFalse);
+        expect(latest.canNext, isTrue);
+        expect(latest.adjacent(true).start, DateTime(2025));
+        final first = navigation(current.first.start);
+        expect(first.canFirst, isFalse);
+        expect(first.canPrevious, isFalse);
+        expect(first.adjacent(false).start, DateTime(2020));
+        expect(first.adjacent(true).start, DateTime(2021));
+        expect(navigation(DateTime(1900)).selected.start, DateTime(2020));
+        expect(navigation(DateTime(2100)).selected.start, DateTime(2026));
+        for (final year in [2020, 2024, 2025, 2026]) {
+          final page = navigation(DateTime(year)).selected;
+          final timeline = service.buildTimeline(
+            tracks: tracks,
+            period: SummaryPeriodPreset.yearToDate,
+            metric: metric,
+            now: now,
+            page: page,
+          );
+          expect(timeline.buckets, hasLength(12));
+          expect(timeline.buckets.map((b) => b.start), [
+            for (var month = 1; month <= 12; month++) DateTime(year, month),
+          ]);
+          expect(timeline.buckets.last.endExclusive, DateTime(year + 1));
+          expect(timeline.totalValue, year <= 2024 ? 120 : 0);
+          expect(
+            service.visibleAverageValueForPeriod(
+              period: timeline.period,
+              buckets: timeline.buckets,
+              referenceDate: now,
+            ),
+            year <= 2024 ? 10 : 0,
+          );
+          final secondary = service.buildTimeline(
+            tracks: tracks,
+            period: timeline.period,
+            metric: const SummaryMetricDefinition(valueOf: _noValue),
+            now: now,
+            page: page,
+          );
+          expect(
+            secondary.buckets.map((b) => b.start),
+            timeline.buckets.map((b) => b.start),
+          );
+          expect(secondary.totalValue, 0);
+        }
+      },
+    );
+
+    test(
+      'equal yearly totals average over 12 historical or 10 elapsed months',
+      () {
+        final tracks = [
+          _track(1, DateTime.utc(2025, 12, 31), distance2d: 120, ascent: 120),
+          _track(2, DateTime.utc(2026, 10, 15), distance2d: 120, ascent: 120),
+          _track(3, DateTime.utc(2026, 10, 16), distance2d: 999, ascent: 999),
+          _track(4, DateTime.utc(2026, 12, 31), distance2d: 999, ascent: 999),
+        ];
+        for (final year in [2025, 2026]) {
+          final timeline = service.buildTimeline(
+            tracks: tracks,
+            period: SummaryPeriodPreset.yearToDate,
+            metric: DistanceCard.metric,
+            now: DateTime(2026, 10, 15),
+            page: service.calendarPage(
+              period: SummaryPeriodPreset.yearToDate,
+              day: DateTime(year, 6),
+              referenceDate: DateTime(2026, 10, 15),
+            ),
+          );
+          expect(timeline.totalValue, 120);
+          expect(timeline.buckets, hasLength(12));
+          expect(
+            service.visibleAverageValueForPeriod(
+              period: timeline.period,
+              buckets: timeline.buckets,
+              referenceDate: DateTime(2026, 10, 15),
+            ),
+            year == 2025 ? 10 : 12,
+          );
+          if (year == 2026) {
+            expect(
+              timeline.buckets.skip(10).map((b) => b.value),
+              everyElement(0),
+            );
+          }
+        }
+      },
+    );
+
     for (final fixture in [
       (
         SummaryPeriodPreset.last3Months,
@@ -420,6 +539,7 @@ void main() {
       SummaryPeriodPreset.last3Months,
       SummaryPeriodPreset.last6Months,
       SummaryPeriodPreset.last12Months,
+      SummaryPeriodPreset.yearToDate,
       SummaryPeriodPreset.allTime,
     ]) {
       test(

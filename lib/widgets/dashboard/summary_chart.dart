@@ -9,7 +9,7 @@ import '../../services/summary_card_service.dart';
 import '../../theme.dart';
 import '../dashboard_chart_chrome.dart';
 
-enum SummaryBarSeriesStyle { stacked, grouped }
+enum SummaryBarSeriesStyle { stacked, grouped, subsetStacked }
 
 enum SummaryDisplayMode { columns, line }
 
@@ -34,6 +34,7 @@ class SummaryChart extends StatefulWidget {
     this.inspectionIdentity,
     this.scrollable = true,
     this.onInspect,
+    this.valueScale = 1,
   });
 
   final String keyPrefix;
@@ -65,6 +66,9 @@ class SummaryChart extends StatefulWidget {
   final bool scrollable;
   final bool Function()? onInspect;
 
+  /// Display-axis units per stored metric unit; inspection retains raw values.
+  final double valueScale;
+
   @override
   State<SummaryChart> createState() => _SummaryChartState();
 }
@@ -92,7 +96,12 @@ class _SummaryChartState extends State<SummaryChart> {
     }
   }
 
-  void _selectBucket(int index, {required bool pinned}) {
+  void _selectBucket(
+    int index, {
+    required bool pinned,
+    required Object? expectedIdentity,
+  }) {
+    if (!mounted || expectedIdentity != widget.inspectionIdentity) return;
     if (widget.onInspect?.call() == false) return;
     setState(() {
       _selectedBucketIndex = index;
@@ -117,6 +126,24 @@ class _SummaryChartState extends State<SummaryChart> {
         ChartSeriesTheme.fromColorScheme(theme.colorScheme);
     final buckets = widget.buckets;
     final secondaryBuckets = widget.secondaryBuckets;
+    final inspectionIdentity = widget.inspectionIdentity;
+    List<SummaryBucket> chartValues(List<SummaryBucket> values) =>
+        widget.valueScale == 1
+        ? values
+        : [
+            for (final bucket in values)
+              SummaryBucket(
+                start: bucket.start,
+                endExclusive: bucket.endExclusive,
+                label: bucket.label,
+                value: bucket.value * widget.valueScale,
+                trackCount: bucket.trackCount,
+              ),
+          ];
+    final chartBuckets = chartValues(buckets);
+    final chartSecondary = secondaryBuckets == null
+        ? null
+        : chartValues(secondaryBuckets);
     final bucketContentWidth = math.max<double>(
       (widget.bucketExtent * buckets.length).ceilToDouble() + 0.01,
       1,
@@ -133,7 +160,7 @@ class _SummaryChartState extends State<SummaryChart> {
         0;
     const yAxisLabelWidth = DashboardUI.yAxisLabelWidth;
     final chartMaxY = widget.chartMaxYFor(
-      math.max(maxValue, secondaryMaxValue),
+      math.max(maxValue, secondaryMaxValue) * widget.valueScale,
     );
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -211,8 +238,8 @@ class _SummaryChartState extends State<SummaryChart> {
                                 ),
                                 child: widget.mode == SummaryDisplayMode.columns
                                     ? _SummaryBarChart(
-                                        buckets: buckets,
-                                        secondaryBuckets: secondaryBuckets,
+                                        buckets: chartBuckets,
+                                        secondaryBuckets: chartSecondary,
                                         chartMaxY: chartMaxY,
                                         selectedBucketIndex:
                                             _selectedBucketIndex,
@@ -221,8 +248,8 @@ class _SummaryChartState extends State<SummaryChart> {
                                         yAxisLabelText: widget.yAxisLabelText,
                                       )
                                     : _SummaryLineChart(
-                                        buckets: buckets,
-                                        secondaryBuckets: secondaryBuckets,
+                                        buckets: chartBuckets,
+                                        secondaryBuckets: chartSecondary,
                                         chartMaxY: chartMaxY,
                                         selectedBucketIndex:
                                             _selectedBucketIndex,
@@ -273,8 +300,11 @@ class _SummaryChartState extends State<SummaryChart> {
                                           '${widget.keyPrefix}-bucket-$index',
                                         ),
                                         cursor: SystemMouseCursors.click,
-                                        onEnter: (_) =>
-                                            _selectBucket(index, pinned: false),
+                                        onEnter: (_) => _selectBucket(
+                                          index,
+                                          pinned: false,
+                                          expectedIdentity: inspectionIdentity,
+                                        ),
                                         onExit: (_) =>
                                             _clearHoverSelection(index),
                                         child: GestureDetector(
@@ -282,6 +312,8 @@ class _SummaryChartState extends State<SummaryChart> {
                                           onTap: () => _selectBucket(
                                             index,
                                             pinned: true,
+                                            expectedIdentity:
+                                                inspectionIdentity,
                                           ),
                                           child: AnimatedContainer(
                                             duration: const Duration(
@@ -522,6 +554,37 @@ class _SummaryBarChart extends StatelessWidget {
                           index == selectedBucketIndex
                               ? chartSeriesTheme.selectedSecondarySeriesColor
                               : chartSeriesTheme.secondarySeriesColor,
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+              SummaryBarSeriesStyle.subsetStacked => BarChartGroupData(
+                x: index,
+                barsSpace: 0,
+                barRods: [
+                  BarChartRodData(
+                    toY: buckets[index].value,
+                    width: DashboardUI.rodWidthFor(bucketExtent),
+                    borderRadius: BorderRadius.circular(DashboardUI.rodRadius),
+                    color: Colors.transparent,
+                    rodStackItems: [
+                      if ((secondaryBuckets?[index].value ?? 0) > 0)
+                        BarChartRodStackItem(
+                          0,
+                          secondaryBuckets![index].value,
+                          index == selectedBucketIndex
+                              ? chartSeriesTheme.selectedSecondarySeriesColor
+                              : chartSeriesTheme.secondarySeriesColor,
+                        ),
+                      if (buckets[index].value >
+                          (secondaryBuckets?[index].value ?? 0))
+                        BarChartRodStackItem(
+                          secondaryBuckets?[index].value ?? 0,
+                          buckets[index].value,
+                          index == selectedBucketIndex
+                              ? chartSeriesTheme.selectedPrimarySeriesColor
+                              : chartSeriesTheme.primarySeriesColor,
                         ),
                     ],
                   ),
@@ -987,7 +1050,7 @@ String defaultTooltipTitleText(
     SummaryPeriodPreset.month => formatSummaryWeekdayDayMonth(bucket.start),
     SummaryPeriodPreset.week => formatSummaryDayMonth(bucket.start),
     SummaryPeriodPreset.last3Months ||
-    SummaryPeriodPreset.last6Months => formatSummaryDateRange(
+    SummaryPeriodPreset.last6Months => formatSummaryWeeklyRange(
       bucket.start,
       DateTime(
         bucket.endExclusive.year,

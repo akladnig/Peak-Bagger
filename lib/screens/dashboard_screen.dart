@@ -16,6 +16,7 @@ import '../services/latest_walk_summary.dart';
 import '../services/performance_frame.dart';
 import '../services/summary_card_service.dart';
 import '../widgets/dashboard/distance_card.dart';
+import '../widgets/dashboard/time_card.dart';
 import '../widgets/dashboard/elevation_card.dart';
 import '../widgets/dashboard/latest_walk_card.dart';
 import '../widgets/dashboard/my_ascents_card.dart';
@@ -37,6 +38,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with WidgetsBindingObserver {
   SummaryVisibleSummary? _elevationSummary;
   SummaryVisibleSummary? _distanceSummary;
+  SummaryVisibleSummary? _timeSummary;
   SummaryVisibleSummary? _peaksBaggedSummary;
   bool _readyMarkerEmitted = false;
   bool _readyFrameScheduled = false;
@@ -178,6 +180,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     });
   }
 
+  void _handleTimeSummaryChanged(SummaryVisibleSummary? summary) {
+    if (_timeSummary == summary) return;
+    setState(() {
+      _timeSummary = summary;
+      _headerRevision++;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = widget.now ?? ref.watch(dashboardReferenceClockProvider)();
@@ -234,6 +244,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       now: widget.now,
                       onVisibleSummaryChanged: _handleDistanceSummaryChanged,
                     ),
+                    'time' => TimeCard(
+                      tracks: tracks,
+                      isLoading: isLoadingTracks,
+                      now: widget.now,
+                      onVisibleSummaryChanged: _handleTimeSummaryChanged,
+                    ),
                     'latest-walk' => LatestWalkCard(
                       key: ValueKey(
                         'latest-walk-card-${latestWalkTrackId ?? 'empty'}',
@@ -284,6 +300,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           valueFormatter: DistanceCard.adapter.headerValueText,
                           averageLabelText:
                               DistanceCard.adapter.averageLabelText,
+                        ),
+                      'time' when _timeSummary != null && !isLoadingTracks =>
+                        _DashboardCardHeaderMetrics(
+                          summary: _timeSummary!,
+                          valueFormatter: TimeCard.adapter.headerValueText,
+                          averageLabelText: TimeCard.adapter.averageLabelText,
+                          wrap: true,
                         ),
                       'peaks-bagged' when _peaksBaggedSummary != null =>
                         _DashboardCardHeaderMetrics(
@@ -604,14 +627,40 @@ class _DashboardCardHeaderMetrics extends StatelessWidget {
     required this.summary,
     required this.valueFormatter,
     required this.averageLabelText,
+    this.wrap = false,
   });
 
   final SummaryVisibleSummary summary;
   final String Function(double value) valueFormatter;
   final String Function(SummaryPeriodPreset period) averageLabelText;
+  final bool wrap;
 
   @override
   Widget build(BuildContext context) {
+    if (wrap) {
+      return Wrap(
+        key: const Key('time-header-summaries'),
+        alignment: WrapAlignment.end,
+        spacing: 16,
+        runSpacing: 4,
+        children: [
+          Text(
+            'Total: ${valueFormatter(summary.totalValue)}',
+            key: const Key('dashboard-card-summary-total-value'),
+            style: const TextStyle(
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+          Text(
+            '${averageLabelText(summary.period)} ${valueFormatter(summary.averageValue)}',
+            key: const Key('dashboard-card-summary-average-value'),
+            style: const TextStyle(
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      );
+    }
     return FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerRight,

@@ -21,12 +21,134 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/track_display_cache_builder.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
+import 'package:peak_bagger/theme.dart';
+import 'package:peak_bagger/widgets/dashboard/summary_chart.dart';
 
 import '../harness/test_map_notifier.dart';
 
 void main() {
   group('DashboardScreen', () {
-    testWidgets('renders seven dashboard cards', (tester) async {
+    for (final theme in [MyTheme.light, MyTheme.dark]) {
+      testWidgets(
+        'Time header wraps full duration summaries at enlarged scale in ${theme.brightness}',
+        (tester) async {
+          SharedPreferences.setMockInitialValues({});
+          const duration =
+              123456 * Duration.millisecondsPerDay +
+              23 * Duration.millisecondsPerHour +
+              59 * Duration.millisecondsPerMinute;
+          final notifier = TestMapNotifier(
+            MapState(
+              center: const LatLng(-41.5, 146.5),
+              zoom: 10,
+              basemap: Basemap.tracestrack,
+              tracks: [
+                GpxTrack(
+                  contentHash: 'time',
+                  trackName: 'Time fixture',
+                  trackDate: DateTime(2026, 10, 15),
+                  totalTimeMillis: duration,
+                  movingTime: duration,
+                ),
+              ],
+            ),
+          );
+          final container = ProviderContainer(
+            overrides: [
+              ...mappingCatalogTestOverrides,
+              mapProvider.overrideWith(() => notifier),
+              peakListRepositoryProvider.overrideWithValue(
+                PeakListRepository.test(InMemoryPeakListStorage()),
+              ),
+              peaksBaggedRepositoryProvider.overrideWithValue(
+                PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
+              ),
+            ],
+          );
+          addTearDown(container.dispose);
+          // Existing wide regression constraints, not approved window minima.
+          await tester.binding.setSurfaceSize(const Size(1600, 1000));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                theme: theme.copyWith(platform: TargetPlatform.macOS),
+                home: MediaQuery(
+                  data: MediaQueryData(textScaler: TextScaler.linear(1.5)),
+                  child: DashboardScreen(now: DateTime(2026, 10, 15)),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final card = find.byKey(const Key('dashboard-card-time'));
+          final header = find.byKey(
+            const Key('dashboard-card-time-drag-handle'),
+          );
+          Finder control(String key) =>
+              find.descendant(of: card, matching: find.byKey(Key(key)));
+          await tester.tap(control('summary-period-dropdown'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('All Time').last);
+          await tester.pumpAndSettle();
+          final total = find.descendant(
+            of: header,
+            matching: find.text('Total: 123456d 23h 59m'),
+          );
+          final average = find.descendant(
+            of: header,
+            matching: find.text('Annual Avg: 123456d 23h 59m'),
+          );
+          expect(total, findsOneWidget);
+          expect(average, findsOneWidget);
+          expect(
+            find.descendant(of: header, matching: find.byType(FittedBox)),
+            findsNothing,
+          );
+          expect(tester.widget<Text>(total).maxLines, isNull);
+          expect(tester.widget<Text>(average).softWrap, isNot(false));
+          expect(MediaQuery.textScalerOf(tester.element(total)).scale(1), 1.5);
+          expect(
+            tester.getRect(total).bottom,
+            lessThanOrEqualTo(tester.getRect(average).top),
+          );
+          expect(
+            tester.getRect(average).bottom,
+            lessThanOrEqualTo(tester.getRect(header).bottom),
+          );
+          final y = tester.getCenter(control('summary-first-window')).dy;
+          for (final action in ['prev', 'next', 'last']) {
+            expect(tester.getCenter(control('summary-$action-window')).dy, y);
+          }
+          final chart = find.descendant(
+            of: card,
+            matching: find.byType(SummaryChart),
+          );
+          expect(tester.getSize(chart).height, greaterThan(0));
+          notifier.setTracks([]);
+          await tester.pumpAndSettle();
+          expect(
+            find.descendant(
+              of: header,
+              matching: find.byKey(const Key('time-header-summaries')),
+            ),
+            findsNothing,
+          );
+          expect(
+            find.descendant(of: card, matching: find.text('No time data yet')),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+        // Gated by pending window/layout dimensions, confirmed by the user
+        // 2026-10-18. This fixture leaves a 32px chart and fl_chart cannot paint.
+        // Resolve the layout contract before implementing its height policy.
+        skip: true,
+      );
+    }
+
+    testWidgets('renders eight dashboard cards', (tester) async {
       SharedPreferences.setMockInitialValues({});
       await _pumpDashboard(tester, const Size(1400, 1800));
 
@@ -124,6 +246,7 @@ void main() {
 
       expect(container.read(dashboardLayoutProvider), <String>[
         'elevation',
+        'time',
         'latest-walk',
         'distance',
         'peaks-bagged',

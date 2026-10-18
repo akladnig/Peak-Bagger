@@ -42,6 +42,22 @@ String formatSummaryDateRange(DateTime start, DateTime end) {
   return '$startText - $endText';
 }
 
+/// Compact chart range using included calendar days, without zone conversion.
+String formatSummaryWeeklyRange(DateTime start, DateTime end) {
+  final startMonth = _trackDateShortMonths[start.month - 1];
+  final endMonth = _trackDateShortMonths[end.month - 1];
+  if (start.year != end.year) {
+    return '${start.day} $startMonth ${start.year} – ${end.day} $endMonth ${end.year}';
+  }
+  if (start.month != end.month) {
+    return '${start.day} $startMonth – ${end.day} $endMonth ${end.year}';
+  }
+  final days = start.day == end.day
+      ? '${start.day}'
+      : '${start.day}-${end.day}';
+  return '$days $endMonth ${end.year}';
+}
+
 String formatSummaryDayMonth(DateTime date) => _dayMonth.format(date);
 String formatSummaryWeekdayDayMonth(DateTime date) =>
     _weekdayDayMonth.format(date);

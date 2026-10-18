@@ -168,7 +168,19 @@ class DashboardRobot {
   }
 
   Future<void> tapMyListsRow(int peakListId) async {
+    await revealCard('my-lists');
     await tester.tap(myListsRow(peakListId));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> revealCard(String id) async {
+    await tester.scrollUntilVisible(
+      card(id),
+      200,
+      scrollable: find
+          .descendant(of: board, matching: find.byType(Scrollable))
+          .first,
+    );
     await tester.pumpAndSettle();
   }
 

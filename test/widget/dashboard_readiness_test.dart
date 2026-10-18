@@ -346,6 +346,8 @@ void main() {
       trackDate: DateTime(2026, 10, 1),
       startDateTime: DateTime(2026, 10, 1),
       ascent: 1234,
+      totalTimeMillis: 93600000,
+      movingTime: 86400000,
       gpxFile: '<gpx></gpx>',
       displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
         [const LatLng(-41.5, 146.5), const LatLng(-41.51, 146.51)],
@@ -374,6 +376,15 @@ void main() {
               events.add(event);
               if (event['event'] == 'dashboard.local_data_ready.frame') {
                 expect(find.text('Loaded walk'), findsOneWidget);
+                expect(
+                  find.descendant(
+                    of: find.byKey(
+                      const Key('dashboard-card-time-drag-handle'),
+                    ),
+                    matching: find.text('Total: 1d 2h 0m'),
+                  ),
+                  findsOneWidget,
+                );
                 expect(
                   find.descendant(
                     of: find.byKey(

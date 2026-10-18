@@ -23,6 +23,7 @@ const _legacyTopFiveWalksCardId = 'top-5-walks';
 const dashboardCards = <DashboardCardDefinition>[
   DashboardCardDefinition(id: 'elevation', title: 'Elevation'),
   DashboardCardDefinition(id: 'distance', title: 'Distance'),
+  DashboardCardDefinition(id: 'time', title: 'Time'),
   DashboardCardDefinition(id: 'latest-walk', title: 'Latest Walk'),
   DashboardCardDefinition(id: 'peaks-bagged', title: 'Peaks Bagged'),
   DashboardCardDefinition(id: 'year-to-date', title: 'My Year to Date'),
@@ -33,6 +34,7 @@ const dashboardCards = <DashboardCardDefinition>[
 const dashboardDefaultCardOrder = <String>[
   'elevation',
   'distance',
+  'time',
   'latest-walk',
   'peaks-bagged',
   'year-to-date',

@@ -13,16 +13,96 @@ import 'package:peak_bagger/widgets/dashboard/elevation_card.dart';
 import 'package:peak_bagger/widgets/dashboard/peaks_bagged_card.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_card.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_chart.dart';
+import 'package:peak_bagger/widgets/dashboard/time_card.dart';
+
+import '../harness/summary_chart_controls.dart';
 
 void main() {
-  for (final kind in ['elevation', 'distance', 'peaks-bagged']) {
-    for (final mode in SummaryDisplayMode.values) {
+  for (final kind in ['elevation', 'distance', 'peaks-bagged', 'time']) {
+    for (final view in summaryTestViews(kind)) {
       testWidgets(
-        '$kind ${mode.name} direct input shares every preset and bound',
+        '$kind ${view.name} yearly gaps, refresh, rollover and superseded input agree',
+        (tester) async {
+          final h = _Harness(tester, kind);
+          h.tracks = [
+            _track(1, DateTime.utc(2020, 2, 29)),
+            _track(2, DateTime.utc(2024, 12, 31)),
+          ];
+          await h.pump();
+          await h.view(view);
+          await h.period(SummaryPeriodPreset.yearToDate);
+          h.expectPage(DateTime(2026), total: 0, average: 0);
+          expect(h.chart.buckets, hasLength(12));
+          await h.tap('last');
+          h.expectPage(DateTime(2024), total: h.unit, average: h.unit / 12);
+          expect(h.button('last').onPressed, isNull);
+          expect(h.button('next').onPressed, isNotNull);
+          await h.tap('next');
+          h.expectPage(DateTime(2025), total: 0, average: 0);
+          expect(h.chart.buckets, hasLength(12));
+          expect(find.byKey(Key('$kind-empty-state')), findsNothing);
+          await h.scroll(160);
+          h.expectPage(DateTime(2026), total: 0);
+          await h.tap('first');
+          h.expectPage(DateTime(2020), total: h.unit, average: h.unit / 12);
+          await h.pin();
+          await h.scroll(160, settle: false);
+          h.tracks = [_track(3, DateTime.utc(2019)), ...h.tracks];
+          await h.pump();
+          h.expectPage(DateTime(2020), total: h.unit);
+          expect(find.byKey(Key('$kind-tooltip')), findsNothing);
+          expect(h.button('first').onPressed, isNotNull);
+          await h.tap('last');
+          h.tracks = [...h.tracks, _track(4, DateTime.utc(2025))];
+          await h.pump();
+          h.expectPage(DateTime(2024), total: h.unit);
+          expect(h.button('last').onPressed, isNotNull);
+          await h.tap('first');
+          h.tracks = h.tracks.where((t) => t.trackDate!.year >= 2024).toList();
+          await h.pump();
+          h.expectPage(DateTime(2024), total: h.unit);
+          await toggleSummaryMode(tester, kind);
+          await h.finish();
+          h.expectPage(DateTime(2024), total: h.unit);
+          h.now = DateTime(2027, 1, 1, 12);
+          await h.pump();
+          h.expectPage(DateTime(2024), total: h.unit);
+          // Preset re-entry opens current, then a queued gesture spans rollover.
+          await h.period(SummaryPeriodPreset.month);
+          await h.period(SummaryPeriodPreset.yearToDate);
+          h.expectPage(DateTime(2027), total: 0);
+          await h.scroll(-160, settle: false);
+          h.now = DateTime(2028, 1, 1, 12);
+          await h.finish();
+          h.expectPage(DateTime(2028), total: 0);
+          await h.scroll(-160, settle: false);
+          await h.tap('first', settle: false);
+          await h.finish();
+          h.expectPage(DateTime(2024), total: h.unit);
+          await h.scroll(160, settle: false);
+          await h.period(SummaryPeriodPreset.month, settle: false);
+          await h.finish();
+          h.expectPage(DateTime(2028, 1), total: 0);
+          await h.period(SummaryPeriodPreset.yearToDate);
+          h.loading = true;
+          h.tracks = [];
+          await h.pump(settle: false);
+          expect(find.byKey(Key('$kind-loading-state')), findsOneWidget);
+          expect(find.byKey(Key('$kind-empty-state')), findsNothing);
+          h.loading = false;
+          await h.pump();
+          expect(find.byKey(Key('$kind-empty-state')), findsOneWidget);
+          expect(h.summary, isNull);
+          expect(tester.takeException(), isNull);
+        },
+      );
+
+      testWidgets(
+        '$kind ${view.name} direct input shares every preset and bound',
         (tester) async {
           final h = _Harness(tester, kind);
           await h.pump();
-          await h.mode(mode);
+          await h.view(view);
           for (final fixture in [
             (
               SummaryPeriodPreset.week,
@@ -46,7 +126,7 @@ void main() {
               DateTime(2024, 11),
             ),
             (SummaryPeriodPreset.allTime, DateTime(2015), DateTime(2003)),
-            (SummaryPeriodPreset.yearToDate, DateTime(2026), DateTime(2026)),
+            (SummaryPeriodPreset.yearToDate, DateTime(2026), DateTime(2025)),
           ]) {
             await h.period(fixture.$1);
             await h.scroll(-160);
@@ -59,12 +139,6 @@ void main() {
             // No resting partial page, including when attempting to pass today.
             await h.scroll(160);
             h.expectPage(fixture.$2);
-            if (fixture.$1 == SummaryPeriodPreset.yearToDate) {
-              for (final action in ['first', 'prev', 'next', 'last']) {
-                expect(h.button(action).onPressed, isNull);
-              }
-              continue;
-            }
             await h.tap('prev');
             expect(
               h.chart.buckets.map((b) => (b.start, b.endExclusive, b.value)),
@@ -99,11 +173,11 @@ void main() {
       );
 
       testWidgets(
-        '$kind ${mode.name} overlapping navigation and preset cancel obsolete input',
+        '$kind ${view.name} overlapping navigation and preset cancel obsolete input',
         (tester) async {
           final h = _Harness(tester, kind);
           await h.pump();
-          await h.mode(mode);
+          await h.view(view);
           await h.period(SummaryPeriodPreset.month);
           // Queue scroll settlement, then navigate repeatedly while chart value
           // animations and post-frame header callbacks are still pending.
@@ -122,12 +196,12 @@ void main() {
           expect(find.byKey(Key('$kind-tooltip')), findsNothing);
           await h.tap('prev', settle: false);
           await tester.pump(const Duration(milliseconds: 20));
-          await tester.tap(h.control('summary-mode-fab'));
+          await toggleSummaryMode(tester, kind);
           await h.finish();
           h.expectPage(DateTime(2026, 5), total: h.unit, average: h.unit / 3);
           expect(
             h.chart.mode,
-            mode == SummaryDisplayMode.columns
+            view.mode == SummaryDisplayMode.columns
                 ? SummaryDisplayMode.line
                 : SummaryDisplayMode.columns,
           );
@@ -135,11 +209,11 @@ void main() {
       );
 
       testWidgets(
-        '$kind ${mode.name} refresh preserves jumps, clears inspection and commits clamps',
+        '$kind ${view.name} refresh preserves jumps, clears inspection and commits clamps',
         (tester) async {
           final h = _Harness(tester, kind);
           await h.pump();
-          await h.mode(mode);
+          await h.view(view);
           await h.period(SummaryPeriodPreset.month);
           await h.tap('first');
           h.expectPage(DateTime(1989, 2), total: h.unit);
@@ -205,11 +279,11 @@ void main() {
       );
 
       testWidgets(
-        '$kind ${mode.name} refreshed canonical and skipped days retain their decoding',
+        '$kind ${view.name} refreshed canonical and skipped days retain their decoding',
         (tester) async {
           final h = _Harness(tester, kind);
           await h.pump();
-          await h.mode(mode);
+          await h.view(view);
           await h.period(SummaryPeriodPreset.month);
           h.tracks = [
             _track(50, DateTime.utc(2026, 10, 15)),
@@ -231,12 +305,12 @@ void main() {
       );
 
       testWidgets(
-        '$kind ${mode.name} rollover supersedes movement and remaps history by last day',
+        '$kind ${view.name} rollover supersedes movement and remaps history by last day',
         (tester) async {
           final h = _Harness(tester, kind);
           expect(h.now.timeZoneOffset, const Duration(hours: 11));
           await h.pump();
-          await h.mode(mode);
+          await h.view(view);
           await h.period(SummaryPeriodPreset.last3Months);
           // Explicitly select current using prev/next, rather than relying on an
           // uninitialised null page or a sticky "last" flag.
@@ -279,7 +353,7 @@ void main() {
           await h.pump();
           h.expectPage(DateTime(2026, 10), total: h.unit);
           h.now = DateTime(2026, 10, 16, 12);
-          await tester.tap(h.control('summary-mode-fab'));
+          await toggleSummaryMode(tester, kind);
           await h.finish();
           h.expectPage(DateTime(2026, 10), total: h.unit * 2);
           expect(h.tracks.last.trackDate, DateTime.utc(2026, 10, 16));
@@ -344,6 +418,8 @@ class _Harness {
       ? 70
       : kind == 'distance'
       ? 700
+      : kind == 'time'
+      ? 18000000
       : 1;
   Finder get card => find.byKey(Key('$kind-card'));
   Finder get browser => find.descendant(
@@ -366,6 +442,11 @@ class _Harness {
         onVisibleSummaryChanged: (value) => summary = value,
       ),
       'distance' => DistanceCard(
+        tracks: tracks,
+        isLoading: loading,
+        onVisibleSummaryChanged: (value) => summary = value,
+      ),
+      'time' => TimeCard(
         tracks: tracks,
         isLoading: loading,
         onVisibleSummaryChanged: (value) => summary = value,
@@ -394,9 +475,8 @@ class _Harness {
     await tester.pump();
   }
 
-  Future<void> mode(SummaryDisplayMode value) async {
-    if (chart.mode == value) return;
-    await tester.tap(control('summary-mode-fab'));
+  Future<void> view(SummaryTestView value) async {
+    await selectSummaryView(tester, kind, value);
     await finish();
   }
 
@@ -459,7 +539,7 @@ class _Harness {
       SummaryPeriodPreset.last3Months => 3,
       SummaryPeriodPreset.last6Months => 6,
       SummaryPeriodPreset.last12Months => 12,
-      SummaryPeriodPreset.yearToDate => now.month,
+      SummaryPeriodPreset.yearToDate => start.year == now.year ? now.month : 12,
       SummaryPeriodPreset.allTime => chart.buckets.length,
     };
     expect(summary?.averageValue, closeTo(actual / divisor, 1e-9));
@@ -485,6 +565,8 @@ GpxTrack _track(int id, DateTime day) =>
         ascent: 70,
         distance2d: 700,
         distance3d: 770,
+        totalTimeMillis: 18000000,
+        movingTime: 14400000,
       )
       ..peaks.add(
         Peak(

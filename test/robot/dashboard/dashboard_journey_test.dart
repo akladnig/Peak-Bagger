@@ -54,6 +54,7 @@ void main() {
         .moveCard('distance', 'peaks-bagged');
     final savedOrder = [
       'elevation',
+      'time',
       'latest-walk',
       'distance',
       'peaks-bagged',
@@ -168,6 +169,7 @@ void main() {
     await robot.pumpApp(container: container);
     await robot.openDashboard();
 
+    await robot.revealCard('my-lists');
     expect(robot.myListsCard, findsOneWidget);
 
     await robot.tapMyListsRow(2);
@@ -498,6 +500,7 @@ void main() {
       'year-to-date',
       'my-lists',
       'my-ascents',
+      'time',
     ]);
     await tester.drag(
       find.byKey(const Key('dashboard-board')),

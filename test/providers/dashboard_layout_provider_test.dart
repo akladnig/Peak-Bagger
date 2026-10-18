@@ -41,7 +41,36 @@ void main() {
         container.read(dashboardLayoutProvider),
         dashboardDefaultCardOrder,
       );
+      expect(
+        dashboardDefaultCardOrder.where((id) => id == 'time'),
+        hasLength(1),
+      );
+      expect(
+        dashboardDefaultCardOrder[dashboardDefaultCardOrder.indexOf(
+              'distance',
+            ) +
+            1],
+        'time',
+      );
     });
+
+    test(
+      'an existing complete order appends Time without moving old cards',
+      () async {
+        final previous = dashboardDefaultCardOrder
+            .where((id) => id != 'time')
+            .toList()
+            .reversed
+            .toList();
+        SharedPreferences.setMockInitialValues({
+          dashboardCardOrderStorageKey: previous,
+        });
+        final container = ProviderContainer();
+        addTearDown(container.dispose);
+        await container.read(dashboardLayoutProvider.notifier).load();
+        expect(container.read(dashboardLayoutProvider), [...previous, 'time']);
+      },
+    );
 
     test(
       'failed layout read keeps defaults but is not loaded evidence',
@@ -100,6 +129,7 @@ void main() {
         'my-lists',
         'elevation',
         'my-ascents',
+        'time',
         'latest-walk',
         'peaks-bagged',
         'year-to-date',
@@ -114,6 +144,7 @@ void main() {
 
       final reordered = <String>[
         'distance',
+        'time',
         'elevation',
         'latest-walk',
         'peaks-bagged',
@@ -150,6 +181,7 @@ void main() {
       final nextOrder = <String>[
         'my-lists',
         'distance',
+        'time',
         'elevation',
         'latest-walk',
         'peaks-bagged',
@@ -176,6 +208,7 @@ void main() {
 
       const expected = <String>[
         'elevation',
+        'time',
         'latest-walk',
         'distance',
         'peaks-bagged',

@@ -115,11 +115,11 @@ void main() {
       );
       expect(
         tester.widget<IconButton>(_cardControl('summary-prev-window')).tooltip,
-        'Previous 12 Months',
+        isNull,
       );
       expect(
         tester.widget<IconButton>(_cardControl('summary-next-window')).tooltip,
-        'Next 12 Months',
+        isNull,
       );
 
       await tester.tap(_cardControl('summary-period-dropdown'));
@@ -173,7 +173,7 @@ void main() {
       );
       expect(
         tester.widget<IconButton>(_cardControl('summary-next-window')).tooltip,
-        'Next 12 Years',
+        isNull,
       );
 
       await tester.tap(_cardControl('summary-prev-window'));

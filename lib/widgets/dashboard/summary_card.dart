@@ -51,6 +51,8 @@ class SummaryCardMetricAdapter {
     this.secondaryMetric,
     this.secondarySeriesOnTop = false,
     this.barSeriesStyle = SummaryBarSeriesStyle.stacked,
+    this.isEligible,
+    this.chartValueScale = 1,
   });
 
   final String keyPrefix;
@@ -76,6 +78,8 @@ class SummaryCardMetricAdapter {
   final String Function(SummaryPeriodPreset period) averageLabelText;
   final bool secondarySeriesOnTop;
   final SummaryBarSeriesStyle barSeriesStyle;
+  final bool Function(GpxTrack track)? isEligible;
+  final double chartValueScale;
 }
 
 class SummaryCard extends ConsumerStatefulWidget {
@@ -87,6 +91,9 @@ class SummaryCard extends ConsumerStatefulWidget {
     this.initialMode = SummaryDisplayMode.columns,
     this.now,
     this.onVisibleSummaryChanged,
+    this.displayMode,
+    this.barSeriesStyle,
+    this.chartTypeControlBuilder,
   });
 
   final List<GpxTrack> tracks;
@@ -95,6 +102,13 @@ class SummaryCard extends ConsumerStatefulWidget {
   final SummaryDisplayMode initialMode;
   final DateTime? now;
   final ValueChanged<SummaryVisibleSummary?>? onVisibleSummaryChanged;
+
+  /// Explicit opt-in to externally owned chart selection and a menu control.
+  /// Legacy adapters retain their binary control and local display default.
+  final SummaryDisplayMode? displayMode;
+  final SummaryBarSeriesStyle? barSeriesStyle;
+  final Widget Function(VoidCallback onOpen, VoidCallback onChanged)?
+  chartTypeControlBuilder;
 
   @override
   ConsumerState<SummaryCard> createState() => _SummaryCardState();
@@ -107,9 +121,18 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
   SummaryPeriodPreset get _period =>
       ref.read(summaryPageControllerProvider(_cardIdentity)).period;
   late SummaryDisplayMode _mode;
+  SummaryDisplayMode get _displayMode => widget.displayMode ?? _mode;
   SummaryVisibleSummary? _lastVisibleSummary;
   bool _hasReportedSummary = false;
   int _revision = 0;
+  late List<GpxTrack> _tracks;
+
+  void _filterTracks() {
+    final isEligible = widget.adapter.isEligible;
+    _tracks = isEligible == null
+        ? widget.tracks
+        : widget.tracks.where(isEligible).toList(growable: false);
+  }
 
   DateTime get _referenceDate {
     final now = (widget.now ?? ref.read(dashboardReferenceClockProvider)())
@@ -121,8 +144,14 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
   void didUpdateWidget(covariant SummaryCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.tracks, widget.tracks) ||
+        oldWidget.adapter != widget.adapter) {
+      _filterTracks();
+    }
+    if (!identical(oldWidget.tracks, widget.tracks) ||
         oldWidget.now != widget.now ||
-        oldWidget.isLoading != widget.isLoading) {
+        oldWidget.isLoading != widget.isLoading ||
+        oldWidget.displayMode != widget.displayMode ||
+        oldWidget.barSeriesStyle != widget.barSeriesStyle) {
       _invalidate();
     }
   }
@@ -143,7 +172,7 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
         .read(summaryPageControllerProvider(_cardIdentity).notifier)
         .navigate(
           action: action,
-          tracks: widget.tracks,
+          tracks: _tracks,
           metric: widget.adapter.metric,
           referenceDate: _referenceDate,
           pages: pages,
@@ -156,6 +185,7 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
   void initState() {
     super.initState();
     _mode = widget.initialMode;
+    _filterTracks();
   }
 
   @override
@@ -188,6 +218,15 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
         SummaryDisplayMode.line => SummaryDisplayMode.columns,
       };
     });
+  }
+
+  void _reconcileForChartMenu() {
+    // Opening/dismissing a menu or choosing the same type must not invalidate
+    // still-valid inspection. A changed clock still uses the shared page owner.
+    if (ref.read(summaryPageControllerProvider(_cardIdentity)).referenceDate !=
+        _referenceDate) {
+      _navigate(SummaryPageAction.reconcile);
+    }
   }
 
   void _reportVisibleSummary(SummaryVisibleSummary? summary) {
@@ -234,7 +273,7 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
   Widget _buildCalendarContent(DateTime referenceDate) {
     final selection = ref.read(summaryPageControllerProvider(_cardIdentity));
     final navigation = selection.navigation(
-      tracks: widget.tracks,
+      tracks: _tracks,
       metric: widget.adapter.metric,
       now: referenceDate,
     );
@@ -265,7 +304,7 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
     }
     final page = navigation.selected;
     final timeline = _service.buildTimeline(
-      tracks: widget.tracks,
+      tracks: _tracks,
       period: _period,
       metric: widget.adapter.metric,
       now: referenceDate,
@@ -274,7 +313,7 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
     final secondary = widget.adapter.secondaryMetric == null
         ? null
         : _service.buildTimeline(
-            tracks: widget.tracks,
+            tracks: _tracks,
             period: _period,
             metric: widget.adapter.secondaryMetric!,
             now: referenceDate,
@@ -299,7 +338,11 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
           _SummaryHeader(
             keyPrefix: widget.adapter.keyPrefix,
             period: _period,
-            mode: _mode,
+            mode: _displayMode,
+            chartTypeControl: widget.chartTypeControlBuilder?.call(
+              _reconcileForChartMenu,
+              () => _navigate(SummaryPageAction.reconcile),
+            ),
             visibleRangeText: formatSummaryDateRange(page.start, page.lastDay),
             onPeriodChanged: _selectPeriod,
             onOpenPeriod: () => _navigate(SummaryPageAction.reconcile),
@@ -354,8 +397,10 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
                     controller: _scrollController,
                     buckets: timeline.buckets,
                     secondaryBuckets: secondary?.buckets,
-                    mode: _mode,
-                    barSeriesStyle: widget.adapter.barSeriesStyle,
+                    mode: _displayMode,
+                    barSeriesStyle:
+                        widget.barSeriesStyle ?? widget.adapter.barSeriesStyle,
+                    valueScale: widget.adapter.chartValueScale,
                     bucketExtent: width / timeline.buckets.length,
                     period: _period,
                     referenceDate: referenceDate,
@@ -392,6 +437,7 @@ class _SummaryHeader extends StatelessWidget {
     required this.keyPrefix,
     required this.period,
     required this.mode,
+    this.chartTypeControl,
     required this.visibleRangeText,
     required this.onPeriodChanged,
     required this.onOpenPeriod,
@@ -409,6 +455,7 @@ class _SummaryHeader extends StatelessWidget {
   final String keyPrefix;
   final SummaryPeriodPreset period;
   final SummaryDisplayMode mode;
+  final Widget? chartTypeControl;
   final String visibleRangeText;
   final ValueChanged<SummaryPeriodPreset?> onPeriodChanged;
   final VoidCallback onOpenPeriod;
@@ -504,66 +551,49 @@ class _SummaryHeader extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             const Spacer(),
-            IconButton(
-              key: const Key('summary-first-window'),
-              style: dashboardNavigationButtonStyle(theme.colorScheme),
-              tooltip: 'first',
-              onPressed: canMoveFirst ? onFirst : null,
-              mouseCursor: canMoveFirst
-                  ? SystemMouseCursors.click
-                  : SystemMouseCursors.basic,
-              icon: const Icon(Icons.first_page, semanticLabel: 'first'),
+            _SummaryNavigationButton(
+              buttonKey: const Key('summary-first-window'),
+              label: 'First',
+              enabled: canMoveFirst,
+              onPressed: onFirst,
+              icon: Icons.first_page,
             ),
-            IconButton(
-              key: const Key('summary-prev-window'),
-              style: dashboardNavigationButtonStyle(theme.colorScheme),
-              tooltip: period.previousTooltip,
-              onPressed: canMovePrevious ? onPrevious : null,
-              mouseCursor: canMovePrevious
-                  ? SystemMouseCursors.click
-                  : SystemMouseCursors.basic,
-              icon: Icon(
-                Icons.chevron_left,
-                semanticLabel: period.previousTooltip,
-              ),
+            _SummaryNavigationButton(
+              buttonKey: const Key('summary-prev-window'),
+              label: period.previousTooltip,
+              enabled: canMovePrevious,
+              onPressed: onPrevious,
+              icon: Icons.chevron_left,
             ),
-            IconButton(
-              key: const Key('summary-next-window'),
-              style: dashboardNavigationButtonStyle(theme.colorScheme),
-              tooltip: period.nextTooltip,
-              onPressed: canMoveNext ? onNext : null,
-              mouseCursor: canMoveNext
-                  ? SystemMouseCursors.click
-                  : SystemMouseCursors.basic,
-              icon: Icon(
-                Icons.chevron_right,
-                semanticLabel: period.nextTooltip,
-              ),
+            _SummaryNavigationButton(
+              buttonKey: const Key('summary-next-window'),
+              label: period.nextTooltip,
+              enabled: canMoveNext,
+              onPressed: onNext,
+              icon: Icons.chevron_right,
             ),
-            IconButton(
-              key: const Key('summary-last-window'),
-              style: dashboardNavigationButtonStyle(theme.colorScheme),
-              tooltip: 'last',
-              onPressed: canMoveLast ? onLast : null,
-              mouseCursor: canMoveLast
-                  ? SystemMouseCursors.click
-                  : SystemMouseCursors.basic,
-              icon: const Icon(Icons.last_page, semanticLabel: 'last'),
+            _SummaryNavigationButton(
+              buttonKey: const Key('summary-last-window'),
+              label: 'Last',
+              enabled: canMoveLast,
+              onPressed: onLast,
+              icon: Icons.last_page,
             ),
             const SizedBox(width: 8),
-            FloatingActionButton.small(
-              key: const Key('summary-mode-fab'),
-              onPressed: onToggleMode,
-              mouseCursor: SystemMouseCursors.click,
-              tooltip: mode == SummaryDisplayMode.columns
-                  ? 'Switch to line view'
-                  : 'Switch to column view',
-              child: Icon(
-                mode == SummaryDisplayMode.columns
-                    ? Icons.show_chart
-                    : Icons.bar_chart,
-              ),
-            ),
+            chartTypeControl ??
+                FloatingActionButton.small(
+                  key: const Key('summary-mode-fab'),
+                  onPressed: onToggleMode,
+                  mouseCursor: SystemMouseCursors.click,
+                  tooltip: mode == SummaryDisplayMode.columns
+                      ? 'Switch to line view'
+                      : 'Switch to column view',
+                  child: Icon(
+                    mode == SummaryDisplayMode.columns
+                        ? Icons.show_chart
+                        : Icons.bar_chart,
+                  ),
+                ),
           ],
         ),
         const SizedBox(height: 4),
@@ -579,6 +609,38 @@ class _SummaryHeader extends StatelessWidget {
       ],
     );
   }
+}
+
+class _SummaryNavigationButton extends StatelessWidget {
+  const _SummaryNavigationButton({
+    required this.buttonKey,
+    required this.label,
+    required this.enabled,
+    required this.onPressed,
+    required this.icon,
+  });
+
+  final Key buttonKey;
+  final String label;
+  final bool enabled;
+  final VoidCallback onPressed;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => TooltipTheme(
+    // The icon supplies the action name even when its visual tooltip is absent.
+    data: TooltipTheme.of(context).copyWith(excludeFromSemantics: true),
+    child: IconButton(
+      key: buttonKey,
+      style: dashboardNavigationButtonStyle(Theme.of(context).colorScheme),
+      tooltip: enabled ? label : null,
+      onPressed: enabled ? onPressed : null,
+      mouseCursor: enabled
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      icon: Icon(icon, semanticLabel: label),
+    ),
+  );
 }
 
 String defaultAverageLabelText(SummaryPeriodPreset period) =>

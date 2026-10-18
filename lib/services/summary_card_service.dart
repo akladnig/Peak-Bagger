@@ -29,7 +29,7 @@ extension SummaryPeriodPresetLabel on SummaryPeriodPreset {
     SummaryPeriodPreset.last3Months => '3 Months',
     SummaryPeriodPreset.last6Months => '6 Months',
     SummaryPeriodPreset.last12Months => '12 Months',
-    SummaryPeriodPreset.yearToDate => 'period (Year to Date is fixed)',
+    SummaryPeriodPreset.yearToDate => 'Year',
     SummaryPeriodPreset.allTime => '12 Years',
   };
 
@@ -134,14 +134,12 @@ class SummaryPageNavigation {
   final SummaryCalendarPage last;
   final SummaryCalendarPage current;
 
-  bool get _fixed => period == SummaryPeriodPreset.yearToDate;
-  bool get canFirst => !_fixed && selected.start != first.start;
-  bool get canPrevious => !_fixed && selected.start.isAfter(first.start);
-  bool get canNext => !_fixed && selected.start.isBefore(current.start);
-  bool get canLast => !_fixed && selected.start != last.start;
+  bool get canFirst => selected.start != first.start;
+  bool get canPrevious => selected.start.isAfter(first.start);
+  bool get canNext => selected.start.isBefore(current.start);
+  bool get canLast => selected.start != last.start;
 
   SummaryCalendarPage adjacent(bool forward) {
-    if (_fixed) return current;
     final direction = forward ? 1 : -1;
     // Use the end year for a potentially shortened oldest All Time page.
     final day = switch (period) {
@@ -152,6 +150,9 @@ class SummaryPageNavigation {
       ),
       SummaryPeriodPreset.allTime => DateTime(
         selected.endExclusive.year - 1 + direction * 12,
+      ),
+      SummaryPeriodPreset.yearToDate => DateTime(
+        selected.start.year + direction,
       ),
       _ => DateTime(
         selected.start.year,
@@ -184,8 +185,8 @@ class SummaryCardService {
     }
     if (period == SummaryPeriodPreset.yearToDate) {
       return SummaryCalendarPage(
-        start: DateTime(reference.year),
-        endExclusive: DateTime(reference.year + 1),
+        start: DateTime(day.year),
+        endExclusive: DateTime(day.year + 1),
       );
     }
     if (period == SummaryPeriodPreset.allTime) {
