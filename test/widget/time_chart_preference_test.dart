@@ -19,7 +19,7 @@ import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/performance_measurement.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_chart.dart';
 import 'package:peak_bagger/widgets/dashboard/time_card.dart';
-import 'package:peak_bagger/widgets/dashboard/time_chart_preference_feedback.dart';
+import 'package:peak_bagger/widgets/dashboard/dashboard_preference_feedback.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -412,7 +412,7 @@ void main() {
               body: SizedBox(
                 width: 700,
                 height: 400,
-                child: TimeChartPreferenceFeedback(
+                child: DashboardPreferenceFeedback(
                   child: TimeCard(
                     isLoading: false,
                     now: DateTime(2026, 10, 15),

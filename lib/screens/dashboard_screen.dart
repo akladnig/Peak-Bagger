@@ -19,7 +19,7 @@ import '../services/performance_frame.dart';
 import '../services/summary_card_service.dart';
 import '../widgets/dashboard/distance_card.dart';
 import '../widgets/dashboard/time_card.dart';
-import '../widgets/dashboard/time_chart_preference_feedback.dart';
+import '../widgets/dashboard/dashboard_preference_feedback.dart';
 import '../widgets/dashboard/elevation_card.dart';
 import '../widgets/dashboard/latest_walk_card.dart';
 import '../widgets/dashboard/my_ascents_card.dart';
@@ -141,15 +141,39 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   KeyEventResult _boardKey(FocusNode node, KeyEvent event) {
     if (!_active ||
-        dashboardHasCommandModifier ||
         dashboardIsEditing ||
         (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
       return KeyEventResult.ignored;
     }
     final focused = _cardKeyboards.values
-        .where((c) => c.focusNode.hasFocus)
+        .where((c) => c.focusNode.hasPrimaryFocus)
         .firstOrNull;
     if (focused?.menuOwnsFocus == true) return KeyEventResult.ignored;
+    final hardware = HardwareKeyboard.instance;
+    if (hardware.isMetaPressed &&
+        hardware.isShiftPressed &&
+        !hardware.isControlPressed &&
+        !hardware.isAltPressed &&
+        (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+            event.logicalKey == LogicalKeyboardKey.arrowRight)) {
+      final id =
+          _focusTarget ??
+          _cardKeyboards.entries
+              .where((e) => identical(e.value, focused))
+              .map((e) => e.key)
+              .firstOrNull;
+      if (id == null) return KeyEventResult.ignored;
+      unawaited(
+        ref
+            .read(dashboardLayoutProvider.notifier)
+            .moveCardOnePosition(
+              id,
+              forward: event.logicalKey == LogicalKeyboardKey.arrowRight,
+            ),
+      );
+      return KeyEventResult.handled;
+    }
+    if (dashboardHasCommandModifier) return KeyEventResult.ignored;
     if (event.logicalKey == LogicalKeyboardKey.tab) {
       _traverse(!HardwareKeyboard.instance.isShiftPressed);
       return KeyEventResult.handled;
@@ -175,7 +199,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     }
     if (event.logicalKey == LogicalKeyboardKey.keyR) {
       // Feedback owns actual presentation and the identical pointer/R action.
-      TimeChartPreferenceFeedback.retryVisible(focused.focusNode.context!);
+      DashboardPreferenceFeedback.retryVisibleTimeWarning(
+        focused.focusNode.context!,
+      );
       return KeyEventResult.handled;
     }
     final action = focused.actions[event.logicalKey];
@@ -188,6 +214,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    ref.listenManual(dashboardLayoutProvider, (previous, next) {
+      if (!_active || identical(previous, next)) return;
+      final retainedId =
+          _focusTarget ??
+          _cardKeyboards.entries
+              .where((e) => e.value.focusNode.hasPrimaryFocus)
+              .map((e) => e.key)
+              .firstOrNull;
+      if (retainedId != null) {
+        // Reordering is a focus return, not fresh entry/inspection. Resolve the
+        // retained ID against the new order after the lazy grid reconstructs.
+        _revealAndFocus(retainedId, DashboardCardFocusReason.menuReturn);
+      }
+    });
     unawaited(ref.read(dashboardLayoutProvider.notifier).load());
     ref.listenManual(
       dashboardReadinessProvider,
@@ -355,7 +395,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
     return ScaffoldMessenger(
       child: Scaffold(
-        body: TimeChartPreferenceFeedback(
+        body: DashboardPreferenceFeedback(
           child: Focus(
             focusNode: _boardFocus,
             autofocus: true,

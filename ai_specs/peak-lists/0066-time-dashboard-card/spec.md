@@ -149,6 +149,20 @@ Add a **Time** card to the existing Dashboard. Derive two series from eligible c
 - Bring the other dashboard charts into the desired chart-type consistency in separately approved work. This Spec neither chooses their future stacking semantics nor authorises that migration. [L3]
 - Add the ability to edit keyboard shortcuts and add a Help screen in later work; revisit shortcut discoverability there. No design or implementation contract for either future feature is chosen by this Spec. [L18]
 
+## Work Item 07 delivery — 2026-10-19
+
+[Work Item 07](work-items/07-dashboard-reorder-and-save-recovery.md) is complete:
+Cmd+Shift+Left/Right reorder by one non-wrapping position, stable-ID focus/reveal
+and traversal follow the visible order, and pointer/keyboard saves share latest-
+order failure/Retry recovery through the existing storage. Time warning delivery
+and Time-only R remain distinct. Verification: analysis clean; focused suite
+360 passed/2 existing gated skips; full Hobart-timezone suite 2,675 passed/7
+skipped. The Work Item records the executed commands and desktop widget evidence.
+
+This completes the independent reorder/recovery slice, not the entire Spec:
+Work Items 01–02 retain L19's layout gate, Pending profile values are unresolved,
+and Technical Decision 11's accessibility gap remains recorded.
+
 ## Notes
 
 - **Required context:** project-root-relative `ai_specs/coding-rules.md`, `ai_specs/app-profile.md`, `GLOSSARY.md`, this Spec and sibling [Interview Ledger](interview-ledger.md); relevant prior behavior lives in `ai_specs/peak-lists/0003-dashboard-chart-series-theme/spec.md`, `ai_specs/peak-lists/0064-dashboard-calendar-navigation-and-local-walk-date/spec.md`, and `ai_specs/peak-lists/0065-dashboard-weekly-tooltip-and-year-navigation/spec.md`.

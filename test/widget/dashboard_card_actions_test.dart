@@ -397,6 +397,14 @@ void main() {
         expect(h.path, '/');
         await h.key(LogicalKeyboardKey.keyS);
         expect(h.container.read(myAscentsAscendingProvider), isFalse);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        await h.key(LogicalKeyboardKey.arrowLeft);
+        await h.key(LogicalKeyboardKey.arrowRight);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        expect(h.container.read(dashboardLayoutProvider), order);
+        h.expectShellFocus(0);
         await h.key(closing);
         h.expectFocus('my-ascents');
       }

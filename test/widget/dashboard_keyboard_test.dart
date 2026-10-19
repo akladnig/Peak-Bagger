@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show Tristate;
 
 import 'package:flutter/gestures.dart';
@@ -24,10 +25,363 @@ import 'package:peak_bagger/widgets/dashboard/summary_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/mapping_catalog_fixture.dart';
+import '../harness/dashboard_order_writer.dart';
 import '../harness/test_map_notifier.dart';
+import '../harness/time_chart_preference_storage.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final theme in [MyTheme.light, MyTheme.dark]) {
+    testWidgets(
+      'keyboard reorder retains/reveals ID and full traversal ${theme.brightness}',
+      (tester) async {
+        final writer = ControlledDashboardOrderWriter();
+        final h = await _Harness.pump(
+          tester,
+          theme: theme,
+          scale: 1.5,
+          size: const Size(1400, 520),
+          orderWriter: writer,
+        );
+        expect(h.card('my-ascents'), findsNothing);
+        await h.focus('elevation');
+        await h.reorder(forward: false);
+        expect(writer.writes, isEmpty);
+        for (var i = 1; i < dashboardCards.length; i++) {
+          await h.reorder(forward: true);
+          expect(
+            h.container.read(dashboardLayoutProvider).indexOf('elevation'),
+            i,
+          );
+          h.expectFocus('elevation');
+          expect(h.card('elevation').hitTestable(), findsOneWidget);
+          expect(h.border('elevation').color, theme.colorScheme.primary);
+          expect(
+            MediaQuery.textScalerOf(
+              tester.element(h.card('elevation')),
+            ).scale(1),
+            1.5,
+          );
+        }
+        expect(writer.writes, hasLength(7));
+        await h.reorder(forward: true);
+        expect(writer.writes, hasLength(7));
+        // Overlap repeats with reconstruction instead of waiting after each move.
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        for (var i = 0; i < 4; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+        }
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pumpAndSettle();
+        expect(
+          h.container.read(dashboardLayoutProvider).indexOf('elevation'),
+          3,
+        );
+        h.expectFocus('elevation');
+        final order = h.container.read(dashboardLayoutProvider);
+        for (var i = 0; i <= order.length; i++) {
+          await h.key(LogicalKeyboardKey.tab);
+          h.expectFocus(order[(4 + i) % order.length]);
+        }
+        for (var i = 0; i <= order.length; i++) {
+          await h.tabBack();
+          h.expectFocus(order[(3 - i) % order.length]);
+        }
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getStringList(dashboardCardOrderStorageKey), order);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final thrown in [false, true]) {
+    testWidgets(
+      'pointer reorder failure retains focus and pointer Retry ($thrown)',
+      (tester) async {
+        final writer = ControlledDashboardOrderWriter()
+          ..steps.add(() async {
+            if (thrown) throw StateError('private failure details');
+            return false;
+          });
+        final retry = Completer<bool>();
+        writer.steps.add(() => retry.future);
+        final h = await _Harness.pump(
+          tester,
+          orderWriter: writer,
+          theme: thrown ? MyTheme.dark : MyTheme.light,
+          scale: 1.5,
+        );
+        await h.focus('distance');
+        final handle = find.byKey(
+          const Key('dashboard-card-distance-drag-handle'),
+        );
+        await tester.drag(
+          handle,
+          tester.getCenter(h.card('peaks-bagged')) - tester.getCenter(handle),
+        );
+        await tester.pumpAndSettle();
+        final order = h.container.read(dashboardLayoutProvider);
+        expect(order.indexOf('distance'), 3);
+        h.expectFocus('distance');
+        expect(
+          find.byKey(const Key('dashboard-order-save-warning')),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining('save Dashboard card order'),
+          findsOneWidget,
+        );
+        expect(find.textContaining('private failure'), findsNothing);
+        final action = find.byKey(const Key('dashboard-order-retry'));
+        final button = tester.widget<TextButton>(action);
+        expect(
+          button.child,
+          isA<Text>().having((t) => t.data, 'label', 'Retry'),
+        );
+        expect(button.focusNode?.skipTraversal, isTrue);
+        expect(button.focusNode?.canRequestFocus, isFalse);
+        await h.key(LogicalKeyboardKey.keyR);
+        expect(writer.writes, hasLength(1));
+        await tester.tap(action);
+        button.onPressed!(); // same pending action is deduplicated
+        await tester.pump();
+        expect(writer.writes, [order, order]);
+        h.expectFocus('distance');
+        expect(h.container.read(dashboardOrderSaveProvider)?.isLoading, isTrue);
+        expect(
+          find.byKey(const Key('dashboard-order-save-pending')),
+          findsOneWidget,
+        );
+        expect(tester.widget<TextButton>(action).onPressed, isNull);
+        retry.complete(true);
+        await tester.pumpAndSettle();
+        expect(h.container.read(dashboardOrderSaveProvider)?.hasValue, isTrue);
+        await h.key(LogicalKeyboardKey.tab);
+        h.expectFocus('peaks-bagged');
+        await h.tabBack();
+        h.expectFocus('distance');
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'keyboard save failure Retry saves further moves and keeps chart state ($thrown)',
+      (tester) async {
+        Future<bool> fail() async {
+          if (thrown) throw StateError('controlled keyboard failure');
+          return false;
+        }
+
+        final writer = ControlledDashboardOrderWriter()
+          ..steps.addAll([fail, fail]);
+        final h = await _Harness.pump(
+          tester,
+          orderWriter: writer,
+          tracks: [_timeTrack(1, 2024, 6, 15), _timeTrack(2, 2026, 10, 15)],
+        );
+        await h.focus('time');
+        await h.period('time', SummaryPeriodPreset.month);
+        await h.key(LogicalKeyboardKey.keyB);
+        await h.key(LogicalKeyboardKey.keyC);
+        await h.key(LogicalKeyboardKey.keyJ);
+        await h.key(LogicalKeyboardKey.enter);
+        await h.key(LogicalKeyboardKey.keyL);
+        final before = h.chart('time');
+        await h.reorder(forward: false);
+        final failed = h.container.read(dashboardLayoutProvider);
+        expect(failed.indexOf('time'), 1);
+        h.expectFocus('time');
+        expect(find.byKey(const Key('dashboard-order-retry')), findsOneWidget);
+        await h.reorder(forward: false);
+        final latest = h.container.read(dashboardLayoutProvider);
+        h.expectFocus('time');
+        expect(h.chart('time').period, before.period);
+        expect(h.chart('time').mode, before.mode);
+        expect(h.chart('time').buckets.first.start, before.buckets.first.start);
+        expect(h.chart('time').inspection?.index, before.inspection?.index);
+        final reloadBefore = ProviderContainer();
+        addTearDown(reloadBefore.dispose);
+        await reloadBefore.read(dashboardLayoutProvider.notifier).load();
+        expect(
+          reloadBefore.read(dashboardLayoutProvider),
+          dashboardDefaultCardOrder,
+        );
+        await h.key(LogicalKeyboardKey.keyR);
+        expect(writer.writes, [failed, latest]);
+        await tester.tap(find.byKey(const Key('dashboard-order-retry')));
+        await tester.pumpAndSettle();
+        expect(writer.writes, [failed, latest, latest]);
+        h.expectFocus('time');
+        final reloadAfter = ProviderContainer();
+        addTearDown(reloadAfter.dispose);
+        await reloadAfter.read(dashboardLayoutProvider.notifier).load();
+        expect(reloadAfter.read(dashboardLayoutProvider), latest);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'reorder chords preserve menu, shell, editing and inactive key ownership',
+    (tester) async {
+      final writer = ControlledDashboardOrderWriter();
+      final h = await _Harness.pump(
+        tester,
+        orderWriter: writer,
+        populated: true,
+      );
+      await h.focus('time');
+      await h.key(LogicalKeyboardKey.keyP);
+      await h.reorder(forward: true);
+      await h.key(LogicalKeyboardKey.escape);
+      h.expectFocus('time');
+      await h.key(LogicalKeyboardKey.keyC);
+      await h.reorder(forward: false);
+      await h.key(LogicalKeyboardKey.escape);
+      h.shellFocus.requestFocus();
+      await tester.pump();
+      await h.reorder(forward: true);
+      h.editFocus.requestFocus();
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'editable text');
+      await h.reorder(forward: false);
+      expect(find.text('editable text'), findsOneWidget);
+      await h.focus('time');
+      for (final modifier in [
+        LogicalKeyboardKey.controlLeft,
+        LogicalKeyboardKey.altLeft,
+      ]) {
+        await tester.sendKeyDownEvent(modifier);
+        await h.reorder(forward: true);
+        await tester.sendKeyUpEvent(modifier);
+      }
+      h.active.value = false;
+      await tester.pump();
+      await h.reorder(forward: false);
+      h.active.value = true;
+      await tester.pumpAndSettle();
+      expect(writer.writes, isEmpty);
+      expect(
+        h.container.read(dashboardLayoutProvider),
+        dashboardDefaultCardOrder,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'pending reorder reveal yields to newer traversal, pointer order and scope loss',
+    (tester) async {
+      final h = await _Harness.pump(tester, size: const Size(1400, 520));
+      await h.focus('time');
+      await h.reorder(forward: true, settle: false);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await h.container
+          .read(dashboardLayoutProvider.notifier)
+          .moveCard('my-ascents', 'elevation');
+      await tester.pumpAndSettle();
+      h.expectFocus('peaks-bagged');
+      await h.reorder(forward: true, settle: false);
+      h.shellFocus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(h.shellFocus.hasPrimaryFocus, isTrue);
+      await h.focus('time');
+      await h.reorder(forward: true, settle: false);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'order failure after Dashboard inactivity/disposal never publishes stale feedback',
+    (tester) async {
+      final gate = Completer<bool>();
+      final writer = ControlledDashboardOrderWriter()
+        ..steps.add(() => gate.future);
+      final h = await _Harness.pump(tester, orderWriter: writer);
+      await h.focus('time');
+      await h.reorder(forward: true);
+      h.active.value = false;
+      await tester.pump();
+      gate.complete(false);
+      await tester.pump();
+      h.active.value = true;
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('dashboard-order-save-warning')),
+        findsNothing,
+      );
+      final disposed = Completer<bool>();
+      writer.steps.add(() => disposed.future);
+      await h.focus('time');
+      await h.reorder(forward: true);
+      await tester.pumpWidget(const SizedBox.shrink());
+      disposed.completeError(StateError('after screen disposal'));
+      await tester.pumpAndSettle();
+      expect(h.container.read(dashboardOrderSaveProvider)?.hasError, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'real Time/order failures keep warning identity, delivery and Retry domains distinct',
+    (tester) async {
+      final timeStorage = TestTimeChartPreferenceStorage()
+        ..readSteps.add(() => Future.error(StateError('Time read')));
+      final writer = ControlledDashboardOrderWriter()
+        ..steps.add(() async => false);
+      final h = await _Harness.pump(
+        tester,
+        orderWriter: writer,
+        timeStorage: timeStorage,
+      );
+      await h.focus('distance');
+      expect(find.text('Couldn’t load Time chart preference.'), findsOneWidget);
+      await h.reorder(forward: true);
+      expect(
+        find.byKey(const Key('dashboard-order-save-warning')),
+        findsNothing,
+      );
+      await h.key(LogicalKeyboardKey.keyR);
+      expect(timeStorage.reads, 2);
+      expect(writer.writes, hasLength(1));
+      expect(h.container.read(timeChartTypeProvider).visibleWarningId, isNull);
+      expect(
+        find.byKey(const Key('dashboard-order-save-warning')),
+        findsOneWidget,
+      );
+      final oldOrderRetry = tester
+          .widget<TextButton>(find.byKey(const Key('dashboard-order-retry')))
+          .onPressed!;
+      timeStorage.writeSteps.add(() async => false);
+      await h.container
+          .read(timeChartTypeProvider.notifier)
+          .select(TimeChartType.line);
+      await tester.pumpAndSettle();
+      expect(find.text('Couldn’t save Time chart preference.'), findsOneWidget);
+      expect(
+        find.byKey(const Key('dashboard-order-save-warning')),
+        findsNothing,
+      );
+      oldOrderRetry();
+      expect(writer.writes, hasLength(1));
+      await h.key(LogicalKeyboardKey.keyR);
+      expect(timeStorage.writes, ['line', 'line']);
+      expect(find.byKey(const Key('dashboard-order-retry')), findsOneWidget);
+      await h.key(LogicalKeyboardKey.keyR);
+      expect(writer.writes, hasLength(1));
+      await tester.tap(find.byKey(const Key('dashboard-order-retry')));
+      await tester.pumpAndSettle();
+      expect(writer.writes, hasLength(2));
+      expect(find.byType(SnackBar), findsNothing);
+      h.expectFocus('distance');
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final type in TimeChartType.values) {
     testWidgets(
@@ -942,6 +1296,8 @@ class _Harness {
     DateTime Function()? clock,
     List<GpxTrack>? tracks,
     TimeChartType? type,
+    ControlledDashboardOrderWriter? orderWriter,
+    TestTimeChartPreferenceStorage? timeStorage,
   }) async {
     if (type != null) {
       SharedPreferences.setMockInitialValues({
@@ -950,6 +1306,10 @@ class _Harness {
     }
     final container = ProviderContainer(
       overrides: [
+        if (orderWriter != null)
+          dashboardOrderWriterProvider.overrideWithValue(orderWriter.call),
+        if (timeStorage != null)
+          timeChartPreferenceStorageProvider.overrideWithValue(timeStorage),
         ...mappingCatalogTestOverrides,
         mapProvider.overrideWith(
           () => TestMapNotifier(
@@ -1095,6 +1455,17 @@ class _Harness {
     await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
     await key(LogicalKeyboardKey.tab);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+  }
+
+  Future<void> reorder({required bool forward, bool settle = true}) async {
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyEvent(
+      forward ? LogicalKeyboardKey.arrowRight : LogicalKeyboardKey.arrowLeft,
+    );
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    if (settle) await tester.pumpAndSettle();
   }
 
   Future<void> focus(String id) async {

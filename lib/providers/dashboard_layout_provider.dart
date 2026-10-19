@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:developer' as developer;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -55,11 +58,92 @@ final dashboardLayoutProvider =
 /// Raw read outcome, separate from the UI's default/fallback order.
 final dashboardLayoutReadProvider = FutureProvider<List<String>?>((ref) async {
   final prefs = await ref.watch(dashboardPreferencesLoaderProvider)();
+  // SharedPreferences optimistically caches even unsuccessful writes. Read the
+  // durable value for a new layout lifecycle, not that failed-write cache.
+  await prefs.reload();
   return prefs.getStringList(dashboardCardOrderStorageKey);
 });
 
+/// Replaceable physical write, using the same preferences owner/key as reads.
+final dashboardOrderWriterProvider =
+    Provider<Future<bool> Function(List<String>)>((ref) {
+      return (order) async {
+        final prefs = await ref.read(dashboardPreferencesLoaderProvider)();
+        return prefs.setStringList(dashboardCardOrderStorageKey, order);
+      };
+    });
+
+typedef DashboardOrderDiagnostics =
+    void Function(List<String> order, Object error, StackTrace stackTrace);
+
+final dashboardOrderDiagnosticsProvider = Provider<DashboardOrderDiagnostics>(
+  (ref) =>
+      (order, error, stackTrace) => developer.log(
+        'Save Dashboard card order ($dashboardCardOrderStorageKey): $order',
+        name: 'DashboardLayout',
+        error: error,
+        stackTrace: stackTrace,
+        level: 1000,
+      ),
+);
+
+/// Persistence outcome only; dashboardLayoutProvider remains the visible order.
+/// App-owned writes survive card/screen disposal. Order failures are events for
+/// the active Dashboard, not Time's app-owned once-on-next-activation warnings.
+final dashboardOrderSaveProvider =
+    NotifierProvider<DashboardOrderSaveNotifier, AsyncValue<void>?>(
+      DashboardOrderSaveNotifier.new,
+    );
+
+class DashboardOrderSaveNotifier extends Notifier<AsyncValue<void>?> {
+  Future<void>? _saving;
+
+  @override
+  AsyncValue<void>? build() => null;
+
+  Future<void> retry() => saveLatest();
+
+  Future<void> saveLatest() {
+    if (_saving != null) return _saving!;
+    final completion = Completer<void>();
+    _saving = completion.future;
+    state = const AsyncLoading();
+    unawaited(_drain().whenComplete(completion.complete));
+    return completion.future;
+  }
+
+  Future<void> _drain() async {
+    final write = ref.read(dashboardOrderWriterProvider);
+    final diagnostics = ref.read(dashboardOrderDiagnosticsProvider);
+    while (ref.mounted) {
+      final order = ref.read(dashboardLayoutProvider);
+      Object? failure;
+      StackTrace? failureStack;
+      try {
+        if (!await write(order)) {
+          throw StateError('Card-order preference write reported false');
+        }
+      } catch (error, stackTrace) {
+        diagnostics(order, error, stackTrace);
+        failure = error;
+        failureStack = stackTrace;
+      }
+      if (!ref.mounted) return;
+      // Complete the older physical write first, then coalesce intermediate
+      // moves into the latest visible order. Never roll back rendering/focus.
+      if (!listEquals(order, ref.read(dashboardLayoutProvider))) continue;
+      _saving = null;
+      state = failure == null
+          ? const AsyncData(null)
+          : AsyncError(failure, failureStack!);
+      return;
+    }
+  }
+}
+
 class DashboardLayoutNotifier extends Notifier<List<String>> {
   bool _loaded = false;
+  int _orderRevision = 0;
 
   @override
   List<String> build() => dashboardDefaultCardOrder;
@@ -69,11 +153,11 @@ class DashboardLayoutNotifier extends Notifier<List<String>> {
       return;
     }
     _loaded = true;
-    final initialState = state;
+    final revision = _orderRevision;
 
     try {
       final storedOrder = await ref.read(dashboardLayoutReadProvider.future);
-      if (storedOrder != null && listEquals(state, initialState)) {
+      if (ref.mounted && storedOrder != null && revision == _orderRevision) {
         state = _sanitizeOrder(storedOrder);
       }
     } catch (_) {
@@ -81,16 +165,23 @@ class DashboardLayoutNotifier extends Notifier<List<String>> {
     }
   }
 
-  Future<void> setOrder(List<String> order) async {
+  Future<void> setOrder(List<String> order) {
     final next = _sanitizeOrder(order);
+    if (listEquals(next, state)) return Future.value();
+    _orderRevision++;
     state = next;
+    return ref.read(dashboardOrderSaveProvider.notifier).saveLatest();
+  }
 
-    try {
-      final prefs = await ref.read(dashboardPreferencesLoaderProvider)();
-      await prefs.setStringList(dashboardCardOrderStorageKey, next);
-    } catch (_) {
-      // Keep the in-memory order even if persistence fails.
+  Future<void> moveCardOnePosition(String id, {required bool forward}) {
+    final index = state.indexOf(id);
+    final destination = index + (forward ? 1 : -1);
+    if (index < 0 || destination < 0 || destination >= state.length) {
+      return Future.value();
     }
+    final next = [...state];
+    next.insert(destination, next.removeAt(index));
+    return setOrder(next);
   }
 
   Future<void> moveCard(String draggedId, String targetId) async {
@@ -121,7 +212,7 @@ class DashboardLayoutNotifier extends Notifier<List<String>> {
       }
     }
 
-    return next;
+    return List.unmodifiable(next);
   }
 
   String _normalizeCardId(String id) {
