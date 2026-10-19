@@ -16,7 +16,8 @@ DECLARE
     'poi',
     'poi_area',
     'park',
-    'boundary'
+    'boundary',
+    'lake_labels'
   ];
 BEGIN
   FOREACH required_layer IN ARRAY required_layers LOOP

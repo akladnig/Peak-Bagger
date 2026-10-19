@@ -12,6 +12,7 @@
     "smoke": "node scripts/smoke.mjs",
     "review:cartography": "node scripts/review_cartography.mjs",
     "refresh:manual": "./scripts/manual_refresh.sh",
+    "refresh:lake-labels": "bash scripts/refresh_lake_labels.sh",
     "refresh:scheduled": "./scripts/scheduled_refresh.sh"
   }
 }

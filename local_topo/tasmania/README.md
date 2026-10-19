@@ -109,6 +109,64 @@ The richer style now uses committed `Roboto Regular` glyph assets for labels whi
 
 ## Cartography Review
 
+### Martin lake labels (native zooms 13–18)
+
+The Martin preview alone uses prepared whole-lake point positions from
+`local_topo_preview_active.lake_labels`. Below **1,000,000 m²** a lake keeps one
+interior position at every zoom; at or above that ground-area threshold it may
+repeat, with centres at least **256 logical map pixels** apart. Area is measured
+with PostGIS geography, not uncorrected Mercator area. Signed OSM area identities
+keep ways, relations, holes, disconnected components and separate same-named
+lakes distinct. Names remain source text and may wrap beyond shorelines.
+
+Preparation uses the production `scripts/lake_labels.mjs` algorithm, including
+conservative whole-dataset lake-name collision bounds. Native renderer collision
+detection remains enabled. Competing lake names prefer larger ground area, with
+source identity as a stable tie-breaker; no example-lake overrides are used.
+Points are lake-based, not regenerated from tile
+fragments or viewport bounds. The 258-pixel placement lattice includes a small
+MVT quantisation margin above the 256-pixel minimum. Raster `@2x` doubles PNG
+pixel separation, not logical separation. TileServer GL renders native 256px XYZ
+zoom `z` at MapLibre style zoom `z - 1`; the six label layers account for this.
+
+Normal manual/scheduled OSM imports prepare labels from the selected extract's
+staged whole polygons before validation and active-schema promotion. For an
+existing imported preview database, apply or refresh **only** derived labels:
+
+```bash
+npm run refresh:lake-labels -- --dry-run
+npm run refresh:lake-labels
+LOCAL_TOPO_STYLE=tasmania-openstreetmap-contours-martin LOCAL_TOPO_TILESERVER=martin npm run stack:up:preview
+```
+
+This bounded path needs Node and the existing Docker Compose PostGIS/Martin
+stack. It reads the already-imported selected OSM source in the active `water`
+table, stages labels, validates geometry/count/spacing and staged Martin
+readability, atomically replaces only the active label table, and restarts Martin
+and TileServer GL to discard cached vector/render resources. It does **not**
+download/reimport OSM or rebuild Planetiler MBTiles, contours, relief or static
+PNGs. Do not run it concurrently with another refresh: both operations own the
+existing preview staging seam. Preparation/validation failure leaves active data
+unchanged; restart failure restores the previous label table. The last successful
+label-only version is retained in `local_topo_lake_labels_retired`; the existing
+full-schema promotion/rollback remains separate and unchanged.
+
+Deploy the Martin style only after the label table is prepared and activated.
+Retain the previous style when deploying so a first-deployment failure can restore
+both code and data. Startup and tile requests never prepare data or silently
+fall back. Zooms 12 and below, river/stream naming, legacy/MapTiler/canonical
+styles, app labels/routes/capabilities and zoom limits are unchanged.
+
+The review command below saves **3×3 adjacent-tile neighbourhoods** for Lake Perry
+at native zooms 15–18, Hartz Lake at 13–14, and Lake St Clair at 15. Inspect the
+neighbourhoods together while panning; a split name at a seam is one occurrence,
+not two independent anchors. At `@2x`, 256 logical pixels are 512 PNG pixels.
+The default fixture also retains zoom-12/13 contour checks. For remote stacks set
+`LOCAL_TOPO_REVIEW_BASE_URL`; use a fresh output directory with
+`LOCAL_TOPO_REVIEW_OUTPUT_ROOT` and bypass app caches. Capturing PNGs is not
+visual acceptance: record inspected counts, readability, spacing, tile context
+and preservation comparisons in the affected Spec's verification report.
+
 Use the supported manual contour-cartography verification path through `tasmania-openstreetmap-contours-martin`, then compare the saved zoom `12` and zoom `13` terrain tiles against the committed expectations:
 
 ```bash

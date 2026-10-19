@@ -18,6 +18,25 @@ test('parseArgs reads review style id from CLI flag', () => {
   });
 });
 
+test('adjacent review captures fetch a complete 3×3 tile neighbourhood', async () => {
+  const outputRoot = await mkdtemp(join(tmpdir(), 'peak-bagger-lake-review-'));
+  const requests = [];
+  try {
+    await runReview({ styleId: 'martin', outputRoot,
+      fixture: { styleReviews: { martin: { variantExpectations: [], tiles: [
+        { slug: 'lake', z: 15, x: 100, y: 200, adjacent: true, expectations: [] },
+      ] } } },
+      fetchImpl: async url => { requests.push(url.pathname); return { ok: true, arrayBuffer: async () => pngFixture }; },
+      log: () => {},
+    });
+    assert.equal(new Set(requests).size, 9);
+    assert.ok(requests.includes('/tasmania/local-topo/15/99/199.png'));
+    assert.ok(requests.includes('/tasmania/local-topo/15/101/201.png'));
+    assert.deepEqual(await readFile(join(outputRoot, 'martin/lake.png')), pngFixture);
+    assert.deepEqual(await readFile(join(outputRoot, 'martin/lake-1-1.png')), pngFixture);
+  } finally { await rm(outputRoot, { recursive: true, force: true }); }
+});
+
 test('resolveStyleReview rejects missing or unknown style ids with available choices', () => {
   const fixture = {
     styleReviews: {
