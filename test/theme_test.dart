@@ -93,24 +93,41 @@ void main() {
         expect(dataGridTheme.columnGap, 12);
         expect(dataGridTheme.headerTextStyle, theme.textTheme.labelLarge);
         expect(dataGridTheme.rowTextStyle, theme.textTheme.bodyMedium);
-        expect(dataGridTheme.dividerColor, theme.colorScheme.outlineVariant);
+        expect(dataGridTheme.dividerColor, theme.colorScheme.onPrimary);
         expect(dataGridTheme.dividerThickness, 1);
         expect(
+          dataGridTheme.focusBorder,
+          BorderSide(color: theme.colorScheme.primary, width: 2),
+        );
+        expect(
           dataGridTheme.hoverColor,
-          theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+          Color.lerp(dataGridTheme.selectedRowColor, Colors.white, .10),
         );
         expect(dataGridTheme.hoveredTextColor, theme.colorScheme.onSurface);
         expect(
           dataGridTheme.pressedRowColor,
-          theme.colorScheme.primary.withValues(alpha: 0.12),
+          Color.alphaBlend(
+            theme.colorScheme.primary.withValues(alpha: .12),
+            theme.colorScheme.surface,
+          ),
         );
         expect(
           dataGridTheme.selectedRowColor,
-          darken(theme.colorScheme.primaryContainer, 0.30),
+          _shade(
+            theme.brightness == Brightness.dark
+                ? theme.seedColor
+                : theme.colorScheme.primaryContainer,
+            .30,
+          ),
         );
         expect(
           dataGridTheme.selectedRowBorderColor,
-          darken(theme.colorScheme.primaryContainer, 0.08),
+          _shade(
+            theme.brightness == Brightness.dark
+                ? theme.seedColor
+                : theme.colorScheme.primaryContainer,
+            .08,
+          ),
         );
       }
     });
@@ -131,6 +148,125 @@ void main() {
       expect(interpolated.headerPadding, isA<EdgeInsetsGeometry>());
       expect(interpolated.headerTextStyle, isA<TextStyle>());
     });
+
+    test(
+      'central fields, mode layers and circular actions resolve all states',
+      () {
+        expect(searchControlFontSize, 14.0);
+        expect(searchControlIconSize, 24.0);
+        const custom = ThemeConfig(
+          seedColor: Colors.teal,
+          dynamicSchemeVariant: DynamicSchemeVariant.expressive,
+          contrastLevel: .5,
+        );
+        for (final theme in [
+          MyTheme.light,
+          MyTheme.dark,
+          MyTheme.lightWith(custom),
+          MyTheme.darkWith(custom),
+        ]) {
+          final colors = theme.colorScheme;
+          final fields = theme.inputDecorationTheme;
+          expect(
+            fields.labelStyle,
+            TextStyle(fontSize: 14, color: colors.onSurface),
+          );
+          expect(fields.floatingLabelBehavior, FloatingLabelBehavior.always);
+          expect(fields.isDense, isTrue);
+          expect(
+            fields.border,
+            OutlineInputBorder(borderSide: BorderSide(color: colors.onPrimary)),
+          );
+          expect(fields.enabledBorder, isNull);
+          final active = fields.activeIndicatorBorder! as WidgetStateBorderSide;
+          expect(active.resolve({}), BorderSide(color: colors.outline));
+          expect(
+            active.resolve({WidgetState.hovered}),
+            BorderSide(color: theme.seedColor),
+          );
+          expect(
+            fields.focusedBorder!.borderSide,
+            BorderSide(color: theme.seedColor, width: 2),
+          );
+          expect(
+            fields.errorBorder!.borderSide,
+            BorderSide(color: colors.error),
+          );
+          expect(
+            fields.focusedErrorBorder!.borderSide,
+            BorderSide(color: colors.error, width: 2),
+          );
+          expect(
+            active.resolve({
+              WidgetState.disabled,
+              WidgetState.hovered,
+              WidgetState.error,
+            }),
+            BorderSide(color: colors.onSurface.withValues(alpha: .38)),
+          );
+          final fill = fields.fillColor! as WidgetStateProperty<Color>;
+          final hovered = Color.alphaBlend(
+            colors.primary.withValues(alpha: .08),
+            Color.alphaBlend(
+              colors.primary.withValues(alpha: .12),
+              colors.surface,
+            ),
+          );
+          expect(fill.resolve({}), colors.surface);
+          expect(fill.resolve({WidgetState.focused}), colors.surface);
+          expect(fill.resolve({WidgetState.hovered}), hovered);
+          expect(
+            fill.resolve({WidgetState.hovered, WidgetState.focused}),
+            hovered,
+          );
+          expect(
+            fill.resolve({WidgetState.hovered, WidgetState.disabled}),
+            colors.surface,
+          );
+          expect(fields.hoverColor, Colors.transparent);
+          final mode = theme.extension<SearchButtonThemeData>()!.selectedStyle;
+          expect(mode.backgroundColor!.resolve({WidgetState.hovered}), hovered);
+          expect(
+            mode.overlayColor!.resolve({WidgetState.hovered}),
+            Colors.transparent,
+          );
+          final icons = theme.iconButtonTheme.style!;
+          expect(icons.shape!.resolve({}), const CircleBorder());
+          expect(icons.backgroundColor!.resolve({}), Colors.transparent);
+          expect(
+            icons.overlayColor!.resolve({WidgetState.focused}),
+            Colors.transparent,
+          );
+          expect(
+            icons.backgroundColor!.resolve({WidgetState.hovered}),
+            colors.onSurface.withValues(alpha: .08),
+          );
+          expect(
+            icons.backgroundColor!.resolve({WidgetState.pressed}),
+            colors.onSurface.withValues(alpha: .12),
+          );
+          expect(
+            icons.overlayColor!.resolve({
+              WidgetState.disabled,
+              WidgetState.hovered,
+            }),
+            Colors.transparent,
+          );
+          expect(
+            icons.side!.resolve({WidgetState.focused}),
+            BorderSide(color: colors.primary, width: 2),
+          );
+          expect(
+            icons.side!.resolve({WidgetState.disabled, WidgetState.focused}),
+            BorderSide.none,
+          );
+          expect(
+            icons.mouseCursor!.resolve({WidgetState.disabled}),
+            SystemMouseCursors.basic,
+          );
+        }
+      },
+    );
 
     test('both themes expose only live theme extensions', () {
       final darkTheme = MyTheme.dark;
@@ -263,5 +399,13 @@ ColorScheme _expectedColorScheme({
     contrastLevel: contrastLevel,
   );
 
-  return scheme.copyWith(outlineVariant: scheme.onPrimary);
+  return scheme;
+}
+
+Color _shade(Color color, double amount) {
+  final hsl = HSLColor.fromColor(color);
+  return hsl
+      .withSaturation((hsl.saturation - amount).clamp(0, 1))
+      .withLightness((hsl.lightness - amount).clamp(0, 1))
+      .toColor();
 }

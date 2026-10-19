@@ -262,7 +262,7 @@ class ObjectBoxAdminDataRowTile extends StatefulWidget {
   final double actionsColumnWidth;
   final bool selected;
   final ScrollController horizontalController;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool showActionsColumn;
   final VoidCallback? onDeletePressed;
 
@@ -274,6 +274,7 @@ class ObjectBoxAdminDataRowTile extends StatefulWidget {
 class _ObjectBoxAdminDataRowTileState extends State<ObjectBoxAdminDataRowTile> {
   bool _isHovered = false;
   bool _isPressed = false;
+  bool _isFocused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -283,8 +284,13 @@ class _ObjectBoxAdminDataRowTileState extends State<ObjectBoxAdminDataRowTile> {
         DataGridTheme.fromColorScheme(theme.colorScheme, theme.textTheme);
     return Container(
       decoration: _rowDecoration(dataGridTheme),
+      foregroundDecoration: _isFocused && widget.onTap != null
+          ? BoxDecoration(
+              border: Border.fromBorderSide(dataGridTheme.focusBorder),
+            )
+          : null,
       child: Listener(
-        onPointerDown: (_) => _setPressed(true),
+        onPointerDown: widget.onTap == null ? null : (_) => _setPressed(true),
         onPointerUp: (_) => _setPressed(false),
         onPointerCancel: (_) => _setPressed(false),
         child: Semantics(
@@ -295,6 +301,7 @@ class _ObjectBoxAdminDataRowTileState extends State<ObjectBoxAdminDataRowTile> {
             child: InkWell(
               onTap: widget.onTap,
               onHover: _setHovered,
+              onFocusChange: (value) => setState(() => _isFocused = value),
               hoverColor: Colors.transparent,
               highlightColor: Colors.transparent,
               splashColor: Colors.transparent,
@@ -356,10 +363,13 @@ class _ObjectBoxAdminDataRowTileState extends State<ObjectBoxAdminDataRowTile> {
                               ),
                               tooltip: 'Delete',
                               onPressed: widget.onDeletePressed,
-                              icon: const Icon(
-                                Icons.delete_forever,
-                                color: Colors.red,
+                              style: IconButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                disabledForegroundColor: Colors.red.withValues(
+                                  alpha: .38,
+                                ),
                               ),
+                              icon: const Icon(Icons.delete_forever),
                             ),
                           ),
                         ),
@@ -384,10 +394,10 @@ class _ObjectBoxAdminDataRowTileState extends State<ObjectBoxAdminDataRowTile> {
         ),
       );
     }
-    if (_isPressed) {
+    if (_isPressed && widget.onTap != null) {
       return BoxDecoration(color: dataGridTheme.pressedRowColor);
     }
-    if (_isHovered) {
+    if (_isHovered && widget.onTap != null) {
       return BoxDecoration(color: dataGridTheme.hoverColor);
     }
     return null;

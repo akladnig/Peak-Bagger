@@ -388,7 +388,6 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final maxWidth = math.max(
       _minimumPopupWidth,
       MediaQuery.sizeOf(context).width - 32,
@@ -433,22 +432,6 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                                       ),
                                     )
                                   : null,
-                              labelStyle: const TextStyle(
-                                fontSize: searchControlFontSize,
-                              ),
-                              isDense: true,
-                              border: OutlineInputBorder(
-                                borderSide: BorderSide(color: theme.seedColour),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(color: theme.seedColour),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: theme.seedColour,
-                                  width: 2,
-                                ),
-                              ),
                               prefixIcon: const Icon(
                                 Icons.search,
                                 size: searchControlIconSize,

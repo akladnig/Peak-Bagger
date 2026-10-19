@@ -215,10 +215,10 @@ class _PeakSearchResultRowState extends State<_PeakSearchResultRow> {
         ),
       );
     }
-    if (_isPressed) {
+    if (_isPressed && widget.canToggleSelection) {
       return BoxDecoration(color: dataGridTheme.pressedRowColor);
     }
-    if (_isHovered) {
+    if (_isHovered && widget.canToggleSelection) {
       return BoxDecoration(color: dataGridTheme.hoverColor);
     }
     return null;

@@ -20,11 +20,62 @@ import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/theme.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_objectbox_admin_repository.dart';
 
 void main() {
+  testWidgets(
+    'shared Admin fields keep an unsaved draft and reachable actions through supported resizing',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 960));
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pumpApp(tester, repository: TestObjectBoxAdminRepository());
+      await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mt Ossa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+      await tester.pumpAndSettle();
+      final name = find.byKey(const Key('objectbox-admin-peak-name'));
+      await tester.enterText(name, 'Unsaved resize draft');
+      for (final size in [
+        const Size(1280, 960),
+        const Size(1920, 1200),
+        const Size(1600, 960),
+        const Size(1280, 960),
+      ]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpAndSettle();
+        final input = tester.widget<TextFormField>(name);
+        expect(input.controller!.text, 'Unsaved resize draft');
+        final decorator = tester.widget<InputDecorator>(
+          find.descendant(of: name, matching: find.byType(InputDecorator)),
+        );
+        final theme = Theme.of(tester.element(name));
+        expect(
+          decorator.decoration.labelStyle!.fontSize,
+          searchControlFontSize,
+        );
+        expect(decorator.decoration.enabledBorder, isNull);
+        expect(
+          decorator.decoration.focusedBorder!.borderSide,
+          BorderSide(color: theme.seedColor, width: 2),
+        );
+        final save = find.byKey(const Key('objectbox-admin-peak-submit'));
+        expect(save.hitTestable(), findsOneWidget);
+        expect(
+          find.byKey(const Key('objectbox-admin-details-close')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
   testWidgets('admin browser filters rows and closes details pane', (
     tester,
   ) async {

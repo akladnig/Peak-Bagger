@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:peak_bagger/theme.dart';
 
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
@@ -46,10 +47,7 @@ class ObjectBoxAdminControls extends StatelessWidget {
             key: const Key('objectbox-admin-entity-dropdown'),
             initialValue: entity,
             isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Entity',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(labelText: 'Entity'),
             items: state.entities
                 .map(
                   (descriptor) => DropdownMenuItem(
@@ -98,10 +96,13 @@ class ObjectBoxAdminControls extends StatelessWidget {
                   controller: searchController,
                   decoration: InputDecoration(
                     labelText: 'Search',
-                    border: const OutlineInputBorder(),
                     suffixIcon: IconButton(
+                      // Preserve this existing explicit-search action in this item.
+                      style: const ButtonStyle(
+                        iconSize: WidgetStatePropertyAll(searchControlIconSize),
+                      ),
                       onPressed: onSearchPressed,
-                      icon: const Icon(Icons.search),
+                      icon: const Icon(Icons.search, semanticLabel: 'Search'),
                     ),
                   ),
                   onChanged: onSearchChanged,
