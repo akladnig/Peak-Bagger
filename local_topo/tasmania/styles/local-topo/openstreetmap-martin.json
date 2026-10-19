@@ -230,7 +230,13 @@
             "River labels",
             "Lakeline labels",
             "Water labels",
-            "Natural water labels"
+            "Water line labels non-lake",
+            "Lake labels z13",
+            "Lake labels z14",
+            "Lake labels z15",
+            "Lake labels z16",
+            "Lake labels z17",
+            "Lake labels z18"
           ]
         },
         {
@@ -303,6 +309,11 @@
   "bearing": 0,
   "pitch": 0,
   "sources": {
+    "lake-labels": {
+      "type": "vector",
+      "url": "http://martin:3000/lake_labels",
+      "promoteId": "label_id"
+    },
     "openmaptiles": {
       "url": "http://martin:3000/boundary,building,cliff,landcover,landuse,park,place,place_area,poi,poi_area,transportation,transportation_name,water,water_name,waterway",
       "type": "vector"
@@ -3493,11 +3504,11 @@
         [
           "in",
           "class",
-           "minor",
-           "unclassified",
-           "street",
-           "street_limited",
-           "residential"
+          "minor",
+          "unclassified",
+          "street",
+          "street_limited",
+          "residential"
         ]
       ],
       "layout": {
@@ -5562,11 +5573,11 @@
             [
               "in",
               "class",
-               "minor",
-               "unclassified",
-               "street",
-               "street_limited",
-               "residential"
+              "minor",
+              "unclassified",
+              "street",
+              "street_limited",
+              "residential"
             ],
             [
               "in",
@@ -6004,11 +6015,11 @@
         [
           "in",
           "class",
-           "minor",
-           "unclassified",
-           "street",
-           "street_limited",
-           "residential"
+          "minor",
+          "unclassified",
+          "street",
+          "street_limited",
+          "residential"
         ],
         [
           "!=",
@@ -7605,11 +7616,11 @@
             [
               "in",
               "class",
-               "minor",
-               "unclassified",
-               "street",
-               "street_limited",
-               "residential"
+              "minor",
+              "unclassified",
+              "street",
+              "street_limited",
+              "residential"
             ],
             [
               "in",
@@ -7932,11 +7943,11 @@
         [
           "in",
           "class",
-           "minor",
-           "unclassified",
-           "street",
-           "street_limited",
-           "residential"
+          "minor",
+          "unclassified",
+          "street",
+          "street_limited",
+          "residential"
         ]
       ],
       "layout": {
@@ -10694,11 +10705,11 @@
         [
           "in",
           "class",
-           "minor",
-           "unclassified",
-           "street",
-           "street_limited",
-           "residential"
+          "minor",
+          "unclassified",
+          "street",
+          "street_limited",
+          "residential"
         ]
       ],
       "layout": {
@@ -11763,6 +11774,7 @@
       "source": "openmaptiles-water",
       "source-layer": "water_name",
       "minzoom": 0,
+      "maxzoom": 12,
       "filter": [
         "all",
         [
@@ -11816,6 +11828,13 @@
           "!=",
           "class",
           "ocean"
+        ],
+        [
+          "!in",
+          "class",
+          "lake",
+          "pond",
+          "reservoir"
         ]
       ],
       "layout": {
@@ -11845,38 +11864,50 @@
       }
     },
     {
-      "id": "Natural water labels",
+      "id": "Water line labels non-lake",
       "type": "symbol",
-      "source": "openmaptiles",
-      "source-layer": "water",
+      "source": "openmaptiles-water",
+      "source-layer": "water_name",
       "minzoom": 12,
       "filter": [
         "all",
         [
           "==",
-          "class",
-          "water"
+          "$type",
+          "LineString"
         ],
         [
-          "has",
-          "name"
+          "!in",
+          "class",
+          "lake",
+          "pond",
+          "reservoir"
         ]
       ],
       "layout": {
+        "symbol-placement": "line",
         "text-field": [
-          "get",
-          "name"
+          "coalesce",
+          [
+            "get",
+            "name:en"
+          ],
+          [
+            "get",
+            "name"
+          ]
         ],
         "text-font": [
-          "Roboto Regular"
+          "Open Sans Regular",
+          "Noto Sans Regular"
         ],
-        "text-max-width": 10,
-        "text-size": 13,
+        "text-max-width": 5,
+        "text-size": 14,
         "visibility": "visible"
       },
       "paint": {
-        "text-color": "hsl(230, 39%, 49%)",
-        "text-halo-color": "hsla(0, 0%, 100%, 0.8)",
+        "text-color": "hsl(238, 43%, 55%)",
+        "text-halo-color": "hsla(0, 0%, 100%, 0.7)",
         "text-halo-width": 1
       }
     },
@@ -13777,6 +13808,216 @@
         "text-halo-blur": 1,
         "text-halo-color": "hsla(0, 0%, 100%, 0.8)",
         "text-halo-width": 0.8
+      }
+    },
+    {
+      "id": "Lake labels z13",
+      "type": "symbol",
+      "source": "lake-labels",
+      "source-layer": "lake_labels",
+      "minzoom": 12,
+      "maxzoom": 13,
+      "filter": [
+        "==",
+        "label_zoom",
+        13
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-size": 16,
+        "text-max-width": 10,
+        "text-line-height": 1.2,
+        "text-padding": 2,
+        "text-allow-overlap": false,
+        "text-ignore-placement": false,
+        "symbol-avoid-edges": false
+      },
+      "paint": {
+        "text-color": "hsl(230, 39%, 49%)",
+        "text-halo-color": "hsla(0, 0%, 100%, 0.8)",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "Lake labels z14",
+      "type": "symbol",
+      "source": "lake-labels",
+      "source-layer": "lake_labels",
+      "minzoom": 13,
+      "maxzoom": 14,
+      "filter": [
+        "==",
+        "label_zoom",
+        14
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-size": 16,
+        "text-max-width": 10,
+        "text-line-height": 1.2,
+        "text-padding": 2,
+        "text-allow-overlap": false,
+        "text-ignore-placement": false,
+        "symbol-avoid-edges": false
+      },
+      "paint": {
+        "text-color": "hsl(230, 39%, 49%)",
+        "text-halo-color": "hsla(0, 0%, 100%, 0.8)",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "Lake labels z15",
+      "type": "symbol",
+      "source": "lake-labels",
+      "source-layer": "lake_labels",
+      "minzoom": 14,
+      "maxzoom": 15,
+      "filter": [
+        "==",
+        "label_zoom",
+        15
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-size": 16,
+        "text-max-width": 10,
+        "text-line-height": 1.2,
+        "text-padding": 2,
+        "text-allow-overlap": false,
+        "text-ignore-placement": false,
+        "symbol-avoid-edges": false
+      },
+      "paint": {
+        "text-color": "hsl(230, 39%, 49%)",
+        "text-halo-color": "hsla(0, 0%, 100%, 0.8)",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "Lake labels z16",
+      "type": "symbol",
+      "source": "lake-labels",
+      "source-layer": "lake_labels",
+      "minzoom": 15,
+      "maxzoom": 16,
+      "filter": [
+        "==",
+        "label_zoom",
+        16
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-size": 16,
+        "text-max-width": 10,
+        "text-line-height": 1.2,
+        "text-padding": 2,
+        "text-allow-overlap": false,
+        "text-ignore-placement": false,
+        "symbol-avoid-edges": false
+      },
+      "paint": {
+        "text-color": "hsl(230, 39%, 49%)",
+        "text-halo-color": "hsla(0, 0%, 100%, 0.8)",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "Lake labels z17",
+      "type": "symbol",
+      "source": "lake-labels",
+      "source-layer": "lake_labels",
+      "minzoom": 16,
+      "maxzoom": 17,
+      "filter": [
+        "==",
+        "label_zoom",
+        17
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-size": 16,
+        "text-max-width": 10,
+        "text-line-height": 1.2,
+        "text-padding": 2,
+        "text-allow-overlap": false,
+        "text-ignore-placement": false,
+        "symbol-avoid-edges": false
+      },
+      "paint": {
+        "text-color": "hsl(230, 39%, 49%)",
+        "text-halo-color": "hsla(0, 0%, 100%, 0.8)",
+        "text-halo-width": 1
+      }
+    },
+    {
+      "id": "Lake labels z18",
+      "type": "symbol",
+      "source": "lake-labels",
+      "source-layer": "lake_labels",
+      "minzoom": 17,
+      "maxzoom": 18,
+      "filter": [
+        "==",
+        "label_zoom",
+        18
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "text-field": [
+          "get",
+          "name"
+        ],
+        "text-font": [
+          "Roboto Regular"
+        ],
+        "text-size": 16,
+        "text-max-width": 10,
+        "text-line-height": 1.2,
+        "text-padding": 2,
+        "text-allow-overlap": false,
+        "text-ignore-placement": false,
+        "symbol-avoid-edges": false
+      },
+      "paint": {
+        "text-color": "hsl(230, 39%, 49%)",
+        "text-halo-color": "hsla(0, 0%, 100%, 0.8)",
+        "text-halo-width": 1
       }
     }
   ],

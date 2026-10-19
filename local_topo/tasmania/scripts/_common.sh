@@ -18,7 +18,7 @@ planetiler_sources_dir="$input_dir/planetiler_sources"
 preview_active_schema="local_topo_preview_active"
 preview_stage_schema="local_topo_preview_stage"
 preview_retired_schema="local_topo_preview_retired"
-preview_required_layers_csv="landcover,landuse,water,water_name,waterway,cliff,transportation,transportation_name,building,place,place_area,poi,poi_area,park,boundary"
+preview_required_layers_csv="landcover,landuse,water,water_name,waterway,cliff,transportation,transportation_name,building,place,place_area,poi,poi_area,park,boundary,lake_labels"
 preview_database_name="${LOCAL_TOPO_PREVIEW_DB_NAME:-local_topo_preview}"
 preview_database_user="${LOCAL_TOPO_PREVIEW_DB_USER:-postgres}"
 preview_database_password="${LOCAL_TOPO_PREVIEW_DB_PASSWORD:-postgres}"
@@ -544,7 +544,7 @@ import_preview_osm_stage() {
 validate_preview_stage_martin() {
   local dry_run="$1"
   local container_name="peak-bagger-local-topo-stage-validation-$$-$RANDOM"
-  local validation_url="http://127.0.0.1:$preview_stage_validation_port/$preview_required_layers_csv"
+  local validation_url="http://127.0.0.1:$preview_stage_validation_port/${2:-$preview_required_layers_csv}"
 
   print_command \
     "$docker_bin" \
@@ -632,6 +632,8 @@ build_preview_osm_runtime() {
 
   ensure_preview_postgis_service "$dry_run"
   import_preview_osm_stage "$dry_run"
+  LOCAL_TOPO_PREVIEW_DATABASE_URL="$preview_database_url" LOCAL_TOPO_DOCKER_BIN="$docker_bin" \
+    run_command "$dry_run" "$node_bin" "$script_dir/prepare_preview_lake_labels.mjs"
   validate_preview_osm_stage "$dry_run"
   promote_preview_osm_stage "$dry_run"
 }

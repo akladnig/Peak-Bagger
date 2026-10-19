@@ -96,7 +96,8 @@
     "tasmania-openstreetmap-contours-martin": {
       "variantExpectations": [
         "acts as the supported manual contour-cartography verification path for Tasmania Local Topo preview work",
-        "keeps the committed OpenStreetMap comparison style aligned with the canonical readable contour-label and standing-water masking behavior"
+        "keeps the committed OpenStreetMap comparison style aligned with the canonical readable contour-label and standing-water masking behavior",
+        "uses one whole-lake interior position below 1 km² and permits repeats at least 512 logical pixels apart for larger lakes; inspect adjacent captures together, not only as individual downloads"
       ],
       "tiles": [
         {
@@ -122,6 +123,79 @@
             "contour labels stay readable rather than rendering upside-down from the attempted 180 degree flip",
             "targeted standing-water polygon interiors do not show contour lines or contour labels inside Lake St Clair overlaps",
             "contours and contour labels remain visible on adjacent land up to the shoreline"
+          ]
+        },
+        {
+          "slug": "lake-perry-z15",
+          "z": 15,
+          "x": 29741,
+          "y": 20754,
+          "adjacent": true,
+          "expectations": [
+            "one Lake Perry name across the combined adjacent tiles, never the previous two-name defect",
+            "interior anchor; label may wrap and extend over the shoreline; land contours and relief remain visible"
+          ]
+        },
+        {
+          "slug": "lake-perry-z16",
+          "z": 16,
+          "x": 59483,
+          "y": 41508,
+          "adjacent": true,
+          "expectations": [
+            "one Lake Perry name at the same geographic anchor across adjacent tiles"
+          ]
+        },
+        {
+          "slug": "lake-perry-z17",
+          "z": 17,
+          "x": 118967,
+          "y": 83016,
+          "adjacent": true,
+          "expectations": [
+            "one Lake Perry name; zoom does not reclassify the lake as large"
+          ]
+        },
+        {
+          "slug": "lake-perry-z18",
+          "z": 18,
+          "x": 237935,
+          "y": 166032,
+          "adjacent": true,
+          "expectations": [
+            "one Lake Perry name, including seam fragments of the same anchored text"
+          ]
+        },
+        {
+          "slug": "hartz-lake-z13",
+          "z": 13,
+          "x": 7435,
+          "y": 5189,
+          "adjacent": true,
+          "expectations": [
+            "Hartz Lake is readable, ahead of competing road/path and contour labels",
+            "separate nearby lake names do not overlap; standing-water contour masking is unchanged"
+          ]
+        },
+        {
+          "slug": "hartz-lake-z14",
+          "z": 14,
+          "x": 14871,
+          "y": 10378,
+          "adjacent": true,
+          "expectations": [
+            "Hartz Lake is readable with one stable interior position"
+          ]
+        },
+        {
+          "slug": "lake-st-clair-repeats-z15",
+          "z": 15,
+          "x": 29689,
+          "y": 20612,
+          "adjacent": true,
+          "expectations": [
+            "Lake St Clair is a verified 28.68 km² relation: repeated names have interior centres at least 512 logical pixels apart, including across tile seams",
+            "inspect adjacent tiles while panning; at @2x the minimum centre spacing is 1024 PNG pixels; lake names do not overlap"
           ]
         }
       ]

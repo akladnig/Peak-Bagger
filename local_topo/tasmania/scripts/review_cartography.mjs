@@ -31,7 +31,9 @@ export function parseArgs(args = process.argv.slice(2)) {
 
 function resolveBaseUrl() {
   const configured = process.env.LOCAL_TOPO_REVIEW_BASE_URL?.trim();
-  return new URL(configured && configured.length > 0 ? configured : 'http://127.0.0.1:8090');
+  return new URL(
+    configured && configured.length > 0 ? configured : 'http://127.0.0.1:8090',
+  );
 }
 
 export async function loadFixture() {
@@ -56,7 +58,8 @@ export async function runReview({
   styleId,
   fixture,
   baseUrl = resolveBaseUrl(),
-  outputRoot = process.env.LOCAL_TOPO_REVIEW_OUTPUT_ROOT?.trim() || defaultOutputRoot,
+  outputRoot = process.env.LOCAL_TOPO_REVIEW_OUTPUT_ROOT?.trim() ||
+    defaultOutputRoot,
   fetchImpl = fetch,
   log = (message) => process.stdout.write(message),
 }) {
@@ -71,21 +74,29 @@ export async function runReview({
   }
 
   for (const tile of styleReview.tiles) {
-    const tilePath = `/tasmania/local-topo/${tile.z}/${tile.x}/${tile.y}.png`;
-    const tileUrl = new URL(tilePath, baseUrl);
-    const response = await fetchImpl(tileUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch ${tilePath}: HTTP ${response.status}`);
-    }
+    const offsets = tile.adjacent
+      ? [-1, 0, 1].flatMap((dy) => [-1, 0, 1].map((dx) => [dx, dy]))
+      : [[0, 0]];
+    for (const [dx, dy] of offsets) {
+      const x = tile.x + dx,
+        y = tile.y + dy;
+      const tilePath = `/tasmania/local-topo/${tile.z}/${x}/${y}.png`;
+      const tileUrl = new URL(tilePath, baseUrl);
+      const response = await fetchImpl(tileUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ${tilePath}: HTTP ${response.status}`);
+      }
 
-    const body = Buffer.from(await response.arrayBuffer());
-    const outputPath = join(styleOutputRoot, `${tile.slug}.png`);
-    await writeFile(outputPath, body);
+      const body = Buffer.from(await response.arrayBuffer());
+      const suffix = dx === 0 && dy === 0 ? '' : `-${dx}-${dy}`;
+      const outputPath = join(styleOutputRoot, `${tile.slug}${suffix}.png`);
+      await writeFile(outputPath, body);
 
-    log(`${tile.slug}: ${tileUrl}\n`);
-    log(`  saved: ${outputPath}\n`);
-    for (const expectation of tile.expectations) {
-      log(`  - ${expectation}\n`);
+      log(`${tile.slug}: ${tileUrl}\n`);
+      log(`  saved: ${outputPath}\n`);
+      for (const expectation of tile.expectations) {
+        log(`  - ${expectation}\n`);
+      }
     }
   }
 }
@@ -96,6 +107,9 @@ async function main() {
   await runReview({ styleId, fixture });
 }
 
-if (process.argv[1] != null && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (
+  process.argv[1] != null &&
+  fileURLToPath(import.meta.url) === process.argv[1]
+) {
   await main();
 }

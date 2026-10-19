@@ -36,7 +36,6 @@ const martinRequiredSourceLayers = [
   'poi_area',
   'transportation',
   'transportation_name',
-  'water',
 ];
 const martinWaterExceptionSourceLayers = ['water', 'water_name', 'waterway'];
 const martinLandcoverExceptionSourceLayers = ['landcover'];
@@ -84,6 +83,10 @@ const openStreetMapComparisonVariants = [
   },
 ];
 const martinLayerOverrides = new Map([
+  ['Service tunnel', { minzoom: 12 }],
+  ['Footway path outline', { minzoom: 12 }],
+  ['Lakeline labels', { maxzoom: 12 }],
+  ['Water labels', { filter: ['all', ['==', '$type', 'Point'], ['!=', 'class', 'ocean'], ['!in', 'class', 'lake', 'pond', 'reservoir']] }],
   ['Contours', { minzoom: 12 }],
   ['Contours intermediate 50m', { minzoom: 11 }],
   ['Contours index 100m', { minzoom: 11 }],
@@ -151,6 +154,8 @@ const martinLayerOverrides = new Map([
   }],
 ]);
 const martinRoadWidthOverrideLayerIds = new Set([
+  'Footway path outline',
+  'Footway path',
   'Service road outline',
   'Track road outline',
   'Tertiary road link outline',
@@ -308,17 +313,30 @@ function assertLayerOrder({ layerIndexes, lowerIds, higherIds }) {
 }
 
 function withMartinLineWidthOverride(layerId, expectedLayer, martinLayer) {
-  if (!martinRoadWidthOverrideLayerIds.has(layerId)) {
-    return expectedLayer;
-  }
-
-  return {
+  const result = {
     ...expectedLayer,
-    paint: {
-      ...expectedLayer.paint,
-      'line-width': martinLayer?.paint?.['line-width'],
-    },
+    paint: { ...expectedLayer.paint },
   };
+  if (martinRoadWidthOverrideLayerIds.has(layerId)) result.paint['line-width'] = martinLayer?.paint?.['line-width'];
+  // Explicit pre-existing Martin cartography, not new lake-label exceptions.
+  if (['Service road outline', 'Minor road outline'].includes(layerId)) result.paint['line-color'] = 'hsl(32, 22%, 52%)';
+  if (layerId === 'Track road outline') result.paint['line-color'] = { stops: [[11,'hsla(0, 0%, 100%, 0.0)'],[22,'hsla(0, 0%, 100%, 0.0)']] };
+  if (layerId === 'Track road') {
+    result.paint['line-color'] = { stops: [[12,'hsl(33, 100%, 50%)'],[16,'hsl(33, 100%, 50%)']] };
+    result.paint['line-dasharray'] = [6,3];
+  }
+  if (layerId === 'Footway path') result.paint['line-dasharray'] = [8,4];
+  if (layerId === 'Minor road under construction dash') result.paint['line-color'] = { stops: [[12,'hsl(35, 38%, 78%)'],[13,'hsl(42, 55%, 92%)']] };
+  if (layerId === 'Minor road') result.paint['line-color'] = { stops: [[12,'hsl(0, 100%, 100%)'],[13,'hsl(0, 100%, 100%)']] };
+  if (layerId === 'Lakeline labels') result.layout = { ...result.layout, 'text-size': 14 };
+  if (layerId === 'Water labels') {
+    result.minzoom = 13;
+    result.layout = { ...result.layout, 'text-size': 16 };
+    result.paint['text-color'] = 'hsl(230, 39%, 49%)';
+    result.paint['text-halo-color'] = 'hsla(0, 0%, 100%, 0.8)';
+  }
+  if (layerId === 'Other labels') result.layout = { ...result.layout, 'text-font': ['Roboto Regular'] };
+  return result;
 }
 
 function assertStandingWaterMaskLayers({
@@ -638,7 +656,7 @@ test('cartography review fixture includes the supported Martin contour review pa
   assert.equal(Array.isArray(styleReview.variantExpectations), true);
   assert.equal(styleReview.variantExpectations.length > 0, true);
   assert.deepEqual(
-    styleReview.tiles.map((tile) => tile.z).sort((left, right) => left - right),
+    styleReview.tiles.filter(tile => tile.slug.endsWith('-contours')).map((tile) => tile.z).sort((left, right) => left - right),
     [12, 13],
   );
 
@@ -948,13 +966,7 @@ test('OpenStreetMap comparison preview styles keep local sprite contract and tar
       assert.deepEqual(layers.get('Islet area labels')?.filter, ['==', 'class', 'islet']);
       assert.deepEqual(layers.get('Islet area labels')?.layout?.['text-font'], ['Roboto Regular']);
       assert.equal(layers.get('Islet area labels')?.layout?.['text-allow-overlap'], false);
-      assert.equal(layers.get('Natural water labels')?.source, 'openmaptiles');
-      assert.equal(layers.get('Natural water labels')?.['source-layer'], 'water');
-      assert.deepEqual(layers.get('Natural water labels')?.filter, [
-        'all',
-        ['==', 'class', 'water'],
-        ['has', 'name'],
-      ]);
+      assert.equal(layers.has('Natural water labels'), false);
       assert.deepEqual(layers.get('Track road outline')?.filter, [
         'all',
         ['!in', 'brunnel', 'bridge', 'tunnel'],
@@ -1064,7 +1076,7 @@ test('all supported LOCAL_TOPO_STYLE preview ids are registered in tileserver co
   );
 });
 
-test('Martin openstreetmap preview style stays within the first-slice compatibility boundary', async () => {
+test('Martin preview retains parity except the explicitly accepted scoped cartography changes', async () => {
   const legacyStyle = await loadJson('styles/local-topo/openstreetmap.json');
   const martinStyle = await loadJson('styles/local-topo/openstreetmap-martin.json');
   const config = await loadJson('config/tileserver-config.json');
@@ -1081,6 +1093,7 @@ test('Martin openstreetmap preview style stays within the first-slice compatibil
     ...Object.keys(legacyStyle.sources),
     'openmaptiles-landcover',
     'openmaptiles-water',
+    'lake-labels',
   ].sort());
   assert.deepEqual(martinStyle.sources['openmaptiles'], {
     type: 'vector',
@@ -1187,4 +1200,41 @@ test('Martin openstreetmap preview style stays within the first-slice compatibil
   for (const layerId of metadataLayerIds) {
     assert.equal(martinLayers.has(layerId), true);
   }
+});
+
+test('Martin lake labels cover native z13–18 with priority, wrapping and collision protection', async () => {
+  const style = await loadJson('styles/local-topo/openstreetmap-martin.json');
+  const layers = new Map(style.layers.map((l,i) => [l.id, { ...l, index: i }]));
+  assert.deepEqual(style.sources['lake-labels'], {
+    type: 'vector', url: 'http://martin:3000/lake_labels', promoteId: 'label_id',
+  });
+  for (let z = 13; z <= 18; z++) {
+    const layer = layers.get(`Lake labels z${z}`);
+    // TileServer GL renders 256px XYZ zoom z at MapLibre style zoom z-1.
+    assert.equal(layer.minzoom, z-1);
+    assert.equal(layer.maxzoom, z);
+    assert.deepEqual(layer.filter, ['==', 'label_zoom', z]);
+    assert.equal(layer.source, 'lake-labels');
+    assert.equal(layer['source-layer'], 'lake_labels');
+    assert.equal(layer.layout['symbol-placement'], 'point');
+    assert.deepEqual(layer.layout['text-field'], ['get', 'name']);
+    assert.deepEqual(layer.layout['text-font'], ['Roboto Regular']);
+    assert.equal(layer.layout['text-max-width'], 10);
+    assert.equal(layer.layout['text-size'], 16);
+    assert.equal(layer.layout['text-line-height'], 1.2);
+    assert.equal(layer.layout['text-allow-overlap'], false);
+    assert.equal(layer.layout['text-ignore-placement'], false);
+    assert.equal(layer.layout['symbol-avoid-edges'], false);
+    for (const other of style.layers.filter(l => /Contour labels|Road labels|road labels|Path labels|path labels|Standing water mask/.test(l.id))) {
+      assert.ok(layer.index > layers.get(other.id).index);
+    }
+  }
+  assert.equal(layers.get('Lakeline labels').maxzoom, 12);
+  const legacy = await loadJson('styles/local-topo/openstreetmap.json');
+  assert.deepEqual(layers.get('Water line labels non-lake').layout,
+    { ...legacy.layers.find(l => l.id === 'Lakeline labels').layout, 'text-size': 14 });
+  assert.deepEqual(layers.get('Water line labels non-lake').filter,
+    ['all', ['==', '$type', 'LineString'], ['!in', 'class', 'lake', 'pond', 'reservoir']]);
+  // No new layer is active at native z12 (style z11) or below.
+  assert.ok(style.layers.filter(l => l.source === 'lake-labels').every(l => l.minzoom >= 12));
 });

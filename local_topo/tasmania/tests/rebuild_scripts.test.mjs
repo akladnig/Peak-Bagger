@@ -11,6 +11,25 @@ const execFileAsync = promisify(execFile);
 const pngFixture = Buffer.from('89504E470D0A1A0A', 'hex');
 
 async function runScript(scriptName, args = [], options = {}) {
+  // Exercise the shell worker with controlled, already-resolved inputs. The
+  // public Dart resolver now owns Mapping manifests and has its own Dart tests;
+  // these shell tests must not resolve a developer's real Mapping data store.
+  if (['manual_refresh.sh', 'scheduled_refresh.sh', 'rebuild_stack.sh'].includes(scriptName)) {
+    const env = options.env ?? process.env;
+    const sourceArg = args.find(a => a.startsWith('--dem-source='))?.split('=')[1]
+      ?? args[args.indexOf('--dem-source') + 1];
+    const source = args.includes('--dem-source') || args.some(a => a.startsWith('--dem-source=')) ? sourceArg : 'elvis-topo';
+    const paths = {
+      'elvis-topo': env.LOCAL_TOPO_ELVIS_TOPO_DEM_TIF ?? join(env.HOME, 'DEM/Tasmania/elvis_topo/elvis_topo_5m.tif'),
+      thelist: env.LOCAL_TOPO_THELIST_DEM_TIF,
+      copernicus: env.LOCAL_TOPO_COPERNICUS_DEM_TIF,
+    };
+    if (source !== 'custom' && !args.includes('--dem-path') && !args.some(a => a.startsWith('--dem-path='))) {
+      args = [...args, '--dem-path', paths[source] ?? ''];
+    }
+    if (scriptName !== 'rebuild_stack.sh') args = ['--mode', scriptName === 'scheduled_refresh.sh' ? 'scheduled' : 'manual', ...args];
+    scriptName = 'rebuild_stack_worker.sh';
+  }
   return execFileAsync(`./scripts/${scriptName}`, args, {
     cwd: new URL('..', import.meta.url),
     ...options,
@@ -225,10 +244,15 @@ if [ "$command" = "compose" ]; then
   subcommand="$1"
   shift
   if [ "$subcommand" = "exec" ]; then
-    if [ "\${FAKE_DOCKER_FAIL_STAGE_VALIDATION:-0}" = "1" ] && [[ "$*" == *"validate_preview_stage_required_layers.sql"* ]]; then
+    if [[ "$*" == *"-f -" ]]; then
+      sql="$(cat)"
+      printf 'sql=%s\n' "$sql" >> "$log_path"
+      if [ "\${FAKE_DOCKER_FAIL_LAKE_PREPARATION:-0}" = "1" ]; then exit 1; fi
+    fi
+    if [ "\${FAKE_DOCKER_FAIL_STAGE_VALIDATION:-0}" = "1" ] && [[ "$*" == *"validate_preview_"* ]]; then
       exit 1
     fi
-    if [ "\${FAKE_DOCKER_FAIL_PROMOTION:-0}" = "1" ] && [[ "$*" == *"promote_preview_stage.sql"* ]]; then
+    if [ "\${FAKE_DOCKER_FAIL_PROMOTION:-0}" = "1" ] && [[ "$*" == *"promote_preview_"* ]]; then
       exit 1
     fi
     exit 0
@@ -307,6 +331,45 @@ async function withRenderServer(fn) {
       });
     });
   }
+}
+
+test('bounded lake refresh derives from the active imported OSM source without rebuilding other products', async () => {
+  const workspace = await makeTestWorkspace();
+  try {
+    const { stdout } = await execFileAsync('bash', ['scripts/refresh_lake_labels.sh'], {
+      cwd: new URL('..', import.meta.url), env: { ...process.env, ...workspace.env },
+    });
+    const log = await readDockerLog(workspace);
+    assert.match(stdout, /prepare_preview_lake_labels.mjs --from-active/);
+    assert.match(log, /local_topo_preview_active.water/);
+    assert.match(log, /CREATE TABLE local_topo_preview_stage.lake_labels/);
+    assert.match(log, /validate_preview_lake_labels.sql/);
+    assert.match(log, /promote_preview_lake_labels.sql/);
+    assert.match(log, /restart martin/);
+    assert.ok(log.indexOf('validate_preview_lake_labels.sql') < log.indexOf('promote_preview_lake_labels.sql'));
+    const commands = log.split('\n').filter(line => line.startsWith('argv=')).join('\n');
+    assert.doesNotMatch(commands + stdout, /osm2pgsql|planetiler|gdal|tippecanoe|prerender_tiles|reset_preview_stage|download.geofabrik/);
+  } finally { await cleanupWorkspace(workspace); }
+});
+
+for (const [flag, forbidden] of [
+  ['FAKE_DOCKER_FAIL_LAKE_PREPARATION', 'promote_preview_lake_labels.sql'],
+  ['FAKE_DOCKER_FAIL_STAGE_VALIDATION', 'promote_preview_lake_labels.sql'],
+  ['FAKE_DOCKER_FAIL_PROMOTION', 'restart martin'],
+  ['FAKE_DOCKER_FAIL_MARTIN_RESTART', null],
+]) {
+  test(`bounded lake refresh preserves active data on ${flag}`, async () => {
+    const workspace = await makeTestWorkspace();
+    try {
+      await assert.rejects(execFileAsync('bash', ['scripts/refresh_lake_labels.sh'], {
+        cwd: new URL('..', import.meta.url), env: { ...process.env, ...workspace.env, [flag]: '1' },
+      }));
+      const log = await readDockerLog(workspace);
+      if (forbidden) assert.ok(!log.includes(forbidden));
+      else assert.match(log, /restore_preview_lake_labels.sql/);
+      assert.doesNotMatch(log, /promote_preview_stage.sql|reset_preview_stage.sql/);
+    } finally { await cleanupWorkspace(workspace); }
+  });
 }
 
 test('manual refresh dry-run defaults to elvis-topo without invoking ELVIS derivation inline', async () => {
