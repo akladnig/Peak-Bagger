@@ -194,6 +194,10 @@ abstract final class DashboardUI {
 
   static double rodWidthFor(double columnWidth) => columnWidth * 0.8;
 
+  // Two half-width rods occupy 80% of a bucket. A 4% internal gap leaves
+  // 16% between clusters, keeping pairs distinct even in dense daily views.
+  static double groupedBarsSpaceFor(double columnWidth) => columnWidth * 0.04;
+
   static const rodRadius = 2.0;
 }
 

@@ -16,6 +16,65 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final theme in [MyTheme.light, MyTheme.dark]) {
+    for (final allZero in [false, true]) {
+      testWidgets(
+        'clustered spacing groups pairs across periods, pages and resizing ${theme.brightness} (all zero: $allZero)',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(1200, 650));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          final tracks = [
+            _track(1, allZero ? 0 : 18000000, allZero ? 0 : 14400000),
+            _track(2, 0, 0, month: 9),
+            _track(3, allZero ? 0 : 3600000, 0, year: 2000),
+          ];
+          Future<void> pumpWidth(double width) => _pump(
+            tester,
+            tracks: tracks,
+            theme: theme.copyWith(platform: TargetPlatform.macOS),
+            textScale: 1.5,
+            width: width,
+          );
+
+          await pumpWidth(700);
+          await _selectType(tester, TimeChartType.clusteredColumn);
+          for (final period in SummaryPeriodPreset.values) {
+            await tester.tap(find.byKey(const Key('summary-period-dropdown')));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text(period.label).last);
+            await tester.pumpAndSettle();
+            final currentPageStart = _chart(tester).buckets.first.start;
+            for (final historical in [false, true]) {
+              if (historical) {
+                await tester.tap(find.byKey(const Key('summary-prev-window')));
+                await tester.pumpAndSettle();
+              }
+              final pageStart = _chart(tester).buckets.first.start;
+              if (historical) {
+                expect(pageStart.isBefore(currentPageStart), isTrue);
+              }
+              for (final width in [700.0, 1000.0, 560.0]) {
+                await pumpWidth(width);
+                expect(
+                  tester.getSize(find.byKey(const Key('time-card'))).width,
+                  width,
+                );
+                expect(_chart(tester).period, period);
+                expect(_chart(tester).buckets.first.start, pageStart);
+                expect(_chart(tester).mode, SummaryDisplayMode.columns);
+                expect(
+                  _chart(tester).barSeriesStyle,
+                  SummaryBarSeriesStyle.grouped,
+                );
+                _expectClusterSpacing(tester);
+                expect(tester.takeException(), isNull);
+              }
+            }
+          }
+        },
+      );
+    }
+  }
   for (final theme in [
     MyTheme.light,
     MyTheme.dark,
@@ -598,6 +657,35 @@ void main() {
 SummaryChart _chart(WidgetTester tester) =>
     tester.widget<SummaryChart>(find.byType(SummaryChart));
 
+void _expectClusterSpacing(WidgetTester tester) {
+  final chart = find.byType(BarChart);
+  final data = tester.widget<BarChart>(chart).data;
+  final plot = tester.getRect(chart);
+  final groups = data.barGroups;
+  expect(data.alignment, BarChartAlignment.spaceAround);
+  expect(groups.length, greaterThan(1));
+  // spaceAround divides the unoccupied plot width evenly between clusters,
+  // with half of that gap at either edge. Measure it from the rendered plot,
+  // not the production spacing helper or a hard-coded expected ratio.
+  final outerGap =
+      (plot.width - groups.fold<double>(0, (sum, group) => sum + group.width)) /
+      groups.length;
+  expect(outerGap, greaterThan(0));
+  var left = plot.left + outerGap / 2;
+  for (var index = 0; index < groups.length; index++) {
+    final group = groups[index];
+    expect(group.barRods, hasLength(2));
+    expect(group.barRods.every((rod) => rod.width > 0), isTrue);
+    expect(group.barsSpace, greaterThanOrEqualTo(0));
+    expect(outerGap, greaterThan(group.barsSpace));
+    final bucket = tester.getRect(find.byKey(Key('time-bucket-$index')));
+    expect(left + group.width / 2, closeTo(bucket.center.dx, 1));
+    expect(left, greaterThanOrEqualTo(bucket.left - 1));
+    expect(left + group.width, lessThanOrEqualTo(bucket.right + 1));
+    left += group.width + outerGap;
+  }
+}
+
 List<Text> _tooltipRows(WidgetTester tester) => tester
     .widgetList<Text>(
       find.descendant(
@@ -620,6 +708,7 @@ Future<void> _pump(
   bool loading = false,
   ThemeData? theme,
   double textScale = 1,
+  double width = 700,
   ValueChanged<SummaryVisibleSummary?>? onSummary,
 }) async {
   await tester.pumpWidget(
@@ -630,7 +719,7 @@ Future<void> _pump(
           body: MediaQuery(
             data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
             child: SizedBox(
-              width: 700,
+              width: width,
               height: 400,
               child: TimeCard(
                 tracks: tracks,
@@ -648,11 +737,17 @@ Future<void> _pump(
   if (!loading) await tester.pumpAndSettle();
 }
 
-GpxTrack _track(int id, int? total, int? moving, {int month = 10}) => GpxTrack(
+GpxTrack _track(
+  int id,
+  int? total,
+  int? moving, {
+  int month = 10,
+  int year = 2026,
+}) => GpxTrack(
   gpxTrackId: id,
   contentHash: '$id',
   trackName: 'Track $id',
-  trackDate: DateTime.utc(2026, month, 15),
+  trackDate: DateTime.utc(year, month, 15),
   trackDateStatus: TrackDateStatus.resolved,
   totalTimeMillis: total,
   movingTime: moving,

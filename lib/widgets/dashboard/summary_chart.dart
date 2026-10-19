@@ -534,7 +534,7 @@ class _SummaryBarChart extends StatelessWidget {
             switch (style) {
               SummaryBarSeriesStyle.grouped => BarChartGroupData(
                 x: index,
-                barsSpace: 6,
+                barsSpace: DashboardUI.groupedBarsSpaceFor(bucketExtent),
                 barRods: [
                   _seriesRod(
                     value: buckets[index].value,
