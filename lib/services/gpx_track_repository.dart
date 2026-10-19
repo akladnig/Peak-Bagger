@@ -1,5 +1,6 @@
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/services/track_name_normalisation.dart';
+import 'track_date_calendar_codec.dart';
 import '../objectbox.g.dart';
 
 class TrackNameNormalisationResult {
@@ -179,7 +180,7 @@ class GpxTrackRepository {
     if (_storage case final ObjectBoxGpxTrackStorage storage) {
       return storage.put(track);
     }
-    throw UnsupportedError('putTrack is not supported by the test storage');
+    return _storage.save(track);
   }
 
   List<GpxTrack> getAllTracks() {
@@ -225,31 +226,14 @@ class GpxTrackRepository {
   }
 
   GpxTrack? findByTrackNameAndTrackDate(String trackName, DateTime trackDate) {
-    if (_storage case final ObjectBoxGpxTrackStorage storage) {
-      final box = storage._box;
-      final query = box
-          .query(
-            GpxTrack_.trackName.equals(trackName) &
-                GpxTrack_.trackDate.equalsDate(trackDate) &
-                GpxTrack_.startDateTime.notNull(),
-          )
-          .build();
-      final matches = query.find();
-      query.close();
-      if (matches.isEmpty) {
-        return null;
-      }
-      matches.sort((a, b) => b.gpxTrackId.compareTo(a.gpxTrackId));
-      return matches.first;
-    }
-
+    final day = DateTime.utc(trackDate.year, trackDate.month, trackDate.day);
     final matches = _storage
         .getAll()
         .where(
           (track) =>
               track.trackName == trackName &&
-              track.trackDate == trackDate &&
-              track.startDateTime != null,
+              TrackDateCalendarCodec.day(track) == day &&
+              track.hasMetadataTrackDate,
         )
         .toList(growable: false);
     if (matches.isEmpty) {
@@ -275,7 +259,12 @@ class GpxTrackRepository {
     if (_storage case final ObjectBoxGpxTrackStorage storage) {
       return storage.remove(id);
     }
-    throw UnsupportedError('deleteTrack is not supported by the test storage');
+    if (_storage case final InMemoryGpxTrackStorage storage) {
+      final before = storage._tracks.length;
+      storage._tracks.removeWhere((track) => track.gpxTrackId == id);
+      return storage._tracks.length < before;
+    }
+    throw UnsupportedError('deleteTrack is not supported by this storage');
   }
 
   List<GpxTrack> findTasmanianTracks() {

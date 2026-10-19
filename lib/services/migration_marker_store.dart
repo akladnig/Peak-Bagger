@@ -78,8 +78,10 @@ class MigrationMarkerStore {
   }) {
     if (!migrationMarked) {
       if (hasPersistedTracks) {
-        return const TrackStartupDecision(
-          action: TrackStartupAction.wipeAndImport,
+        return TrackStartupDecision(
+          action: hasRecoveryIssue
+              ? TrackStartupAction.showRecovery
+              : TrackStartupAction.loadTracks,
           markMigrationComplete: true,
         );
       }

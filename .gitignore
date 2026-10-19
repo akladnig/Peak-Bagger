@@ -59,5 +59,4 @@ app.*.map.json
 /.dart_defines.local.json.seed-*
 /local_topo/tasmania/.tmp-rebuild-tests
 /local_topo/tasmania/output/*.mbtiles
-/pubspec.lock
 /local_topo/tasmania/.tmp-start-stack-tests/peak-bagger-local-topo-start-Ed3gLD/runtime

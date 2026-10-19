@@ -649,7 +649,8 @@ class MapActionRail extends ConsumerWidget {
         hasWarnings: result.warningMessage != null,
       );
       jobsNotifier.queueSnackBar(
-        message: 'Import complete: ${_importResultSummary(result)}',
+        message:
+            'Import complete: ${_importResultSummary(result)}${result.warningMessage == null ? '' : '. ${result.warningMessage}'}',
         actions: [openJobsAction],
       );
     } catch (error) {

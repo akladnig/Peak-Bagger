@@ -111,34 +111,6 @@ class ElevationSummaryService {
     );
   }
 
-  double shiftScrollOffset({
-    required double currentOffset,
-    required double viewportWidth,
-    required double maxScrollExtent,
-    required bool forward,
-  }) {
-    return _service.shiftScrollOffset(
-      currentOffset: currentOffset,
-      viewportWidth: viewportWidth,
-      maxScrollExtent: maxScrollExtent,
-      forward: forward,
-    );
-  }
-
-  int shiftWindowStartIndex({
-    required int currentStartIndex,
-    required int visibleBucketCount,
-    required int bucketCount,
-    required bool forward,
-  }) {
-    return _service.shiftWindowStartIndex(
-      currentStartIndex: currentStartIndex,
-      visibleBucketCount: visibleBucketCount,
-      bucketCount: bucketCount,
-      forward: forward,
-    );
-  }
-
   int visibleAverageMetres(Iterable<ElevationBucket> buckets) {
     return _service
         .visibleAverageValue(buckets.map((bucket) => bucket.toSummaryBucket()))

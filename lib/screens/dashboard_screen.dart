@@ -1,12 +1,15 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/core/constants.dart';
 
 import '../core/number_formatters.dart';
 import '../providers/dashboard_layout_provider.dart';
 import '../providers/dashboard_readiness_provider.dart';
+import '../providers/summary_page_controller.dart';
+import '../providers/time_chart_type_provider.dart';
 import '../providers/map_provider.dart';
 import '../providers/peak_marker_info_settings_provider.dart';
 import '../providers/peak_list_provider.dart';
@@ -15,6 +18,8 @@ import '../services/latest_walk_summary.dart';
 import '../services/performance_frame.dart';
 import '../services/summary_card_service.dart';
 import '../widgets/dashboard/distance_card.dart';
+import '../widgets/dashboard/time_card.dart';
+import '../widgets/dashboard/dashboard_preference_feedback.dart';
 import '../widgets/dashboard/elevation_card.dart';
 import '../widgets/dashboard/latest_walk_card.dart';
 import '../widgets/dashboard/my_ascents_card.dart';
@@ -22,6 +27,8 @@ import '../widgets/dashboard/my_lists_card.dart';
 import '../widgets/dashboard/peaks_bagged_card.dart';
 import '../widgets/dashboard/year_to_date_card.dart';
 import '../widgets/dashboard/summary_card.dart';
+import '../widgets/dashboard/dashboard_card_keyboard.dart';
+import '../widgets/shell_destination_keyboard.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key, this.now});
@@ -32,9 +39,11 @@ class DashboardScreen extends ConsumerStatefulWidget {
   ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+class _DashboardScreenState extends ConsumerState<DashboardScreen>
+    with WidgetsBindingObserver {
   SummaryVisibleSummary? _elevationSummary;
   SummaryVisibleSummary? _distanceSummary;
+  SummaryVisibleSummary? _timeSummary;
   SummaryVisibleSummary? _peaksBaggedSummary;
   bool _readyMarkerEmitted = false;
   bool _readyFrameScheduled = false;
@@ -46,10 +55,179 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   List<String>? _paintedOrder;
   Object? _paintedTracks;
   bool? _paintedPeakInfo;
+  final _boardScroll = ScrollController();
+  final _boardFocus = FocusNode(debugLabel: 'Dashboard traversal');
+  final Map<String, DashboardCardKeyboardController> _cardKeyboards = {};
+  String? _focusTarget;
+  int _focusRevision = 0;
+  int _columns = 1;
+  double _gridWidth = 0;
+
+  bool get _active =>
+      mounted &&
+      TickerMode.valuesOf(context).enabled &&
+      (ModalRoute.of(context)?.isCurrent ?? true);
+
+  DashboardCardKeyboardController _keyboardFor(DashboardCardDefinition card) =>
+      _cardKeyboards.putIfAbsent(
+        card.id,
+        () => DashboardCardKeyboardController(
+          title: card.title,
+          traverse: (forward) => _traverse(forward, from: card.id),
+        )..isActive = () => _active,
+      );
+
+  void _traverse(bool forward, {String? from}) {
+    if (!_active) return;
+    final order = ref.read(dashboardLayoutProvider);
+    final focused =
+        _focusTarget ??
+        from ??
+        _cardKeyboards.entries
+            .where((entry) => entry.value.focusNode.hasFocus)
+            .map((entry) => entry.key)
+            .firstOrNull;
+    final index = order.indexOf(focused ?? '');
+    final next = index < 0
+        ? (forward ? 0 : order.length - 1)
+        : (index + (forward ? 1 : -1)) % order.length;
+    _revealAndFocus(order[next]);
+  }
+
+  void _revealAndFocus(
+    String id, [
+    DashboardCardFocusReason reason = DashboardCardFocusReason.entry,
+  ]) {
+    _focusTarget = id;
+    final revision = ++_focusRevision;
+    // Keep ownership while the lazy grid constructs an unmounted target.
+    _boardFocus.requestFocus();
+    void reveal(Duration _) {
+      if (!_active || revision != _focusRevision) return;
+      final index = ref.read(dashboardLayoutProvider).indexOf(id);
+      if (index < 0 || !_boardScroll.hasClients) return;
+      final rowHeight =
+          ((_gridWidth - 16 * (_columns - 1)) / _columns) /
+          dashboardCardAspectRatio;
+      final top = (index ~/ _columns) * (rowHeight + 16);
+      final position = _boardScroll.position;
+      final bottom = top + rowHeight;
+      final offset =
+          rowHeight >= position.viewportDimension || top < position.pixels
+          ? top
+          : bottom > position.pixels + position.viewportDimension
+          ? bottom - position.viewportDimension
+          : position.pixels;
+      final target = offset.clamp(0.0, position.maxScrollExtent);
+      if ((target - position.pixels).abs() > 0.5) {
+        _boardScroll.jumpTo(target);
+        WidgetsBinding.instance.addPostFrameCallback(reveal);
+        WidgetsBinding.instance.scheduleFrame();
+        return;
+      }
+      final keyboard = _cardKeyboards[id];
+      if (keyboard?.focusNode.context == null) {
+        WidgetsBinding.instance.addPostFrameCallback(reveal);
+        WidgetsBinding.instance.scheduleFrame();
+        return;
+      }
+      _focusTarget = null;
+      keyboard!.focus(reason);
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback(reveal);
+    WidgetsBinding.instance.scheduleFrame();
+  }
+
+  KeyEventResult _boardKey(FocusNode node, KeyEvent event) {
+    if (!_active ||
+        dashboardIsEditing ||
+        (event is! KeyDownEvent && event is! KeyRepeatEvent)) {
+      return KeyEventResult.ignored;
+    }
+    final focused = _cardKeyboards.values
+        .where((c) => c.focusNode.hasPrimaryFocus)
+        .firstOrNull;
+    if (focused?.menuOwnsFocus == true) return KeyEventResult.ignored;
+    final hardware = HardwareKeyboard.instance;
+    if (hardware.isMetaPressed &&
+        hardware.isShiftPressed &&
+        !hardware.isControlPressed &&
+        !hardware.isAltPressed &&
+        (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+            event.logicalKey == LogicalKeyboardKey.arrowRight)) {
+      final id =
+          _focusTarget ??
+          _cardKeyboards.entries
+              .where((e) => identical(e.value, focused))
+              .map((e) => e.key)
+              .firstOrNull;
+      if (id == null) return KeyEventResult.ignored;
+      unawaited(
+        ref
+            .read(dashboardLayoutProvider.notifier)
+            .moveCardOnePosition(
+              id,
+              forward: event.logicalKey == LogicalKeyboardKey.arrowRight,
+            ),
+      );
+      return KeyEventResult.handled;
+    }
+    if (dashboardHasCommandModifier) return KeyEventResult.ignored;
+    if (event.logicalKey == LogicalKeyboardKey.tab) {
+      _traverse(!HardwareKeyboard.instance.isShiftPressed);
+      return KeyEventResult.handled;
+    }
+    if (focused == null || HardwareKeyboard.instance.isShiftPressed) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.f6) {
+      final id = _cardKeyboards.entries
+          .firstWhere((e) => identical(e.value, focused))
+          .key;
+      final shell = ShellDestinationKeyboard.maybeOf(context);
+      if (shell == null) return KeyEventResult.ignored;
+      shell.enter((forward) {
+        if (!_active) return;
+        if (forward == null) {
+          _revealAndFocus(id, DashboardCardFocusReason.menuReturn);
+        } else {
+          _traverse(forward, from: id);
+        }
+      });
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.keyR) {
+      // Feedback owns actual presentation and the identical pointer/R action.
+      DashboardPreferenceFeedback.retryVisibleTimeWarning(
+        focused.focusNode.context!,
+      );
+      return KeyEventResult.handled;
+    }
+    final action = focused.actions[event.logicalKey];
+    if (action == null) return KeyEventResult.ignored;
+    action();
+    return KeyEventResult.handled;
+  }
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    ref.listenManual(dashboardLayoutProvider, (previous, next) {
+      if (!_active || identical(previous, next)) return;
+      final retainedId =
+          _focusTarget ??
+          _cardKeyboards.entries
+              .where((e) => e.value.focusNode.hasPrimaryFocus)
+              .map((e) => e.key)
+              .firstOrNull;
+      if (retainedId != null) {
+        // Reordering is a focus return, not fresh entry/inspection. Resolve the
+        // retained ID against the new order after the lazy grid reconstructs.
+        _revealAndFocus(retainedId, DashboardCardFocusReason.menuReturn);
+      }
+    });
     unawaited(ref.read(dashboardLayoutProvider.notifier).load());
     ref.listenManual(
       dashboardReadinessProvider,
@@ -61,6 +239,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (!_active) {
+      _focusRevision++;
+      _focusTarget = null;
+    }
     if (TickerMode.valuesOf(context).enabled) {
       _observeReadiness(ref.read(dashboardReadinessProvider));
     }
@@ -142,7 +324,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _focusRevision++;
+    _boardScroll.dispose();
+    _boardFocus.dispose();
+    for (final keyboard in _cardKeyboards.values) {
+      keyboard.dispose();
+    }
+    WidgetsBinding.instance.removeObserver(this);
     _cancelFrameMeasurement?.call();
     super.dispose();
   }
@@ -169,8 +363,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     });
   }
 
+  void _handleTimeSummaryChanged(SummaryVisibleSummary? summary) {
+    if (_timeSummary == summary) return;
+    setState(() {
+      _timeSummary = summary;
+      _headerRevision++;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final now = widget.now ?? ref.watch(dashboardReferenceClockProvider)();
     _paintedReadiness = ref.watch(dashboardReadinessProvider);
     _paintedHeaderRevision = _headerRevision;
     final order = ref.watch(dashboardLayoutProvider);
@@ -186,115 +389,165 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final isLoadingTracks = ref.watch(
       mapProvider.select((state) => state.isLoadingTracks),
     );
+    final isLoadingTimePreference = ref.watch(
+      timeChartTypeProvider.select((state) => state.isHydrating),
+    );
 
-    return Scaffold(
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final columns = _resolveColumnCount(constraints.maxWidth);
-              return GridView.builder(
-                key: const Key('dashboard-board'),
-                findChildIndexCallback: (key) {
-                  final valueKey = key is ValueKey<String> ? key.value : null;
-                  if (valueKey == null ||
-                      !valueKey.startsWith('dashboard-card-')) {
-                    return null;
-                  }
-
-                  final cardId = valueKey.substring('dashboard-card-'.length);
-                  return order.indexOf(cardId);
-                },
-                itemCount: order.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: columns,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 16,
-                  childAspectRatio: dashboardCardAspectRatio,
-                ),
-                itemBuilder: (context, index) {
-                  final definition = dashboardCards.firstWhere(
-                    (card) => card.id == order[index],
-                  );
-                  final body = switch (definition.id) {
-                    'distance' => DistanceCard(
-                      tracks: tracks,
-                      isLoading: isLoadingTracks,
-                      now: widget.now,
-                      onVisibleSummaryChanged: _handleDistanceSummaryChanged,
-                    ),
-                    'latest-walk' => LatestWalkCard(
-                      key: ValueKey(
-                        'latest-walk-card-${latestWalkTrackId ?? 'empty'}',
-                      ),
-                      tracks: tracks,
-                      showPeakInfo: showPeakInfo,
-                      onOpenTrack: (trackId) {
-                        ref.read(mapProvider.notifier).showTrack(trackId);
-                        router.go('/map');
-                      },
-                    ),
-                    'elevation' => ElevationCard(
-                      tracks: tracks,
-                      isLoading: isLoadingTracks,
-                      now: widget.now,
-                      onVisibleSummaryChanged: _handleElevationSummaryChanged,
-                    ),
-                    'my-ascents' => const MyAscentsCard(),
-                    'my-lists' => const MyListsCard(),
-                    'peaks-bagged' => PeaksBaggedCard(
-                      tracks: tracks,
-                      isLoading: isLoadingTracks,
-                      now: widget.now,
-                      onVisibleSummaryChanged: _handlePeaksBaggedSummaryChanged,
-                    ),
-                    'year-to-date' => YearToDateCard(
-                      tracks: tracks,
-                      peaksBagged: peaksBagged,
-                      isLoading: isLoadingTracks,
-                      now: widget.now,
-                    ),
-                    _ => const _DashboardCardBody(),
-                  };
-                  return _DashboardCard(
-                    key: ValueKey('dashboard-card-${definition.id}'),
-                    definition: definition,
-                    headerTrailing: switch (definition.id) {
-                      'elevation' when _elevationSummary != null =>
-                        _DashboardCardHeaderMetrics(
-                          summary: _elevationSummary!,
-                          valueFormatter: ElevationCard.adapter.headerValueText,
-                          averageLabelText:
-                              ElevationCard.adapter.averageLabelText,
-                        ),
-                      'distance' when _distanceSummary != null =>
-                        _DashboardCardHeaderMetrics(
-                          summary: _distanceSummary!,
-                          valueFormatter: DistanceCard.adapter.headerValueText,
-                          averageLabelText:
-                              DistanceCard.adapter.averageLabelText,
-                        ),
-                      'peaks-bagged' when _peaksBaggedSummary != null =>
-                        _DashboardCardHeaderMetrics(
-                          summary: _peaksBaggedSummary!,
-                          valueFormatter: _formatCountValue,
-                          averageLabelText: defaultAverageLabelText,
-                        ),
-                      _ => null,
-                    },
-                    body: body,
-                    onMove: (draggedId, targetId) {
-                      unawaited(
-                        ref
-                            .read(dashboardLayoutProvider.notifier)
-                            .moveCard(draggedId, targetId),
-                      );
-                    },
-                  );
-                },
-              );
+    return ScaffoldMessenger(
+      child: Scaffold(
+        body: DashboardPreferenceFeedback(
+          child: Focus(
+            focusNode: _boardFocus,
+            autofocus: true,
+            skipTraversal: true,
+            onKeyEvent: _boardKey,
+            onFocusChange: (focused) {
+              if (!focused) {
+                _focusRevision++;
+                _focusTarget = null;
+              }
             },
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = _resolveColumnCount(constraints.maxWidth);
+                    _columns = columns;
+                    _gridWidth = constraints.maxWidth;
+                    return GridView.builder(
+                      key: const Key('dashboard-board'),
+                      controller: _boardScroll,
+                      findChildIndexCallback: (key) {
+                        final valueKey = key is ValueKey<String>
+                            ? key.value
+                            : null;
+                        if (valueKey == null ||
+                            !valueKey.startsWith('dashboard-card-')) {
+                          return null;
+                        }
+
+                        final cardId = valueKey.substring(
+                          'dashboard-card-'.length,
+                        );
+                        return order.indexOf(cardId);
+                      },
+                      itemCount: order.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                        childAspectRatio: dashboardCardAspectRatio,
+                      ),
+                      itemBuilder: (context, index) {
+                        final definition = dashboardCards.firstWhere(
+                          (card) => card.id == order[index],
+                        );
+                        final body = switch (definition.id) {
+                          'distance' => DistanceCard(
+                            tracks: tracks,
+                            isLoading: isLoadingTracks,
+                            now: widget.now,
+                            onVisibleSummaryChanged:
+                                _handleDistanceSummaryChanged,
+                          ),
+                          'time' => TimeCard(
+                            tracks: tracks,
+                            isLoading: isLoadingTracks,
+                            now: widget.now,
+                            onVisibleSummaryChanged: _handleTimeSummaryChanged,
+                          ),
+                          'latest-walk' => LatestWalkCard(
+                            key: ValueKey(
+                              'latest-walk-card-${latestWalkTrackId ?? 'empty'}',
+                            ),
+                            tracks: tracks,
+                            showPeakInfo: showPeakInfo,
+                            onOpenTrack: (trackId) {
+                              ref.read(mapProvider.notifier).showTrack(trackId);
+                              router.go('/map');
+                            },
+                          ),
+                          'elevation' => ElevationCard(
+                            tracks: tracks,
+                            isLoading: isLoadingTracks,
+                            now: widget.now,
+                            onVisibleSummaryChanged:
+                                _handleElevationSummaryChanged,
+                          ),
+                          'my-ascents' => const MyAscentsCard(),
+                          'my-lists' => const MyListsCard(),
+                          'peaks-bagged' => PeaksBaggedCard(
+                            tracks: tracks,
+                            isLoading: isLoadingTracks,
+                            now: widget.now,
+                            onVisibleSummaryChanged:
+                                _handlePeaksBaggedSummaryChanged,
+                          ),
+                          'year-to-date' => YearToDateCard(
+                            tracks: tracks,
+                            peaksBagged: peaksBagged,
+                            isLoading: isLoadingTracks,
+                            now: now,
+                          ),
+                          _ => const _DashboardCardBody(),
+                        };
+                        return _DashboardCard(
+                          key: ValueKey('dashboard-card-${definition.id}'),
+                          definition: definition,
+                          keyboard: _keyboardFor(definition),
+                          headerTrailing: switch (definition.id) {
+                            'elevation' when _elevationSummary != null =>
+                              _DashboardCardHeaderMetrics(
+                                summary: _elevationSummary!,
+                                valueFormatter:
+                                    ElevationCard.adapter.headerValueText,
+                                averageLabelText:
+                                    ElevationCard.adapter.averageLabelText,
+                              ),
+                            'distance' when _distanceSummary != null =>
+                              _DashboardCardHeaderMetrics(
+                                summary: _distanceSummary!,
+                                valueFormatter:
+                                    DistanceCard.adapter.headerValueText,
+                                averageLabelText:
+                                    DistanceCard.adapter.averageLabelText,
+                              ),
+                            'time'
+                                when _timeSummary != null &&
+                                    !isLoadingTracks &&
+                                    !isLoadingTimePreference =>
+                              _DashboardCardHeaderMetrics(
+                                summary: _timeSummary!,
+                                valueFormatter:
+                                    TimeCard.adapter.headerValueText,
+                                averageLabelText:
+                                    TimeCard.adapter.averageLabelText,
+                                wrap: true,
+                              ),
+                            'peaks-bagged' when _peaksBaggedSummary != null =>
+                              _DashboardCardHeaderMetrics(
+                                summary: _peaksBaggedSummary!,
+                                valueFormatter: _formatCountValue,
+                                averageLabelText: defaultAverageLabelText,
+                              ),
+                            _ => null,
+                          },
+                          body: body,
+                          onMove: (draggedId, targetId) {
+                            unawaited(
+                              ref
+                                  .read(dashboardLayoutProvider.notifier)
+                                  .moveCard(draggedId, targetId),
+                            );
+                          },
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -316,12 +569,14 @@ class _DashboardCard extends StatefulWidget {
   const _DashboardCard({
     super.key,
     required this.definition,
+    required this.keyboard,
     required this.headerTrailing,
     required this.body,
     required this.onMove,
   });
 
   final DashboardCardDefinition definition;
+  final DashboardCardKeyboardController keyboard;
   final Widget? headerTrailing;
   final Widget body;
   final void Function(String draggedId, String targetId) onMove;
@@ -330,70 +585,101 @@ class _DashboardCard extends StatefulWidget {
   State<_DashboardCard> createState() => _DashboardCardState();
 }
 
-class _DashboardCardState extends State<_DashboardCard> {
+class _DashboardCardState extends State<_DashboardCard>
+    with AutomaticKeepAliveClientMixin {
   bool _isPointerHovered = false;
   bool _isDragging = false;
+  bool _focused = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
 
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (details) =>
-          details.data != widget.definition.id,
-      onAcceptWithDetails: (details) {
-        widget.onMove(details.data, widget.definition.id);
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isHovered =
-            _isPointerHovered || _isDragging || candidateData.isNotEmpty;
-        return MouseRegion(
-          onEnter: (_) {
-            if (!_isPointerHovered) {
-              setState(() => _isPointerHovered = true);
-            }
-          },
-          onExit: (_) {
-            if (_isPointerHovered) {
-              setState(() => _isPointerHovered = false);
-            }
-          },
-          child: Card(
-            elevation: 4,
-            clipBehavior: Clip.antiAlias,
-            color: theme.colorScheme.surfaceContainer,
-            shape: RoundedRectangleBorder(
-              borderRadius: DashboardUI.cardBorderRadius,
-              side: BorderSide(
-                color: isHovered
-                    ? theme.colorScheme.outlineVariant
-                    : theme.colorScheme.outline,
-                width: isHovered ? 2 : 1,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _DashboardCardHeader(
-                  definition: widget.definition,
-                  headerTrailing: widget.headerTrailing,
-                  onDragStarted: () {
-                    if (!_isDragging) {
-                      setState(() => _isDragging = true);
-                    }
-                  },
-                  onDragEnded: () {
-                    if (_isDragging) {
-                      setState(() => _isDragging = false);
-                    }
-                  },
+    return DashboardCardKeyboard(
+      controller: widget.keyboard,
+      child: Focus(
+        key: Key('dashboard-card-${widget.definition.id}-focus'),
+        focusNode: widget.keyboard.focusNode,
+        includeSemantics: false,
+        descendantsAreTraversable: false,
+        onFocusChange: (focused) {
+          if (_focused != focused) setState(() => _focused = focused);
+        },
+        child: Semantics(
+          container: true,
+          label: widget.definition.title,
+          focusable: true,
+          focused: _focused,
+          onFocus: widget.keyboard.focus,
+          child: DragTarget<String>(
+            onWillAcceptWithDetails: (details) =>
+                details.data != widget.definition.id,
+            onAcceptWithDetails: (details) {
+              widget.onMove(details.data, widget.definition.id);
+            },
+            builder: (context, candidateData, rejectedData) {
+              final isHovered =
+                  _isPointerHovered || _isDragging || candidateData.isNotEmpty;
+              return MouseRegion(
+                onEnter: (_) {
+                  if (!_isPointerHovered) {
+                    setState(() => _isPointerHovered = true);
+                  }
+                },
+                onExit: (_) {
+                  if (_isPointerHovered) {
+                    setState(() => _isPointerHovered = false);
+                  }
+                },
+                child: Card(
+                  elevation: 4,
+                  clipBehavior: Clip.antiAlias,
+                  color: theme.colorScheme.surfaceContainer,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: DashboardUI.cardBorderRadius,
+                    side: BorderSide(
+                      color: _focused
+                          ? theme.colorScheme.primary
+                          : isHovered
+                          ? theme.colorScheme.outlineVariant
+                          : theme.colorScheme.outline,
+                      width: _focused
+                          ? 3
+                          : isHovered
+                          ? 2
+                          : 1,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _DashboardCardHeader(
+                        definition: widget.definition,
+                        headerTrailing: widget.headerTrailing,
+                        onDragStarted: () {
+                          if (!_isDragging) {
+                            setState(() => _isDragging = true);
+                          }
+                        },
+                        onDragEnded: () {
+                          if (_isDragging) {
+                            setState(() => _isDragging = false);
+                          }
+                        },
+                      ),
+                      Expanded(child: widget.body),
+                    ],
+                  ),
                 ),
-                Expanded(child: widget.body),
-              ],
-            ),
+              );
+            },
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
@@ -594,14 +880,40 @@ class _DashboardCardHeaderMetrics extends StatelessWidget {
     required this.summary,
     required this.valueFormatter,
     required this.averageLabelText,
+    this.wrap = false,
   });
 
   final SummaryVisibleSummary summary;
   final String Function(double value) valueFormatter;
   final String Function(SummaryPeriodPreset period) averageLabelText;
+  final bool wrap;
 
   @override
   Widget build(BuildContext context) {
+    if (wrap) {
+      return Wrap(
+        key: const Key('time-header-summaries'),
+        alignment: WrapAlignment.end,
+        spacing: 16,
+        runSpacing: 4,
+        children: [
+          Text(
+            'Total: ${valueFormatter(summary.totalValue)}',
+            key: const Key('dashboard-card-summary-total-value'),
+            style: const TextStyle(
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+          Text(
+            '${averageLabelText(summary.period)} ${valueFormatter(summary.averageValue)}',
+            key: const Key('dashboard-card-summary-average-value'),
+            style: const TextStyle(
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        ],
+      );
+    }
     return FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.centerRight,

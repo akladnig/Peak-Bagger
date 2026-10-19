@@ -244,7 +244,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       rawName?.isNotEmpty == true ? rawName! : 'gpx-track',
     );
     if (trackDate is DateTime) {
-      return '$safeStem-${_formatDate(trackDate)}.gpx';
+      return '$safeStem-${_formatDate(trackDate, preserveComponents: row.values['trackDateStatus'] == 1)}.gpx';
     }
 
     return '$safeStem.gpx';
@@ -256,8 +256,8 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
     return replaced.replaceAll(RegExp(r'^-+|-+$'), '');
   }
 
-  String _formatDate(DateTime date) {
-    final local = date.toLocal();
+  String _formatDate(DateTime date, {bool preserveComponents = false}) {
+    final local = preserveComponents ? date : date.toLocal();
     final day = local.day.toString().padLeft(2, '0');
     final month = local.month.toString().padLeft(2, '0');
     final year = local.year.toString().padLeft(4, '0');
@@ -903,6 +903,7 @@ ObjectBoxAdminRow gpxTrackToAdminRow(GpxTrack track) {
       'contentHash': track.contentHash,
       'trackName': track.trackName,
       'trackDate': track.trackDate,
+      'trackDateStatus': track.trackDateStatus,
       'gpxFile': track.gpxFile,
       'gpxFileRepaired': track.gpxFileRepaired,
       'filteredTrack': track.filteredTrack,

@@ -16,6 +16,14 @@ _Avoid_: route when referring to historical walk data
 The canonical calendar day recorded for a completed `Track`, stored as `GpxTrack.trackDate`.
 _Avoid_: GPX timestamp when the search or display is concerned with the walk's day
 
+**Total Time**:
+The recorded duration within a completed `Track`'s recording segments, including resting time but excluding gaps between segments (`Paused Time`).
+_Avoid_: elapsed start-to-finish time when it includes recording gaps
+
+**Moving Time**:
+The portion of a completed `Track`'s `Total Time` remaining after resting time is excluded.
+_Avoid_: treating paused recording gaps as moving time
+
 **Track name normalisation**:
 The maintenance operation that removes a trailing date from a stored `Track` name while retaining its separate `Track date`.
 _Avoid_: track-date removal, date deletion

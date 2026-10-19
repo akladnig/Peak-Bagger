@@ -28,6 +28,7 @@ import 'models/route_graph_manifest.dart';
 import 'models/route_graph_trail_display_chunk.dart';
 import 'models/route_graph_way_index.dart';
 import 'models/tasmap50k.dart';
+import 'models/track_date_migration_metadata.dart';
 import 'models/track_replacement_recovery_issue.dart';
 import 'models/waypoints.dart';
 
@@ -352,7 +353,7 @@ final _entities = <obx_int.ModelEntity>[
   obx_int.ModelEntity(
     id: const obx_int.IdUid(3, 8449374379554926112),
     name: 'GpxTrack',
-    lastPropertyId: const obx_int.IdUid(36, 6865718623478699060),
+    lastPropertyId: const obx_int.IdUid(40, 5326322304943373350),
     flags: 0,
     properties: <obx_int.ModelProperty>[
       obx_int.ModelProperty(
@@ -539,6 +540,30 @@ final _entities = <obx_int.ModelEntity>[
         id: const obx_int.IdUid(36, 6865718623478699060),
         name: 'maxSpeedKmh',
         type: 8,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(37, 8293351804335450882),
+        name: 'trackDateStatus',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(38, 4375809035462038491),
+        name: 'trackDateDerivationVersion',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(39, 7915504643779771175),
+        name: 'trackDateTimezoneId',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(40, 5326322304943373350),
+        name: 'trackDateFailureReason',
+        type: 9,
         flags: 0,
       ),
     ],
@@ -1479,6 +1504,76 @@ final _entities = <obx_int.ModelEntity>[
     relations: <obx_int.ModelRelation>[],
     backlinks: <obx_int.ModelBacklink>[],
   ),
+  obx_int.ModelEntity(
+    id: const obx_int.IdUid(18, 8293296964313127736),
+    name: 'TrackDateMigrationMetadata',
+    lastPropertyId: const obx_int.IdUid(10, 7396683522447903884),
+    flags: 0,
+    properties: <obx_int.ModelProperty>[
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(1, 4035585829784822671),
+        name: 'id',
+        type: 6,
+        flags: 129,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(2, 2783185961579616924),
+        name: 'key',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(3, 4000924972947639174),
+        name: 'completedVersion',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(4, 2748166158356092680),
+        name: 'completedAt',
+        type: 10,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(5, 9148593050718482058),
+        name: 'geographicDataVersion',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(6, 3580864276891378404),
+        name: 'ianaDataVersion',
+        type: 9,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(7, 8509705136602475332),
+        name: 'updatedCount',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(8, 398174938190835161),
+        name: 'unchangedCount',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(9, 4689917338814734148),
+        name: 'skippedCount',
+        type: 6,
+        flags: 0,
+      ),
+      obx_int.ModelProperty(
+        id: const obx_int.IdUid(10, 7396683522447903884),
+        name: 'skippedRecordsJson',
+        type: 9,
+        flags: 0,
+      ),
+    ],
+    relations: <obx_int.ModelRelation>[],
+    backlinks: <obx_int.ModelBacklink>[],
+  ),
 ];
 
 /// Shortcut for [obx.Store.new] that passes [getObjectBoxModel] and for Flutter
@@ -1524,7 +1619,7 @@ obx_int.ModelDefinition getObjectBoxModel() {
     // Typically, this is done with `dart run build_runner build`.
     generatorVersion: obx_int.GeneratorVersion.v2025_12_16,
     entities: _entities,
-    lastEntityId: const obx_int.IdUid(17, 4224728018239922669),
+    lastEntityId: const obx_int.IdUid(18, 8293296964313127736),
     lastIndexId: const obx_int.IdUid(29, 655196580284660726),
     lastRelationId: const obx_int.IdUid(1, 8194382659905112901),
     lastSequenceId: const obx_int.IdUid(0, 0),
@@ -1941,7 +2036,14 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final elevationProfileOffset = fbb.writeString(object.elevationProfile);
         final filteredTrackOffset = fbb.writeString(object.filteredTrack);
         final gpxFileRepairedOffset = fbb.writeString(object.gpxFileRepaired);
-        fbb.startTable(37);
+        final trackDateTimezoneIdOffset = object.trackDateTimezoneId == null
+            ? null
+            : fbb.writeString(object.trackDateTimezoneId!);
+        final trackDateFailureReasonOffset =
+            object.trackDateFailureReason == null
+            ? null
+            : fbb.writeString(object.trackDateFailureReason!);
+        fbb.startTable(41);
         fbb.addInt64(0, object.gpxTrackId);
         fbb.addOffset(2, trackNameOffset);
         fbb.addInt64(3, object.startDateTime?.millisecondsSinceEpoch);
@@ -1973,6 +2075,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
         fbb.addFloat64(33, object.averageSpeedKmh);
         fbb.addFloat64(34, object.movingSpeedKmh);
         fbb.addFloat64(35, object.maxSpeedKmh);
+        fbb.addInt64(36, object.trackDateStatus);
+        fbb.addInt64(37, object.trackDateDerivationVersion);
+        fbb.addOffset(38, trackDateTimezoneIdOffset);
+        fbb.addOffset(39, trackDateFailureReasonOffset);
         fbb.finish(fbb.endTable());
         return object.gpxTrackId;
       },
@@ -2009,6 +2115,20 @@ obx_int.ModelDefinition getObjectBoxModel() {
         final trackDateParam = trackDateValue == null
             ? null
             : DateTime.fromMillisecondsSinceEpoch(trackDateValue, isUtc: true);
+        final trackDateStatusParam = const fb.Int64Reader().vTableGet(
+          buffer,
+          rootOffset,
+          76,
+          0,
+        );
+        final trackDateDerivationVersionParam = const fb.Int64Reader()
+            .vTableGet(buffer, rootOffset, 78, 0);
+        final trackDateTimezoneIdParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 80);
+        final trackDateFailureReasonParam = const fb.StringReader(
+          asciiOptimization: true,
+        ).vTableGetNullable(buffer, rootOffset, 82);
         final gpxFileParam = const fb.StringReader(
           asciiOptimization: true,
         ).vTableGet(buffer, rootOffset, 28, '');
@@ -2156,6 +2276,10 @@ obx_int.ModelDefinition getObjectBoxModel() {
           contentHash: contentHashParam,
           trackName: trackNameParam,
           trackDate: trackDateParam,
+          trackDateStatus: trackDateStatusParam,
+          trackDateDerivationVersion: trackDateDerivationVersionParam,
+          trackDateTimezoneId: trackDateTimezoneIdParam,
+          trackDateFailureReason: trackDateFailureReasonParam,
           gpxFile: gpxFileParam,
           gpxFileRepaired: gpxFileRepairedParam,
           filteredTrack: filteredTrackParam,
@@ -3424,6 +3548,112 @@ obx_int.ModelDefinition getObjectBoxModel() {
         return object;
       },
     ),
+    TrackDateMigrationMetadata:
+        obx_int.EntityDefinition<TrackDateMigrationMetadata>(
+          model: _entities[17],
+          toOneRelations: (TrackDateMigrationMetadata object) => [],
+          toManyRelations: (TrackDateMigrationMetadata object) => {},
+          getId: (TrackDateMigrationMetadata object) => object.id,
+          setId: (TrackDateMigrationMetadata object, int id) {
+            object.id = id;
+          },
+          objectToFB: (TrackDateMigrationMetadata object, fb.Builder fbb) {
+            final keyOffset = fbb.writeString(object.key);
+            final geographicDataVersionOffset = fbb.writeString(
+              object.geographicDataVersion,
+            );
+            final ianaDataVersionOffset = fbb.writeString(
+              object.ianaDataVersion,
+            );
+            final skippedRecordsJsonOffset = fbb.writeString(
+              object.skippedRecordsJson,
+            );
+            fbb.startTable(11);
+            fbb.addInt64(0, object.id);
+            fbb.addOffset(1, keyOffset);
+            fbb.addInt64(2, object.completedVersion);
+            fbb.addInt64(3, object.completedAt?.millisecondsSinceEpoch);
+            fbb.addOffset(4, geographicDataVersionOffset);
+            fbb.addOffset(5, ianaDataVersionOffset);
+            fbb.addInt64(6, object.updatedCount);
+            fbb.addInt64(7, object.unchangedCount);
+            fbb.addInt64(8, object.skippedCount);
+            fbb.addOffset(9, skippedRecordsJsonOffset);
+            fbb.finish(fbb.endTable());
+            return object.id;
+          },
+          objectFromFB: (obx.Store store, ByteData fbData) {
+            final buffer = fb.BufferContext(fbData);
+            final rootOffset = buffer.derefObject(0);
+            final completedAtValue = const fb.Int64Reader().vTableGetNullable(
+              buffer,
+              rootOffset,
+              10,
+            );
+            final idParam = const fb.Int64Reader().vTableGet(
+              buffer,
+              rootOffset,
+              4,
+              0,
+            );
+            final keyParam = const fb.StringReader(
+              asciiOptimization: true,
+            ).vTableGet(buffer, rootOffset, 6, '');
+            final completedVersionParam = const fb.Int64Reader().vTableGet(
+              buffer,
+              rootOffset,
+              8,
+              0,
+            );
+            final completedAtParam = completedAtValue == null
+                ? null
+                : DateTime.fromMillisecondsSinceEpoch(
+                    completedAtValue,
+                    isUtc: true,
+                  );
+            final geographicDataVersionParam = const fb.StringReader(
+              asciiOptimization: true,
+            ).vTableGet(buffer, rootOffset, 12, '');
+            final ianaDataVersionParam = const fb.StringReader(
+              asciiOptimization: true,
+            ).vTableGet(buffer, rootOffset, 14, '');
+            final updatedCountParam = const fb.Int64Reader().vTableGet(
+              buffer,
+              rootOffset,
+              16,
+              0,
+            );
+            final unchangedCountParam = const fb.Int64Reader().vTableGet(
+              buffer,
+              rootOffset,
+              18,
+              0,
+            );
+            final skippedCountParam = const fb.Int64Reader().vTableGet(
+              buffer,
+              rootOffset,
+              20,
+              0,
+            );
+            final skippedRecordsJsonParam = const fb.StringReader(
+              asciiOptimization: true,
+            ).vTableGet(buffer, rootOffset, 22, '');
+            final object = TrackDateMigrationMetadata(
+              id: idParam,
+              key: keyParam,
+              completedVersion: completedVersionParam,
+              completedAt: completedAtParam,
+              geographicDataVersion: geographicDataVersionParam,
+              ianaDataVersion: ianaDataVersionParam,
+              updatedCount: updatedCountParam,
+              unchangedCount: unchangedCountParam,
+              skippedCount: skippedCountParam,
+              skippedRecordsJson: skippedRecordsJsonParam,
+            );
+
+            return object;
+          },
+        ),
   };
 
   return obx_int.ModelDefinition(model, bindings);
@@ -3831,6 +4061,26 @@ class GpxTrack_ {
   /// See [GpxTrack.maxSpeedKmh].
   static final maxSpeedKmh = obx.QueryDoubleProperty<GpxTrack>(
     _entities[2].properties[30],
+  );
+
+  /// See [GpxTrack.trackDateStatus].
+  static final trackDateStatus = obx.QueryIntegerProperty<GpxTrack>(
+    _entities[2].properties[31],
+  );
+
+  /// See [GpxTrack.trackDateDerivationVersion].
+  static final trackDateDerivationVersion = obx.QueryIntegerProperty<GpxTrack>(
+    _entities[2].properties[32],
+  );
+
+  /// See [GpxTrack.trackDateTimezoneId].
+  static final trackDateTimezoneId = obx.QueryStringProperty<GpxTrack>(
+    _entities[2].properties[33],
+  );
+
+  /// See [GpxTrack.trackDateFailureReason].
+  static final trackDateFailureReason = obx.QueryStringProperty<GpxTrack>(
+    _entities[2].properties[34],
   );
 
   /// see [GpxTrack.peaks]
@@ -4513,4 +4763,64 @@ class PeakRegionFingerprint_ {
   static final fingerprint = obx.QueryStringProperty<PeakRegionFingerprint>(
     _entities[16].properties[2],
   );
+}
+
+/// [TrackDateMigrationMetadata] entity fields to define ObjectBox queries.
+class TrackDateMigrationMetadata_ {
+  /// See [TrackDateMigrationMetadata.id].
+  static final id = obx.QueryIntegerProperty<TrackDateMigrationMetadata>(
+    _entities[17].properties[0],
+  );
+
+  /// See [TrackDateMigrationMetadata.key].
+  static final key = obx.QueryStringProperty<TrackDateMigrationMetadata>(
+    _entities[17].properties[1],
+  );
+
+  /// See [TrackDateMigrationMetadata.completedVersion].
+  static final completedVersion =
+      obx.QueryIntegerProperty<TrackDateMigrationMetadata>(
+        _entities[17].properties[2],
+      );
+
+  /// See [TrackDateMigrationMetadata.completedAt].
+  static final completedAt = obx.QueryDateProperty<TrackDateMigrationMetadata>(
+    _entities[17].properties[3],
+  );
+
+  /// See [TrackDateMigrationMetadata.geographicDataVersion].
+  static final geographicDataVersion =
+      obx.QueryStringProperty<TrackDateMigrationMetadata>(
+        _entities[17].properties[4],
+      );
+
+  /// See [TrackDateMigrationMetadata.ianaDataVersion].
+  static final ianaDataVersion =
+      obx.QueryStringProperty<TrackDateMigrationMetadata>(
+        _entities[17].properties[5],
+      );
+
+  /// See [TrackDateMigrationMetadata.updatedCount].
+  static final updatedCount =
+      obx.QueryIntegerProperty<TrackDateMigrationMetadata>(
+        _entities[17].properties[6],
+      );
+
+  /// See [TrackDateMigrationMetadata.unchangedCount].
+  static final unchangedCount =
+      obx.QueryIntegerProperty<TrackDateMigrationMetadata>(
+        _entities[17].properties[7],
+      );
+
+  /// See [TrackDateMigrationMetadata.skippedCount].
+  static final skippedCount =
+      obx.QueryIntegerProperty<TrackDateMigrationMetadata>(
+        _entities[17].properties[8],
+      );
+
+  /// See [TrackDateMigrationMetadata.skippedRecordsJson].
+  static final skippedRecordsJson =
+      obx.QueryStringProperty<TrackDateMigrationMetadata>(
+        _entities[17].properties[9],
+      );
 }

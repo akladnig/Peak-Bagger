@@ -2,6 +2,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 
 void main() {
+  group('duration display', () {
+    for (final fixture in [
+      (0.0, '0d 0h 0m'),
+      (59999.9, '0d 0h 0m'),
+      (60000.0, '0d 0h 1m'),
+      (3599999.0, '0d 0h 59m'),
+      (3600000.0, '0d 1h 0m'),
+      (18000000.0, '0d 5h 0m'),
+      (86400000.0, '1d 0h 0m'),
+      (191220000.0, '2d 5h 7m'),
+    ]) {
+      test('formats ${fixture.$1} milliseconds', () {
+        expect(formatDurationMillis(fixture.$1), fixture.$2);
+      });
+    }
+    test('truncates only the completed sum or average', () {
+      expect(formatDurationMillis(30001 + 30001), '0d 0h 1m');
+      expect(formatDurationMillis((119999 + 120001) / 2), '0d 0h 2m');
+      expect(formatDurationMillis(119999 / 2), '0d 0h 0m');
+    });
+    test('compact days have explicit units and distinguish sub-day ticks', () {
+      expect(formatDurationDaysAxis(0), '0d');
+      expect(formatDurationDaysAxis(2.5), '2.5d');
+      expect(formatDurationDaysAxis(5), '5d');
+      expect(formatDurationDaysAxis(0.125), '0.125d');
+      expect(
+        [
+          0.0,
+          0.0000001,
+          0.0000002,
+          0.0000003,
+        ].map(formatDurationDaysAxis).toSet(),
+        hasLength(4),
+      );
+    });
+  });
+
   group('formatCount', () {
     test('formats integers', () {
       expect(formatCount(42), '42');

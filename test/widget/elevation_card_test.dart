@@ -3,6 +3,7 @@ import 'dart:ui' show PointerDeviceKind;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/widgets/dashboard/elevation_card.dart';
 
@@ -184,11 +185,11 @@ void main() {
         tester
             .widget<Text>(find.byKey(const Key('elevation-period-range')))
             .data,
-        'Sat, 9 May - Fri, 15 May 2026',
+        'Mon, 11 May - Sun, 17 May 2026',
       );
     });
 
-    testWidgets('enables previous scrolling in week view', (tester) async {
+    testWidgets('moves back by a complete calendar week', (tester) async {
       await _pumpElevationCard(
         tester,
         tracks: [
@@ -208,28 +209,17 @@ void main() {
         isNotNull,
       );
 
-      final scrollableFinder = find
-          .descendant(
-            of: find.byKey(const Key('elevation-scroll-view')),
-            matching: find.byType(Scrollable),
-          )
-          .first;
-      final before = tester
-          .state<ScrollableState>(scrollableFinder)
-          .position
-          .pixels;
-
       await tester.tap(_cardControl('summary-prev-window'));
       await tester.pumpAndSettle();
-
-      final after = tester
-          .state<ScrollableState>(scrollableFinder)
-          .position
-          .pixels;
-      expect(after, lessThan(before));
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('elevation-period-range')))
+            .data,
+        'Mon, 18 May - Sun, 24 May 2026',
+      );
     });
 
-    testWidgets('enables previous scrolling in month view', (tester) async {
+    testWidgets('moves back by a complete calendar month', (tester) async {
       await _pumpElevationCard(
         tester,
         tracks: [
@@ -251,25 +241,14 @@ void main() {
         isNotNull,
       );
 
-      final scrollableFinder = find
-          .descendant(
-            of: find.byKey(const Key('elevation-scroll-view')),
-            matching: find.byType(Scrollable),
-          )
-          .first;
-      final before = tester
-          .state<ScrollableState>(scrollableFinder)
-          .position
-          .pixels;
-
       await tester.tap(_cardControl('summary-prev-window'));
       await tester.pumpAndSettle();
-
-      final after = tester
-          .state<ScrollableState>(scrollableFinder)
-          .position
-          .pixels;
-      expect(after, lessThan(before));
+      expect(
+        tester
+            .widget<Text>(find.byKey(const Key('elevation-period-range')))
+            .data,
+        'Wed, 1 Apr - Thu, 30 Apr 2026',
+      );
     });
 
     testWidgets('reports visible summary when period changes', (tester) async {
@@ -310,7 +289,7 @@ void main() {
           _track(20, DateTime(2026, 5, 15, 10), ascent: 300),
           _track(30, DateTime(2026, 5, 31, 10), ascent: 1234),
         ],
-        now: DateTime(2026, 5, 15, 12),
+        now: DateTime(2026, 5, 31, 12),
         width: 1000,
       );
 
@@ -379,13 +358,13 @@ void main() {
       );
       expect(topLabel.data, '1600 m');
 
-      await _hoverBucket(tester, 30);
+      await _hoverBucket(tester, 0);
 
       expect(find.byKey(const Key('elevation-tooltip')), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const Key('elevation-tooltip')),
-          matching: find.text('1 May'),
+          matching: find.text('Fri 1 May'),
         ),
         findsOneWidget,
       );
@@ -436,7 +415,7 @@ void main() {
         tester
             .widget<Text>(find.byKey(const Key('elevation-period-range')))
             .data,
-        'Wed, 1 Apr - Wed, 13 May 2026',
+        'Sun, 1 Mar - Sun, 31 May 2026',
       );
     });
 
@@ -483,16 +462,16 @@ void main() {
 
       await _selectPeriod(tester, 'Month');
 
-      expect(find.byKey(const Key('elevation-bucket-30')), findsOneWidget);
+      expect(find.byKey(const Key('elevation-bucket-0')), findsOneWidget);
 
-      await tester.tap(find.byKey(const Key('elevation-bucket-30')));
+      await tester.tap(find.byKey(const Key('elevation-bucket-0')));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('elevation-tooltip')), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const Key('elevation-tooltip')),
-          matching: find.text('1 May'),
+          matching: find.text('Fri 1 May'),
         ),
         findsOneWidget,
       );
@@ -517,16 +496,18 @@ Future<void> _pumpElevationCard(
   ValueChanged<ElevationVisibleSummary?>? onVisibleSummaryChanged,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: SizedBox(
-          width: width,
-          height: 320,
-          child: ElevationCard(
-            tracks: tracks,
-            isLoading: isLoading,
-            now: now,
-            onVisibleSummaryChanged: onVisibleSummaryChanged,
+    ProviderScope(
+      child: MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: width,
+            height: 320,
+            child: ElevationCard(
+              tracks: tracks,
+              isLoading: isLoading,
+              now: now,
+              onVisibleSummaryChanged: onVisibleSummaryChanged,
+            ),
           ),
         ),
       ),

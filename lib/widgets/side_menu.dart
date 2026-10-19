@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:peak_bagger/core/constants.dart';
 
 import 'package:peak_bagger/router.dart';
+import 'shell_destination_keyboard.dart';
 
 class SideMenu extends StatelessWidget {
   final List<ShellDestination> destinations;
@@ -27,31 +28,65 @@ class SideMenu extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       width: UiConstants.sideMenuColumnWidth,
-      child: ListView(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        children: [
-          for (final destination in destinations) ...[
-            _buildDestination(
-              destination: destination,
-              isSelected: selectedBranchIndex == destination.branchIndex,
-            ),
-            const SizedBox(height: 8),
+        child: Column(
+          children: [
+            for (final destination in destinations) ...[
+              _buildDestination(
+                context: context,
+                destination: destination,
+                isSelected: selectedBranchIndex == destination.branchIndex,
+              ),
+              const SizedBox(height: 8),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildDestination({
+    required BuildContext context,
     required ShellDestination destination,
     required bool isSelected,
   }) {
-    final child = _WideMenuItemNew(
+    final keyboard = ShellDestinationKeyboard.maybeOf(context);
+    final highlighted = keyboard?.highlightedIndex == destination.branchIndex;
+    final item = _WideMenuItemNew(
       key: Key(destination.keyName),
       icon: destination.icon,
       label: destination.label,
       isSelected: isSelected,
       onTap: () => onDestinationSelected(destination),
+    );
+    final child = Focus(
+      key: Key('shell-destination-${destination.branchIndex}-focus'),
+      focusNode: keyboard?.nodes[destination.branchIndex],
+      skipTraversal: true,
+      descendantsAreTraversable:
+          selectedBranchIndex != 0 && keyboard?.temporary != true,
+      child: ExcludeFocus(
+        excluding: keyboard?.temporary == true,
+        child: Semantics(
+          label: destination.label,
+          selected: isSelected,
+          focused: highlighted,
+          child: DecoratedBox(
+            key: Key('shell-destination-${destination.branchIndex}-highlight'),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: highlighted
+                    ? Theme.of(context).colorScheme.primary
+                    : Colors.transparent,
+                width: 3,
+              ),
+            ),
+            child: item,
+          ),
+        ),
+      ),
     );
 
     if (destination.legacyKeyName == null) {
@@ -95,6 +130,7 @@ class _WideMenuItemNew extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
+                    tooltip: label,
                     icon: icon,
                     style: IconButton.styleFrom(
                       backgroundColor: isSelected

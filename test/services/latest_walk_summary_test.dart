@@ -135,10 +135,7 @@ void main() {
       ),
     ]);
 
-    expect(
-      summary.dateText,
-      formatTrackDateShortMonth(DateTime.utc(2026, 1, 7, 23, 30)),
-    );
+    expect(summary.dateText, 'Thu, 8 Jan 2026');
     expect(summary.distanceText, '12.4 km / 12.7 km');
     expect(summary.ascentText, 'Unknown');
   });
@@ -156,7 +153,41 @@ void main() {
 
     expect(summary.isEmpty, isFalse);
     expect(summary.dateText, 'Unknown');
+    expect(formatTrackDateShortMonth(null), 'Unknown');
   });
+
+  for (final (start, expectedDate) in [
+    (DateTime.utc(2026, 10, 14, 23, 30), 'Thu, 15 Oct 2026'),
+    (DateTime.utc(2026, 12, 31, 23, 30), 'Fri, 1 Jan 2027'),
+  ]) {
+    test('displays $start in Hobart without changing Track data', () {
+      expect(start.toLocal().timeZoneOffset, const Duration(hours: 11));
+      // Also check standard time so a fixed UTC+11 runner cannot pass.
+      expect(
+        DateTime.utc(2026, 7, 1).toLocal().timeZoneOffset,
+        const Duration(hours: 10),
+      );
+      final track =
+          _track(
+              10,
+              start,
+              segments: [
+                [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+              ],
+            )
+            ..trackDate = DateTime.utc(2020, 12, 31)
+            ..endDateTime = start.add(const Duration(hours: 2));
+      final before = track.toMap();
+
+      final summary = LatestWalkSummary.fromTracks([track]);
+
+      expect(summary.dateText, expectedDate);
+      expect(summary.track, same(track));
+      expect(track.toMap(), before);
+      expect(formatTrackDate(track.trackDate), 'Thu, 31 December 2020');
+      expect(formatTrackDateShortMonth(track.trackDate), 'Thu, 31 Dec 2020');
+    });
+  }
 
   test('formats mixed-unit combined distance from selected track', () {
     final summary = LatestWalkSummary.fromTracks([

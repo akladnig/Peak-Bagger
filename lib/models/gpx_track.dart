@@ -5,6 +5,7 @@ import 'package:objectbox/objectbox.dart';
 import 'package:peak_bagger/models/peak.dart';
 
 import '../core/constants.dart';
+import 'track_date_status.dart';
 
 @Entity()
 class GpxTrack {
@@ -20,6 +21,10 @@ class GpxTrack {
   String trackName;
   @Property(type: PropertyType.dateUtc)
   DateTime? trackDate;
+  int trackDateStatus;
+  int trackDateDerivationVersion;
+  String? trackDateTimezoneId;
+  String? trackDateFailureReason;
   String gpxFile;
   String gpxFileRepaired;
   String filteredTrack;
@@ -61,6 +66,10 @@ class GpxTrack {
     required this.contentHash,
     required this.trackName,
     this.trackDate,
+    this.trackDateStatus = 0,
+    this.trackDateDerivationVersion = 0,
+    this.trackDateTimezoneId,
+    this.trackDateFailureReason,
     this.gpxFile = '',
     this.gpxFileRepaired = '',
     this.filteredTrack = '',
@@ -99,6 +108,11 @@ class GpxTrack {
           ? DateTime.tryParse(map['trackDate'] as String)
           : null,
       gpxFile: map['gpxFile'] as String? ?? '',
+      trackDateStatus: map['trackDateStatus'] as int? ?? 0,
+      trackDateDerivationVersion:
+          map['trackDateDerivationVersion'] as int? ?? 0,
+      trackDateTimezoneId: map['trackDateTimezoneId'] as String?,
+      trackDateFailureReason: map['trackDateFailureReason'] as String?,
       gpxFileRepaired: map['gpxFileRepaired'] as String? ?? '',
       filteredTrack: map['filteredTrack'] as String? ?? '',
       displayTrackPointsByZoom:
@@ -140,6 +154,10 @@ class GpxTrack {
       'contentHash': contentHash,
       'trackName': trackName,
       'trackDate': trackDate?.toIso8601String(),
+      'trackDateStatus': trackDateStatus,
+      'trackDateDerivationVersion': trackDateDerivationVersion,
+      'trackDateTimezoneId': trackDateTimezoneId,
+      'trackDateFailureReason': trackDateFailureReason,
       'gpxFile': gpxFile,
       'gpxFileRepaired': gpxFileRepaired,
       'filteredTrack': filteredTrack,
@@ -170,7 +188,11 @@ class GpxTrack {
     };
   }
 
-  bool get hasMetadataTrackDate => startDateTime != null;
+  bool get hasMetadataTrackDate => switch (trackDateStatus) {
+    TrackDateStatus.resolved => trackDate != null,
+    TrackDateStatus.unresolvedImport => false,
+    _ => startDateTime != null,
+  };
 
   List<List<LatLng>> getSegments() {
     return getSegmentsForZoom(MapConstants.defaultZoom.toInt());

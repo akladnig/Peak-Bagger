@@ -128,6 +128,10 @@ class TestMapNotifier extends MapNotifier {
     }
   }
 
+  void setLoadingTracks(bool loading) {
+    state = state.copyWith(isLoadingTracks: loading);
+  }
+
   @override
   void setRouteVisibility(int routeId, bool visible) {
     final repository = routeRepository;

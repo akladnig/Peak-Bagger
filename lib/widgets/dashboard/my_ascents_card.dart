@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/map_provider.dart';
-import '../../providers/my_ascents_summary_provider.dart';
+import '../../providers/dashboard_browsing_provider.dart';
 import '../../router.dart';
 import '../../services/my_ascents_summary_service.dart';
 import '../../theme.dart';
+import 'dashboard_card_keyboard.dart';
 
 class MyAscentsCard extends ConsumerStatefulWidget {
   const MyAscentsCard({super.key});
@@ -15,12 +17,28 @@ class MyAscentsCard extends ConsumerStatefulWidget {
 }
 
 class _MyAscentsCardState extends ConsumerState<MyAscentsCard> {
-  static const _service = MyAscentsSummaryService();
+  final _reveal = DashboardRowRevealController();
+  static final _selection = dashboardRowSelectionProvider('my-ascents');
 
-  bool _ascending = false;
+  void _openSelected() {
+    final id = ref.read(_selection).selectedId;
+    final row = ref
+        .read(sortedMyAscentsProvider)
+        .sections
+        .expand((s) => s.rows)
+        .where((r) => r.baggedId == id)
+        .firstOrNull;
+    if (row != null) _openTrack(row.gpxId);
+  }
 
   void _toggleSort() {
-    setState(() => _ascending = !_ascending);
+    ref.read(myAscentsAscendingProvider.notifier).toggle();
+  }
+
+  @override
+  void dispose() {
+    _reveal.dispose();
+    super.dispose();
   }
 
   void _openTrack(int trackId) {
@@ -34,44 +52,68 @@ class _MyAscentsCardState extends ConsumerState<MyAscentsCard> {
 
   @override
   Widget build(BuildContext context) {
-    final source = ref.watch(myAscentsSummaryProvider);
-    final summary = _service.build(source, ascending: _ascending);
+    final summary = ref.watch(sortedMyAscentsProvider);
+    final ascending = ref.watch(myAscentsAscendingProvider);
+    final selection = ref.watch(_selection);
+    ref.listen(_selection, (_, next) => _reveal.reveal(next.selectedId));
+    _reveal.retainIds(selection.ids);
+    final controller = ref.read(_selection.notifier);
+    final keyboard = DashboardCardKeyboard.maybeOf(context);
 
-    return KeyedSubtree(
-      key: const Key('my-ascents-card'),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _MyAscentsTableHeader(
-              ascending: _ascending,
-              onToggleSort: _toggleSort,
-              key: const Key('my-ascents-table-header'),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: summary.isEmpty
-                  ? const _MyAscentsEmptyState()
-                  : KeyedSubtree(
-                      key: const Key('my-ascents-table'),
-                      child: ListView(
-                        padding: EdgeInsets.zero,
-                        children: [
-                          for (final section in summary.sections) ...[
-                            _MyAscentsYearHeader(section: section),
-                            for (final row in section.rows)
-                              _MyAscentsTableRow(
-                                row: row,
-                                onTap: () => _openTrack(row.gpxId),
-                              ),
-                            const SizedBox(height: 4),
-                          ],
-                        ],
+    return DashboardCardActions(
+      onEntry: controller.enter,
+      actions: {
+        LogicalKeyboardKey.arrowDown: () => controller.move(true),
+        LogicalKeyboardKey.keyJ: () => controller.move(true),
+        LogicalKeyboardKey.arrowUp: () => controller.move(false),
+        LogicalKeyboardKey.keyK: () => controller.move(false),
+        LogicalKeyboardKey.keyS: _toggleSort,
+        LogicalKeyboardKey.enter: _openSelected,
+      },
+      child: KeyedSubtree(
+        key: const Key('my-ascents-card'),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _MyAscentsTableHeader(
+                ascending: ascending,
+                onToggleSort: _toggleSort,
+                key: const Key('my-ascents-table-header'),
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: summary.isEmpty
+                    ? const _MyAscentsEmptyState()
+                    : KeyedSubtree(
+                        key: const Key('my-ascents-table'),
+                        child: SingleChildScrollView(
+                          controller: _reveal.scroll,
+                          padding: EdgeInsets.zero,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              for (final section in summary.sections) ...[
+                                _MyAscentsYearHeader(section: section),
+                                for (final row in section.rows)
+                                  _MyAscentsTableRow(
+                                    row: row,
+                                    revealKey: _reveal.keyFor(row.baggedId),
+                                    selected:
+                                        selection.selectedId == row.baggedId,
+                                    cardFocus: keyboard?.focusNode,
+                                    onTap: () => _openTrack(row.gpxId),
+                                  ),
+                                const SizedBox(height: 4),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -168,10 +210,19 @@ class _MyAscentsYearHeader extends StatelessWidget {
 }
 
 class _MyAscentsTableRow extends StatefulWidget {
-  const _MyAscentsTableRow({required this.row, required this.onTap});
+  const _MyAscentsTableRow({
+    required this.row,
+    required this.onTap,
+    required this.revealKey,
+    required this.selected,
+    required this.cardFocus,
+  });
 
   final MyAscentsRow row;
   final VoidCallback onTap;
+  final Key revealKey;
+  final bool selected;
+  final FocusNode? cardFocus;
 
   @override
   State<_MyAscentsTableRow> createState() => _MyAscentsTableRowState();
@@ -189,55 +240,79 @@ class _MyAscentsTableRowState extends State<_MyAscentsTableRow> {
             ? RowHoverTheme.dark
             : RowHoverTheme.light);
     final textStyle = theme.textTheme.bodyMedium?.copyWith(
-      color: _isHovered ? rowTheme.hoveredTextColor : null,
+      color: widget.selected
+          ? theme.colorScheme.onPrimaryContainer
+          : _isHovered
+          ? rowTheme.hoveredTextColor
+          : null,
     );
 
     return KeyedSubtree(
       key: Key('my-ascents-row-${widget.row.baggedId}'),
-      child: InkWell(
-        onTap: widget.onTap,
-        onHover: (value) {
-          if (_isHovered == value) {
-            return;
-          }
-          setState(() {
-            _isHovered = value;
-          });
-        },
-        mouseCursor: SystemMouseCursors.click,
-        hoverColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        splashColor: Colors.transparent,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          decoration: BoxDecoration(
-            color: _isHovered ? rowTheme.hoverColor : Colors.transparent,
-            border: Border(
-              bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+      child: Semantics(
+        selected: widget.selected,
+        child: InkWell(
+          key: widget.revealKey,
+          canRequestFocus: false,
+          onTap: widget.onTap,
+          onHover: (value) {
+            if (_isHovered == value) {
+              return;
+            }
+            setState(() {
+              _isHovered = value;
+            });
+          },
+          mouseCursor: SystemMouseCursors.click,
+          hoverColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          splashColor: Colors.transparent,
+          child: ListenableBuilder(
+            listenable: widget.cardFocus ?? const AlwaysStoppedAnimation(false),
+            builder: (context, _) => AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              decoration: BoxDecoration(
+                color: widget.selected
+                    ? theme.colorScheme.primaryContainer
+                    : _isHovered
+                    ? rowTheme.hoverColor
+                    : Colors.transparent,
+                border: Border(
+                  left: BorderSide(
+                    color:
+                        widget.selected &&
+                            widget.cardFocus?.hasPrimaryFocus == true
+                        ? theme.colorScheme.primary
+                        : Colors.transparent,
+                    width: 3,
+                  ),
+                  bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+                ),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  _MyAscentsTableCell(
+                    label: widget.row.peakName,
+                    flex: 5,
+                    textAlign: TextAlign.start,
+                    style: textStyle,
+                  ),
+                  _MyAscentsTableCell(
+                    label: widget.row.elevationText,
+                    flex: 2,
+                    textAlign: TextAlign.end,
+                    style: textStyle,
+                  ),
+                  _MyAscentsTableCell(
+                    label: widget.row.dateText,
+                    flex: 4,
+                    textAlign: TextAlign.end,
+                    style: textStyle,
+                  ),
+                ],
+              ),
             ),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Row(
-            children: [
-              _MyAscentsTableCell(
-                label: widget.row.peakName,
-                flex: 5,
-                textAlign: TextAlign.start,
-                style: textStyle,
-              ),
-              _MyAscentsTableCell(
-                label: widget.row.elevationText,
-                flex: 2,
-                textAlign: TextAlign.end,
-                style: textStyle,
-              ),
-              _MyAscentsTableCell(
-                label: widget.row.dateText,
-                flex: 4,
-                textAlign: TextAlign.end,
-                style: textStyle,
-              ),
-            ],
           ),
         ),
       ),

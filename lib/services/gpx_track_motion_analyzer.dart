@@ -425,7 +425,14 @@ class GpxTrackMotionAnalyzer {
     for (final element in elements) {
       final lat = double.tryParse(element.getAttribute('lat') ?? '');
       final lon = double.tryParse(element.getAttribute('lon') ?? '');
-      if (lat == null || lon == null) {
+      if (lat == null ||
+          lon == null ||
+          !lat.isFinite ||
+          !lon.isFinite ||
+          lat < -90 ||
+          lat > 90 ||
+          lon < -180 ||
+          lon > 180) {
         continue;
       }
 

@@ -5,6 +5,8 @@ import 'natural_feature.dart';
 import 'peak.dart';
 import 'route.dart' as app_route;
 import 'tasmap50k.dart';
+import 'track_date_status.dart';
+import '../services/track_date_calendar_codec.dart';
 
 enum MapSearchResultType { peak, track, route, natural, road, map }
 
@@ -84,8 +86,11 @@ class MapSearchResult {
          title: title,
          subtitle: subtitle,
          anchor: anchor,
-         displayDate:
-             track.trackDate?.toLocal() ?? track.startDateTime?.toLocal(),
+         displayDate: switch (track.trackDateStatus) {
+           TrackDateStatus.resolved => TrackDateCalendarCodec.day(track),
+           TrackDateStatus.unresolvedImport => null,
+           _ => track.trackDate?.toLocal() ?? track.startDateTime?.toLocal(),
+         },
          regionKey: regionKey,
          regionName: regionName,
          mapName: mapName,

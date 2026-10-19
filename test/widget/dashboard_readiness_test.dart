@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
 import 'package:peak_bagger/providers/dashboard_readiness_provider.dart';
+import 'package:peak_bagger/providers/time_chart_type_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/my_ascents_summary_provider.dart';
@@ -65,6 +66,7 @@ void main() {
     addTearDown(container.dispose);
     await container.read(dashboardLayoutReadProvider.future);
     await container.read(peakMarkerInfoHydrationProvider.future);
+    await container.read(timeChartTypeProvider.notifier).load();
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -159,6 +161,7 @@ void main() {
     addTearDown(container.dispose);
     await container.read(dashboardLayoutProvider.notifier).load();
     await container.read(peakMarkerInfoHydrationProvider.future);
+    await container.read(timeChartTypeProvider.notifier).load();
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -346,6 +349,8 @@ void main() {
       trackDate: DateTime(2026, 10, 1),
       startDateTime: DateTime(2026, 10, 1),
       ascent: 1234,
+      totalTimeMillis: 93600000,
+      movingTime: 86400000,
       gpxFile: '<gpx></gpx>',
       displayTrackPointsByZoom: TrackDisplayCacheBuilder.buildJson([
         [const LatLng(-41.5, 146.5), const LatLng(-41.51, 146.51)],
@@ -374,6 +379,15 @@ void main() {
               events.add(event);
               if (event['event'] == 'dashboard.local_data_ready.frame') {
                 expect(find.text('Loaded walk'), findsOneWidget);
+                expect(
+                  find.descendant(
+                    of: find.byKey(
+                      const Key('dashboard-card-time-drag-handle'),
+                    ),
+                    matching: find.text('Total: 1d 2h 0m'),
+                  ),
+                  findsOneWidget,
+                );
                 expect(
                   find.descendant(
                     of: find.byKey(

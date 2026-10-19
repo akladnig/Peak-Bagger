@@ -1,11 +1,12 @@
-import 'dart:ui' show PointerDeviceKind;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
+import 'package:peak_bagger/services/summary_card_service.dart';
+import 'package:peak_bagger/widgets/dashboard/summary_chart.dart';
 
 class DashboardRobot {
   DashboardRobot(this.tester);
@@ -59,6 +60,10 @@ class DashboardRobot {
       find.byKey(const Key('my-ascents-sort-toggle'));
 
   Future<void> pumpApp({required ProviderContainer container}) async {
+    // End the previous scope before replacing its container, allowing
+    // auto-disposed per-card state to release its scheduler/listeners.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
     this.container = container;
     await tester.binding.setSurfaceSize(const Size(2200, 1000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -76,6 +81,61 @@ class DashboardRobot {
 
   Future<void> openMap() async {
     await tester.tap(mapButton);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> navigateSummary(String cardId, String action) async {
+    await tester.tap(summaryControl(cardId, 'summary-$action-window'));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> selectSummaryPeriod(String cardId, String label) async {
+    await tester.tap(summaryControl(cardId, 'summary-period-dropdown'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(label).last);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> scrollSummary(String cardId, double delta) async {
+    final browser = summaryControl(cardId, '$cardId-page-browser');
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(browser),
+        scrollDelta: Offset(delta, 0),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pumpAndSettle();
+  }
+
+  void expectSummary(
+    String cardId, {
+    required String range,
+    required String total,
+    required String average,
+  }) {
+    expect(
+      tester.widget<Text>(summaryControl(cardId, '$cardId-period-range')).data,
+      range,
+    );
+    final header = dragHandle(cardId);
+    final chart = tester.widget<SummaryChart>(
+      find.descendant(of: card(cardId), matching: find.byType(SummaryChart)),
+    );
+    for (final field in [
+      ('total', 'Total: $total'),
+      ('average', '${chart.period.averageLabel} $average'),
+    ]) {
+      final value = find.descendant(
+        of: header,
+        matching: find.byKey(Key('dashboard-card-summary-${field.$1}-value')),
+      );
+      expect(tester.widget<Text>(value).data, field.$2);
+    }
+  }
+
+  Future<void> openSettings() async {
+    await tester.tap(find.byKey(const Key('nav-settings')));
     await tester.pumpAndSettle();
   }
 
@@ -108,7 +168,19 @@ class DashboardRobot {
   }
 
   Future<void> tapMyListsRow(int peakListId) async {
+    await revealCard('my-lists');
     await tester.tap(myListsRow(peakListId));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> revealCard(String id) async {
+    await tester.scrollUntilVisible(
+      card(id),
+      200,
+      scrollable: find
+          .descendant(of: board, matching: find.byType(Scrollable))
+          .first,
+    );
     await tester.pumpAndSettle();
   }
 

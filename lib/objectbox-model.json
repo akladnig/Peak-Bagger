@@ -270,7 +270,7 @@
     },
     {
       "id": "3:8449374379554926112",
-      "lastPropertyId": "36:6865718623478699060",
+      "lastPropertyId": "40:5326322304943373350",
       "name": "GpxTrack",
       "properties": [
         {
@@ -428,6 +428,26 @@
           "id": "36:6865718623478699060",
           "name": "maxSpeedKmh",
           "type": 8
+        },
+        {
+          "id": "37:8293351804335450882",
+          "name": "trackDateStatus",
+          "type": 6
+        },
+        {
+          "id": "38:4375809035462038491",
+          "name": "trackDateDerivationVersion",
+          "type": 6
+        },
+        {
+          "id": "39:7915504643779771175",
+          "name": "trackDateTimezoneId",
+          "type": 9
+        },
+        {
+          "id": "40:5326322304943373350",
+          "name": "trackDateFailureReason",
+          "type": 9
         }
       ],
       "relations": [
@@ -1251,9 +1271,68 @@
         }
       ],
       "relations": []
+    },
+    {
+      "id": "18:8293296964313127736",
+      "lastPropertyId": "10:7396683522447903884",
+      "name": "TrackDateMigrationMetadata",
+      "properties": [
+        {
+          "id": "1:4035585829784822671",
+          "name": "id",
+          "type": 6,
+          "flags": 129
+        },
+        {
+          "id": "2:2783185961579616924",
+          "name": "key",
+          "type": 9
+        },
+        {
+          "id": "3:4000924972947639174",
+          "name": "completedVersion",
+          "type": 6
+        },
+        {
+          "id": "4:2748166158356092680",
+          "name": "completedAt",
+          "type": 10
+        },
+        {
+          "id": "5:9148593050718482058",
+          "name": "geographicDataVersion",
+          "type": 9
+        },
+        {
+          "id": "6:3580864276891378404",
+          "name": "ianaDataVersion",
+          "type": 9
+        },
+        {
+          "id": "7:8509705136602475332",
+          "name": "updatedCount",
+          "type": 6
+        },
+        {
+          "id": "8:398174938190835161",
+          "name": "unchangedCount",
+          "type": 6
+        },
+        {
+          "id": "9:4689917338814734148",
+          "name": "skippedCount",
+          "type": 6
+        },
+        {
+          "id": "10:7396683522447903884",
+          "name": "skippedRecordsJson",
+          "type": 9
+        }
+      ],
+      "relations": []
     }
   ],
-  "lastEntityId": "17:4224728018239922669",
+  "lastEntityId": "18:8293296964313127736",
   "lastIndexId": "29:655196580284660726",
   "lastRelationId": "1:8194382659905112901",
   "lastSequenceId": "0:0",

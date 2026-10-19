@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:developer' as developer;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -464,15 +465,23 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
       if (accepted) {
         Navigator.of(context).pop(true);
       }
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (!mounted) return;
 
       setState(() {
         _isImporting = false;
       });
 
-      rootNavigator.pop();
-      await _showFailureDialog(rootNavigator.context, error.toString());
+      developer.log(
+        'GPX import could not be started',
+        name: 'gpx_import',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      await _showFailureDialog(
+        rootNavigator.context,
+        'The import could not be started. Your selected files and names have been kept. Try Import again.',
+      );
     }
   }
 

@@ -24,11 +24,13 @@ import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_objectbox_admin_repository.dart';
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('admin shell opens from side menu', (tester) async {
     await _pumpApp(tester);
 

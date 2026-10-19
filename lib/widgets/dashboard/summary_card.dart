@@ -1,12 +1,19 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/constants.dart';
 import '../../core/date_formatters.dart';
 import '../../models/gpx_track.dart';
+import '../../providers/summary_page_controller.dart';
 import '../../services/summary_card_service.dart';
+import '../../theme.dart';
 import 'summary_chart.dart';
+import 'summary_page_browser.dart';
+import 'dashboard_card_keyboard.dart';
+import 'dashboard_dropdown.dart';
 
 class SummaryVisibleSummary {
   const SummaryVisibleSummary({
@@ -47,6 +54,8 @@ class SummaryCardMetricAdapter {
     this.secondaryMetric,
     this.secondarySeriesOnTop = false,
     this.barSeriesStyle = SummaryBarSeriesStyle.stacked,
+    this.isEligible,
+    this.chartValueScale = 1,
   });
 
   final String keyPrefix;
@@ -72,9 +81,11 @@ class SummaryCardMetricAdapter {
   final String Function(SummaryPeriodPreset period) averageLabelText;
   final bool secondarySeriesOnTop;
   final SummaryBarSeriesStyle barSeriesStyle;
+  final bool Function(GpxTrack track)? isEligible;
+  final double chartValueScale;
 }
 
-class SummaryCard extends StatefulWidget {
+class SummaryCard extends ConsumerStatefulWidget {
   const SummaryCard({
     super.key,
     required this.tracks,
@@ -83,6 +94,10 @@ class SummaryCard extends StatefulWidget {
     this.initialMode = SummaryDisplayMode.columns,
     this.now,
     this.onVisibleSummaryChanged,
+    this.displayMode,
+    this.barSeriesStyle,
+    this.chartTypeControlBuilder,
+    this.enableKeyboardInspection = false,
   });
 
   final List<GpxTrack> tracks;
@@ -92,74 +107,339 @@ class SummaryCard extends StatefulWidget {
   final DateTime? now;
   final ValueChanged<SummaryVisibleSummary?>? onVisibleSummaryChanged;
 
+  /// Explicit opt-in to externally owned chart selection and a menu control.
+  /// Legacy adapters retain their binary control and local display default.
+  final SummaryDisplayMode? displayMode;
+  final SummaryBarSeriesStyle? barSeriesStyle;
+  final Widget Function(VoidCallback onOpen, VoidCallback onChanged)?
+  chartTypeControlBuilder;
+  final bool enableKeyboardInspection;
+
   @override
-  State<SummaryCard> createState() => _SummaryCardState();
+  ConsumerState<SummaryCard> createState() => _SummaryCardState();
 }
 
-class _SummaryCardState extends State<SummaryCard> {
+class _SummaryCardState extends ConsumerState<SummaryCard> {
   final SummaryCardService _service = const SummaryCardService();
   final ScrollController _scrollController = ScrollController();
-  final Map<SummaryPeriodPreset, SummaryTimeline> _primaryTimelineCache = {};
-  final Map<SummaryPeriodPreset, SummaryTimeline> _secondaryTimelineCache = {};
-
-  SummaryPeriodPreset _period = SummaryPeriodPreset.last12Months;
+  final Object _cardIdentity = Object();
+  SummaryPeriodPreset get _period =>
+      ref.read(summaryPageControllerProvider(_cardIdentity)).period;
   late SummaryDisplayMode _mode;
-  bool _anchoredToLatest = false;
-  double _viewportWidth = 0;
-  double _maxScrollExtent = 0;
+  SummaryDisplayMode get _displayMode => widget.displayMode ?? _mode;
   SummaryVisibleSummary? _lastVisibleSummary;
-  DateTime? _cachedReferenceDate;
-  List<GpxTrack>? _cachedTracks;
-  SummaryCardMetricAdapter? _cachedAdapter;
+  bool _hasReportedSummary = false;
+  int _revision = 0;
+  int _inputRevision = 0;
+  late List<GpxTrack> _tracks;
+  DashboardCardKeyboardController? _keyboard;
+  SummaryChartInspection? _inspection;
+  Object? _inspectionIdentity;
 
   @override
-  void initState() {
-    super.initState();
-    _mode = widget.initialMode;
-    _scrollController.addListener(_handleScroll);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!TickerMode.valuesOf(context).enabled) _clearInspection();
+    final keyboard = DashboardCardKeyboard.maybeOf(context);
+    if (_keyboard != keyboard) {
+      _unregisterKeyboard();
+      _keyboard = keyboard;
+      for (final key in _pageKeys) {
+        _keyboard?.actions[key] = _keyActions[key]!;
+      }
+      if (widget.chartTypeControlBuilder == null) {
+        _keyboard?.actions[LogicalKeyboardKey.keyC] = _toggleMode;
+      }
+      if (widget.enableKeyboardInspection) {
+        _keyboard?.focusEvents.addListener(_onKeyboardFocus);
+        for (final entry in _inspectionActions.entries) {
+          _keyboard?.actions[entry.key] = entry.value;
+        }
+      }
+    }
+  }
+
+  static const _pageKeys = [
+    LogicalKeyboardKey.keyW,
+    LogicalKeyboardKey.keyB,
+    LogicalKeyboardKey.home,
+    LogicalKeyboardKey.end,
+  ];
+  late final _keyActions = <LogicalKeyboardKey, VoidCallback>{
+    LogicalKeyboardKey.keyW: () =>
+        _keyboardNavigate(SummaryPageAction.adjacent),
+    LogicalKeyboardKey.keyB: () =>
+        _keyboardNavigate(SummaryPageAction.adjacent, pages: -1),
+    LogicalKeyboardKey.home: () => _keyboardNavigate(SummaryPageAction.first),
+    LogicalKeyboardKey.end: () => _keyboardNavigate(SummaryPageAction.last),
+  };
+
+  late final _inspectionActions = <LogicalKeyboardKey, VoidCallback>{
+    LogicalKeyboardKey.arrowLeft: () => _stepInspection(false),
+    LogicalKeyboardKey.keyH: () => _stepInspection(false),
+    LogicalKeyboardKey.arrowRight: () => _stepInspection(true),
+    LogicalKeyboardKey.keyL: () => _stepInspection(true),
+    LogicalKeyboardKey.escape: _clearKeyboardInspection,
+  };
+
+  void _clearKeyboardInspection() {
+    if (!mounted) return;
+    _inputRevision++;
+    setState(_clearInspection);
+  }
+
+  void _clearInspection() {
+    _inspection = null;
+    _inspectionIdentity = null;
+  }
+
+  Object _chartIdentity(DateTime referenceDate, SummaryCalendarPage page) => (
+    widget.tracks,
+    referenceDate,
+    _period,
+    page.start,
+    page.endExclusive,
+    _revision,
+    TickerMode.valuesOf(context).enabled,
+  );
+
+  // Read the current authoritative page for every key, including keys arriving
+  // before the previous input has painted. Never navigate from a rendered cache.
+  ({Object identity, List<SummaryBucket> buckets})? _inspectionPage() {
+    if (widget.isLoading) return null;
+    final reference = _referenceDate;
+    final navigation = ref
+        .read(summaryPageControllerProvider(_cardIdentity))
+        .navigation(
+          tracks: _tracks,
+          metric: widget.adapter.metric,
+          now: reference,
+        );
+    if (navigation == null) return null;
+    return (
+      identity: _chartIdentity(reference, navigation.selected),
+      buckets: _service
+          .buildTimeline(
+            tracks: _tracks,
+            period: _period,
+            metric: widget.adapter.metric,
+            now: reference,
+            page: navigation.selected,
+          )
+          .buckets,
+    );
+  }
+
+  void _initializeInspection({bool? boundaryForward}) {
+    if (!mounted) return;
+    _inputRevision++;
+    final page = _inspectionPage();
+    if (page == null || page.buckets.isEmpty) return;
+    final latest = page.buckets.lastIndexWhere(
+      (bucket) => bucket.trackCount > 0,
+    );
+    final index = boundaryForward == null
+        ? math.max(0, latest)
+        : boundaryForward
+        ? 0
+        : page.buckets.length - 1;
+    setState(() {
+      _inspectionIdentity = page.identity;
+      _inspection = (index: index, pinned: true);
+    });
+  }
+
+  void _onKeyboardFocus() {
+    final keyboard = _keyboard;
+    if (!mounted || keyboard == null || !keyboard.isActive()) return;
+    switch (keyboard.focusEvents.value.$2) {
+      case DashboardCardFocusReason.entry:
+        // Repeated notifications while the same card owns focus are not entry.
+        if (!keyboard.focusNode.hasPrimaryFocus) _initializeInspection();
+      case DashboardCardFocusReason.menuChanged:
+        setState(_clearInspection);
+      case DashboardCardFocusReason.menuReturn:
+        break;
+    }
+  }
+
+  void _stepInspection(bool forward) {
+    if (!mounted || widget.isLoading) return;
+    _inputRevision++;
+    final selection = ref.read(summaryPageControllerProvider(_cardIdentity));
+    if (selection.referenceDate != _referenceDate) {
+      _navigate(SummaryPageAction.reconcile);
+      return;
+    }
+    final page = _inspectionPage();
+    if (page == null) return;
+    final index = _inspectionIdentity == page.identity
+        ? _inspection?.index
+        : null;
+    if (index == null) {
+      _initializeInspection();
+      return;
+    }
+    final next = index + (forward ? 1 : -1);
+    if (next >= 0 && next < page.buckets.length) {
+      setState(() => _inspection = (index: next, pinned: true));
+      return;
+    }
+    final navigation = selection.navigation(
+      tracks: _tracks,
+      metric: widget.adapter.metric,
+      now: _referenceDate,
+    )!;
+    if (forward ? !navigation.canNext : !navigation.canPrevious) return;
+    _navigate(SummaryPageAction.adjacent, pages: forward ? 1 : -1);
+    _initializeInspection(boundaryForward: forward);
+  }
+
+  void _unregisterKeyboard() {
+    _keyboard?.focusEvents.removeListener(_onKeyboardFocus);
+    for (final entry in _inspectionActions.entries) {
+      if (_keyboard?.actions[entry.key] == entry.value) {
+        _keyboard?.actions.remove(entry.key);
+      }
+    }
+    for (final key in _pageKeys) {
+      if (_keyboard?.actions[key] == _keyActions[key]) {
+        _keyboard?.actions.remove(key);
+      }
+    }
+    if (_keyboard?.actions[LogicalKeyboardKey.keyC] == _toggleMode) {
+      _keyboard?.actions.remove(LogicalKeyboardKey.keyC);
+    }
+  }
+
+  void _keyboardNavigate(SummaryPageAction action, {int pages = 1}) {
+    if (!mounted || widget.isLoading) return;
+    final navigation = ref
+        .read(summaryPageControllerProvider(_cardIdentity))
+        .navigation(
+          tracks: _tracks,
+          metric: widget.adapter.metric,
+          now: _referenceDate,
+        );
+    if (navigation == null) return;
+    final enabled = switch (action) {
+      SummaryPageAction.first => navigation.canFirst,
+      SummaryPageAction.last => navigation.canLast,
+      SummaryPageAction.adjacent =>
+        pages < 0 ? navigation.canPrevious : navigation.canNext,
+      SummaryPageAction.reconcile => true,
+    };
+    if (!enabled) {
+      // A disabled toolbar action is a no-op. Only a changed reference day
+      // requires reconciliation; do not clear valid inspection at a bound.
+      _reconcileForChartMenu();
+      return;
+    }
+    _navigate(action, pages: pages);
+    if (widget.enableKeyboardInspection &&
+        action == SummaryPageAction.adjacent) {
+      _initializeInspection();
+    }
+  }
+
+  void _filterTracks() {
+    final isEligible = widget.adapter.isEligible;
+    _tracks = isEligible == null
+        ? widget.tracks
+        : widget.tracks.where(isEligible).toList(growable: false);
+  }
+
+  DateTime get _referenceDate {
+    final now = (widget.now ?? ref.read(dashboardReferenceClockProvider)())
+        .toLocal();
+    return DateTime(now.year, now.month, now.day);
   }
 
   @override
   void didUpdateWidget(covariant SummaryCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.tracks != widget.tracks ||
-        oldWidget.isLoading != widget.isLoading) {
-      _anchoredToLatest = false;
-    }
-
-    if (oldWidget.tracks != widget.tracks ||
-        oldWidget.now != widget.now ||
+    if (!identical(oldWidget.tracks, widget.tracks) ||
         oldWidget.adapter != widget.adapter) {
-      _clearTimelineCaches();
+      _filterTracks();
     }
+    if (!identical(oldWidget.tracks, widget.tracks) ||
+        oldWidget.now != widget.now ||
+        oldWidget.isLoading != widget.isLoading ||
+        oldWidget.displayMode != widget.displayMode ||
+        oldWidget.barSeriesStyle != widget.barSeriesStyle) {
+      _invalidate();
+    }
+  }
+
+  void _invalidate() {
+    _clearInspection();
+    _revision++;
+    _lastVisibleSummary = null;
+    _hasReportedSummary = false;
+  }
+
+  void _navigate(
+    SummaryPageAction action, {
+    int pages = 1,
+    DateTime? inputReference,
+  }) {
+    _invalidate();
+    ref
+        .read(summaryPageControllerProvider(_cardIdentity).notifier)
+        .navigate(
+          action: action,
+          tracks: _tracks,
+          metric: widget.adapter.metric,
+          referenceDate: _referenceDate,
+          pages: pages,
+          inputReference: inputReference,
+        );
+    setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _mode = widget.initialMode;
+    _filterTracks();
   }
 
   @override
   void dispose() {
-    _scrollController
-      ..removeListener(_handleScroll)
-      ..dispose();
+    _unregisterKeyboard();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  void _handleScroll() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
   void _selectPeriod(SummaryPeriodPreset? next) {
-    if (next == null || next == _period) {
+    if (next == null) {
       return;
     }
-
+    if (next == _period) {
+      _navigate(SummaryPageAction.reconcile);
+      return;
+    }
+    _invalidate();
     setState(() {
-      _period = next;
-      _anchoredToLatest = false;
+      ref
+          .read(summaryPageControllerProvider(_cardIdentity).notifier)
+          .selectPeriod(next);
     });
   }
 
   void _toggleMode() {
+    if (widget.isLoading) return;
+    if (ref
+            .read(summaryPageControllerProvider(_cardIdentity))
+            .navigation(
+              tracks: _tracks,
+              metric: widget.adapter.metric,
+              now: _referenceDate,
+            ) ==
+        null) {
+      return;
+    }
+    _navigate(SummaryPageAction.reconcile);
     setState(() {
       _mode = switch (_mode) {
         SummaryDisplayMode.columns => SummaryDisplayMode.line,
@@ -168,33 +448,31 @@ class _SummaryCardState extends State<SummaryCard> {
     });
   }
 
-  void _shiftWindow(bool forward) {
-    if (!_scrollController.hasClients || _maxScrollExtent <= 0) {
-      return;
+  void _reconcileForChartMenu() {
+    if (widget.enableKeyboardInspection) {
+      // A menu takes temporary ownership from direct chart/page input, while
+      // an unchanged menu must preserve the still-valid inspected bucket.
+      setState(() => _inputRevision++);
     }
-
-    final target = _service.shiftScrollOffset(
-      currentOffset: _scrollController.offset,
-      viewportWidth: _viewportWidth,
-      maxScrollExtent: _maxScrollExtent,
-      forward: forward,
-    );
-    _scrollController.animateTo(
-      target,
-      duration: const Duration(seconds: 1),
-      curve: Curves.easeInOut,
-    );
+    // Opening/dismissing a menu or choosing the same type must not invalidate
+    // still-valid inspection. A changed clock still uses the shared page owner.
+    if (ref.read(summaryPageControllerProvider(_cardIdentity)).referenceDate !=
+        _referenceDate) {
+      _navigate(SummaryPageAction.reconcile);
+    }
   }
 
   void _reportVisibleSummary(SummaryVisibleSummary? summary) {
     if (widget.onVisibleSummaryChanged == null ||
-        _lastVisibleSummary == summary) {
+        (_hasReportedSummary && _lastVisibleSummary == summary)) {
       return;
     }
 
     _lastVisibleSummary = summary;
+    _hasReportedSummary = true;
+    final revision = _revision;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (mounted && revision == _revision && _lastVisibleSummary == summary) {
         widget.onVisibleSummaryChanged?.call(summary);
       }
     });
@@ -202,44 +480,12 @@ class _SummaryCardState extends State<SummaryCard> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(summaryPageControllerProvider(_cardIdentity));
+    ref.watch(dashboardReferenceClockProvider);
+    // StatefulShellRoute retains Dashboard offstage. Activation changes this
+    // dependency even when Tracks and the injected clock closure are unchanged.
+    TickerMode.valuesOf(context);
     return widget.isLoading ? _buildLoadingState() : _buildContent();
-  }
-
-  void _clearTimelineCaches() {
-    _primaryTimelineCache.clear();
-    _secondaryTimelineCache.clear();
-    _cachedReferenceDate = null;
-    _cachedTracks = null;
-    _cachedAdapter = null;
-  }
-
-  void _ensureTimelineCaches(DateTime referenceDate) {
-    if (_cachedTracks == widget.tracks &&
-        _cachedReferenceDate == referenceDate &&
-        _cachedAdapter == widget.adapter) {
-      return;
-    }
-
-    _clearTimelineCaches();
-    _cachedTracks = widget.tracks;
-    _cachedReferenceDate = referenceDate;
-    _cachedAdapter = widget.adapter;
-  }
-
-  SummaryTimeline _timelineFor({
-    required Map<SummaryPeriodPreset, SummaryTimeline> cache,
-    required SummaryMetricDefinition metric,
-    required DateTime referenceDate,
-  }) {
-    return cache.putIfAbsent(
-      _period,
-      () => _service.buildTimeline(
-        tracks: widget.tracks,
-        period: _period,
-        metric: metric,
-        now: referenceDate,
-      ),
-    );
   }
 
   Widget _buildLoadingState() {
@@ -254,23 +500,32 @@ class _SummaryCardState extends State<SummaryCard> {
   }
 
   Widget _buildContent() {
-    final now = (widget.now ?? DateTime.now()).toLocal();
-    final referenceDate = DateTime(now.year, now.month, now.day);
-    _ensureTimelineCaches(referenceDate);
-    final timeline = _timelineFor(
-      cache: _primaryTimelineCache,
+    return _buildCalendarContent(_referenceDate);
+  }
+
+  Widget _buildCalendarContent(DateTime referenceDate) {
+    final selection = ref.read(summaryPageControllerProvider(_cardIdentity));
+    final navigation = selection.navigation(
+      tracks: _tracks,
       metric: widget.adapter.metric,
-      referenceDate: referenceDate,
+      now: referenceDate,
     );
-    final secondaryTimeline = widget.adapter.secondaryMetric == null
-        ? null
-        : _timelineFor(
-            cache: _secondaryTimelineCache,
-            metric: widget.adapter.secondaryMetric!,
+    final revision = _revision;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          revision != _revision ||
+          _referenceDate != referenceDate) {
+        return;
+      }
+      ref
+          .read(summaryPageControllerProvider(_cardIdentity).notifier)
+          .reconcile(
+            expected: selection,
+            navigation: navigation,
             referenceDate: referenceDate,
           );
-
-    if (timeline.isEmpty) {
+    });
+    if (navigation == null) {
       _reportVisibleSummary(null);
       return Center(
         key: Key('${widget.adapter.keyPrefix}-empty-state'),
@@ -280,108 +535,145 @@ class _SummaryCardState extends State<SummaryCard> {
         ),
       );
     }
-
+    final page = navigation.selected;
+    // Discard, rather than merely hide, inspection invalidated by activation
+    // or a reference-day projection (which need not increment _revision).
+    if (_inspectionIdentity != null &&
+        _inspectionIdentity != _chartIdentity(referenceDate, page)) {
+      _clearInspection();
+    }
+    final timeline = _service.buildTimeline(
+      tracks: _tracks,
+      period: _period,
+      metric: widget.adapter.metric,
+      now: referenceDate,
+      page: page,
+    );
+    final secondary = widget.adapter.secondaryMetric == null
+        ? null
+        : _service.buildTimeline(
+            tracks: _tracks,
+            period: _period,
+            metric: widget.adapter.secondaryMetric!,
+            now: referenceDate,
+            page: page,
+          );
+    _reportVisibleSummary(
+      SummaryVisibleSummary(
+        period: _period,
+        totalValue: timeline.totalValue,
+        averageValue: _service.visibleAverageValueForPeriod(
+          period: _period,
+          buckets: timeline.buckets,
+          referenceDate: referenceDate,
+        ),
+      ),
+    );
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _SummaryHeader(
+            keyPrefix: widget.adapter.keyPrefix,
+            period: _period,
+            mode: _displayMode,
+            chartTypeControl: widget.chartTypeControlBuilder?.call(
+              _reconcileForChartMenu,
+              () => _navigate(SummaryPageAction.reconcile),
+            ),
+            visibleRangeText: formatSummaryDateRange(page.start, page.lastDay),
+            onPeriodChanged: _selectPeriod,
+            onOpenPeriod: _reconcileForChartMenu,
+            onToggleMode: _toggleMode,
+            onFirst: () => _navigate(SummaryPageAction.first),
+            onPrevious: () => _navigate(SummaryPageAction.adjacent, pages: -1),
+            onNext: () => _navigate(SummaryPageAction.adjacent),
+            onLast: () => _navigate(SummaryPageAction.last),
+            canMoveFirst: navigation.canFirst,
+            canMovePrevious: navigation.canPrevious,
+            canMoveNext: navigation.canNext,
+            canMoveLast: navigation.canLast,
+          ),
+          const SizedBox(height: 12),
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final chartViewportWidth = math.max<double>(
+                final width = math.max<double>(
                   constraints.maxWidth - DashboardUI.yAxisLabelWidth,
                   1,
                 );
-                _viewportWidth = chartViewportWidth;
-                final visibleColumnCount = math.min(
-                  visibleColumnCountForPeriod(_period),
-                  timeline.buckets.length,
-                );
-                final bucketExtent = DashboardUI.columnWidthFor(
-                  availableWidth: chartViewportWidth,
-                  visibleColumnCount: visibleColumnCount,
-                );
-                final contentWidth = math.max<double>(
-                  (timeline.buckets.length * bucketExtent).ceilToDouble() +
-                      0.01,
-                  1,
-                );
-                _maxScrollExtent = math.max(
-                  0,
-                  contentWidth - chartViewportWidth,
-                );
-                _syncScrollPosition(timeline.buckets.length);
-
-                final visibleBuckets = _visibleBuckets(
-                  timeline.buckets,
-                  chartViewportWidth,
-                );
-                final visibleTotal = _service.visibleTotalValue(visibleBuckets);
-                final averageBuckets = _averageBucketsForPeriod(
-                  period: _period,
-                  allBuckets: timeline.buckets,
-                  visibleBuckets: visibleBuckets,
-                  referenceDate: referenceDate,
-                );
-                final visibleAverage = _service.visibleAverageValueForPeriod(
-                  period: _period,
-                  buckets: averageBuckets,
-                  referenceDate: referenceDate,
-                );
-                final visibleRangeText = formatSummaryDateRange(
-                  visibleBuckets.first.start,
-                  visibleBuckets.last.start,
-                );
-                _reportVisibleSummary(
-                  SummaryVisibleSummary(
+                final identity = _chartIdentity(referenceDate, page);
+                final inputRevision = _inputRevision;
+                return SummaryPageBrowser(
+                  key: Key('${widget.adapter.keyPrefix}-page-browser'),
+                  revision: (identity, inputRevision),
+                  enabled: navigation.canPrevious || navigation.canNext,
+                  onPages: (pages) {
+                    // Timers run before a queued frame's rebuild. Reject input
+                    // synchronously superseded by a toolbar action as well as
+                    // the cancellation performed by didUpdateWidget.
+                    if (_revision != revision ||
+                        _inputRevision != inputRevision ||
+                        !TickerMode.valuesOf(context).enabled) {
+                      return;
+                    }
+                    _navigate(
+                      SummaryPageAction.adjacent,
+                      pages: pages,
+                      inputReference: referenceDate,
+                    );
+                  },
+                  child: SummaryChart(
+                    key: Key('${widget.adapter.keyPrefix}-scroll-view'),
+                    keyPrefix: widget.adapter.keyPrefix,
+                    controller: _scrollController,
+                    buckets: timeline.buckets,
+                    secondaryBuckets: secondary?.buckets,
+                    mode: _displayMode,
+                    barSeriesStyle:
+                        widget.barSeriesStyle ?? widget.adapter.barSeriesStyle,
+                    valueScale: widget.adapter.chartValueScale,
+                    bucketExtent: width / timeline.buckets.length,
                     period: _period,
-                    totalValue: visibleTotal,
-                    averageValue: visibleAverage,
+                    referenceDate: referenceDate,
+                    chartMaxYFor: widget.adapter.chartMaxYFor,
+                    tooltipValueTexts: widget.adapter.tooltipValueTexts,
+                    tooltipValueTextColors:
+                        widget.adapter.tooltipValueTextColors,
+                    tooltipTitleText: widget.adapter.tooltipTitleText,
+                    yAxisLabelText: widget.adapter.yAxisLabelText,
+                    secondarySeriesOnTop: widget.adapter.secondarySeriesOnTop,
+                    inspectionIdentity: identity,
+                    inspection: _inspectionIdentity == identity
+                        ? _inspection
+                        : null,
+                    onInspectionChanged: !widget.enableKeyboardInspection
+                        ? null
+                        : (inspection) {
+                            if (_revision != revision ||
+                                _referenceDate != referenceDate) {
+                              return;
+                            }
+                            // A tap/key can pin before this frame's hover-exit
+                            // callback has rebuilt with the new presentation.
+                            if (inspection == null &&
+                                _inspection?.pinned == true) {
+                              return;
+                            }
+                            setState(() {
+                              _inspectionIdentity = identity;
+                              _inspection = inspection;
+                            });
+                          },
+                    scrollable: false,
+                    onInspect: () {
+                      if (_revision != revision) return false;
+                      if (_referenceDate == referenceDate) return true;
+                      _navigate(SummaryPageAction.reconcile);
+                      return false;
+                    },
                   ),
-                );
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _SummaryHeader(
-                      keyPrefix: widget.adapter.keyPrefix,
-                      period: _period,
-                      mode: _mode,
-                      visibleRangeText: visibleRangeText,
-                      onPeriodChanged: _selectPeriod,
-                      onToggleMode: _toggleMode,
-                      onPrevious: () => _shiftWindow(false),
-                      onNext: () => _shiftWindow(true),
-                      canMovePrevious: _canMovePrevious(
-                        timeline.buckets.length,
-                      ),
-                      canMoveNext: _canMoveNext(timeline.buckets.length),
-                    ),
-                    const SizedBox(height: 12),
-                    Expanded(
-                      child: SummaryChart(
-                        key: Key('${widget.adapter.keyPrefix}-scroll-view'),
-                        keyPrefix: widget.adapter.keyPrefix,
-                        controller: _scrollController,
-                        buckets: timeline.buckets,
-                        secondaryBuckets: secondaryTimeline?.buckets,
-                        mode: _mode,
-                        barSeriesStyle: widget.adapter.barSeriesStyle,
-                        bucketExtent: bucketExtent,
-                        period: _period,
-                        referenceDate: referenceDate,
-                        chartMaxYFor: widget.adapter.chartMaxYFor,
-                        tooltipValueTexts: widget.adapter.tooltipValueTexts,
-                        tooltipValueTextColors:
-                            widget.adapter.tooltipValueTextColors,
-                        tooltipTitleText: widget.adapter.tooltipTitleText,
-                        yAxisLabelText: widget.adapter.yAxisLabelText,
-                        secondarySeriesOnTop:
-                            widget.adapter.secondarySeriesOnTop,
-                      ),
-                    ),
-                  ],
                 );
               },
             ),
@@ -389,96 +681,6 @@ class _SummaryCardState extends State<SummaryCard> {
         ],
       ),
     );
-  }
-
-  bool _canMovePrevious(int bucketCount) {
-    if (bucketCount <= 0 || !_scrollController.hasClients) {
-      return false;
-    }
-    return _scrollController.offset > 0;
-  }
-
-  bool _canMoveNext(int bucketCount) {
-    if (bucketCount <= 0 || !_scrollController.hasClients) {
-      return false;
-    }
-    return _scrollController.offset < _maxScrollExtent;
-  }
-
-  void _syncScrollPosition(int bucketCount) {
-    if (bucketCount == 0) {
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-
-      if (!_scrollController.hasClients) {
-        _syncScrollPosition(bucketCount);
-        return;
-      }
-
-      final target = _anchoredToLatest
-          ? _scrollController.offset.clamp(0.0, _maxScrollExtent).toDouble()
-          : _maxScrollExtent;
-      if (!_anchoredToLatest) {
-        _anchoredToLatest = true;
-      }
-
-      if ((_scrollController.offset - target).abs() > 0.5) {
-        _scrollController.jumpTo(target);
-      }
-    });
-  }
-
-  List<SummaryBucket> _visibleBuckets(
-    List<SummaryBucket> buckets,
-    double viewportWidth,
-  ) {
-    if (buckets.isEmpty) {
-      return const [];
-    }
-
-    final visibleCount = math.min(
-      buckets.length,
-      visibleColumnCountForPeriod(_period),
-    );
-    final maxStartIndex = math.max(0, buckets.length - visibleCount);
-    if (!_scrollController.hasClients) {
-      return buckets.sublist(maxStartIndex, buckets.length);
-    }
-
-    final bucketExtent = DashboardUI.columnWidthFor(
-      availableWidth: viewportWidth,
-      visibleColumnCount: visibleColumnCountForPeriod(_period),
-    );
-    final currentOffset = _scrollController.offset
-        .clamp(0.0, _maxScrollExtent)
-        .toDouble();
-    final startIndex = _anchoredToLatest
-        ? math.min(
-            maxStartIndex,
-            math.max(0, (currentOffset / bucketExtent).floor()),
-          )
-        : maxStartIndex;
-    final endIndex = math.min(buckets.length, startIndex + visibleCount);
-    return buckets.sublist(startIndex, endIndex);
-  }
-
-  Iterable<SummaryBucket> _averageBucketsForPeriod({
-    required SummaryPeriodPreset period,
-    required List<SummaryBucket> allBuckets,
-    required List<SummaryBucket> visibleBuckets,
-    required DateTime referenceDate,
-  }) {
-    return switch (period) {
-      SummaryPeriodPreset.yearToDate => allBuckets.where(
-        (bucket) => !bucket.start.isAfter(referenceDate),
-      ),
-      _ => visibleBuckets,
-    };
   }
 }
 
@@ -489,11 +691,17 @@ class _SummaryHeader extends StatelessWidget {
     required this.keyPrefix,
     required this.period,
     required this.mode,
+    this.chartTypeControl,
     required this.visibleRangeText,
     required this.onPeriodChanged,
+    required this.onOpenPeriod,
     required this.onToggleMode,
     required this.onPrevious,
     required this.onNext,
+    required this.onFirst,
+    required this.onLast,
+    required this.canMoveFirst,
+    required this.canMoveLast,
     required this.canMovePrevious,
     required this.canMoveNext,
   });
@@ -501,11 +709,17 @@ class _SummaryHeader extends StatelessWidget {
   final String keyPrefix;
   final SummaryPeriodPreset period;
   final SummaryDisplayMode mode;
+  final Widget? chartTypeControl;
   final String visibleRangeText;
   final ValueChanged<SummaryPeriodPreset?> onPeriodChanged;
+  final VoidCallback onOpenPeriod;
   final VoidCallback onToggleMode;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
+  final VoidCallback onFirst;
+  final VoidCallback onLast;
+  final bool canMoveFirst;
+  final bool canMoveLast;
   final bool canMovePrevious;
   final bool canMoveNext;
 
@@ -526,109 +740,96 @@ class _SummaryHeader extends StatelessWidget {
                   border: Border.all(color: theme.colorScheme.outline),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: Theme(
-                  data: theme.copyWith(
-                    hoverColor: theme.colorScheme.onPrimary.withValues(
-                      alpha: 0.8,
-                    ),
-                  ),
-                  child: MenuAnchor(
-                    style: const MenuStyle(
-                      alignment: AlignmentDirectional.bottomStart,
-                      padding: WidgetStatePropertyAll(EdgeInsets.zero),
-                      shape: WidgetStatePropertyAll(
-                        RoundedRectangleBorder(
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                child: DashboardDropdown<SummaryPeriodPreset>(
+                  selected: period,
+                  shortcut: LogicalKeyboardKey.keyP,
+                  minimumWidth: _periodDropdownWidth,
+                  onOpen: onOpenPeriod,
+                  onSelected: (value) {
+                    if (value != period) onPeriodChanged(value);
+                  },
+                  choices: [
+                    for (final value in SummaryPeriodPreset.values)
+                      DashboardDropdownChoice(
+                        key: Key('$keyPrefix-period-${value.name}'),
+                        value: value,
+                        label: value.label,
+                      ),
+                  ],
+                  buttonBuilder: (focusNode, toggle) {
+                    return InkWell(
+                      key: const Key('summary-period-dropdown'),
+                      focusNode: focusNode,
+                      mouseCursor: SystemMouseCursors.click,
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: toggle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                period.label,
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                            ),
+                            const Icon(Icons.expand_more),
+                          ],
                         ),
                       ),
-                    ),
-                    menuChildren: [
-                      for (final value in SummaryPeriodPreset.values)
-                        MenuItemButton(
-                          onPressed: () => onPeriodChanged(value),
-                          style: const ButtonStyle(
-                            minimumSize: WidgetStatePropertyAll(
-                              Size(_periodDropdownWidth, 36),
-                            ),
-                            padding: WidgetStatePropertyAll(
-                              EdgeInsets.symmetric(horizontal: 12),
-                            ),
-                            mouseCursor: WidgetStatePropertyAll(
-                              SystemMouseCursors.click,
-                            ),
-                          ),
-                          child: Text(value.label),
-                        ),
-                    ],
-                    builder: (context, controller, child) {
-                      return InkWell(
-                        key: const Key('summary-period-dropdown'),
-                        mouseCursor: SystemMouseCursors.click,
-                        borderRadius: BorderRadius.circular(6),
-                        onTap: () {
-                          if (controller.isOpen) {
-                            controller.close();
-                          } else {
-                            controller.open();
-                          }
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  period.label,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const Icon(Icons.expand_more),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                    );
+                  },
                 ),
               ),
             ),
             const SizedBox(width: 12),
             const Spacer(),
-            IconButton(
-              key: const Key('summary-prev-window'),
-              tooltip: canMovePrevious ? 'Previous window' : null,
-              onPressed: canMovePrevious ? onPrevious : null,
-              mouseCursor: canMovePrevious
-                  ? SystemMouseCursors.click
-                  : SystemMouseCursors.basic,
-              icon: const Icon(Icons.chevron_left),
+            _SummaryNavigationButton(
+              buttonKey: const Key('summary-first-window'),
+              label: 'First',
+              enabled: canMoveFirst,
+              onPressed: onFirst,
+              icon: Icons.first_page,
             ),
-            IconButton(
-              key: const Key('summary-next-window'),
-              tooltip: canMoveNext ? 'Next window' : null,
-              onPressed: canMoveNext ? onNext : null,
-              mouseCursor: canMoveNext
-                  ? SystemMouseCursors.click
-                  : SystemMouseCursors.basic,
-              icon: const Icon(Icons.chevron_right),
+            _SummaryNavigationButton(
+              buttonKey: const Key('summary-prev-window'),
+              label: period.previousTooltip,
+              enabled: canMovePrevious,
+              onPressed: onPrevious,
+              icon: Icons.chevron_left,
+            ),
+            _SummaryNavigationButton(
+              buttonKey: const Key('summary-next-window'),
+              label: period.nextTooltip,
+              enabled: canMoveNext,
+              onPressed: onNext,
+              icon: Icons.chevron_right,
+            ),
+            _SummaryNavigationButton(
+              buttonKey: const Key('summary-last-window'),
+              label: 'Last',
+              enabled: canMoveLast,
+              onPressed: onLast,
+              icon: Icons.last_page,
             ),
             const SizedBox(width: 8),
-            FloatingActionButton.small(
-              key: const Key('summary-mode-fab'),
-              onPressed: onToggleMode,
-              mouseCursor: SystemMouseCursors.click,
-              tooltip: mode == SummaryDisplayMode.columns
-                  ? 'Switch to line view'
-                  : 'Switch to column view',
-              child: Icon(
-                mode == SummaryDisplayMode.columns
-                    ? Icons.show_chart
-                    : Icons.bar_chart,
-              ),
-            ),
+            chartTypeControl ??
+                FloatingActionButton.small(
+                  key: const Key('summary-mode-fab'),
+                  onPressed: onToggleMode,
+                  mouseCursor: SystemMouseCursors.click,
+                  tooltip: mode == SummaryDisplayMode.columns
+                      ? 'Switch to line view'
+                      : 'Switch to column view',
+                  child: Icon(
+                    mode == SummaryDisplayMode.columns
+                        ? Icons.show_chart
+                        : Icons.bar_chart,
+                  ),
+                ),
           ],
         ),
         const SizedBox(height: 4),
@@ -646,16 +847,36 @@ class _SummaryHeader extends StatelessWidget {
   }
 }
 
-int visibleColumnCountForPeriod(SummaryPeriodPreset period) {
-  return switch (period) {
-    SummaryPeriodPreset.week => 7,
-    SummaryPeriodPreset.month => 31,
-    SummaryPeriodPreset.last3Months => 13,
-    SummaryPeriodPreset.last6Months => 26,
-    SummaryPeriodPreset.last12Months ||
-    SummaryPeriodPreset.yearToDate ||
-    SummaryPeriodPreset.allTime => 12,
-  };
+class _SummaryNavigationButton extends StatelessWidget {
+  const _SummaryNavigationButton({
+    required this.buttonKey,
+    required this.label,
+    required this.enabled,
+    required this.onPressed,
+    required this.icon,
+  });
+
+  final Key buttonKey;
+  final String label;
+  final bool enabled;
+  final VoidCallback onPressed;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => TooltipTheme(
+    // The icon supplies the action name even when its visual tooltip is absent.
+    data: TooltipTheme.of(context).copyWith(excludeFromSemantics: true),
+    child: IconButton(
+      key: buttonKey,
+      style: dashboardNavigationButtonStyle(Theme.of(context).colorScheme),
+      tooltip: enabled ? label : null,
+      onPressed: enabled ? onPressed : null,
+      mouseCursor: enabled
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      icon: Icon(icon, semanticLabel: label),
+    ),
+  );
 }
 
 String defaultAverageLabelText(SummaryPeriodPreset period) =>

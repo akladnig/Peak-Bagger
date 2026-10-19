@@ -8,6 +8,7 @@ import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/services/track_name_normalisation.dart';
+import 'track_date_calendar_codec.dart';
 
 final DateFormat _ascentDateFormat = DateFormat('dd MMM yyyy', 'en_US');
 final RegExp _trackNameDateSuffix = RegExp(r'\s*\(\d{1,2}\/\d{1,2}\/\d{4}\)$');
@@ -136,7 +137,10 @@ List<PeakInfoAscentRow> _resolvePeakAscentRows({
       resolvedRows.add(
         _ResolvedPeakInfoAscentRow(
           gpxId: ascent.gpxId,
-          date: ascent.date,
+          date: TrackDateCalendarCodec.ascentDay(
+            ascent.date,
+            gpxTrackRepository.findById(ascent.gpxId),
+          ),
           trackLabel: _resolveTrackLabel(ascent.gpxId, gpxTrackRepository),
         ),
       );
@@ -159,7 +163,7 @@ List<PeakInfoAscentRow> _resolvePeakAscentRows({
             trackLabel: row.trackLabel,
             dateText: row.date == null
                 ? 'Unknown'
-                : _ascentDateFormat.format(row.date!.toLocal()),
+                : _ascentDateFormat.format(row.date!),
           ),
         )
         .toList(growable: false);

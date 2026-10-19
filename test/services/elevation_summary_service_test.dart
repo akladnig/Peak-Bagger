@@ -4,7 +4,7 @@ import 'package:peak_bagger/services/elevation_summary_service.dart';
 
 void main() {
   group('ElevationSummaryService', () {
-    test('builds bounded week buckets and sums ascent', () {
+    test('builds a full calendar week and sums ascent', () {
       final service = ElevationSummaryService();
       final now = DateTime(2026, 5, 15, 12);
 
@@ -20,13 +20,13 @@ void main() {
         now: now,
       );
 
-      expect(timeline.buckets, hasLength(14));
-      expect(timeline.buckets.last.label, 'Fri');
-      expect(timeline.buckets.last.roundedAscentMetres, 120);
-      expect(timeline.buckets[11].label, 'Wed');
-      expect(timeline.buckets[11].roundedAscentMetres, 100);
+      expect(timeline.buckets, hasLength(7));
+      expect(timeline.buckets.last.label, 'Sun');
+      expect(timeline.buckets[4].roundedAscentMetres, 120);
+      expect(timeline.buckets[2].label, 'Wed');
+      expect(timeline.buckets[2].roundedAscentMetres, 100);
       expect(timeline.totalMetres, 220);
-      expect(timeline.averageMetres, 16);
+      expect(timeline.averageMetres, 31);
     });
 
     test('builds month buckets with zero buckets included in average', () {
@@ -42,12 +42,12 @@ void main() {
         now: now,
       );
 
-      expect(timeline.buckets, hasLength(61));
+      expect(timeline.buckets, hasLength(31));
       expect(timeline.buckets.first.label, '1');
       expect(timeline.buckets.last.label, '31');
-      expect(timeline.buckets[32].roundedAscentMetres, 50);
+      expect(timeline.buckets[2].roundedAscentMetres, 50);
       expect(timeline.totalMetres, 150);
-      expect(timeline.averageMetres, 2);
+      expect(timeline.averageMetres, 5);
     });
 
     test('builds year to date month buckets from Jan to Dec', () {
@@ -95,7 +95,10 @@ void main() {
           now: now,
         );
 
-        expect(timeline.buckets, hasLength(11));
+        expect(timeline.buckets, hasLength(14));
+        expect(timeline.windowStart, DateTime(2026, 3));
+        expect(timeline.windowEndExclusive, DateTime(2026, 6));
+        expect(timeline.buckets.first.endExclusive, DateTime(2026, 3, 2));
         expect(
           timeline.buckets.where((bucket) => bucket.label == 'Mar'),
           isNotEmpty,
@@ -108,7 +111,7 @@ void main() {
       },
     );
 
-    test('builds 26 weekly buckets for the 6 month window', () {
+    test('builds the calendar-required weekly buckets for six months', () {
       final service = ElevationSummaryService();
       final now = DateTime(2026, 5, 15, 12);
 
@@ -121,7 +124,9 @@ void main() {
         now: now,
       );
 
-      expect(timeline.buckets, hasLength(20));
+      expect(timeline.buckets, hasLength(26));
+      expect(timeline.windowStart, DateTime(2025, 12));
+      expect(timeline.windowEndExclusive, DateTime(2026, 6));
       expect(
         timeline.buckets.where((bucket) => bucket.label == 'Jan'),
         isNotEmpty,
@@ -153,27 +158,8 @@ void main() {
       expect(timeline.totalMetres, 150);
     });
 
-    test('shifts window start by half the visible range and clamps', () {
+    test('retains rounding and daily/weekly/monthly average roles', () {
       final service = ElevationSummaryService();
-
-      expect(
-        service.shiftWindowStartIndex(
-          currentStartIndex: 10,
-          visibleBucketCount: 6,
-          bucketCount: 20,
-          forward: true,
-        ),
-        13,
-      );
-      expect(
-        service.shiftWindowStartIndex(
-          currentStartIndex: 2,
-          visibleBucketCount: 6,
-          bucketCount: 20,
-          forward: false,
-        ),
-        0,
-      );
       expect(
         service.visibleAverageMetres([
           ElevationBucket(

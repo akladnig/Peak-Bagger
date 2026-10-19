@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
@@ -222,16 +223,18 @@ Future<void> _pumpYearToDateCard(
   double width = 440,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: SizedBox(
-          width: width,
-          height: 320,
-          child: YearToDateCard(
-            tracks: tracks,
-            peaksBagged: peaksBagged,
-            isLoading: isLoading,
-            now: now,
+    ProviderScope(
+      child: MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: width,
+            height: 320,
+            child: YearToDateCard(
+              tracks: tracks,
+              peaksBagged: peaksBagged,
+              isLoading: isLoading,
+              now: now,
+            ),
           ),
         ),
       ),

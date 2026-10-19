@@ -277,6 +277,67 @@ void main() {
       expect(find.byKey(const Key('gpx-import-error-close')), findsOneWidget);
     });
 
+    testWidgets(
+      'failed submission keeps selected files and edited name for retry',
+      (tester) async {
+        var attempts = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => ElevatedButton(
+                  child: const Text('Open'),
+                  onPressed: () => showDialog(
+                    context: context,
+                    builder: (_) => GpxImportDialog(
+                      filePicker: _FakeSelectedGpxFilePicker(['/tmp/walk.gpx']),
+                      prefilledNameResolver: fastPrefilledNameResolver,
+                      importAsRoute: false,
+                      onImport:
+                          ({
+                            required importAsRoute,
+                            required pathToEditedNames,
+                          }) async {
+                            attempts++;
+                            expect(pathToEditedNames, {
+                              '/tmp/walk.gpx': 'Retained name',
+                            });
+                            if (attempts == 1) {
+                              throw StateError('fixture failure');
+                            }
+                            return true;
+                          },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('gpx-import-select-files')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('gpx-import-name-field-0')),
+          'Retained name',
+        );
+        await tester.tap(find.byKey(const Key('gpx-import-button')));
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('Your selected files and names have been kept'),
+          findsOneWidget,
+        );
+        await tester.tap(find.byKey(const Key('gpx-import-error-close')));
+        await tester.pumpAndSettle();
+        expect(find.text('Retained name'), findsOneWidget);
+        await tester.tap(find.byKey(const Key('gpx-import-button')));
+        await tester.pumpAndSettle();
+        expect(attempts, 2);
+        expect(find.byKey(const Key('gpx-import-dialog')), findsNothing);
+      },
+    );
+
     testWidgets('route mode shows route copy and toggle', (tester) async {
       final tempDir = Directory.systemTemp.createTempSync('gpx-import-dialog');
       addTearDown(() => tempDir.deleteSync(recursive: true));
