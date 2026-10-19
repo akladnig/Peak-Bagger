@@ -66,9 +66,9 @@ test('large-lake positions respect holes, native display spacing and whole geome
           b = atZoom[j].point;
         const displayDistance =
           Math.hypot(a[0] - b[0], a[1] - b[1]) / metresPerPixel(z);
-        assert.ok(displayDistance >= 256, `${z}: ${displayDistance}`);
+        assert.ok(displayDistance >= 512, `${z}: ${displayDistance}`);
         // @2x changes PNG pixels, not map-display pixels or classification.
-        assert.ok(displayDistance * 2 >= 512);
+        assert.ok(displayDistance * 2 >= 1024);
       }
     }
   }

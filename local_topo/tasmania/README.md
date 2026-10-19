@@ -114,7 +114,7 @@ The richer style now uses committed `Roboto Regular` glyph assets for labels whi
 The Martin preview alone uses prepared whole-lake point positions from
 `local_topo_preview_active.lake_labels`. Below **1,000,000 m²** a lake keeps one
 interior position at every zoom; at or above that ground-area threshold it may
-repeat, with centres at least **256 logical map pixels** apart. Area is measured
+repeat, with centres at least **512 logical map pixels** apart. Area is measured
 with PostGIS geography, not uncorrected Mercator area. Signed OSM area identities
 keep ways, relations, holes, disconnected components and separate same-named
 lakes distinct. Names remain source text and may wrap beyond shorelines.
@@ -124,8 +124,8 @@ conservative whole-dataset lake-name collision bounds. Native renderer collision
 detection remains enabled. Competing lake names prefer larger ground area, with
 source identity as a stable tie-breaker; no example-lake overrides are used.
 Points are lake-based, not regenerated from tile
-fragments or viewport bounds. The 258-pixel placement lattice includes a small
-MVT quantisation margin above the 256-pixel minimum. Raster `@2x` doubles PNG
+fragments or viewport bounds. The 514-pixel placement lattice includes a small
+MVT quantisation margin above the 512-pixel minimum. Raster `@2x` doubles PNG
 pixel separation, not logical separation. TileServer GL renders native 256px XYZ
 zoom `z` at MapLibre style zoom `z - 1`; the six label layers account for this.
 
@@ -160,7 +160,7 @@ styles, app labels/routes/capabilities and zoom limits are unchanged.
 The review command below saves **3×3 adjacent-tile neighbourhoods** for Lake Perry
 at native zooms 15–18, Hartz Lake at 13–14, and Lake St Clair at 15. Inspect the
 neighbourhoods together while panning; a split name at a seam is one occurrence,
-not two independent anchors. At `@2x`, 256 logical pixels are 512 PNG pixels.
+not two independent anchors. At `@2x`, 512 logical pixels are 1024 PNG pixels.
 The default fixture also retains zoom-12/13 contour checks. For remote stacks set
 `LOCAL_TOPO_REVIEW_BASE_URL`; use a fresh output directory with
 `LOCAL_TOPO_REVIEW_OUTPUT_ROOT` and bypass app caches. Capturing PNGs is not

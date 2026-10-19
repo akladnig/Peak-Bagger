@@ -113,7 +113,7 @@ Recommended Answer:
 
 Answer: yes
 
-Decision: Use a minimum 256-logical-map-pixel centre-to-centre spacing for large-lake repeats, including across tile boundaries, without expanding scope into Flutter viewport reporting.
+Decision: Use fixed logical-map-pixel centre-to-centre spacing for large-lake repeats, including across tile boundaries, without expanding scope into Flutter viewport reporting. The initial 256-pixel minimum is superseded by L9's 512-pixel minimum.
 
 Reason: Raster XYZ requests do not contain the app viewport dimensions. Fixed spacing approximates quarter-width spacing on a 1024-logical-pixel-wide map; 1024 is an illustration, not an approved app/window dimension.
 
@@ -131,3 +131,15 @@ Recommended Answer:
 Answer: agreed
 
 Decision: Classify lakes by actual surface area, using an inclusive large-lake threshold of 1 km². Zooming alone must not turn a small lake into a repeat-labelled lake. Large-lake status permits, but does not require, additional labels where geometry and collision constraints do not allow them.
+
+### L9
+
+Status: current
+
+Question: When doubling the large-lake setting after live review, should the label spacing or the physical-area threshold change?
+
+Answer: “label spacing from 256 to 512 logical pixels”
+
+Decision: Increase the minimum large-lake repeat spacing to 512 logical map-display pixels, including across tile boundaries and independently of raster scale. Keep the inclusive 1 km² area threshold and small-lake behavior unchanged. This supersedes only the earlier 256-pixel spacing in L7/L8; all other feature constraints remain.
+
+Source: User follow-up after the initial implementation and live preview review on 2026-10-19.

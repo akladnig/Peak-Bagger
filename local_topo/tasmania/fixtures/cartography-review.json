@@ -97,7 +97,7 @@
       "variantExpectations": [
         "acts as the supported manual contour-cartography verification path for Tasmania Local Topo preview work",
         "keeps the committed OpenStreetMap comparison style aligned with the canonical readable contour-label and standing-water masking behavior",
-        "uses one whole-lake interior position below 1 km² and permits repeats at least 256 logical pixels apart for larger lakes; inspect adjacent captures together, not only as individual downloads"
+        "uses one whole-lake interior position below 1 km² and permits repeats at least 512 logical pixels apart for larger lakes; inspect adjacent captures together, not only as individual downloads"
       ],
       "tiles": [
         {
@@ -194,8 +194,8 @@
           "y": 20612,
           "adjacent": true,
           "expectations": [
-            "Lake St Clair is a verified 28.68 km² relation: repeated names have interior centres at least 256 logical pixels apart, including across tile seams",
-            "inspect adjacent tiles while panning; at @2x the minimum centre spacing is 512 PNG pixels; lake names do not overlap"
+            "Lake St Clair is a verified 28.68 km² relation: repeated names have interior centres at least 512 logical pixels apart, including across tile seams",
+            "inspect adjacent tiles while panning; at @2x the minimum centre spacing is 1024 PNG pixels; lake names do not overlap"
           ]
         }
       ]

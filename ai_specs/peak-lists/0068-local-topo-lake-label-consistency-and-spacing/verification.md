@@ -1,5 +1,9 @@
 # Implementation and verification
 
+The sections below record the initial 256-pixel-minimum implementation. The
+user subsequently requested a 512-pixel minimum (ledger L9); follow-up evidence
+is recorded at the end rather than rewriting the original measured results.
+
 ## Outcome
 
 Implemented and visually verified on 2026-10-19. The Mac Mini preview was used
@@ -126,3 +130,35 @@ and `isolated-comparison/`. The Mini retains its deployment backup under
 container was stopped/removed; the existing preview services remain running with
 the accepted style/data. Maintainer instructions and portable review fixtures are
 committed; production mapping data and machine-specific SSH adapters are not.
+
+## L9 follow-up: 512-logical-pixel minimum
+
+The user requested doubling only repeat spacing, not lake-area classification.
+Updated placement to a **514-logical-pixel lattice**, retaining the two-pixel
+MVT quantisation margin above the new **512** minimum. Updated SQL validation,
+regression assertions, current Spec, maintainer guidance and review expectations.
+The 1 km² threshold, single small-lake anchors and all style files are unchanged.
+
+- Red/green: the stricter placement test initially failed at the old 258-pixel
+  distance, then passed after the change. Complete `npm test`: **66 passed**;
+  affected Node syntax check passed.
+- Used the existing staged label-only refresh on the Mini. Geometry, counts,
+  new spacing and staged Martin readability passed before atomic publication.
+  Martin and TileServer GL restarted successfully; no contours/relief/OSM rebuild.
+- Published **34,991 candidate labels from the same 659 lakes**. St Clair now
+  has nine candidates at native zoom 15 instead of 32. Perry and Hartz still
+  each have one candidate at every native zoom 13–18.
+- Fresh review captures are under untracked
+  `local_topo/tasmania/runtime/review/lake-labels-spacing-512/`. Visually inspected
+  Perry's zoom-15 3×3 mosaic and Hartz's zoom-13/14 mosaics: one readable name,
+  no nearby lake-name overlap, with land contours and relief retained.
+- Inspected St Clair at zoom 15 around `29689/20612`, extending the 3×3 fixture
+  south by one tile row so two full names fit. Blue-glyph centre measurements
+  across the combined adjacent tiles were **514 PNG pixels at normal scale**
+  and **1028 PNG pixels at @2x**, both **514 logical pixels**. The expanded
+  normal-scale image was visually inspected: repeats are visibly further apart,
+  non-overlapping and anchored inside the lake, with shoreline contours intact.
+- Mini source backup for this adjustment:
+  `runtime/review/0068-spacing-512/source-before.tar`; the earlier label table
+  remains in the existing retired-table recovery seam. Preview remains running
+  with the new spacing. `macos/Podfile.lock` is unrelated and untouched.

@@ -32,10 +32,10 @@ BEGIN
     CROSS JOIN LATERAL (
       SELECT 1 FROM local_topo_preview_stage.lake_labels b
       WHERE a.lake_id=b.lake_id AND a.label_zoom=b.label_zoom AND a.fid<b.fid
-        AND ST_DWithin(a.geom,b.geom,40075016.68557849 / power(2,a.label_zoom))
-        AND ST_Distance(a.geom,b.geom) < 40075016.68557849 / power(2,a.label_zoom)
+        AND ST_DWithin(a.geom,b.geom,512 * 40075016.68557849 / (256 * power(2,a.label_zoom)))
+        AND ST_Distance(a.geom,b.geom) < 512 * 40075016.68557849 / (256 * power(2,a.label_zoom))
       LIMIT 1
     ) AS violation
-  ) THEN RAISE EXCEPTION 'Lake repeats violate 256 logical pixel spacing'; END IF;
+  ) THEN RAISE EXCEPTION 'Lake repeats violate 512 logical pixel spacing'; END IF;
 END
 $$;

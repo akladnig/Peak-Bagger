@@ -129,7 +129,7 @@ export function prepareLabels(lakes) {
     const unit = metresPerPixel(zoom);
     for (const lake of sorted) {
       const [width, height] = textBounds(lake.name);
-      const step = Math.max(258, width, height) * unit; // >256 absorbs MVT quantisation.
+      const step = Math.max(514, width, height) * unit; // >512 absorbs MVT quantisation.
       const points = [lake.anchor];
       if (classifyLake(lake.area_m2) === 'large') {
         const [minX, minY, maxX, maxY] = bounds(lake.geometry);
