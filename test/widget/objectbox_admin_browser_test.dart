@@ -1517,6 +1517,26 @@ Peak _buildPeak({required int id, required int osmId, required String name}) {
 }
 
 ObjectBoxAdminEntityDescriptor _peakEntity() {
+  final preview = _peakPreviewEntity();
+  final actual = ObjectBoxAdminRepositoryImpl().getEntities().singleWhere(
+    (entity) => entity.name == 'Peak',
+  );
+  return ObjectBoxAdminEntityDescriptor(
+    name: preview.name,
+    displayName: preview.displayName,
+    primaryKeyField: preview.primaryKeyField,
+    primaryNameField: preview.primaryNameField,
+    fields: preview.fields
+        .map(
+          (field) => actual.fields.singleWhere(
+            (candidate) => candidate.name == field.name,
+          ),
+        )
+        .toList(),
+  );
+}
+
+ObjectBoxAdminEntityDescriptor _peakPreviewEntity() {
   return const ObjectBoxAdminEntityDescriptor(
     name: 'Peak',
     displayName: 'Peak',

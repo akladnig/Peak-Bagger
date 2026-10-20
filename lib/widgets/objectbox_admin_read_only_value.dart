@@ -2,6 +2,30 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+/// Visible label plus the same complete selectable viewport used by details.
+class ObjectBoxAdminReadOnlyFormValue extends StatelessWidget {
+  const ObjectBoxAdminReadOnlyFormValue({
+    required this.label,
+    required this.text,
+    required this.valueKey,
+    super.key,
+  });
+
+  final String label;
+  final String text;
+  final Key valueKey;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Text(label, style: Theme.of(context).textTheme.labelLarge),
+      const SizedBox(height: 4),
+      ObjectBoxAdminReadOnlyValue(key: valueKey, label: label, text: text),
+    ],
+  );
+}
+
 /// Selectable, non-editable value content to place beside/below its visible label.
 ///
 /// The semantic label travels with the value. Give this widget a record/field key

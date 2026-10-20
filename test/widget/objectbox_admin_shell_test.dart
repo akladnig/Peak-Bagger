@@ -760,7 +760,7 @@ void main() {
         matching: find.byType(TextField),
       ),
     );
-    expect(notes.minLines, 3);
+    expect(notes.minLines, 1);
     expect(notes.maxLines, 5);
 
     await tester.enterText(
@@ -2048,6 +2048,26 @@ class _MutableGpxTrackRepository extends GpxTrackRepository {
 }
 
 ObjectBoxAdminEntityDescriptor _peakEntity() {
+  final preview = _peakPreviewEntity();
+  final actual = ObjectBoxAdminRepositoryImpl().getEntities().singleWhere(
+    (entity) => entity.name == 'Peak',
+  );
+  return ObjectBoxAdminEntityDescriptor(
+    name: preview.name,
+    displayName: preview.displayName,
+    primaryKeyField: preview.primaryKeyField,
+    primaryNameField: preview.primaryNameField,
+    fields: preview.fields
+        .map(
+          (field) => actual.fields.singleWhere(
+            (candidate) => candidate.name == field.name,
+          ),
+        )
+        .toList(),
+  );
+}
+
+ObjectBoxAdminEntityDescriptor _peakPreviewEntity() {
   return const ObjectBoxAdminEntityDescriptor(
     name: 'Peak',
     displayName: 'Peak',

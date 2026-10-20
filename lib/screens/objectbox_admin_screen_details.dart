@@ -12,6 +12,8 @@ import 'package:peak_bagger/services/peak_list_admin_editor.dart';
 import 'package:peak_bagger/services/route_admin_editor.dart';
 import 'package:peak_bagger/services/contact_admin_editor.dart';
 import 'package:peak_bagger/widgets/objectbox_admin_read_only_value.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_form_field.dart';
+import 'package:peak_bagger/services/objectbox_admin_field_policy.dart';
 
 class _AdminDetailsDivider extends StatelessWidget {
   const _AdminDetailsDivider({this.height});
@@ -94,6 +96,12 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
 
     if (entity.name == 'Peak') {
       return _PeakAdminDetailsPane(
+        key: ValueKey((
+          'Peak',
+          row?.primaryKeyValue,
+          isCreatingPeak,
+          isCreatingPeak ? createOsmId : null,
+        )),
         row: row,
         entity: entity,
         createMode: isCreatingPeak,
@@ -106,6 +114,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
 
     if (entity.name == 'NaturalFeature' && naturalFeature != null) {
       return _NaturalFeatureAdminDetailsPane(
+        key: ValueKey(('NaturalFeature', row!.primaryKeyValue)),
         row: row!,
         entity: entity,
         naturalFeature: naturalFeature!,
@@ -118,6 +127,8 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
 
     if (entity.name == 'Contact' && (contact != null || isCreatingContact)) {
       return _ContactAdminDetailsPane(
+        key: ValueKey(('Contact', contact?.id, isCreatingContact)),
+        entity: entity,
         contact: contact ?? Contact(),
         createMode: isCreatingContact,
         onClose: onClose,
@@ -127,6 +138,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
 
     if (entity.name == 'Route' && route != null) {
       return _RouteAdminDetailsPane(
+        key: ValueKey(('Route', route!.id)),
         row: row,
         entity: entity,
         route: route!,
@@ -140,6 +152,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
 
     if (entity.name == 'PeakList' && peakList != null) {
       return _PeakListAdminDetailsPane(
+        key: ValueKey(('PeakList', peakList!.peakListId)),
         row: row,
         entity: entity,
         peakList: peakList!,
@@ -255,6 +268,7 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
 
 class _PeakAdminDetailsPane extends StatefulWidget {
   const _PeakAdminDetailsPane({
+    super.key,
     required this.row,
     required this.entity,
     required this.createMode,
@@ -298,7 +312,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   late final TextEditingController _mgrs100kIdController;
   late final TextEditingController _eastingController;
   late final TextEditingController _northingController;
-  late final TextEditingController _gridZoneDesignatorController;
+  late String _gridZoneDesignator;
   late String _sourceOfTruth;
   bool _verified = false;
   bool _isEditing = false;
@@ -332,7 +346,6 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     _mgrs100kIdController = TextEditingController();
     _eastingController = TextEditingController();
     _northingController = TextEditingController();
-    _gridZoneDesignatorController = TextEditingController();
     _syncFromRow();
   }
 
@@ -368,7 +381,6 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     _mgrs100kIdController.dispose();
     _eastingController.dispose();
     _northingController.dispose();
-    _gridZoneDesignatorController.dispose();
     super.dispose();
   }
 
@@ -400,8 +412,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _mgrs100kIdController.clear();
       _eastingController.clear();
       _northingController.clear();
-      _gridZoneDesignatorController.text =
-          PeakAdminEditor.fixedGridZoneDesignator;
+      _gridZoneDesignator = PeakAdminEditor.fixedGridZoneDesignator;
       _sourceOfTruth = Peak.sourceOfTruthOsm;
       _verified = false;
       _isEditing = true;
@@ -429,7 +440,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _mgrs100kIdController.text = form.mgrs100kId;
       _eastingController.text = form.easting;
       _northingController.text = form.northing;
-      _gridZoneDesignatorController.text = form.gridZoneDesignator;
+      _gridZoneDesignator = form.gridZoneDesignator;
       _sourceOfTruth = form.sourceOfTruth;
       _verified = form.verified;
       _isEditing = false;
@@ -483,7 +494,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       latitude: _latitudeController.text,
       longitude: _longitudeController.text,
       region: _regionController.text,
-      gridZoneDesignator: _gridZoneDesignatorController.text,
+      gridZoneDesignator: _gridZoneDesignator,
       mgrs100kId: _mgrs100kIdController.text,
       easting: _eastingController.text,
       northing: _northingController.text,
@@ -701,6 +712,8 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
             Expanded(
               child: _isEditing
                   ? _PeakEditForm(
+                      entity: widget.entity,
+                      recordId: _peak.id,
                       isSaving: _isSaving,
                       nameController: _nameController,
                       altNameController: _altNameController,
@@ -719,8 +732,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
                       latitudeController: _latitudeController,
                       longitudeController: _longitudeController,
                       regionController: _regionController,
-                      gridZoneDesignatorController:
-                          _gridZoneDesignatorController,
+                      gridZoneDesignator: _gridZoneDesignator,
                       mgrs100kIdController: _mgrs100kIdController,
                       eastingController: _eastingController,
                       northingController: _northingController,
@@ -813,6 +825,7 @@ List<ObjectBoxAdminFieldDescriptor> _objectBoxAdminDetailsFields(
 
 class _RouteAdminDetailsPane extends StatefulWidget {
   const _RouteAdminDetailsPane({
+    super.key,
     required this.row,
     required this.entity,
     required this.route,
@@ -1036,6 +1049,7 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
             Expanded(
               child: _isEditing
                   ? _RouteEditForm(
+                      entity: widget.entity,
                       route: widget.route,
                       isSaving: _isSaving,
                       nameController: _nameController,
@@ -1108,6 +1122,7 @@ class _RouteReadOnlyDetails extends StatelessWidget {
 
 class _PeakListAdminDetailsPane extends StatefulWidget {
   const _PeakListAdminDetailsPane({
+    super.key,
     required this.row,
     required this.entity,
     required this.peakList,
@@ -1269,6 +1284,7 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
             Expanded(
               child: _isEditing
                   ? _PeakListEditForm(
+                      entity: widget.entity,
                       row: widget.row,
                       peakList: widget.peakList,
                       isSaving: _isSaving,
@@ -1325,6 +1341,7 @@ class _PeakListReadOnlyDetails extends StatelessWidget {
 
 class _PeakListEditForm extends StatelessWidget {
   const _PeakListEditForm({
+    required this.entity,
     required this.row,
     required this.peakList,
     required this.isSaving,
@@ -1335,6 +1352,7 @@ class _PeakListEditForm extends StatelessWidget {
     required this.onSubmit,
   });
 
+  final ObjectBoxAdminEntityDescriptor entity;
   final ObjectBoxAdminRow? row;
   final PeakList peakList;
   final bool isSaving;
@@ -1373,7 +1391,10 @@ class _PeakListEditForm extends StatelessWidget {
                 keyName: 'objectbox-admin-peak-list-region-read-only',
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'colour',
+                recordId: peakList.peakListId,
                 key: const Key('objectbox-admin-peak-list-colour'),
                 controller: colourController,
                 enabled: !isSaving,
@@ -1418,17 +1439,18 @@ class _PeakListEditForm extends StatelessWidget {
     required String value,
     required String keyName,
   }) {
-    return TextFormField(
+    return ObjectBoxAdminReadOnlyFormValue(
       key: Key(keyName),
-      initialValue: value,
-      enabled: false,
-      decoration: InputDecoration(labelText: label),
+      valueKey: ValueKey(('PeakList', peakList.peakListId, keyName)),
+      label: label,
+      text: value,
     );
   }
 }
 
 class _RouteEditForm extends StatelessWidget {
   const _RouteEditForm({
+    required this.entity,
     required this.route,
     required this.isSaving,
     required this.nameController,
@@ -1450,6 +1472,7 @@ class _RouteEditForm extends StatelessWidget {
     required this.onSubmit,
   });
 
+  final ObjectBoxAdminEntityDescriptor entity;
   final app_route.Route route;
   final bool isSaving;
   final TextEditingController nameController;
@@ -1487,7 +1510,10 @@ class _RouteEditForm extends StatelessWidget {
                 keyName: 'objectbox-admin-route-id',
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'name',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-name'),
                 controller: nameController,
                 enabled: !isSaving,
@@ -1498,24 +1524,43 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'desc',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-desc'),
                 controller: descController,
                 enabled: !isSaving,
                 decoration: const InputDecoration(labelText: 'Description'),
-                minLines: 2,
-                maxLines: 4,
+                multiline: true,
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              SwitchListTile(
-                key: const Key('objectbox-admin-route-visible'),
-                title: const Text('Visible'),
-                value: visible,
-                onChanged: isSaving ? null : onVisibleChanged,
-              ),
+              if (objectBoxAdminPermitsInput(
+                entity,
+                'visible',
+                AdminFieldInput.boolean,
+              ))
+                SwitchListTile(
+                  key: const Key('objectbox-admin-route-visible'),
+                  title: const Text('Visible'),
+                  value: visible,
+                  onChanged: isSaving ? null : onVisibleChanged,
+                )
+              else
+                ListTile(
+                  key: const Key('objectbox-admin-route-visible'),
+                  title: const Text('Visible'),
+                  subtitle: ObjectBoxAdminDetailsValue(
+                    label: 'Visible',
+                    value: visible,
+                  ),
+                ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'colour',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-colour'),
                 controller: colourController,
                 enabled: !isSaving,
@@ -1527,7 +1572,10 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'distance2d',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-distance2d'),
                 controller: distance2dController,
                 enabled: !isSaving,
@@ -1541,7 +1589,10 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'distance3d',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-distance3d'),
                 controller: distance3dController,
                 enabled: !isSaving,
@@ -1555,7 +1606,10 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'ascent',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-ascent'),
                 controller: ascentController,
                 enabled: !isSaving,
@@ -1569,7 +1623,10 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'descent',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-descent'),
                 controller: descentController,
                 enabled: !isSaving,
@@ -1583,7 +1640,10 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'startElevation',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-start-elevation'),
                 controller: startElevationController,
                 enabled: !isSaving,
@@ -1597,7 +1657,10 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'endElevation',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-end-elevation'),
                 controller: endElevationController,
                 enabled: !isSaving,
@@ -1611,7 +1674,10 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'lowestElevation',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-lowest-elevation'),
                 controller: lowestElevationController,
                 enabled: !isSaving,
@@ -1625,7 +1691,10 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'highestElevation',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-highest-elevation'),
                 controller: highestElevationController,
                 enabled: !isSaving,
@@ -1684,11 +1753,11 @@ class _RouteEditForm extends StatelessWidget {
     required String value,
     required String keyName,
   }) {
-    return TextFormField(
+    return ObjectBoxAdminReadOnlyFormValue(
       key: Key(keyName),
-      initialValue: value,
-      enabled: false,
-      decoration: InputDecoration(labelText: label),
+      valueKey: ValueKey(('Route', route.id, keyName)),
+      label: label,
+      text: value,
     );
   }
 }
@@ -1800,12 +1869,15 @@ String _objectBoxAdminDetailsTitle(
 
 class _ContactAdminDetailsPane extends StatefulWidget {
   const _ContactAdminDetailsPane({
+    super.key,
+    required this.entity,
     required this.contact,
     required this.createMode,
     required this.onClose,
     required this.onContactSubmit,
   });
 
+  final ObjectBoxAdminEntityDescriptor entity;
   final Contact contact;
   final bool createMode;
   final VoidCallback onClose;
@@ -1963,6 +2035,9 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
             Expanded(
               child: _isEditing
                   ? _ContactEditForm(
+                      entity: widget.entity,
+                      contact: widget.contact,
+                      createMode: widget.createMode,
                       firstNameController: _firstNameController,
                       surnameController: _surnameController,
                       nicknameController: _nicknameController,
@@ -2016,6 +2091,9 @@ class _ContactReadOnlyDetails extends StatelessWidget {
 
 class _ContactEditForm extends StatelessWidget {
   const _ContactEditForm({
+    required this.entity,
+    required this.contact,
+    required this.createMode,
     required this.firstNameController,
     required this.surnameController,
     required this.nicknameController,
@@ -2026,6 +2104,9 @@ class _ContactEditForm extends StatelessWidget {
     required this.onSubmit,
   });
 
+  final ObjectBoxAdminEntityDescriptor entity;
+  final Contact contact;
+  final bool createMode;
   final TextEditingController firstNameController;
   final TextEditingController surnameController;
   final TextEditingController nicknameController;
@@ -2044,7 +2125,25 @@ class _ContactEditForm extends StatelessWidget {
           child: ListView(
             key: const Key('objectbox-admin-contact-edit-form'),
             children: [
+              ObjectBoxAdminReadOnlyFormValue(
+                key: const Key('objectbox-admin-contact-id'),
+                valueKey: ValueKey(('Contact', contact.id, 'id')),
+                label: 'id',
+                text:
+                    createMode &&
+                        contact.id == 0 &&
+                        entity.fields.any(
+                          (field) =>
+                              field.name == 'id' &&
+                              field.isPrimaryKey &&
+                              field.isGenerated,
+                        )
+                    ? 'Not yet assigned'
+                    : contact.id.toString(),
+              ),
+              const SizedBox(height: 8),
               _field(
+                field: 'firstName',
                 keyName: 'first-name',
                 label: 'First name',
                 controller: firstNameController,
@@ -2052,6 +2151,7 @@ class _ContactEditForm extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _field(
+                field: 'surname',
                 keyName: 'surname',
                 label: 'Surname',
                 controller: surnameController,
@@ -2059,6 +2159,7 @@ class _ContactEditForm extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _field(
+                field: 'nickname',
                 keyName: 'nickname',
                 label: 'Nickname',
                 controller: nicknameController,
@@ -2084,12 +2185,16 @@ class _ContactEditForm extends StatelessWidget {
   }
 
   Widget _field({
+    required String field,
     required String keyName,
     required String label,
     required TextEditingController controller,
     required String? errorText,
   }) {
-    return TextFormField(
+    return objectBoxAdminTextFormField(
+      entity: entity,
+      field: field,
+      recordId: contact.id,
       key: Key('objectbox-admin-contact-$keyName'),
       controller: controller,
       enabled: !isSaving,
@@ -2101,6 +2206,7 @@ class _ContactEditForm extends StatelessWidget {
 
 class _NaturalFeatureAdminDetailsPane extends StatefulWidget {
   const _NaturalFeatureAdminDetailsPane({
+    super.key,
     required this.row,
     required this.entity,
     required this.naturalFeature,
@@ -2362,6 +2468,7 @@ class _NaturalFeatureAdminDetailsPaneState
             Expanded(
               child: _isEditing
                   ? _NaturalFeatureEditForm(
+                      entity: widget.entity,
                       feature: widget.naturalFeature,
                       controllers: _controllers,
                       sourceOfTruth: _sourceOfTruth,
@@ -2431,6 +2538,7 @@ class _NaturalFeatureReadOnlyDetails extends StatelessWidget {
 
 class _NaturalFeatureEditForm extends StatelessWidget {
   const _NaturalFeatureEditForm({
+    required this.entity,
     required this.feature,
     required this.controllers,
     required this.sourceOfTruth,
@@ -2446,6 +2554,7 @@ class _NaturalFeatureEditForm extends StatelessWidget {
     required this.onSubmit,
   });
 
+  final ObjectBoxAdminEntityDescriptor entity;
   final NaturalFeature feature;
   final Map<String, TextEditingController> controllers;
   final String sourceOfTruth;
@@ -2485,21 +2594,39 @@ class _NaturalFeatureEditForm extends StatelessWidget {
               _field('mgrs100kId', 'MGRS 100km identifier', onMgrsChanged),
               _field('easting', 'Easting', onMgrsChanged),
               _field('northing', 'Northing', onMgrsChanged),
-              DropdownButtonFormField<String>(
-                key: const Key(
-                  'objectbox-admin-natural-feature-source-of-truth',
+              if (objectBoxAdminPermitsInput(
+                entity,
+                'sourceOfTruth',
+                AdminFieldInput.sourceOfTruthSelector,
+              ))
+                DropdownButtonFormField<String>(
+                  key: const Key(
+                    'objectbox-admin-natural-feature-source-of-truth',
+                  ),
+                  initialValue: sourceOfTruth,
+                  decoration: InputDecoration(
+                    labelText: 'Source of truth',
+                    errorText: validation.fieldErrors['sourceOfTruth'],
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'OSM', child: Text('OSM')),
+                    DropdownMenuItem(value: 'Manual', child: Text('Manual')),
+                  ],
+                  onChanged: locked ? null : onSourceOfTruthChanged,
+                )
+              else
+                ObjectBoxAdminReadOnlyFormValue(
+                  key: const Key(
+                    'objectbox-admin-natural-feature-source-of-truth',
+                  ),
+                  valueKey: ValueKey((
+                    'NaturalFeature',
+                    feature.id,
+                    'sourceOfTruth',
+                  )),
+                  label: 'Source of truth',
+                  text: sourceOfTruth,
                 ),
-                initialValue: sourceOfTruth,
-                decoration: InputDecoration(
-                  labelText: 'Source of truth',
-                  errorText: validation.fieldErrors['sourceOfTruth'],
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'OSM', child: Text('OSM')),
-                  DropdownMenuItem(value: 'Manual', child: Text('Manual')),
-                ],
-                onChanged: locked ? null : onSourceOfTruthChanged,
-              ),
             ].expand((widget) => [widget, const SizedBox(height: 8)]).toList(),
           ),
         ),
@@ -2526,17 +2653,21 @@ class _NaturalFeatureEditForm extends StatelessWidget {
     );
   }
 
-  Widget _readOnly(String field, String value) => TextFormField(
-    key: Key('objectbox-admin-natural-feature-$field'),
-    initialValue: value,
-    enabled: false,
-    decoration: InputDecoration(labelText: field),
-  );
+  Widget _readOnly(String field, String value) =>
+      ObjectBoxAdminReadOnlyFormValue(
+        key: Key('objectbox-admin-natural-feature-$field'),
+        valueKey: ValueKey(('NaturalFeature', feature.id, field)),
+        label: field,
+        text: value,
+      );
 
   Widget _field(String field, String label, VoidCallback changed) =>
-      TextFormField(
+      objectBoxAdminTextFormField(
+        entity: entity,
+        field: field,
+        recordId: feature.id,
         key: Key('objectbox-admin-natural-feature-${_fieldKey(field)}'),
-        controller: controllers[field],
+        controller: controllers[field]!,
         enabled: !locked,
         keyboardType: switch (field) {
           'latitude' || 'longitude' => const TextInputType.numberWithOptions(
@@ -2561,6 +2692,8 @@ class _NaturalFeatureEditForm extends StatelessWidget {
 
 class _PeakEditForm extends StatelessWidget {
   const _PeakEditForm({
+    required this.entity,
+    required this.recordId,
     required this.isSaving,
     required this.nameController,
     required this.altNameController,
@@ -2579,7 +2712,7 @@ class _PeakEditForm extends StatelessWidget {
     required this.latitudeController,
     required this.longitudeController,
     required this.regionController,
-    required this.gridZoneDesignatorController,
+    required this.gridZoneDesignator,
     required this.mgrs100kIdController,
     required this.eastingController,
     required this.northingController,
@@ -2598,6 +2731,8 @@ class _PeakEditForm extends StatelessWidget {
     required this.onSubmit,
   });
 
+  final ObjectBoxAdminEntityDescriptor entity;
+  final int recordId;
   final bool isSaving;
   final TextEditingController nameController;
   final TextEditingController altNameController;
@@ -2616,7 +2751,7 @@ class _PeakEditForm extends StatelessWidget {
   final TextEditingController latitudeController;
   final TextEditingController longitudeController;
   final TextEditingController regionController;
-  final TextEditingController gridZoneDesignatorController;
+  final String gridZoneDesignator;
   final TextEditingController mgrs100kIdController;
   final TextEditingController eastingController;
   final TextEditingController northingController;
@@ -2648,13 +2783,15 @@ class _PeakEditForm extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildReadOnlyField(
-                  context,
                   label: 'id',
                   value: peakIdText,
                   keyName: 'objectbox-admin-peak-id',
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'name',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-name'),
                   controller: nameController,
                   enabled: !isSaving,
@@ -2665,7 +2802,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'altName',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-alt-name'),
                   controller: altNameController,
                   enabled: !isSaving,
@@ -2676,7 +2816,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'osmId',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-osm-id'),
                   controller: osmIdController,
                   enabled: !isSaving,
@@ -2688,7 +2831,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'peakbaggerPid',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-peakbagger-pid'),
                   controller: peakbaggerPidController,
                   enabled: !isSaving,
@@ -2700,7 +2846,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'elevation',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-elevation'),
                   controller: elevationController,
                   enabled: !isSaving,
@@ -2712,7 +2861,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'prominence',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-prominence'),
                   controller: prominenceController,
                   enabled: !isSaving,
@@ -2726,7 +2878,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'country',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-country'),
                   controller: countryController,
                   enabled: !isSaving,
@@ -2734,7 +2889,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'county',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-county'),
                   controller: countyController,
                   enabled: !isSaving,
@@ -2742,7 +2900,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'range',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-range'),
                   controller: rangeController,
                   enabled: !isSaving,
@@ -2750,7 +2911,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'rating',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-rating'),
                   controller: ratingController,
                   enabled: !isSaving,
@@ -2764,7 +2928,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'durationLabel',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-duration'),
                   controller: durationController,
                   enabled: !isSaving,
@@ -2775,7 +2942,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'difficulty',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-difficulty'),
                   controller: difficultyController,
                   enabled: !isSaving,
@@ -2783,7 +2953,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'viaFerrata',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-via-ferrata'),
                   controller: viaFerrataController,
                   enabled: !isSaving,
@@ -2791,18 +2964,22 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'notes',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-notes'),
                   controller: notesController,
                   enabled: !isSaving,
-                  minLines: 3,
-                  maxLines: 5,
-                  keyboardType: TextInputType.multiline,
+                  multiline: true,
                   decoration: const InputDecoration(labelText: 'Notes'),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'latitude',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-latitude'),
                   controller: latitudeController,
                   enabled: !isSaving,
@@ -2814,7 +2991,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onLatLngChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'longitude',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-longitude'),
                   controller: longitudeController,
                   enabled: !isSaving,
@@ -2826,7 +3006,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onLatLngChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'region',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-region'),
                   controller: regionController,
                   enabled: !isSaving,
@@ -2835,13 +3018,15 @@ class _PeakEditForm extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 _buildReadOnlyField(
-                  context,
                   label: 'gridZoneDesignator',
-                  value: gridZoneDesignatorController.text,
+                  value: gridZoneDesignator,
                   keyName: 'objectbox-admin-peak-grid-zone-designator',
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'mgrs100kId',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-mgrs100k-id'),
                   controller: mgrs100kIdController,
                   enabled: !isSaving,
@@ -2852,7 +3037,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onMgrsChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'easting',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-easting'),
                   controller: eastingController,
                   enabled: !isSaving,
@@ -2864,7 +3052,10 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onMgrsChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'northing',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-northing'),
                   controller: northingController,
                   enabled: !isSaving,
@@ -2876,24 +3067,43 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onMgrsChanged(),
                 ),
                 const SizedBox(height: 8),
-                CheckboxListTile(
-                  key: const Key('objectbox-admin-peak-verified'),
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Verified'),
-                  value: verified,
-                  onChanged: isSaving ? null : onVerifiedChanged,
-                  controlAffinity: ListTileControlAffinity.leading,
-                ),
+                if (objectBoxAdminPermitsInput(
+                  entity,
+                  'verified',
+                  AdminFieldInput.boolean,
+                ))
+                  CheckboxListTile(
+                    key: const Key('objectbox-admin-peak-verified'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Verified'),
+                    value: verified,
+                    onChanged: isSaving ? null : onVerifiedChanged,
+                    controlAffinity: ListTileControlAffinity.leading,
+                  )
+                else
+                  ListTile(
+                    key: const Key('objectbox-admin-peak-verified'),
+                    title: const Text('Verified'),
+                    subtitle: ObjectBoxAdminDetailsValue(
+                      label: 'Verified',
+                      value: verified,
+                    ),
+                  ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Text(
-                      'Source of truth: $sourceOfTruth',
-                      key: const Key(
-                        'objectbox-admin-peak-source-of-truth-label',
+                    SizedBox(
+                      width: double.infinity,
+                      child: ObjectBoxAdminReadOnlyFormValue(
+                        key: const Key(
+                          'objectbox-admin-peak-source-of-truth-label',
+                        ),
+                        valueKey: ValueKey(('Peak', recordId, 'sourceOfTruth')),
+                        label: 'Source of truth',
+                        text: sourceOfTruth,
                       ),
                     ),
                     FilledButton(
@@ -2934,17 +3144,16 @@ class _PeakEditForm extends StatelessWidget {
     );
   }
 
-  Widget _buildReadOnlyField(
-    BuildContext context, {
+  Widget _buildReadOnlyField({
     required String label,
     required String value,
     required String keyName,
   }) {
-    return TextFormField(
+    return ObjectBoxAdminReadOnlyFormValue(
       key: Key(keyName),
-      initialValue: value,
-      enabled: false,
-      decoration: InputDecoration(labelText: label),
+      valueKey: ValueKey(('Peak', recordId, keyName)),
+      label: label,
+      text: value,
     );
   }
 }

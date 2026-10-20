@@ -89,6 +89,10 @@ void main() {
     );
     expect(result.route!.routeTimingSource, RouteTimingSources.naismith);
     expect(result.route!.walkingSpeedKmh, 4.4);
+    expect(source.name, 'Original Route');
+    expect(source.routeTimingProfileJson, isNull);
+    expect(result.route!.gpxRouteJson, source.gpxRouteJson);
+    expect(result.route!.routeWaypointsJson, source.routeWaypointsJson);
     expect(
       result.route!.routeTimingSegmentKindsJson,
       '["${RouteTimingSegmentKinds.manualEstimated}"]',

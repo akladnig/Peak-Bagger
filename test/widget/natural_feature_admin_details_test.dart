@@ -181,13 +181,18 @@ void main() {
       await tester.pumpAndSettle();
 
       for (final field in ['id', 'osmType', 'osmId', 'gridZoneDesignator']) {
+        final value = find.byKey(Key('objectbox-admin-natural-feature-$field'));
         expect(
-          tester
-              .widget<TextFormField>(
-                find.byKey(Key('objectbox-admin-natural-feature-$field')),
-              )
-              .enabled,
-          isFalse,
+          find.descendant(of: value, matching: find.byType(TextFormField)),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: value, matching: find.byType(TextField)),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: value, matching: find.byType(SelectionArea)),
+          findsOneWidget,
         );
       }
       expect(

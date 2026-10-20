@@ -109,45 +109,12 @@ class _ContactObjectBoxAdminRepository implements ObjectBoxAdminRepository {
 
   final ContactRepository contacts;
 
-  static const _entity = ObjectBoxAdminEntityDescriptor(
-    name: 'Contact',
-    displayName: 'Contacts',
-    primaryKeyField: 'id',
-    primaryNameField: 'firstName',
-    fields: [
-      ObjectBoxAdminFieldDescriptor(
-        name: 'id',
-        typeLabel: 'int',
-        nullable: false,
-        isPrimaryKey: true,
-        isPrimaryName: false,
-      ),
-      ObjectBoxAdminFieldDescriptor(
-        name: 'firstName',
-        typeLabel: 'String',
-        nullable: false,
-        isPrimaryKey: false,
-        isPrimaryName: true,
-      ),
-      ObjectBoxAdminFieldDescriptor(
-        name: 'surname',
-        typeLabel: 'String',
-        nullable: false,
-        isPrimaryKey: false,
-        isPrimaryName: false,
-      ),
-      ObjectBoxAdminFieldDescriptor(
-        name: 'nickname',
-        typeLabel: 'String',
-        nullable: false,
-        isPrimaryKey: false,
-        isPrimaryName: false,
-      ),
-    ],
-  );
+  static final _entity = ObjectBoxAdminRepositoryImpl()
+      .getEntities()
+      .singleWhere((entity) => entity.name == 'Contact');
 
   @override
-  List<ObjectBoxAdminEntityDescriptor> getEntities() => const [_entity];
+  List<ObjectBoxAdminEntityDescriptor> getEntities() => [_entity];
 
   @override
   Future<List<ObjectBoxAdminRow>> loadRows(

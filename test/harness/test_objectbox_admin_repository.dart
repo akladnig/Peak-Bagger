@@ -24,7 +24,21 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
     _entities = entities;
   }
 
-  static final _defaultEntities = [
+  // Editor tests use real discovered policy/coverage, not implicit eligibility
+  // from legacy preview-only descriptors. Explicitly injected descriptors are
+  // left untouched so missing-policy/fallback tests remain meaningful.
+  static final _defaultEntities = _previewEntities
+      .map((preview) {
+        if (!{'Peak', 'PeakList', 'Route'}.contains(preview.name)) {
+          return preview;
+        }
+        return ObjectBoxAdminRepositoryImpl().getEntities().singleWhere(
+          (entity) => entity.name == preview.name,
+        );
+      })
+      .toList(growable: false);
+
+  static final _previewEntities = [
     const ObjectBoxAdminEntityDescriptor(
       name: 'Peak',
       displayName: 'Peak',
