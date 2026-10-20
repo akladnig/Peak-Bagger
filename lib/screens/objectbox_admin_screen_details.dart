@@ -11,6 +11,7 @@ import 'package:peak_bagger/services/natural_feature_admin_editor.dart';
 import 'package:peak_bagger/services/peak_list_admin_editor.dart';
 import 'package:peak_bagger/services/route_admin_editor.dart';
 import 'package:peak_bagger/services/contact_admin_editor.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_read_only_value.dart';
 
 class _AdminDetailsDivider extends StatelessWidget {
   const _AdminDetailsDivider({this.height});
@@ -186,8 +187,10 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    row == null ? 'Details' : title,
+                  child: ObjectBoxAdminReadOnlyValue(
+                    key: ValueKey(('title', entity.name, row?.primaryKeyValue)),
+                    label: entity.primaryNameField,
+                    text: row == null ? 'Details' : title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -231,6 +234,7 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
                           dense: true,
                           title: Text(field.name),
                           subtitle: objectBoxAdminDetailsValue(
+                            recordId: selectedRow.primaryKeyValue,
                             entityName: entity.name,
                             fieldName: field.name,
                             label: field.name,
@@ -658,8 +662,14 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
+                  child: ObjectBoxAdminReadOnlyValue(
+                    key: ValueKey((
+                      'title',
+                      widget.entity.name,
+                      widget.row?.primaryKeyValue,
+                    )),
+                    label: widget.entity.primaryNameField,
+                    text: title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -771,6 +781,7 @@ class _PeakReadOnlyDetails extends StatelessWidget {
             dense: true,
             title: Text(title),
             subtitle: objectBoxAdminDetailsValue(
+              recordId: row.primaryKeyValue,
               entityName: row.values.containsKey(field.name)
                   ? entity.name
                   : null,
@@ -988,8 +999,14 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
+                  child: ObjectBoxAdminReadOnlyValue(
+                    key: ValueKey((
+                      'title',
+                      widget.entity.name,
+                      widget.row?.primaryKeyValue,
+                    )),
+                    label: widget.entity.primaryNameField,
+                    text: title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -1077,6 +1094,7 @@ class _RouteReadOnlyDetails extends StatelessWidget {
           dense: true,
           title: Text(field.name),
           subtitle: objectBoxAdminDetailsValue(
+            recordId: row.primaryKeyValue,
             entityName: entity.name,
             fieldName: field.name,
             label: field.name,
@@ -1221,8 +1239,14 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
+                  child: ObjectBoxAdminReadOnlyValue(
+                    key: ValueKey((
+                      'title',
+                      widget.entity.name,
+                      widget.row?.primaryKeyValue,
+                    )),
+                    label: widget.entity.primaryNameField,
+                    text: title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -1287,6 +1311,7 @@ class _PeakListReadOnlyDetails extends StatelessWidget {
           dense: true,
           title: Text(field.name),
           subtitle: objectBoxAdminDetailsValue(
+            recordId: row.primaryKeyValue,
             entityName: entity.name,
             fieldName: field.name,
             label: field.name,
@@ -1364,6 +1389,7 @@ class _PeakListEditForm extends StatelessWidget {
                 dense: true,
                 title: const Text('Membership Items'),
                 subtitle: objectBoxAdminDetailsValue(
+                  recordId: row?.primaryKeyValue,
                   entityName: 'PeakList',
                   fieldName: 'membershipItems',
                   label: 'membershipItems',
@@ -1617,6 +1643,7 @@ class _RouteEditForm extends StatelessWidget {
                 dense: true,
                 title: const Text('gpxRouteJson'),
                 subtitle: objectBoxAdminDetailsValue(
+                  recordId: route.id,
                   entityName: 'Route',
                   fieldName: 'gpxRouteJson',
                   label: 'gpxRouteJson',
@@ -1628,6 +1655,7 @@ class _RouteEditForm extends StatelessWidget {
                 dense: true,
                 title: const Text('displayRoutePointsByZoom'),
                 subtitle: objectBoxAdminDetailsValue(
+                  recordId: route.id,
                   entityName: 'Route',
                   fieldName: 'displayRoutePointsByZoom',
                   label: 'displayRoutePointsByZoom',
@@ -1666,6 +1694,7 @@ class _RouteEditForm extends StatelessWidget {
 }
 
 Widget objectBoxAdminDetailsValue({
+  Object? recordId,
   String? entityName,
   String? fieldName,
   required String label,
@@ -1681,25 +1710,11 @@ Widget objectBoxAdminDetailsValue({
     value: value,
   );
 
-  if (entityName == 'GpxTrack' &&
-      (fieldName == 'gpxFile' ||
-          fieldName == 'filteredTrack' ||
-          fieldName == 'displayTrackPointsByZoom' ||
-          fieldName == 'elevationProfile')) {
-    return SelectableText(formattedValue, maxLines: 5);
-  }
-
-  if (entityName == 'Route' &&
-      (fieldName == 'gpxRouteJson' ||
-          fieldName == 'displayRoutePointsByZoom')) {
-    return SelectableText(formattedValue, maxLines: 5);
-  }
-
-  if (entityName != null && fieldName != null) {
-    return SelectableText(formattedValue);
-  }
-
-  return SelectableText(objectBoxAdminFormatValue(value));
+  return ObjectBoxAdminReadOnlyValue(
+    key: ValueKey((entityName, recordId, fieldName ?? label)),
+    label: label,
+    text: formattedValue,
+  );
 }
 
 class ObjectBoxAdminDetailsValue extends StatelessWidget {
@@ -1920,8 +1935,10 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    _title,
+                  child: ObjectBoxAdminReadOnlyValue(
+                    key: ValueKey(('title', 'Contact', widget.contact.id)),
+                    label: 'Contact',
+                    text: _title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -1984,7 +2001,13 @@ class _ContactReadOnlyDetails extends StatelessWidget {
           ListTile(
             dense: true,
             title: Text(entry.key),
-            subtitle: SelectableText(objectBoxAdminFormatValue(entry.value)),
+            subtitle: objectBoxAdminDetailsValue(
+              recordId: contact.id,
+              entityName: 'Contact',
+              fieldName: entry.key,
+              label: entry.key,
+              value: entry.value,
+            ),
           ),
       ],
     );
@@ -2297,8 +2320,14 @@ class _NaturalFeatureAdminDetailsPaneState
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
+                  child: ObjectBoxAdminReadOnlyValue(
+                    key: ValueKey((
+                      'title',
+                      widget.entity.name,
+                      widget.row.primaryKeyValue,
+                    )),
+                    label: widget.entity.primaryNameField,
+                    text: title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -2388,6 +2417,7 @@ class _NaturalFeatureReadOnlyDetails extends StatelessWidget {
           dense: true,
           title: Text(field.name),
           subtitle: objectBoxAdminDetailsValue(
+            recordId: row.primaryKeyValue,
             entityName: entity.name,
             fieldName: field.name,
             label: field.name,

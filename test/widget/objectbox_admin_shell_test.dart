@@ -24,6 +24,7 @@ import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -31,6 +32,47 @@ import '../harness/test_objectbox_admin_repository.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets(
+    'detail selection resources clean up across mode and routed re-entry',
+    (tester) async {
+      await _pumpApp(tester);
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      for (final transition in ['mode', 'route']) {
+        await tester.tap(find.text('Mt Ossa').first);
+        await tester.pumpAndSettle();
+        final areas = tester.widgetList<SelectionArea>(
+          find.descendant(
+            of: find.byKey(const Key('objectbox-admin-details-list')),
+            matching: find.byType(SelectionArea),
+          ),
+        );
+        final focuses = areas.map((area) => area.focusNode!).toList();
+        expect(focuses, isNotEmpty);
+        if (transition == 'mode') {
+          await tester.tap(find.text('Schema'));
+          await tester.pumpAndSettle();
+        } else {
+          await tester.tap(find.byKey(const Key('nav-map')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+          await tester.pumpAndSettle();
+        }
+        for (final focus in focuses) {
+          expect(() => focus.addListener(() {}), throwsFlutterError);
+        }
+        if (transition == 'mode') {
+          await tester.tap(find.text('Data'));
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('admin shell opens from side menu', (tester) async {
     await _pumpApp(tester);
 
@@ -201,10 +243,26 @@ void main() {
       displayTrackPointsByZoomWidget,
       elevationProfileWidget,
     ]) {
-      expect(widget, isA<SelectableText>());
-      final text = widget as SelectableText;
-      expect(text.maxLines, 5);
-      expect(text.data, contains('line1'));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: MyTheme.light,
+          home: Scaffold(body: SizedBox(width: 300, child: widget)),
+        ),
+      );
+      final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
+      expect(scroll.position.viewportDimension, closeTo(5 * 20, .01));
+      expect(scroll.position.maxScrollExtent, greaterThan(0));
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -80),
+      );
+      await tester.pumpAndSettle();
+      expect(scroll.position.pixels, greaterThan(0));
+      expect(find.byType(SelectionArea), findsOneWidget);
+      expect(
+        find.text('line1\nline2\nline3\nline4\nline5\nline6'),
+        findsOneWidget,
+      );
     }
   });
 

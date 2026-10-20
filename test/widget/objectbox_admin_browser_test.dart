@@ -25,6 +25,7 @@ import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_states.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_read_only_value.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_objectbox_admin_repository.dart';
@@ -430,7 +431,13 @@ void main() {
       find.byKey(const Key('objectbox-admin-route-delete-1')),
       findsOneWidget,
     );
-    expect(find.text('0x00000000'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('objectbox-admin-details-list')),
+        matching: find.text('0x00000000'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('gpxRouteJson').last, findsOneWidget);
     expect(find.text('displayRoutePointsByZoom').last, findsOneWidget);
 
@@ -1097,7 +1104,10 @@ void main() {
           matching: find.byType(Scrollable),
         )
         .first;
-    expect((distance2dTile.subtitle as SelectableText).data, '1234');
+    expect(
+      (distance2dTile.subtitle as ObjectBoxAdminReadOnlyValue).text,
+      '1234',
+    );
 
     await tester.scrollUntilVisible(
       find.widgetWithText(ListTile, 'filteredTrack'),
@@ -1110,8 +1120,8 @@ void main() {
                     find.widgetWithText(ListTile, 'filteredTrack'),
                   )
                   .subtitle
-              as SelectableText)
-          .data,
+              as ObjectBoxAdminReadOnlyValue)
+          .text,
       contains('<gpx><trk>'),
     );
 
@@ -1124,8 +1134,8 @@ void main() {
       (tester
                   .widget<ListTile>(find.widgetWithText(ListTile, 'distance3d'))
                   .subtitle
-              as SelectableText)
-          .data,
+              as ObjectBoxAdminReadOnlyValue)
+          .text,
       '0',
     );
 
@@ -1138,8 +1148,8 @@ void main() {
       (tester
                   .widget<ListTile>(find.widgetWithText(ListTile, 'descent'))
                   .subtitle
-              as SelectableText)
-          .data,
+              as ObjectBoxAdminReadOnlyValue)
+          .text,
       '0',
     );
 
@@ -1154,8 +1164,8 @@ void main() {
                     find.widgetWithText(ListTile, 'startElevation'),
                   )
                   .subtitle
-              as SelectableText)
-          .data,
+              as ObjectBoxAdminReadOnlyValue)
+          .text,
       '0',
     );
 
@@ -1170,8 +1180,8 @@ void main() {
                     find.widgetWithText(ListTile, 'endElevation'),
                   )
                   .subtitle
-              as SelectableText)
-          .data,
+              as ObjectBoxAdminReadOnlyValue)
+          .text,
       '0',
     );
 
@@ -1186,8 +1196,8 @@ void main() {
                     find.widgetWithText(ListTile, 'elevationProfile'),
                   )
                   .subtitle
-              as SelectableText)
-          .data,
+              as ObjectBoxAdminReadOnlyValue)
+          .text,
       contains('segmentIndex'),
     );
   });
