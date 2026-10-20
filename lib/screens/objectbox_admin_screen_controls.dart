@@ -17,10 +17,12 @@ class ObjectBoxAdminControls extends StatelessWidget {
     required this.onAddContactPressed,
     required this.onSortPressed,
     required this.onExportPressed,
+    this.locked = false,
     super.key,
   });
 
   final ObjectBoxAdminState state;
+  final bool locked;
   final TextEditingController searchController;
   final ValueChanged<ObjectBoxAdminEntityDescriptor?> onEntityChanged;
   final ValueChanged<ObjectBoxAdminViewMode> onModeChanged;
@@ -56,7 +58,7 @@ class ObjectBoxAdminControls extends StatelessWidget {
                   ),
                 )
                 .toList(growable: false),
-            onChanged: onEntityChanged,
+            onChanged: locked ? null : onEntityChanged,
           ),
         ),
         ToggleButtons(
@@ -65,13 +67,15 @@ class ObjectBoxAdminControls extends StatelessWidget {
             state.mode == ObjectBoxAdminViewMode.schema,
             state.mode == ObjectBoxAdminViewMode.data,
           ],
-          onPressed: (index) {
-            onModeChanged(
-              index == 0
-                  ? ObjectBoxAdminViewMode.schema
-                  : ObjectBoxAdminViewMode.data,
-            );
-          },
+          onPressed: locked
+              ? null
+              : (index) {
+                  onModeChanged(
+                    index == 0
+                        ? ObjectBoxAdminViewMode.schema
+                        : ObjectBoxAdminViewMode.data,
+                  );
+                },
           children: const [
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -94,6 +98,7 @@ class ObjectBoxAdminControls extends StatelessWidget {
                 child: TextField(
                   key: const Key('objectbox-admin-search-field'),
                   controller: searchController,
+                  enabled: !locked,
                   decoration: InputDecoration(
                     labelText: 'Search',
                     suffixIcon: IconButton(
@@ -101,7 +106,7 @@ class ObjectBoxAdminControls extends StatelessWidget {
                       style: const ButtonStyle(
                         iconSize: WidgetStatePropertyAll(searchControlIconSize),
                       ),
-                      onPressed: onSearchPressed,
+                      onPressed: locked ? null : onSearchPressed,
                       icon: const Icon(Icons.search, semanticLabel: 'Search'),
                     ),
                   ),
@@ -112,14 +117,14 @@ class ObjectBoxAdminControls extends StatelessWidget {
               if (entity?.name == 'Peak')
                 FilledButton.icon(
                   key: const Key('objectbox-admin-peak-add'),
-                  onPressed: onAddPeakPressed,
+                  onPressed: locked ? null : onAddPeakPressed,
                   icon: const Icon(Icons.add),
                   label: const Text('Add Peak'),
                 ),
               if (entity?.name == 'Contact')
                 FilledButton.icon(
                   key: const Key('objectbox-admin-contact-add'),
-                  onPressed: onAddContactPressed,
+                  onPressed: locked ? null : onAddContactPressed,
                   icon: const Icon(Icons.add),
                   label: const Text('Add Contact'),
                 ),

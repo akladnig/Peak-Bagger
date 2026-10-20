@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:peak_bagger/providers/objectbox_admin_save_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 
 final objectboxAdminRepositoryProvider = Provider<ObjectBoxAdminRepository>((
@@ -152,6 +153,8 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   int _readGeneration = 0;
   String? _recoveryEntityName;
 
+  bool get _savePending => ref.read(objectboxAdminSaveProvider);
+
   @override
   ObjectBoxAdminState build() {
     _repository = ref.read(objectboxAdminRepositoryProvider);
@@ -209,6 +212,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
     ObjectBoxAdminEntityDescriptor entity, {
     Object? keepSelectedRowPrimaryKey,
   }) async {
+    if (_savePending) return;
     if (state.schemaError != null || !state.entities.contains(entity)) return;
     _recoveryEntityName = entity.name;
     state = state.copyWith(
@@ -229,6 +233,15 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   }
 
   Future<void> refresh({Object? keepSelectedRowPrimaryKey}) async {
+    if (_savePending) return;
+    await _refresh(keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey);
+  }
+
+  /// Only the Save action may refresh while its navigation/input gate is held.
+  Future<void> refreshAfterSave({required Object keepSelectedRowPrimaryKey}) =>
+      _refresh(keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey);
+
+  Future<void> _refresh({Object? keepSelectedRowPrimaryKey}) async {
     ++_readGeneration;
     _recoveryEntityName = state.selectedEntity?.name ?? _recoveryEntityName;
     List<ObjectBoxAdminEntityDescriptor> entities;
@@ -283,11 +296,11 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
       clearSchemaError: true,
       mode: pendingSelection != null ? ObjectBoxAdminViewMode.data : state.mode,
       searchQuery: searchQuery,
-      isLoading: true,
+      isLoading: !_savePending,
       clearError: true,
-      clearSelectedRow: true,
-      rows: const [],
-      visibleRowCount: 0,
+      clearSelectedRow: !_savePending,
+      rows: _savePending ? state.rows : const [],
+      visibleRowCount: _savePending ? state.visibleRowCount : 0,
       noMatches: false,
     );
 
@@ -295,6 +308,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   }
 
   void setMode(ObjectBoxAdminViewMode mode) {
+    if (_savePending) return;
     if (state.mode == mode) {
       return;
     }
@@ -303,14 +317,17 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   }
 
   void updateSearchQuery(String query) {
+    if (_savePending) return;
     state = state.copyWith(searchQuery: query);
   }
 
   Future<void> runSearch() async {
+    if (_savePending) return;
     await _loadSelectedEntity();
   }
 
   Future<void> toggleSort() async {
+    if (_savePending) return;
     state = state.copyWith(
       sortAscending: !state.sortAscending,
       clearSelectedRow: true,
@@ -324,10 +341,12 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   }
 
   void selectRow(ObjectBoxAdminRow row) {
+    if (_savePending) return;
     state = state.copyWith(selectedRow: row);
   }
 
   void clearSelection() {
+    if (_savePending) return;
     state = state.copyWith(clearSelectedRow: true);
   }
 

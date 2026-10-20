@@ -7,6 +7,7 @@ import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
+import 'package:peak_bagger/providers/objectbox_admin_save_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/models/waypoints.dart';
@@ -29,6 +30,7 @@ import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/contact.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_save_scope.dart';
 
 class ObjectBoxAdminScreen extends ConsumerStatefulWidget {
   const ObjectBoxAdminScreen({super.key});
@@ -38,7 +40,14 @@ class ObjectBoxAdminScreen extends ConsumerStatefulWidget {
       _ObjectBoxAdminScreenState();
 }
 
-class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
+class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen>
+    implements PopEntry<Object?> {
+  // Unlike a build-time PopScope flag, this entry changes synchronously when a
+  // Save starts, so an immediate system back cannot pop a parent shell page.
+  @override
+  final ValueNotifier<bool> canPopNotifier = ValueNotifier(true);
+  ModalRoute<Object?>? _popRoute;
+  late final ProviderSubscription<bool> _saveSubscription;
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _verticalController = ScrollController();
   final ScrollController _headerHorizontalController = ScrollController();
@@ -53,6 +62,12 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   @override
   void initState() {
     super.initState();
+    _saveSubscription = ref.listenManual(objectboxAdminSaveProvider, (
+      _,
+      saving,
+    ) {
+      canPopNotifier.value = !saving;
+    }, fireImmediately: true);
     _verticalController.addListener(_maybeLoadMore);
     _headerHorizontalController.addListener(
       () => _syncHorizontalScroll(_headerHorizontalController),
@@ -65,7 +80,26 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (_popRoute == route) return;
+    _popRoute?.unregisterPopEntry(this);
+    _popRoute = route;
+    _popRoute?.registerPopEntry(this);
+  }
+
+  @override
+  void onPopInvoked(bool didPop) {}
+
+  @override
+  void onPopInvokedWithResult(bool didPop, Object? result) {}
+
+  @override
   void dispose() {
+    _saveSubscription.close();
+    _popRoute?.unregisterPopEntry(this);
+    canPopNotifier.dispose();
     router.routerDelegate.removeListener(_routerListener);
     _verticalController
       ..removeListener(_maybeLoadMore)
@@ -89,6 +123,18 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
 
     _lastRoutePath = currentPath;
+    if (currentPath != '/objectbox-admin') {
+      // The shell retains this screen. Departure still abandons its draft now,
+      // rather than merely hiding it until the next entry refresh.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _currentPath() == '/objectbox-admin') return;
+        setState(() {
+          _isCreatingPeak = false;
+          _isCreatingContact = false;
+        });
+        ref.read(objectboxAdminProvider.notifier).clearSelection();
+      });
+    }
     if (currentPath == '/objectbox-admin') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _currentPath() != '/objectbox-admin') {
@@ -101,7 +147,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
 
   String? _currentPath() {
     try {
-      return router.routerDelegate.currentConfiguration.uri.path;
+      return router.state.uri.path;
     } catch (_) {
       return null;
     }
@@ -169,6 +215,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   Future<void> _exportSelectedGpxFile(ObjectBoxAdminRow row) async {
+    if (_savePending) return;
     try {
       final path = await ref
           .read(objectboxAdminRepositoryProvider)
@@ -189,7 +236,22 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
   }
 
-  Future<String?> _savePeak(Peak peak) async {
+  Future<String?> _savePeak(Peak peak) =>
+      _runSave(() => _performSavePeak(peak));
+
+  Future<String?> _saveNaturalFeature(NaturalFeature feature) =>
+      _runSave(() => _performSaveNaturalFeature(feature));
+
+  Future<String?> _saveContact(Contact contact) =>
+      _runSave(() => _performSaveContact(contact));
+
+  Future<String?> _saveRoute(RouteAdminFormState form) =>
+      _runSave(() => _performSaveRoute(form));
+
+  Future<String?> _savePeakList(PeakListAdminFormState form) =>
+      _runSave(() => _performSavePeakList(form));
+
+  Future<String?> _performSavePeak(Peak peak) async {
     final repository = ref.read(peakRepositoryProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
 
@@ -217,7 +279,9 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         return null;
       }
 
-      await notifier.refresh(keepSelectedRowPrimaryKey: result.peak.id);
+      await notifier.refreshAfterSave(
+        keepSelectedRowPrimaryKey: result.peak.id,
+      );
       if (!mounted) {
         return null;
       }
@@ -275,7 +339,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         BackgroundJobKind.refreshNaturalFeatures;
   }
 
-  Future<String?> _saveNaturalFeature(NaturalFeature feature) async {
+  Future<String?> _performSaveNaturalFeature(NaturalFeature feature) async {
     if (_naturalFeatureMutationsLocked) {
       return 'Natural features cannot be changed while refresh is running.';
     }
@@ -283,7 +347,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       final saved = ref.read(naturalFeatureRepositoryProvider).save(feature);
       await ref
           .read(objectboxAdminProvider.notifier)
-          .refresh(keepSelectedRowPrimaryKey: saved.id);
+          .refreshAfterSave(keepSelectedRowPrimaryKey: saved.id);
       if (!mounted) {
         return null;
       }
@@ -313,12 +377,12 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
   }
 
-  Future<String?> _saveContact(Contact contact) async {
+  Future<String?> _performSaveContact(Contact contact) async {
     try {
       final saved = ref.read(contactRepositoryProvider).save(contact);
       await ref
           .read(objectboxAdminProvider.notifier)
-          .refresh(keepSelectedRowPrimaryKey: saved.id);
+          .refreshAfterSave(keepSelectedRowPrimaryKey: saved.id);
       if (!mounted) {
         return null;
       }
@@ -331,6 +395,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   Future<void> _deleteContact(ObjectBoxAdminRow row) async {
+    if (_savePending) return;
     final repository = ref.read(contactRepositoryProvider);
     final contact = repository.findById(row.primaryKeyValue as int);
     if (contact == null) {
@@ -347,7 +412,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       confirmKey: 'confirm-delete',
       confirmLabel: 'Delete',
     );
-    if (confirmed != true) {
+    if (confirmed != true || _savePending) {
       return;
     }
     final selectedRow = ref.read(objectboxAdminProvider).selectedRow;
@@ -363,7 +428,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   Future<void> _deleteNaturalFeature(ObjectBoxAdminRow row) async {
-    if (_naturalFeatureMutationsLocked) {
+    if (_savePending || _naturalFeatureMutationsLocked) {
       return;
     }
     final repository = ref.read(naturalFeatureRepositoryProvider);
@@ -381,7 +446,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       confirmKey: 'confirm-delete',
       confirmLabel: 'Delete',
     );
-    if (confirmed != true || _naturalFeatureMutationsLocked) {
+    if (confirmed != true || _savePending || _naturalFeatureMutationsLocked) {
       return;
     }
     final selectedRow = ref.read(objectboxAdminProvider).selectedRow;
@@ -397,6 +462,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   void _viewGpxTrackOnMainMap(ObjectBoxAdminRow row) {
+    if (_savePending) return;
     final trackId = row.primaryKeyValue as int;
     final repository = ref.read(gpxTrackRepositoryProvider);
     final track = repository.findById(trackId);
@@ -409,6 +475,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   void _viewRouteOnMainMap(app_route.Route route) {
+    if (_savePending) return;
     final repository = ref.read(routeRepositoryProvider);
     if (repository.findById(route.id) == null) {
       return;
@@ -419,6 +486,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   void _viewPeakOnMainMap(Peak peak) {
+    if (_savePending) return;
     final location = LatLng(peak.latitude, peak.longitude);
     final mapNotifier = ref.read(mapProvider.notifier);
     mapNotifier.requestCameraMove(
@@ -429,6 +497,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   void _viewNaturalFeatureOnMainMap(NaturalFeature naturalFeature) {
+    if (_savePending) return;
     final location = LatLng(naturalFeature.latitude, naturalFeature.longitude);
     final mapNotifier = ref.read(mapProvider.notifier);
     mapNotifier.requestCameraMove(
@@ -439,6 +508,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   Future<void> _deletePeak(ObjectBoxAdminRow row) async {
+    if (_savePending) return;
     final repository = ref.read(peakRepositoryProvider);
     final guard = ref.read(peakDeleteGuardProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
@@ -456,7 +526,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       confirmLabel: 'Delete',
     );
 
-    if (confirmed != true) {
+    if (confirmed != true || _savePending) {
       return;
     }
 
@@ -493,6 +563,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   Future<void> _deleteGpxTrack(ObjectBoxAdminRow row) async {
+    if (_savePending) return;
     final repository = ref.read(gpxTrackRepositoryProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
     final mapNotifier = ref.read(mapProvider.notifier);
@@ -514,7 +585,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       confirmLabel: 'Delete',
     );
 
-    if (confirmed != true) {
+    if (confirmed != true || _savePending) {
       return;
     }
 
@@ -531,7 +602,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     );
   }
 
-  Future<String?> _saveRoute(RouteAdminFormState form) async {
+  Future<String?> _performSaveRoute(RouteAdminFormState form) async {
     final repository = ref.read(routeRepositoryProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
     final currentState = ref.read(objectboxAdminProvider);
@@ -561,7 +632,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         return null;
       }
 
-      await notifier.refresh(keepSelectedRowPrimaryKey: savedRoute.id);
+      await notifier.refreshAfterSave(keepSelectedRowPrimaryKey: savedRoute.id);
       if (!mounted) {
         return null;
       }
@@ -593,7 +664,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
   }
 
-  Future<String?> _savePeakList(PeakListAdminFormState form) async {
+  Future<String?> _performSavePeakList(PeakListAdminFormState form) async {
     final repository = ref.read(peakListRepositoryProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
     final currentState = ref.read(objectboxAdminProvider);
@@ -627,7 +698,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         return null;
       }
 
-      await notifier.refresh(
+      await notifier.refreshAfterSave(
         keepSelectedRowPrimaryKey: savedPeakList.peakListId,
       );
       if (!mounted) {
@@ -662,6 +733,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   Future<void> _deleteRoute(ObjectBoxAdminRow row) async {
+    if (_savePending) return;
     final repository = ref.read(routeRepositoryProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
     final routeId = row.primaryKeyValue as int;
@@ -682,7 +754,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       confirmLabel: 'Delete',
     );
 
-    if (confirmed != true) {
+    if (confirmed != true || _savePending) {
       return;
     }
 
@@ -704,6 +776,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   Future<void> _deleteWaypoint(ObjectBoxAdminRow row) async {
+    if (_savePending) return;
     final waypointId = row.primaryKeyValue as int;
     final waypointName =
         row.values['name']?.toString().trim().isNotEmpty == true
@@ -720,7 +793,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       confirmLabel: 'Delete',
     );
 
-    if (confirmed != true) {
+    if (confirmed != true || _savePending) {
       return;
     }
 
@@ -740,6 +813,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   void _startCreatingPeak() {
+    if (_savePending) return;
     final notifier = ref.read(objectboxAdminProvider.notifier);
     setState(() {
       _isCreatingPeak = true;
@@ -748,6 +822,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   void _startCreatingContact() {
+    if (_savePending) return;
     setState(() => _isCreatingContact = true);
     ref.read(objectboxAdminProvider.notifier).clearSelection();
   }
@@ -783,6 +858,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         ref.watch(backgroundJobsProvider).runningJob?.kind ==
         BackgroundJobKind.refreshNaturalFeatures;
     final notifier = ref.read(objectboxAdminProvider.notifier);
+    final savePending = ref.watch(objectboxAdminSaveProvider);
 
     if (_searchController.text != state.searchQuery) {
       _searchController.text = state.searchQuery;
@@ -791,68 +867,79 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       );
     }
 
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ObjectBoxAdminControls(
-              state: state,
-              searchController: _searchController,
-              onEntityChanged: (entity) {
-                if (entity == null) {
-                  return;
-                }
-                _searchController.clear();
-                if (_isCreatingPeak) {
-                  setState(() {
-                    _isCreatingPeak = false;
-                  });
-                }
-                if (_isCreatingContact) {
-                  setState(() => _isCreatingContact = false);
-                }
-                notifier.selectEntity(entity);
-              },
-              onModeChanged: (mode) {
-                if (_isCreatingPeak) {
-                  setState(() {
-                    _isCreatingPeak = false;
-                  });
-                }
-                if (_isCreatingContact) {
-                  setState(() => _isCreatingContact = false);
-                }
-                notifier.setMode(mode);
-              },
-              onSearchChanged: notifier.updateSearchQuery,
-              onSearchSubmitted: notifier.runSearch,
-              onSearchPressed: notifier.runSearch,
-              onAddPeakPressed: _startCreatingPeak,
-              onAddContactPressed: _startCreatingContact,
-              onSortPressed: notifier.toggleSort,
-              onExportPressed: state.selectedRow == null
-                  ? null
-                  : () => _exportSelectedGpxFile(state.selectedRow!),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 160),
-                child: _buildBody(
-                  context,
-                  state,
-                  notifier,
-                  naturalFeatureMutationsLocked,
+    return ObjectBoxAdminSaveScope(
+      pending: savePending,
+      isPending: () => _savePending,
+      child: Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ObjectBoxAdminControls(
+                state: state,
+                searchController: _searchController,
+                onEntityChanged: (entity) {
+                  if (_savePending || entity == null) {
+                    return;
+                  }
+                  _searchController.clear();
+                  if (_isCreatingPeak) {
+                    setState(() {
+                      _isCreatingPeak = false;
+                    });
+                  }
+                  if (_isCreatingContact) {
+                    setState(() => _isCreatingContact = false);
+                  }
+                  notifier.selectEntity(entity);
+                },
+                onModeChanged: (mode) {
+                  if (_savePending) return;
+                  if (_isCreatingPeak) {
+                    setState(() {
+                      _isCreatingPeak = false;
+                    });
+                  }
+                  if (_isCreatingContact) {
+                    setState(() => _isCreatingContact = false);
+                  }
+                  notifier.setMode(mode);
+                },
+                onSearchChanged: notifier.updateSearchQuery,
+                onSearchSubmitted: notifier.runSearch,
+                onSearchPressed: notifier.runSearch,
+                onAddPeakPressed: _startCreatingPeak,
+                onAddContactPressed: _startCreatingContact,
+                onSortPressed: notifier.toggleSort,
+                onExportPressed: state.selectedRow == null
+                    ? null
+                    : () => _exportSelectedGpxFile(state.selectedRow!),
+                locked: savePending,
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 160),
+                  child: _buildBody(
+                    context,
+                    state,
+                    notifier,
+                    naturalFeatureMutationsLocked,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+
+  bool get _savePending => ref.read(objectboxAdminSaveProvider);
+
+  Future<String?> _runSave(Future<String?> Function() action) =>
+      ref.read(objectboxAdminSaveProvider.notifier).run(action);
 
   Widget _buildBody(
     BuildContext context,
@@ -927,8 +1014,10 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                   _rowHorizontalControllerFor(entity, row),
               verticalController: _verticalController,
               canLoadMore: state.visibleRowCount < state.rows.length,
+              enabled: !_savePending,
               onSortPressed: notifier.toggleSort,
               onRowTap: (row) {
+                if (_savePending) return;
                 setState(() {
                   _isCreatingPeak = false;
                 });
@@ -948,6 +1037,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
               route: null,
               createOsmId: createOsmId,
               onClose: () {
+                if (_savePending) return;
                 setState(() {
                   _isCreatingPeak = false;
                 });
@@ -987,8 +1077,10 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                   _rowHorizontalControllerFor(entity, row),
               verticalController: _verticalController,
               canLoadMore: state.visibleRowCount < state.rows.length,
+              enabled: !_savePending,
               onSortPressed: notifier.toggleSort,
               onRowTap: (row) {
+                if (_savePending) return;
                 setState(() => _isCreatingContact = false);
                 notifier.selectRow(row);
               },
@@ -1010,6 +1102,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
               isNaturalFeatureMutationLocked: false,
               createOsmId: 0,
               onClose: () {
+                if (_savePending) return;
                 setState(() => _isCreatingContact = false);
                 notifier.clearSelection();
               },
@@ -1058,6 +1151,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                 _rowHorizontalControllerFor(entity, row),
             verticalController: _verticalController,
             canLoadMore: state.visibleRowCount < state.rows.length,
+            enabled: !_savePending,
             onSortPressed: notifier.toggleSort,
             onRowTap: notifier.selectRow,
             onDeletePressed: switch (entity.name) {
@@ -1070,8 +1164,9 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
               _ => null,
             },
             deleteEnabled:
-                !naturalFeatureMutationsLocked ||
-                entity.name != 'NaturalFeature',
+                !_savePending &&
+                (!naturalFeatureMutationsLocked ||
+                    entity.name != 'NaturalFeature'),
           ),
         ),
         const SizedBox(width: 16),

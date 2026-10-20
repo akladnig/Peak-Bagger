@@ -1457,7 +1457,10 @@ Future<void> _pumpApp(
       child: const App(),
     ),
   );
+  // Wait for the guarded route parse, not for deliberately pending Data reads
+  // (or unrelated dashboard loading animations) to finish.
   await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
 }
 
 class _RouteAwareObjectBoxAdminRepository implements ObjectBoxAdminRepository {

@@ -14,6 +14,26 @@ import 'package:peak_bagger/services/contact_admin_editor.dart';
 import 'package:peak_bagger/widgets/objectbox_admin_read_only_value.dart';
 import 'package:peak_bagger/widgets/objectbox_admin_form_field.dart';
 import 'package:peak_bagger/services/objectbox_admin_field_policy.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_edit_footer.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_save_scope.dart';
+
+// Local state also protects standalone panes and callbacks retained before a
+// rebuild. The routed screen owns the app-visible Save/navigation lifetime.
+mixin _AdminSaveState<W extends StatefulWidget> on State<W> {
+  bool _localSavePending = false;
+  bool get _isSaving =>
+      _localSavePending || ObjectBoxAdminSaveScope.read(context);
+  set _isSaving(bool value) => _localSavePending = value;
+
+  Future<String?> _awaitSave(Future<String?> Function() action) async {
+    try {
+      return await action();
+    } catch (error, stackTrace) {
+      logObjectBoxAdminError(error, stackTrace, 'Admin Save failed');
+      return 'Could not save. Please retry or cancel.';
+    }
+  }
+}
 
 class _AdminDetailsDivider extends StatelessWidget {
   const _AdminDetailsDivider({this.height});
@@ -290,7 +310,8 @@ class _PeakAdminDetailsPane extends StatefulWidget {
   State<_PeakAdminDetailsPane> createState() => _PeakAdminDetailsPaneState();
 }
 
-class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
+class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane>
+    with _AdminSaveState<_PeakAdminDetailsPane> {
   late Peak _peak;
   late final TextEditingController _nameController;
   late final TextEditingController _altNameController;
@@ -316,7 +337,6 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   late String _sourceOfTruth;
   bool _verified = false;
   bool _isEditing = false;
-  bool _isSaving = false;
   PeakAdminCoordinateSource? _activeCoordinateSource;
   String? _submitError;
   PeakAdminValidationResult _validation = const PeakAdminValidationResult(
@@ -352,9 +372,10 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   @override
   void didUpdateWidget(covariant _PeakAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.row != widget.row ||
-        oldWidget.createMode != widget.createMode ||
-        oldWidget.createOsmId != widget.createOsmId) {
+    if (!_isSaving &&
+        (oldWidget.row != widget.row ||
+            oldWidget.createMode != widget.createMode ||
+            oldWidget.createOsmId != widget.createOsmId)) {
       _syncFromRow();
     }
   }
@@ -446,12 +467,12 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _isEditing = false;
       _activeCoordinateSource = null;
     }
-    _isSaving = false;
     _submitError = null;
     _validation = const PeakAdminValidationResult(fieldErrors: {});
   }
 
   void _startEditing() {
+    if (!mounted || _isSaving) return;
     setState(() {
       _isEditing = true;
       _activeCoordinateSource = null;
@@ -461,6 +482,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   void _markAsHwc() {
+    if (!mounted || _isSaving) return;
     setState(() {
       _sourceOfTruth = Peak.sourceOfTruthHwc;
     });
@@ -504,6 +526,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   void _setVerified(bool? value) {
+    if (!mounted || _isSaving) return;
     setState(() {
       _verified = value ?? false;
     });
@@ -511,6 +534,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   void _updateValidation() {
+    if (!mounted || _isSaving) return;
     final validation = PeakAdminEditor.validateAndBuild(
       source: _peak,
       form: _currentFormState(),
@@ -525,6 +549,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   Future<void> _submit() async {
+    if (!mounted || _isSaving || !_isEditing) return;
     final validation = PeakAdminEditor.validateAndBuild(
       source: _peak,
       form: _currentFormState(),
@@ -544,7 +569,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _isSaving = true;
     });
 
-    final error = await widget.onPeakSubmit(validation.peak!);
+    final error = await _awaitSave(() => widget.onPeakSubmit(validation.peak!));
     if (!mounted) {
       return;
     }
@@ -552,6 +577,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     setState(() {
       _isSaving = false;
       if (error == null) {
+        if (!widget.createMode) _syncFromRow();
         _isEditing = false;
         _submitError = null;
       } else {
@@ -566,6 +592,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   void _handleLatLngChanged() {
+    if (!mounted || _isSaving) return;
     final form = _currentFormState();
     final shouldClear =
         _activeCoordinateSource != PeakAdminCoordinateSource.latLng;
@@ -592,6 +619,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   void _handleMgrsChanged() {
+    if (!mounted || _isSaving) return;
     final form = _currentFormState();
     final shouldClear =
         _activeCoordinateSource != PeakAdminCoordinateSource.mgrs;
@@ -615,6 +643,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   void _calculateCoordinates() {
+    if (!mounted) return;
     final coordinateSource = _activeCoordinateSource;
     if (coordinateSource == null || _isSaving) {
       return;
@@ -657,6 +686,20 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     });
   }
 
+  void _close() {
+    if (!mounted || _isSaving) return;
+    widget.onClose();
+  }
+
+  void _cancelEditing() {
+    if (!mounted || _isSaving || !_isEditing) return;
+    if (widget.createMode) {
+      widget.onClose();
+    } else {
+      setState(_syncFromRow);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final title = widget.createMode
@@ -690,7 +733,10 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
                     tooltip: 'View Peak on Main Map',
                     onPressed: _isSaving
                         ? null
-                        : () => widget.onViewPeakOnMap(_peakForMainMap()),
+                        : () {
+                            if (!mounted || _isSaving) return;
+                            widget.onViewPeakOnMap(_peakForMainMap());
+                          },
                     icon: const Icon(Icons.visibility_outlined),
                   ),
                 if (!_isEditing && !widget.createMode)
@@ -703,7 +749,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
                 IconButton(
                   key: const Key('objectbox-admin-details-close'),
                   tooltip: 'Close',
-                  onPressed: _isSaving ? null : widget.onClose,
+                  onPressed: _isSaving ? null : _close,
                   icon: const Icon(Icons.close),
                 ),
               ],
@@ -749,6 +795,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
                       onCalculate: _calculateCoordinates,
                       canCalculate: _activeCoordinateSource != null,
                       onSubmit: _submit,
+                      onCancel: _cancelEditing,
                     )
                   : _PeakReadOnlyDetails(
                       row: widget.row!,
@@ -845,7 +892,8 @@ class _RouteAdminDetailsPane extends StatefulWidget {
   State<_RouteAdminDetailsPane> createState() => _RouteAdminDetailsPaneState();
 }
 
-class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
+class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane>
+    with _AdminSaveState<_RouteAdminDetailsPane> {
   late final TextEditingController _nameController;
   late final TextEditingController _descController;
   late final TextEditingController _colourController;
@@ -859,7 +907,6 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
   late final TextEditingController _highestElevationController;
   bool _visible = true;
   bool _isEditing = false;
-  bool _isSaving = false;
   String? _submitError;
   RouteAdminValidationResult _validation = const RouteAdminValidationResult(
     fieldErrors: {},
@@ -885,7 +932,9 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
   @override
   void didUpdateWidget(covariant _RouteAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.row != widget.row || oldWidget.route.id != widget.route.id) {
+    if (!_isSaving &&
+        (oldWidget.row != widget.row ||
+            oldWidget.route.id != widget.route.id)) {
       _syncFromRoute();
     }
   }
@@ -921,12 +970,12 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
     _highestElevationController.text = form.highestElevation;
     _visible = form.visible;
     _isEditing = false;
-    _isSaving = false;
     _submitError = null;
     _validation = const RouteAdminValidationResult(fieldErrors: {});
   }
 
   void _startEditing() {
+    if (!mounted || _isSaving) return;
     setState(() {
       _isEditing = true;
       _submitError = null;
@@ -951,6 +1000,7 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
   }
 
   void _updateValidation() {
+    if (!mounted || _isSaving) return;
     final validation = RouteAdminEditor.validateAndBuild(
       source: widget.route,
       form: _currentFormState(),
@@ -964,7 +1014,7 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
   }
 
   Future<void> _submit() async {
-    if (_isSaving) {
+    if (!mounted || _isSaving || !_isEditing) {
       return;
     }
 
@@ -984,7 +1034,8 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
       _isSaving = true;
     });
 
-    final error = await widget.onRouteSubmit(_currentFormState());
+    final form = _currentFormState();
+    final error = await _awaitSave(() => widget.onRouteSubmit(form));
     if (!mounted) {
       return;
     }
@@ -993,9 +1044,20 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
       _isSaving = false;
       _submitError = error;
       if (error == null) {
+        _syncFromRoute();
         _isEditing = false;
       }
     });
+  }
+
+  void _close() {
+    if (!mounted || _isSaving) return;
+    widget.onClose();
+  }
+
+  void _cancelEditing() {
+    if (!mounted || _isSaving || !_isEditing) return;
+    setState(_syncFromRoute);
   }
 
   @override
@@ -1027,7 +1089,12 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
                   IconButton(
                     key: const Key('objectbox-admin-route-view-on-map'),
                     tooltip: 'View Route on Main Map',
-                    onPressed: _isSaving ? null : widget.onViewRouteOnMap,
+                    onPressed: _isSaving
+                        ? null
+                        : () {
+                            if (!mounted || _isSaving) return;
+                            widget.onViewRouteOnMap?.call();
+                          },
                     icon: const Icon(Icons.visibility_outlined),
                   ),
                 if (!_isEditing)
@@ -1040,7 +1107,7 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
                 IconButton(
                   key: const Key('objectbox-admin-details-close'),
                   tooltip: 'Close',
-                  onPressed: _isSaving ? null : widget.onClose,
+                  onPressed: _isSaving ? null : _close,
                   icon: const Icon(Icons.close),
                 ),
               ],
@@ -1068,12 +1135,14 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
                       validation: _validation,
                       onChanged: _updateValidation,
                       onVisibleChanged: (value) {
+                        if (!mounted || _isSaving) return;
                         setState(() {
                           _visible = value;
                         });
                         _updateValidation();
                       },
                       onSubmit: _submit,
+                      onCancel: _cancelEditing,
                     )
                   : _RouteReadOnlyDetails(
                       row: widget.row!,
@@ -1141,10 +1210,10 @@ class _PeakListAdminDetailsPane extends StatefulWidget {
       _PeakListAdminDetailsPaneState();
 }
 
-class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
+class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane>
+    with _AdminSaveState<_PeakListAdminDetailsPane> {
   late final TextEditingController _colourController;
   bool _isEditing = false;
-  bool _isSaving = false;
   String? _submitError;
   PeakListAdminValidationResult _validation =
       const PeakListAdminValidationResult(fieldErrors: {});
@@ -1159,9 +1228,10 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
   @override
   void didUpdateWidget(covariant _PeakListAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.row != widget.row ||
-        oldWidget.peakList.peakListId != widget.peakList.peakListId ||
-        oldWidget.peakList.colour != widget.peakList.colour) {
+    if (!_isSaving &&
+        (oldWidget.row != widget.row ||
+            oldWidget.peakList.peakListId != widget.peakList.peakListId ||
+            oldWidget.peakList.colour != widget.peakList.colour)) {
       _syncFromPeakList();
     }
   }
@@ -1176,12 +1246,12 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
     final form = PeakListAdminEditor.normalize(widget.peakList);
     _colourController.text = form.colour;
     _isEditing = false;
-    _isSaving = false;
     _submitError = null;
     _validation = const PeakListAdminValidationResult(fieldErrors: {});
   }
 
   void _startEditing() {
+    if (!mounted || _isSaving) return;
     setState(() {
       _isEditing = true;
       _submitError = null;
@@ -1193,6 +1263,7 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
   }
 
   void _updateValidation() {
+    if (!mounted || _isSaving) return;
     final validation = PeakListAdminEditor.validateAndBuild(
       source: widget.peakList,
       form: _currentFormState(),
@@ -1206,7 +1277,7 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
   }
 
   Future<void> _submit() async {
-    if (_isSaving) {
+    if (!mounted || _isSaving || !_isEditing) {
       return;
     }
 
@@ -1226,7 +1297,8 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
       _isSaving = true;
     });
 
-    final error = await widget.onPeakListSubmit(_currentFormState());
+    final form = _currentFormState();
+    final error = await _awaitSave(() => widget.onPeakListSubmit(form));
     if (!mounted) {
       return;
     }
@@ -1235,9 +1307,20 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
       _isSaving = false;
       _submitError = error;
       if (error == null) {
+        _syncFromPeakList();
         _isEditing = false;
       }
     });
+  }
+
+  void _close() {
+    if (!mounted || _isSaving) return;
+    widget.onClose();
+  }
+
+  void _cancelEditing() {
+    if (!mounted || _isSaving || !_isEditing) return;
+    setState(_syncFromPeakList);
   }
 
   @override
@@ -1275,7 +1358,7 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
                 IconButton(
                   key: const Key('objectbox-admin-details-close'),
                   tooltip: 'Close',
-                  onPressed: _isSaving ? null : widget.onClose,
+                  onPressed: _isSaving ? null : _close,
                   icon: const Icon(Icons.close),
                 ),
               ],
@@ -1293,6 +1376,7 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
                       validation: _validation,
                       onChanged: _updateValidation,
                       onSubmit: _submit,
+                      onCancel: _cancelEditing,
                     )
                   : _PeakListReadOnlyDetails(
                       row: widget.row!,
@@ -1350,6 +1434,7 @@ class _PeakListEditForm extends StatelessWidget {
     required this.validation,
     required this.onChanged,
     required this.onSubmit,
+    required this.onCancel,
   });
 
   final ObjectBoxAdminEntityDescriptor entity;
@@ -1361,6 +1446,7 @@ class _PeakListEditForm extends StatelessWidget {
   final PeakListAdminValidationResult validation;
   final VoidCallback onChanged;
   final VoidCallback onSubmit;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -1425,10 +1511,11 @@ class _PeakListEditForm extends StatelessWidget {
           Text(submitError!, style: TextStyle(color: errorColor)),
         ],
         const SizedBox(height: 12),
-        FilledButton(
-          key: const Key('objectbox-admin-peak-list-save'),
-          onPressed: isSaving ? null : onSubmit,
-          child: Text(isSaving ? 'Saving...' : 'Save'),
+        ObjectBoxAdminEditFooter(
+          prefix: 'peak-list',
+          isSaving: isSaving,
+          onCancel: onCancel,
+          onSave: onSubmit,
         ),
       ],
     );
@@ -1470,6 +1557,7 @@ class _RouteEditForm extends StatelessWidget {
     required this.onChanged,
     required this.onVisibleChanged,
     required this.onSubmit,
+    required this.onCancel,
   });
 
   final ObjectBoxAdminEntityDescriptor entity;
@@ -1492,6 +1580,7 @@ class _RouteEditForm extends StatelessWidget {
   final VoidCallback onChanged;
   final ValueChanged<bool> onVisibleChanged;
   final VoidCallback onSubmit;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -1739,10 +1828,11 @@ class _RouteEditForm extends StatelessWidget {
           Text(submitError!, style: TextStyle(color: errorColor)),
         ],
         const SizedBox(height: 12),
-        FilledButton(
-          key: const Key('objectbox-admin-route-save'),
-          onPressed: isSaving ? null : onSubmit,
-          child: Text(isSaving ? 'Saving...' : 'Save'),
+        ObjectBoxAdminEditFooter(
+          prefix: 'route',
+          isSaving: isSaving,
+          onCancel: onCancel,
+          onSave: onSubmit,
         ),
       ],
     );
@@ -1888,12 +1978,13 @@ class _ContactAdminDetailsPane extends StatefulWidget {
       _ContactAdminDetailsPaneState();
 }
 
-class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
+class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane>
+    with _AdminSaveState<_ContactAdminDetailsPane> {
   late final TextEditingController _firstNameController;
   late final TextEditingController _surnameController;
   late final TextEditingController _nicknameController;
   var _isEditing = false;
-  var _isSaving = false;
+  String? _submitError;
   ContactAdminValidationResult _validation = const ContactAdminValidationResult(
     fieldErrors: {},
   );
@@ -1910,8 +2001,10 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
   @override
   void didUpdateWidget(covariant _ContactAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.contact.id != widget.contact.id ||
-        oldWidget.createMode != widget.createMode) {
+    if (!_isSaving &&
+        (oldWidget.contact.id != widget.contact.id ||
+            oldWidget.createMode != widget.createMode ||
+            (!_isEditing && oldWidget.contact != widget.contact))) {
       _syncFromContact();
     }
   }
@@ -1935,12 +2028,14 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
     _surnameController.text = widget.contact.surname;
     _nicknameController.text = widget.contact.nickname;
     _isEditing = widget.createMode;
-    _isSaving = false;
+    _submitError = null;
     _validation = const ContactAdminValidationResult(fieldErrors: {});
   }
 
   void _validate() {
+    if (!mounted || _isSaving) return;
     setState(() {
+      _submitError = null;
       _validation = ContactAdminEditor.validateAndBuild(
         source: widget.contact,
         form: _currentForm(),
@@ -1949,6 +2044,7 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
   }
 
   void _cancelEditing() {
+    if (!mounted || _isSaving || !_isEditing) return;
     if (widget.createMode) {
       widget.onClose();
       return;
@@ -1957,7 +2053,7 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
   }
 
   Future<void> _submit() async {
-    if (_isSaving) {
+    if (!mounted || _isSaving || !_isEditing) {
       return;
     }
     final validation = ContactAdminEditor.validateAndBuild(
@@ -1970,16 +2066,24 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
     }
 
     setState(() => _isSaving = true);
-    final error = await widget.onContactSubmit(validation.contact!);
+    final error = await _awaitSave(
+      () => widget.onContactSubmit(validation.contact!),
+    );
     if (!mounted) {
       return;
     }
     setState(() {
       _isSaving = false;
+      _submitError = error;
       if (error == null) {
         _isEditing = false;
       }
     });
+  }
+
+  void _close() {
+    if (!mounted || _isSaving) return;
+    widget.onClose();
   }
 
   String get _title {
@@ -2020,13 +2124,16 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
                     tooltip: 'Edit',
                     onPressed: _isSaving
                         ? null
-                        : () => setState(() => _isEditing = true),
+                        : () {
+                            if (!mounted || _isSaving) return;
+                            setState(() => _isEditing = true);
+                          },
                     icon: const Icon(Icons.edit),
                   ),
                 IconButton(
                   key: const Key('objectbox-admin-details-close'),
                   tooltip: 'Close',
-                  onPressed: _isSaving ? null : widget.onClose,
+                  onPressed: _isSaving ? null : _close,
                   icon: const Icon(Icons.close),
                 ),
               ],
@@ -2043,6 +2150,7 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
                       nicknameController: _nicknameController,
                       validation: _validation,
                       isSaving: _isSaving,
+                      submitError: _submitError,
                       onChanged: _validate,
                       onCancel: _cancelEditing,
                       onSubmit: _submit,
@@ -2099,6 +2207,7 @@ class _ContactEditForm extends StatelessWidget {
     required this.nicknameController,
     required this.validation,
     required this.isSaving,
+    required this.submitError,
     required this.onChanged,
     required this.onCancel,
     required this.onSubmit,
@@ -2112,6 +2221,7 @@ class _ContactEditForm extends StatelessWidget {
   final TextEditingController nicknameController;
   final ContactAdminValidationResult validation;
   final bool isSaving;
+  final String? submitError;
   final VoidCallback onChanged;
   final VoidCallback onCancel;
   final VoidCallback onSubmit;
@@ -2168,17 +2278,17 @@ class _ContactEditForm extends StatelessWidget {
             ],
           ),
         ),
+        if (submitError != null)
+          Text(
+            submitError!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
         const SizedBox(height: 12),
-        OutlinedButton(
-          key: const Key('objectbox-admin-contact-cancel'),
-          onPressed: isSaving ? null : onCancel,
-          child: const Text('Cancel'),
-        ),
-        const SizedBox(height: 8),
-        FilledButton(
-          key: const Key('objectbox-admin-contact-save'),
-          onPressed: isSaving ? null : onSubmit,
-          child: Text(isSaving ? 'Saving...' : 'Save'),
+        ObjectBoxAdminEditFooter(
+          prefix: 'contact',
+          isSaving: isSaving,
+          onCancel: onCancel,
+          onSave: onSubmit,
         ),
       ],
     );
@@ -2230,11 +2340,11 @@ class _NaturalFeatureAdminDetailsPane extends StatefulWidget {
 }
 
 class _NaturalFeatureAdminDetailsPaneState
-    extends State<_NaturalFeatureAdminDetailsPane> {
+    extends State<_NaturalFeatureAdminDetailsPane>
+    with _AdminSaveState<_NaturalFeatureAdminDetailsPane> {
   late final Map<String, TextEditingController> _controllers;
   late String _sourceOfTruth;
   var _isEditing = false;
-  var _isSaving = false;
   NaturalFeatureAdminCoordinateSource? _coordinateSource;
   String? _submitError;
   NaturalFeatureAdminValidationResult _validation =
@@ -2252,8 +2362,9 @@ class _NaturalFeatureAdminDetailsPaneState
   @override
   void didUpdateWidget(covariant _NaturalFeatureAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.naturalFeature.id != widget.naturalFeature.id ||
-        (oldWidget.row != widget.row && !_isEditing)) {
+    if (!_isSaving &&
+        (oldWidget.naturalFeature.id != widget.naturalFeature.id ||
+            (oldWidget.row != widget.row && !_isEditing))) {
       _syncFromFeature();
     }
   }
@@ -2297,7 +2408,6 @@ class _NaturalFeatureAdminDetailsPaneState
     _controller('northing').text = form.northing;
     _sourceOfTruth = form.sourceOfTruth;
     _isEditing = false;
-    _isSaving = false;
     _coordinateSource = null;
     _submitError = null;
     _validation = const NaturalFeatureAdminValidationResult(fieldErrors: {});
@@ -2324,6 +2434,7 @@ class _NaturalFeatureAdminDetailsPaneState
   bool get _isLocked => _isSaving || widget.mutationLocked;
 
   void _validate() {
+    if (!mounted || _isLocked) return;
     setState(() {
       _validation = NaturalFeatureAdminEditor.validateAndBuild(
         source: widget.naturalFeature,
@@ -2335,6 +2446,7 @@ class _NaturalFeatureAdminDetailsPaneState
   }
 
   void _handleLatLngChanged() {
+    if (!mounted || _isLocked) return;
     if (_coordinateSource != NaturalFeatureAdminCoordinateSource.latLng) {
       _controller('mgrs100kId').clear();
       _controller('easting').clear();
@@ -2345,6 +2457,7 @@ class _NaturalFeatureAdminDetailsPaneState
   }
 
   void _handleMgrsChanged() {
+    if (!mounted || _isLocked) return;
     if (_coordinateSource != NaturalFeatureAdminCoordinateSource.mgrs) {
       _controller('latitude').clear();
       _controller('longitude').clear();
@@ -2354,6 +2467,7 @@ class _NaturalFeatureAdminDetailsPaneState
   }
 
   void _calculateCoordinates() {
+    if (!mounted) return;
     final source = _coordinateSource;
     if (source == null || _isLocked) {
       return;
@@ -2382,7 +2496,7 @@ class _NaturalFeatureAdminDetailsPaneState
   }
 
   Future<void> _submit() async {
-    if (_isLocked) {
+    if (!mounted || _isLocked || !_isEditing) {
       return;
     }
     final validation = NaturalFeatureAdminEditor.validateAndBuild(
@@ -2399,8 +2513,8 @@ class _NaturalFeatureAdminDetailsPaneState
       return;
     }
     setState(() => _isSaving = true);
-    final error = await widget.onNaturalFeatureSubmit(
-      validation.naturalFeature!,
+    final error = await _awaitSave(
+      () => widget.onNaturalFeatureSubmit(validation.naturalFeature!),
     );
     if (!mounted) {
       return;
@@ -2409,9 +2523,20 @@ class _NaturalFeatureAdminDetailsPaneState
       _isSaving = false;
       _submitError = error;
       if (error == null) {
+        _syncFromFeature();
         _isEditing = false;
       }
     });
+  }
+
+  void _close() {
+    if (!mounted || _isSaving) return;
+    widget.onClose();
+  }
+
+  void _cancelEditing() {
+    if (!mounted || _isSaving || !_isEditing) return;
+    setState(_syncFromFeature);
   }
 
   @override
@@ -2442,9 +2567,12 @@ class _NaturalFeatureAdminDetailsPaneState
                   tooltip: 'View Natural Feature on Main Map',
                   onPressed: _isSaving
                       ? null
-                      : () => widget.onViewNaturalFeatureOnMap(
-                          widget.naturalFeature,
-                        ),
+                      : () {
+                          if (!mounted || _isSaving) return;
+                          widget.onViewNaturalFeatureOnMap(
+                            widget.naturalFeature,
+                          );
+                        },
                   icon: const Icon(Icons.visibility_outlined),
                 ),
                 if (!_isEditing)
@@ -2453,13 +2581,16 @@ class _NaturalFeatureAdminDetailsPaneState
                     tooltip: 'Edit',
                     onPressed: _isLocked
                         ? null
-                        : () => setState(() => _isEditing = true),
+                        : () {
+                            if (!mounted || _isLocked) return;
+                            setState(() => _isEditing = true);
+                          },
                     icon: const Icon(Icons.edit),
                   ),
                 IconButton(
                   key: const Key('objectbox-admin-details-close'),
                   tooltip: 'Close',
-                  onPressed: _isSaving ? null : widget.onClose,
+                  onPressed: _isSaving ? null : _close,
                   icon: const Icon(Icons.close),
                 ),
               ],
@@ -2475,11 +2606,13 @@ class _NaturalFeatureAdminDetailsPaneState
                       validation: _validation,
                       submitError: _submitError,
                       locked: _isLocked,
+                      isSaving: _isSaving,
                       canCalculate: _coordinateSource != null,
                       onChanged: _validate,
                       onLatLngChanged: _handleLatLngChanged,
                       onMgrsChanged: _handleMgrsChanged,
                       onSourceOfTruthChanged: (value) {
+                        if (!mounted || _isLocked) return;
                         setState(
                           () => _sourceOfTruth = value ?? _sourceOfTruth,
                         );
@@ -2487,6 +2620,7 @@ class _NaturalFeatureAdminDetailsPaneState
                       },
                       onCalculate: _calculateCoordinates,
                       onSubmit: _submit,
+                      onCancel: _cancelEditing,
                     )
                   : _NaturalFeatureReadOnlyDetails(
                       row: widget.row,
@@ -2552,6 +2686,8 @@ class _NaturalFeatureEditForm extends StatelessWidget {
     required this.onSourceOfTruthChanged,
     required this.onCalculate,
     required this.onSubmit,
+    required this.onCancel,
+    required this.isSaving,
   });
 
   final ObjectBoxAdminEntityDescriptor entity;
@@ -2568,6 +2704,8 @@ class _NaturalFeatureEditForm extends StatelessWidget {
   final ValueChanged<String?> onSourceOfTruthChanged;
   final VoidCallback onCalculate;
   final VoidCallback onSubmit;
+  final VoidCallback onCancel;
+  final bool isSaving;
 
   @override
   Widget build(BuildContext context) {
@@ -2644,10 +2782,12 @@ class _NaturalFeatureEditForm extends StatelessWidget {
           child: const Text('Calculate'),
         ),
         const SizedBox(height: 8),
-        FilledButton(
-          key: const Key('objectbox-admin-natural-feature-save'),
-          onPressed: locked ? null : onSubmit,
-          child: Text(locked ? 'Saving...' : 'Save'),
+        ObjectBoxAdminEditFooter(
+          prefix: 'natural-feature',
+          isSaving: isSaving,
+          locked: locked,
+          onCancel: onCancel,
+          onSave: onSubmit,
         ),
       ],
     );
@@ -2729,6 +2869,7 @@ class _PeakEditForm extends StatelessWidget {
     required this.onCalculate,
     required this.canCalculate,
     required this.onSubmit,
+    required this.onCancel,
   });
 
   final ObjectBoxAdminEntityDescriptor entity;
@@ -2768,6 +2909,7 @@ class _PeakEditForm extends StatelessWidget {
   final VoidCallback onCalculate;
   final bool canCalculate;
   final VoidCallback onSubmit;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -3135,10 +3277,12 @@ class _PeakEditForm extends StatelessWidget {
           child: const Text('Calculate'),
         ),
         const SizedBox(height: 8),
-        FilledButton(
-          key: const Key('objectbox-admin-peak-submit'),
-          onPressed: isSaving ? null : onSubmit,
-          child: Text(isSaving ? 'Saving...' : 'Save'),
+        ObjectBoxAdminEditFooter(
+          prefix: 'peak',
+          saveSuffix: 'submit',
+          isSaving: isSaving,
+          onCancel: onCancel,
+          onSave: onSubmit,
         ),
       ],
     );

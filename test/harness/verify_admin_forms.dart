@@ -1,5 +1,6 @@
 // Isolated native smoke: flutter run -d macos -t test/harness/verify_admin_forms.dart
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -175,12 +176,31 @@ Future<void> main() async {
               '$name native read-only copy',
             );
             final save = _find((w) => w.key == Key(fixture.saveKey))!;
+            final cancel = _find(
+              (w) => w.key == Key('objectbox-admin-${fixture.prefix}-cancel'),
+            )!;
+            _check(cancel.widget is FilledButton, '$name Cancel is not filled');
             final box = save.findRenderObject()! as RenderBox;
             _check(
               (sceneBox.localToGlobal(Offset.zero) & sceneBox.size).contains(
                 box.localToGlobal(box.size.center(Offset.zero)),
               ),
               '$name Save unreachable',
+            );
+            final cancelBox = cancel.findRenderObject()! as RenderBox;
+            _check(
+              (sceneBox.localToGlobal(Offset.zero) & sceneBox.size).contains(
+                cancelBox.localToGlobal(cancelBox.size.center(Offset.zero)),
+              ),
+              '$name Cancel unreachable',
+            );
+            final footerTheme = FilledButtonTheme.of(cancel).style!;
+            _check(
+              footerTheme.backgroundColor!.resolve({}) ==
+                      theme.colorScheme.primaryContainer &&
+                  footerTheme.foregroundColor!.resolve({}) ==
+                      theme.colorScheme.onPrimaryContainer,
+              '$name footer colours',
             );
             _check(
               fixture.submitted.isEmpty && fixture.closes == 0,
@@ -191,8 +211,49 @@ Future<void> main() async {
           }
         }
       }
-      (_find((w) => w.key == Key(fixture.saveKey))!.widget as FilledButton)
-          .onPressed!();
+      final pending = Completer<String?>();
+      fixture.save = () => pending.future;
+      final saveAction =
+          (_find((w) => w.key == Key(fixture.saveKey))!.widget as FilledButton)
+              .onPressed!;
+      final cancelAction =
+          (_find(
+                    (w) =>
+                        w.key ==
+                        Key('objectbox-admin-${fixture.prefix}-cancel'),
+                  )!.widget
+                  as FilledButton)
+              .onPressed!;
+      final closeAction =
+          (_find(
+                    (w) => w.key == const Key('objectbox-admin-details-close'),
+                  )!.widget
+                  as IconButton)
+              .onPressed!;
+      saveAction();
+      saveAction();
+      cancelAction();
+      closeAction();
+      await _settle();
+      saveAction();
+      cancelAction();
+      closeAction();
+      _check(
+        fixture.submitted.length == 1 && fixture.closes == 0,
+        '$name stale callback bypassed Save gate',
+      );
+      _check(
+        (_find(
+                      (w) =>
+                          w.key ==
+                          Key('objectbox-admin-${fixture.prefix}-cancel'),
+                    )!.widget
+                    as FilledButton)
+                .onPressed ==
+            null,
+        '$name pending Cancel enabled',
+      );
+      pending.complete('Could not save. Retry.');
       await _settle();
       _check(fixture.submitted.length == 1, '$name save did not run');
       final retained = await _reveal(fixture, fieldKey);
@@ -201,6 +262,35 @@ Future<void> main() async {
             controller.text == draft,
         '$name failed Save lost draft',
       );
+      (_find(
+                (w) => w.key == Key('objectbox-admin-${fixture.prefix}-cancel'),
+              )!.widget
+              as FilledButton)
+          .onPressed!();
+      await _settle();
+      _check(
+        _find((w) => w.key == Key(fixture.formKey)) == null &&
+            fixture.closes == 0 &&
+            fixture.submitted.length == 1,
+        '$name Cancel did not restore same details without writing',
+      );
+      (_find((w) => w.key == Key(fixture.editKey))!.widget as IconButton)
+          .onPressed!();
+      await _settle();
+      final restored =
+          (await _reveal(fixture, fieldKey)).widget as TextFormField;
+      final committed = switch (name) {
+        'Peak' || 'Route' => _longText,
+        'Contact' => '',
+        'NaturalFeature' => 'Fixture',
+        _ =>
+          '0x${fixture.peakList.colour.toUnsigned(32).toRadixString(16).padLeft(8, '0').toUpperCase()}',
+      };
+      _check(
+        restored.controller!.text == committed,
+        '$name Cancel retained draft input',
+      );
+      restored.controller!.text = draft;
       fixture.save = () async => null;
       (_find((w) => w.key == Key(fixture.saveKey))!.widget as FilledButton)
           .onPressed!();
@@ -211,7 +301,7 @@ Future<void> main() async {
         '$name successful Save did not leave editor',
       );
       stdout.writeln(
-        'PASS native $name forms: 32 size/theme/scale configurations; full copy/draft; Save failure/retry',
+        'PASS native $name forms: 32 size/theme/scale configurations; full copy/draft; pending stale callbacks; Cancel / Save failure/retry',
       );
     }
     runApp(const SizedBox.shrink());

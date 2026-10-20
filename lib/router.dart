@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
+import 'package:peak_bagger/providers/objectbox_admin_save_provider.dart';
 import 'package:peak_bagger/providers/peak_list_region_filter_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
@@ -101,8 +102,21 @@ void _runShellPreNavigationCleanup(ProviderContainer container) {
 }
 
 GoRouter createRouter() {
-  return GoRouter(
-    initialLocation: '/',
+  return _AdminGuardedRouter(
+    onEnter: (context, current, next, router) {
+      // onExit/PopScope alone do not guard retained indexed-stack branches.
+      // Block without a continuation: rejected destinations are never queued.
+      if (router.routerDelegate.currentConfiguration.isNotEmpty &&
+          router.state.uri.path == '/objectbox-admin' &&
+          next.uri != router.state.uri &&
+          ProviderScope.containerOf(
+            context,
+            listen: false,
+          ).read(objectboxAdminSaveProvider)) {
+        return const Block.stop();
+      }
+      return const Allow();
+    },
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -116,6 +130,9 @@ GoRouter createRouter() {
 
               void goToDestination(ShellDestination destination) {
                 if (destination.branchIndex == navigationShell.currentIndex) {
+                  return;
+                }
+                if (container.read(objectboxAdminSaveProvider)) {
                   return;
                 }
                 _runShellPreNavigationCleanup(container);
@@ -434,6 +451,11 @@ GoRouter createRouter() {
               GoRoute(
                 path: '/objectbox-admin',
                 name: 'objectboxAdmin',
+                // Route-exit/system-back fallback; read the live action gate.
+                onExit: (context, state) => !ProviderScope.containerOf(
+                  context,
+                  listen: false,
+                ).read(objectboxAdminSaveProvider),
                 builder: (context, state) => const ObjectBoxAdminScreen(),
               ),
             ],
@@ -451,6 +473,76 @@ GoRouter createRouter() {
       ),
     ],
   );
+}
+
+/// GoRouter's imperative pop can remove a whole ShellRouteMatch, bypassing the
+/// leaf GoRoute.onExit. Keep that action at the same live gate as parsed routes.
+/// Outcome dialogs retain their existing, local Navigator dismissal boundary.
+class _AdminGuardedRouter extends GoRouter {
+  _AdminGuardedRouter({
+    required List<RouteBase> routes,
+    required OnEnter onEnter,
+  }) : this._(ValueNotifier(RoutingConfig(routes: routes, onEnter: onEnter)));
+
+  _AdminGuardedRouter._(this._config)
+    : super.routingConfig(routingConfig: _config, initialLocation: '/');
+
+  final ValueNotifier<RoutingConfig> _config;
+
+  bool get _adminSavePending {
+    final context = routerDelegate.navigatorKey.currentContext;
+    return context != null &&
+        state.uri.path == '/objectbox-admin' &&
+        ProviderScope.containerOf(
+          context,
+          listen: false,
+        ).read(objectboxAdminSaveProvider);
+  }
+
+  // Reject at invocation as well as parsing. Otherwise a call made during Save
+  // could be parsed only after its completion and become a queued departure.
+  @override
+  void go(String location, {Object? extra}) {
+    if (_adminSavePending) return;
+    super.go(location, extra: extra);
+  }
+
+  @override
+  void restore(RouteMatchList matchList) {
+    if (_adminSavePending) return;
+    super.restore(matchList);
+  }
+
+  @override
+  Future<T?> push<T extends Object?>(String location, {Object? extra}) =>
+      _adminSavePending
+      ? Future<T?>.value()
+      : super.push<T>(location, extra: extra);
+
+  @override
+  Future<T?> pushReplacement<T extends Object?>(
+    String location, {
+    Object? extra,
+  }) => _adminSavePending
+      ? Future<T?>.value()
+      : super.pushReplacement<T>(location, extra: extra);
+
+  @override
+  Future<T?> replace<T>(String location, {Object? extra}) => _adminSavePending
+      ? Future<T?>.value()
+      : super.replace<T>(location, extra: extra);
+
+  @override
+  void pop<T extends Object?>([T? result]) {
+    if (_adminSavePending) return;
+    super.pop(result);
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _config.dispose();
+  }
 }
 
 class _SharedAppBarTitle extends StatelessWidget {

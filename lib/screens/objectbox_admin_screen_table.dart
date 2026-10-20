@@ -18,6 +18,7 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
     required this.onRowTap,
     required this.onDeletePressed,
     this.deleteEnabled = true,
+    this.enabled = true,
     super.key,
   });
 
@@ -34,6 +35,7 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
   final ValueChanged<ObjectBoxAdminRow> onRowTap;
   final ValueChanged<ObjectBoxAdminRow>? onDeletePressed;
   final bool deleteEnabled;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +77,7 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
           actionsColumnWidth: actionsColumnWidth,
           sortAscending: sortAscending,
           horizontalController: headerHorizontalController,
-          onSortPressed: onSortPressed,
+          onSortPressed: enabled ? onSortPressed : null,
           showActionsColumn: showActionsColumn,
         ),
         const _ObjectBoxAdminDataGridDivider(),
@@ -109,11 +111,11 @@ class ObjectBoxAdminDataGrid extends StatelessWidget {
                       actionsColumnWidth: actionsColumnWidth,
                       selected: isSelected,
                       horizontalController: rowHorizontalControllerFor(row),
-                      onTap: () => onRowTap(row),
+                      onTap: enabled ? () => onRowTap(row) : null,
                       showActionsColumn: showActionsColumn,
                       onDeletePressed: onDeletePressed == null
                           ? null
-                          : deleteEnabled
+                          : enabled && deleteEnabled
                           ? () => onDeletePressed!(row)
                           : null,
                     ),
@@ -149,7 +151,7 @@ class ObjectBoxAdminDataHeaderRow extends StatelessWidget {
   final double actionsColumnWidth;
   final bool sortAscending;
   final ScrollController horizontalController;
-  final VoidCallback onSortPressed;
+  final VoidCallback? onSortPressed;
   final bool showActionsColumn;
 
   @override
