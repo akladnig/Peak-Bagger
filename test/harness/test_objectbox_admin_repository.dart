@@ -16,6 +16,9 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
   int exportCallCount = 0;
   int getEntitiesCallCount = 0;
   int loadRowsCallCount = 0;
+  Object? discoveryError;
+  Future<List<ObjectBoxAdminRow>> Function(ObjectBoxAdminEntityDescriptor)?
+  rowLoader;
 
   void replaceEntities(List<ObjectBoxAdminEntityDescriptor> entities) {
     _entities = entities;
@@ -472,6 +475,7 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
   @override
   List<ObjectBoxAdminEntityDescriptor> getEntities() {
     getEntitiesCallCount += 1;
+    if (discoveryError != null) throw discoveryError!;
     return _entities;
   }
 
@@ -482,6 +486,7 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
     required bool ascending,
   }) async {
     loadRowsCallCount += 1;
+    if (rowLoader != null) return rowLoader!(entity);
     final rows = _rowsByEntity[entity.name] ?? const [];
     return objectBoxAdminFilterAndSortRows(
       entity,

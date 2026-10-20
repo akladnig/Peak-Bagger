@@ -18,6 +18,7 @@ import 'package:peak_bagger/models/tasmap50k.dart';
 import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:objectbox/internal.dart' as obx_int;
+import 'objectbox_admin_field_policy.dart';
 
 abstract class ObjectBoxAdminRepository {
   List<ObjectBoxAdminEntityDescriptor> getEntities();
@@ -35,6 +36,7 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
   ObjectBoxAdminRepositoryImpl({
     this._store,
     obx_int.ModelDefinition? modelDefinition,
+    this.appMetadata = objectBoxAdminAppMetadata,
     this.downloadsDirectoryPath,
   }) : _modelDefinition = modelDefinition ?? getObjectBoxModel();
 
@@ -42,6 +44,27 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
 
   final Store? _store;
   final obx_int.ModelDefinition _modelDefinition;
+  final Map<String, Map<String, AdminFieldMetadata>> appMetadata;
+
+  /// A strict drift check for tests/maintenance, not a runtime browsing gate.
+  List<String> metadataCoverageIssues() {
+    final actual = <String>{
+      for (final entity in _modelDefinition.model.entities)
+        for (final name in [
+          ...entity.properties.map((property) => property.name),
+          ...entity.relations.map((relation) => relation.name),
+        ])
+          '${entity.name}.$name',
+    };
+    final mapped = <String>{
+      for (final entity in appMetadata.entries)
+        for (final field in entity.value.keys) '${entity.key}.$field',
+    };
+    return [
+      for (final missing in actual.difference(mapped)) 'Missing: $missing',
+      for (final stale in mapped.difference(actual)) 'Stale: $stale',
+    ];
+  }
 
   @override
   List<ObjectBoxAdminEntityDescriptor> getEntities() {
@@ -147,24 +170,41 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
 
     final propertyFields = entity.properties
         .map((property) {
+          final metadata = appMetadata[entity.name]?[property.name];
+          final isPrimaryKey = property.name == primaryKeyField;
+          final assignable = property.hasFlag(
+            obx_int.OBXPropertyFlags.ID_SELF_ASSIGNABLE,
+          );
           return ObjectBoxAdminFieldDescriptor(
             name: property.name,
-            typeLabel: _describePropertyType(property),
-            nullable: false,
-            isPrimaryKey: property.name == primaryKeyField,
+            typeLabel: metadata?.typeLabel ?? _describePropertyType(property),
+            nullable: metadata?.nullable,
+            isPrimaryKey: isPrimaryKey,
             isPrimaryName: property.name == primaryNameField,
+            isAssignable: isPrimaryKey && assignable,
+            isGenerated:
+                (isPrimaryKey && !assignable) || (metadata?.generated ?? false),
+            isUnique: property.hasFlag(obx_int.OBXPropertyFlags.UNIQUE),
+            metadata: metadata,
+            dartField: property.relationField,
+            relationshipTarget: property.relationTarget,
           );
         })
         .toList(growable: false);
 
     final relationFields = entity.relations
         .map((relation) {
+          final metadata = appMetadata[entity.name]?[relation.name];
+          final target = _relationTarget(relation);
           return ObjectBoxAdminFieldDescriptor(
             name: relation.name,
-            typeLabel: _describeRelationType(relation),
-            nullable: false,
+            typeLabel:
+                metadata?.typeLabel ?? 'ToMany<${target ?? 'unknown target'}>',
+            nullable: metadata?.nullable,
             isPrimaryKey: false,
             isPrimaryName: false,
+            metadata: metadata,
+            relationshipTarget: target,
           );
         })
         .toList(growable: false);
@@ -181,11 +221,28 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
   }
 
   String _describePropertyType(obx_int.ModelProperty property) {
-    return 'type${property.type}';
+    return switch (property.type) {
+      obx_int.OBXPropertyType.Bool => 'Storage: bool',
+      obx_int.OBXPropertyType.Byte ||
+      obx_int.OBXPropertyType.Short ||
+      obx_int.OBXPropertyType.Char ||
+      obx_int.OBXPropertyType.Int ||
+      obx_int.OBXPropertyType.Long => 'Storage: integer',
+      obx_int.OBXPropertyType.Float ||
+      obx_int.OBXPropertyType.Double => 'Storage: floating point',
+      obx_int.OBXPropertyType.String => 'Storage: string',
+      obx_int.OBXPropertyType.Date ||
+      obx_int.OBXPropertyType.DateNano => 'Storage: date',
+      obx_int.OBXPropertyType.Relation =>
+        'ToOne<${property.relationTarget ?? 'unknown target'}>',
+      obx_int.OBXPropertyType.ByteVector => 'Storage: byte vector',
+      obx_int.OBXPropertyType.StringVector => 'Storage: string vector',
+      _ => 'Storage type ${property.type}',
+    };
   }
 
-  String _describeRelationType(obx_int.ModelRelation relation) {
-    final targetName = _modelDefinition.model.entities
+  String? _relationTarget(obx_int.ModelRelation relation) {
+    return _modelDefinition.model.entities
         .where((entity) => entity.id == relation.targetId)
         .map((entity) => entity.name)
         .cast<String?>()
@@ -193,10 +250,6 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
           (name) => name != null,
           orElse: () => relation.externalName,
         );
-    if (targetName == null || targetName.isEmpty) {
-      return 'relation';
-    }
-    return 'relation<$targetName>';
   }
 
   String _primaryNameField(String entityName) {
@@ -1067,13 +1120,44 @@ class ObjectBoxAdminFieldDescriptor {
     required this.nullable,
     required this.isPrimaryKey,
     required this.isPrimaryName,
+    this.isAssignable = false,
+    this.isGenerated = false,
+    this.isUnique = false,
+    this.metadata,
+    this.dartField,
+    this.relationshipTarget,
   });
 
   final String name;
   final String typeLabel;
-  final bool nullable;
+  final bool? nullable;
   final bool isPrimaryKey;
+  // Existing Data-grid primary-column placement, not Schema's semantic Name fact.
   final bool isPrimaryName;
+  final bool isAssignable;
+  final bool isGenerated;
+  final bool isUnique;
+  final AdminFieldMetadata? metadata;
+  final String? dartField;
+  final String? relationshipTarget;
+
+  bool get canEdit =>
+      !isPrimaryKey && !isGenerated && (metadata?.permitsDirectInput ?? false);
+
+  List<String> get attributes => [
+    if (isPrimaryKey) 'PK',
+    if (isGenerated) 'Generated',
+    if (isAssignable) 'Assignable',
+    if (metadata?.isName ?? false) 'Name',
+    if (metadata != null) (nullable == true ? 'Nullable' : 'Non-nullable'),
+    if (metadata?.requiredInput ?? false) 'Required',
+    if (isUnique) 'Unique',
+    if (dartField != null && dartField != name) 'Dart field: $dartField',
+    if (relationshipTarget != null) '→ $relationshipTarget',
+    if (metadata?.dateMeaning == AdminDateMeaning.calendarDay) 'Calendar day',
+    if (!canEdit) 'Read-only',
+    if (metadata == null) 'App metadata unavailable',
+  ];
 }
 
 class ObjectBoxAdminRow {

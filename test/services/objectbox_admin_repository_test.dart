@@ -15,9 +15,277 @@ import 'package:peak_bagger/models/route_graph_manifest.dart';
 import 'package:peak_bagger/models/route_graph_trail_display_chunk.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
+import 'package:peak_bagger/services/objectbox_admin_field_policy.dart';
+import 'package:objectbox/internal.dart' as obx;
 import 'package:peak_bagger/services/route_timing_service.dart';
 
 void main() {
+  test(
+    'reviewed app metadata covers exactly every persisted model member in order',
+    () {
+      final model = getObjectBoxModel();
+      final repository = ObjectBoxAdminRepositoryImpl(modelDefinition: model);
+      expect(repository.metadataCoverageIssues(), isEmpty);
+      final entities = repository.getEntities();
+      for (final entity in model.model.entities) {
+        final descriptor = entities.singleWhere(
+          (item) => item.name == entity.name,
+        );
+        final members = [
+          ...entity.properties.map((p) => p.name),
+          ...entity.relations.map((r) => r.name),
+        ];
+        expect(
+          descriptor.fields.map((field) => field.name),
+          members,
+          reason: entity.name,
+        );
+        expect(
+          descriptor.fields.map((field) => field.name).toSet(),
+          hasLength(members.length),
+        );
+        expect(
+          descriptor.fields.every((field) => field.metadata != null),
+          isTrue,
+        );
+      }
+      final broken = ObjectBoxAdminRepositoryImpl(
+        appMetadata: {
+          ...objectBoxAdminAppMetadata,
+          'Contact': {
+            'id': const AdminFieldMetadata('int'),
+            'stale': const AdminFieldMetadata('String'),
+          },
+        },
+      );
+      expect(
+        broken.metadataCoverageIssues(),
+        containsAll(['Missing: Contact.firstName', 'Stale: Contact.stale']),
+      );
+    },
+  );
+
+  test(
+    'schema semantics reflect declarations, not storage codes or record samples',
+    () {
+      final entities = ObjectBoxAdminRepositoryImpl().getEntities();
+      ObjectBoxAdminFieldDescriptor field(String entity, String member) =>
+          entities
+              .singleWhere((e) => e.name == entity)
+              .fields
+              .singleWhere((f) => f.name == member);
+      expect(
+        field('Route', 'id').attributes,
+        containsAll(['PK', 'Generated', 'Read-only']),
+      );
+      expect(
+        field('Peak', 'id').attributes,
+        containsAll(['PK', 'Assignable', 'Read-only']),
+      );
+      expect(field('Peak', 'id').attributes, isNot(contains('Generated')));
+      expect(field('Peak', 'name').typeLabel, 'String');
+      expect(field('Peak', 'name').attributes, [
+        'Name',
+        'Non-nullable',
+        'Required',
+      ]);
+      expect(field('Peak', 'altName').attributes, ['Non-nullable']);
+      expect(field('Peak', 'peakbaggerPid').typeLabel, 'int?');
+      expect(field('Peak', 'peakbaggerPid').attributes, ['Nullable']);
+      expect(field('Peak', 'osmId').isUnique, isTrue);
+      expect(field('Contact', 'firstName').attributes, [
+        'Name',
+        'Non-nullable',
+      ]);
+      expect(field('GpxTrack', 'trackDate').typeLabel, 'DateTime?');
+      expect(
+        field('GpxTrack', 'trackDate').metadata!.dateMeaning,
+        AdminDateMeaning.calendarDay,
+      );
+      expect(
+        field('GpxTrack', 'trackDate').attributes,
+        contains('Calendar day'),
+      );
+      expect(
+        field('GpxTrack', 'startDateTime').metadata!.dateMeaning,
+        AdminDateMeaning.timestamp,
+      );
+      expect(field('GpxTrack', 'peaks').typeLabel, 'ToMany<Peak>');
+      expect(field('GpxTrack', 'peaks').relationshipTarget, 'Peak');
+      final relation = field('PeakListItemEntity', 'peakListId');
+      expect(relation.typeLabel, 'ToOne<PeakList>');
+      expect(
+        relation.attributes,
+        containsAll(['Dart field: peakList', '→ PeakList', 'Read-only']),
+      );
+      expect(relation.attributes, isNot(contains('Required')));
+      expect(field('PeaksBagged', 'peakId').typeLabel, 'int');
+      expect(field('PeaksBagged', 'peakId').relationshipTarget, isNull);
+      expect(field('Route', 'gpxRouteJson').typeLabel, 'String');
+      expect(field('Route', 'gpxRouteJson').canEdit, isFalse);
+      // Data's historical primary-column choices stay intact, independently of
+      // whether the member is genuinely a display-name field in Schema.
+      expect(field('RouteGraphChunk', 'chunkKey').isPrimaryName, isTrue);
+      expect(
+        field('RouteGraphChunk', 'chunkKey').attributes,
+        isNot(contains('Name')),
+      );
+      expect(
+        field('RouteGraphManifest', 'readinessState').isPrimaryName,
+        isTrue,
+      );
+      expect(field('PeakListItemEntity', 'id').isPrimaryName, isTrue);
+      for (final name in [
+        'RouteGraphImportMetadata',
+        'TrackDateMigrationMetadata',
+        'PeakRegionFingerprint',
+        'TrackReplacementRecoveryIssue',
+      ]) {
+        expect(
+          entities
+              .singleWhere((e) => e.name == name)
+              .fields
+              .any((f) => f.attributes.contains('Name')),
+          isFalse,
+        );
+      }
+    },
+  );
+
+  test('direct input policy retains only the five existing field sets', () {
+    final expected = <String, Set<String>>{
+      'Peak': {
+        'name',
+        'altName',
+        'osmId',
+        'peakbaggerPid',
+        'elevation',
+        'prominence',
+        'country',
+        'county',
+        'range',
+        'rating',
+        'durationLabel',
+        'difficulty',
+        'viaFerrata',
+        'notes',
+        'latitude',
+        'longitude',
+        'region',
+        'mgrs100kId',
+        'easting',
+        'northing',
+        'verified',
+      },
+      'NaturalFeature': {
+        'name',
+        'altName',
+        'tag',
+        'country',
+        'county',
+        'region',
+        'latitude',
+        'longitude',
+        'mgrs100kId',
+        'easting',
+        'northing',
+        'sourceOfTruth',
+      },
+      'Contact': {'firstName', 'surname', 'nickname'},
+      'Route': {
+        'name',
+        'desc',
+        'visible',
+        'colour',
+        'distance2d',
+        'distance3d',
+        'ascent',
+        'descent',
+        'startElevation',
+        'endElevation',
+        'lowestElevation',
+        'highestElevation',
+      },
+      'PeakList': {'colour'},
+    };
+    for (final entity in ObjectBoxAdminRepositoryImpl().getEntities()) {
+      expect(
+        entity.fields.where((f) => f.canEdit).map((f) => f.name).toSet(),
+        expected[entity.name] ?? <String>{},
+        reason: entity.name,
+      );
+      expect(
+        entity.fields.where((f) => f.isPrimaryKey).every((f) => !f.canEdit),
+        isTrue,
+      );
+    }
+    final selector = objectBoxAdminFieldMetadata(
+      'NaturalFeature',
+      'sourceOfTruth',
+    )!;
+    expect(selector.input, AdminFieldInput.sourceOfTruthSelector);
+    expect(
+      objectBoxAdminFieldMetadata('Peak', 'sourceOfTruth')!.permitsDirectInput,
+      isFalse,
+    );
+    expect(objectBoxAdminFieldMetadata('FutureEntity', 'name'), isNull);
+    expect(
+      const ObjectBoxAdminFieldDescriptor(
+        name: 'id',
+        typeLabel: 'int',
+        nullable: false,
+        isPrimaryKey: true,
+        isPrimaryName: false,
+        metadata: AdminFieldMetadata('int', input: AdminFieldInput.text),
+      ).canEdit,
+      isFalse,
+    );
+    expect(
+      const AdminFieldMetadata(
+        'String',
+        generated: true,
+        input: AdminFieldInput.text,
+      ).permitsDirectInput,
+      isFalse,
+    );
+  });
+
+  test(
+    'unavailable app metadata browses actual names/storage and fails closed',
+    () {
+      final entities = ObjectBoxAdminRepositoryImpl(
+        appMetadata: {},
+      ).getEntities();
+      final peak = entities.first;
+      final name = peak.fields.singleWhere((f) => f.name == 'name');
+      expect(name.typeLabel, 'Storage: string');
+      expect(name.nullable, isNull);
+      expect(name.attributes, ['Read-only', 'App metadata unavailable']);
+      expect(entities.expand((e) => e.fields).every((f) => !f.canEdit), isTrue);
+      final model = getObjectBoxModel();
+      final property = model.model.entities.first.properties.first;
+      final originalType = property.type;
+      property.type =
+          9876; // Only this isolated in-memory model, never generated files.
+      addTearDown(() => property.type = originalType);
+      final unknown = ObjectBoxAdminRepositoryImpl(
+        modelDefinition: model,
+        appMetadata: {},
+      ).getEntities().first.fields.first;
+      expect(unknown.typeLabel, 'Storage type 9876');
+      expect(
+        unknown.attributes,
+        containsAll([
+          'PK',
+          'Assignable',
+          'Read-only',
+          'App metadata unavailable',
+        ]),
+      );
+      expect(property.hasFlag(obx.OBXPropertyFlags.ID), isTrue);
+    },
+  );
+
   test('getEntities exposes current schema metadata', () {
     final repository = ObjectBoxAdminRepositoryImpl(
       modelDefinition: getObjectBoxModel(),
@@ -141,7 +409,7 @@ void main() {
       entities[2].fields
           .singleWhere((field) => field.name == 'peaks')
           .typeLabel,
-      'relation<Peak>',
+      'ToMany<Peak>',
     );
     expect(entities[3].primaryKeyField, 'peakListId');
     expect(entities[3].primaryNameField, 'name');

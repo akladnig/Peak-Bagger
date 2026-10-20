@@ -860,6 +860,13 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     ObjectBoxAdminNotifier notifier,
     bool naturalFeatureMutationsLocked,
   ) {
+    if (state.schemaError != null) {
+      return ObjectBoxAdminErrorState(
+        key: const Key('objectbox-admin-schema-error-state'),
+        message: state.schemaError!,
+        onRetry: notifier.refresh,
+      );
+    }
     if (state.entities.isEmpty) {
       return const ObjectBoxAdminEmptyState(
         key: Key('objectbox-admin-empty-state'),
@@ -868,10 +875,16 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       );
     }
 
+    final entity = state.selectedEntity;
+    if (state.mode == ObjectBoxAdminViewMode.schema && entity != null) {
+      return ObjectBoxAdminSchemaView(entity: entity);
+    }
+
     if (state.error != null) {
       return ObjectBoxAdminErrorState(
         key: const Key('objectbox-admin-error-state'),
         message: state.error!,
+        onRetry: notifier.refresh,
       );
     }
 
@@ -879,17 +892,12 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       return const ObjectBoxAdminLoadingState();
     }
 
-    final entity = state.selectedEntity;
     if (entity == null) {
       return const ObjectBoxAdminEmptyState(
         key: Key('objectbox-admin-empty-state'),
         title: 'No entity selected',
         message: 'Choose an entity to inspect its schema or rows.',
       );
-    }
-
-    if (state.mode == ObjectBoxAdminViewMode.schema) {
-      return ObjectBoxAdminSchemaView(entity: entity);
     }
 
     final isPeakCreateMode =

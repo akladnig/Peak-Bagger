@@ -83,6 +83,7 @@ class ObjectBoxAdminState {
     this.selectedEntity,
     this.selectedRow,
     this.error,
+    this.schemaError,
     this.noMatches = false,
   });
 
@@ -93,6 +94,7 @@ class ObjectBoxAdminState {
   final bool sortAscending;
   final bool isLoading;
   final String? error;
+  final String? schemaError;
   final List<ObjectBoxAdminRow> rows;
   final int visibleRowCount;
   final ObjectBoxAdminRow? selectedRow;
@@ -106,12 +108,15 @@ class ObjectBoxAdminState {
   ObjectBoxAdminState copyWith({
     List<ObjectBoxAdminEntityDescriptor>? entities,
     ObjectBoxAdminEntityDescriptor? selectedEntity,
+    bool clearSelectedEntity = false,
     ObjectBoxAdminViewMode? mode,
     String? searchQuery,
     bool? sortAscending,
     bool? isLoading,
     String? error,
     bool clearError = false,
+    String? schemaError,
+    bool clearSchemaError = false,
     List<ObjectBoxAdminRow>? rows,
     int? visibleRowCount,
     ObjectBoxAdminRow? selectedRow,
@@ -120,12 +125,15 @@ class ObjectBoxAdminState {
   }) {
     return ObjectBoxAdminState(
       entities: entities ?? this.entities,
-      selectedEntity: selectedEntity ?? this.selectedEntity,
+      selectedEntity: clearSelectedEntity
+          ? null
+          : (selectedEntity ?? this.selectedEntity),
       mode: mode ?? this.mode,
       searchQuery: searchQuery ?? this.searchQuery,
       sortAscending: sortAscending ?? this.sortAscending,
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
+      schemaError: clearSchemaError ? null : (schemaError ?? this.schemaError),
       rows: rows ?? this.rows,
       visibleRowCount: visibleRowCount ?? this.visibleRowCount,
       selectedRow: clearSelectedRow ? null : (selectedRow ?? this.selectedRow),
@@ -141,11 +149,26 @@ final objectboxAdminProvider =
 
 class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   late final ObjectBoxAdminRepository _repository;
+  int _readGeneration = 0;
+  String? _recoveryEntityName;
 
   @override
   ObjectBoxAdminState build() {
     _repository = ref.read(objectboxAdminRepositoryProvider);
-    final entities = _normalizeEntities(_repository.getEntities());
+    List<ObjectBoxAdminEntityDescriptor> entities;
+    String? schemaError;
+    try {
+      entities = _normalizeEntities(_repository.getEntities());
+    } catch (error, stackTrace) {
+      logObjectBoxAdminError(
+        error,
+        stackTrace,
+        'ObjectBox admin schema discovery failed',
+      );
+      entities = [];
+      schemaError =
+          'Unable to discover the ObjectBox schema. Retry to load metadata.';
+    }
     final launchSelection = consumeObjectBoxAdminPendingPeakSelection();
     final launchPeakId = launchSelection?.peakId;
     ObjectBoxAdminEntityDescriptor? initialEntity;
@@ -155,6 +178,8 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
       initialEntity = _peakEntity(entities);
       initialEntity ??= entities.isNotEmpty ? entities.first : null;
     }
+    _recoveryEntityName =
+        initialEntity?.name ?? (launchPeakId != null ? 'Peak' : null);
 
     final initialState = ObjectBoxAdminState(
       entities: entities,
@@ -166,12 +191,15 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
       rows: const [],
       visibleRowCount: 0,
       noMatches: false,
+      schemaError: schemaError,
     );
 
     if (initialEntity != null) {
-      Future.microtask(
-        () => _loadSelectedEntity(keepSelectedRowPrimaryKey: launchPeakId),
-      );
+      final generation = _readGeneration;
+      Future<void>.microtask(() async {
+        if (!ref.mounted || generation != _readGeneration) return;
+        await _loadSelectedEntity(keepSelectedRowPrimaryKey: launchPeakId);
+      });
     }
 
     return initialState;
@@ -181,6 +209,8 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
     ObjectBoxAdminEntityDescriptor entity, {
     Object? keepSelectedRowPrimaryKey,
   }) async {
+    if (state.schemaError != null || !state.entities.contains(entity)) return;
+    _recoveryEntityName = entity.name;
     state = state.copyWith(
       selectedEntity: entity,
       isLoading: true,
@@ -199,7 +229,30 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   }
 
   Future<void> refresh({Object? keepSelectedRowPrimaryKey}) async {
-    final entities = _normalizeEntities(_repository.getEntities());
+    ++_readGeneration;
+    _recoveryEntityName = state.selectedEntity?.name ?? _recoveryEntityName;
+    List<ObjectBoxAdminEntityDescriptor> entities;
+    try {
+      entities = _normalizeEntities(_repository.getEntities());
+    } catch (error, stackTrace) {
+      logObjectBoxAdminError(
+        error,
+        stackTrace,
+        'ObjectBox admin schema discovery failed',
+      );
+      state = state.copyWith(
+        schemaError:
+            'Unable to discover the ObjectBox schema. Retry to load metadata.',
+        entities: const [],
+        clearSelectedEntity: true,
+        isLoading: false,
+        clearSelectedRow: true,
+        rows: const [],
+        visibleRowCount: 0,
+        noMatches: false,
+      );
+      return;
+    }
     final pendingSelection = consumeObjectBoxAdminPendingPeakSelection();
     final selectedEntity = pendingSelection != null
         ? (_peakEntity(entities) ?? _resolveSelectedEntity(entities))
@@ -207,11 +260,13 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
     final searchQuery = pendingSelection?.searchQuery ?? state.searchQuery;
     final selectedRowPrimaryKey =
         pendingSelection?.peakId ?? keepSelectedRowPrimaryKey;
+    _recoveryEntityName = selectedEntity?.name;
 
     if (selectedEntity == null) {
       state = state.copyWith(
         entities: entities,
-        selectedEntity: null,
+        clearSelectedEntity: true,
+        clearSchemaError: true,
         isLoading: false,
         clearError: true,
         clearSelectedRow: true,
@@ -225,6 +280,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
     state = state.copyWith(
       entities: entities,
       selectedEntity: selectedEntity,
+      clearSchemaError: true,
       mode: pendingSelection != null ? ObjectBoxAdminViewMode.data : state.mode,
       searchQuery: searchQuery,
       isLoading: true,
@@ -286,6 +342,8 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   }
 
   Future<void> _loadSelectedEntity({Object? keepSelectedRowPrimaryKey}) async {
+    if (!ref.mounted || state.schemaError != null) return;
+    final generation = ++_readGeneration;
     final entity = state.selectedEntity;
     if (entity == null) {
       state = state.copyWith(
@@ -305,7 +363,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
         ascending: state.sortAscending,
       );
 
-      if (!ref.mounted) {
+      if (!ref.mounted || generation != _readGeneration) {
         return;
       }
 
@@ -315,7 +373,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
 
       state = state.copyWith(
         isLoading: false,
-        error: null,
+        clearError: true,
         rows: rows,
         visibleRowCount: rows.isEmpty ? 0 : min(50, rows.length),
         noMatches: rows.isEmpty,
@@ -329,7 +387,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
         stackTrace,
         'ObjectBox admin load failed for ${entity.displayName}',
       );
-      if (!ref.mounted) {
+      if (!ref.mounted || generation != _readGeneration) {
         return;
       }
       state = state.copyWith(
@@ -380,7 +438,7 @@ class ObjectBoxAdminNotifier extends Notifier<ObjectBoxAdminState> {
   ObjectBoxAdminEntityDescriptor? _resolveSelectedEntity(
     List<ObjectBoxAdminEntityDescriptor> entities,
   ) {
-    final currentName = state.selectedEntity?.name;
+    final currentName = state.selectedEntity?.name ?? _recoveryEntityName;
     if (currentName != null) {
       for (final entity in entities) {
         if (entity.name == currentName) {
