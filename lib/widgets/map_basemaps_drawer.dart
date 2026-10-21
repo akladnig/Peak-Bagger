@@ -222,29 +222,35 @@ class _OverlayControlState extends ConsumerState<_OverlayControl> {
           Row(
             key: Key('overlay-opacity-${widget.overlayKey}'),
             children: [
-              const Text('Opacity'),
               Expanded(
                 child: Slider(
                   value: widget.opacity.toDouble(),
                   min: 0,
                   max: 100,
                   divisions: 20,
-                  label: '${widget.opacity}%',
+                  semanticFormatterCallback: (value) =>
+                      '${widget.label} opacity ${value.round()}%',
                   onChanged: (value) => ref
                       .read(localTopoOverlaySettingsProvider.notifier)
                       .setOpacity(widget.overlayKey, value.round()),
                 ),
               ),
               SizedBox(
-                width: 64,
-                child: TextField(
-                  key: Key('overlay-opacity-input-${widget.overlayKey}'),
-                  controller: _opacityController,
-                  focusNode: _opacityFocusNode,
-                  keyboardType: TextInputType.number,
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _commitOpacity(),
-                  decoration: const InputDecoration(suffixText: '%'),
+                width: MediaQuery.textScalerOf(context).scale(72) + 24,
+                child: Semantics(
+                  label: '${widget.label} opacity',
+                  child: TextField(
+                    key: Key('overlay-opacity-input-${widget.overlayKey}'),
+                    controller: _opacityController,
+                    focusNode: _opacityFocusNode,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _commitOpacity(),
+                    decoration: const InputDecoration(
+                      labelText: 'Opacity',
+                      suffixText: '%',
+                    ),
+                  ),
                 ),
               ),
             ],

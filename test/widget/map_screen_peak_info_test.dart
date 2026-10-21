@@ -508,7 +508,7 @@ void main() {
       'Bonnet Hill Summit',
     );
     expect(find.text('Bonnet Hill Summit'), findsOneWidget);
-    expect(find.text('Height: 1234 m'), findsOneWidget);
+    expect(find.text('Elevation: 1234 m'), findsOneWidget);
 
     final saved = peakRepository.findById(1)!;
     expect(saved.name, 'Bonnet Hill Summit');
@@ -1105,7 +1105,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(find.text('Height: 1234 m'), findsOneWidget);
+    expect(find.text('Elevation: 1234 m'), findsOneWidget);
     expect(find.text('Map: Adamsons'), findsOneWidget);
     expect(find.text('MGRS: 55G DM 80000 95000'), findsOneWidget);
     expect(find.text('Lists: Abels, HWC'), findsOneWidget);
@@ -1173,7 +1173,7 @@ void main() {
       find.byKey(const Key('peak-info-popup-drop-marker')),
       findsOneWidget,
     );
-    expect(find.text('Height: 1234 m'), findsOneWidget);
+    expect(find.text('Elevation: 1234 m'), findsOneWidget);
     expect(find.text('My Ascents:'), findsOneWidget);
     expect(find.text('Alpha Loop (16 May 2026)'), findsOneWidget);
     expect(find.text('Beta Loop (16 May 2026)'), findsOneWidget);
@@ -1493,7 +1493,7 @@ void main() {
     );
     expect(
       tester.getTopLeft(find.text('Alt Name: Kunanyi foothill')).dy,
-      lessThan(tester.getTopLeft(find.text('Height: 1234 m')).dy),
+      lessThan(tester.getTopLeft(find.text('Elevation: 1234 m')).dy),
     );
   });
 

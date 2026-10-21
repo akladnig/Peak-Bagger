@@ -85,6 +85,10 @@ import 'map_screen_layers.dart';
 import 'map_screen_peak_layer.dart';
 import 'map_screen_panels.dart';
 
+class _FocusMapSearchIntent extends Intent {
+  const _FocusMapSearchIntent();
+}
+
 class DismissSurfaceIntent extends Intent {
   const DismissSurfaceIntent();
 }
@@ -149,6 +153,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   final _gotoController = TextEditingController();
   final _gotoFocusNode = FocusNode();
   final _searchFocusNode = FocusNode();
+  final _searchPopupKey = GlobalKey<MapSearchPopupState>();
   final _mapFocusNode = FocusNode();
   String? _gotoError;
   bool _mapReady = false;
@@ -1360,6 +1365,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final name = await showRouteTextPromptDialog(
       context,
       title: 'Create Waypoint',
+      fieldLabel: 'Waypoint name',
       initialValue: '',
       blankErrorText: 'A Waypoint name must be entered',
       dialogKey: const Key('route-waypoint-name-dialog'),
@@ -2744,6 +2750,14 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _routeDraftOverlayVisible = false;
   }
 
+  bool _canFocusMapSearch() =>
+      mounted &&
+      !ref.read(mapProvider).isSavingRoute &&
+      TickerMode.valuesOf(context).enabled &&
+      (ModalRoute.of(context)?.isCurrent ?? true) &&
+      !(_scaffoldKey.currentState?.isEndDrawerOpen ?? false) &&
+      !(_scaffoldKey.currentState?.isDrawerOpen ?? false);
+
   @override
   Widget build(BuildContext context) {
     MapRebuildDebugCounters.recordRouteRootBuild();
@@ -2756,6 +2770,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
         (state) => (
           endDrawerMode: state.endDrawerMode,
           showPeakSearch: state.showPeakSearch,
+          isSavingRoute: state.isSavingRoute,
           peakSearchMappingUnavailableReason:
               state.peakSearchMappingUnavailableReason,
           searchResults: state.searchPopupResults,
@@ -2809,12 +2824,25 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     return Shortcuts(
       shortcuts: const {
+        SingleActivator(LogicalKeyboardKey.keyF, meta: true):
+            _FocusMapSearchIntent(),
         SingleActivator(LogicalKeyboardKey.escape): DismissSurfaceIntent(),
         SingleActivator(LogicalKeyboardKey.keyC, control: true):
             DismissSurfaceIntent(),
       },
       child: Actions(
         actions: {
+          _FocusMapSearchIntent: CallbackAction<_FocusMapSearchIntent>(
+            onInvoke: (_) {
+              if (!_canFocusMapSearch()) return null;
+              if (ref.read(mapProvider).showPeakSearch) {
+                _searchPopupKey.currentState?.focusSearch();
+              } else {
+                ref.read(mapProvider.notifier).openSearchPopup();
+              }
+              return null;
+            },
+          ),
           DismissSurfaceIntent: CallbackAction<DismissSurfaceIntent>(
             onInvoke: (intent) => _dismissHighestPrioritySurface(),
           ),
@@ -2871,13 +2899,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
               } else if (mapState.routeDraftCanUndo) {
                 notifier.undoRouteDraftEdit();
               }
-              return KeyEventResult.handled;
-            }
-
-            if (event is KeyDownEvent &&
-                HardwareKeyboard.instance.isMetaPressed &&
-                key == LogicalKeyboardKey.keyF) {
-              notifier.openSearchPopup();
               return KeyEventResult.handled;
             }
 
@@ -4310,6 +4331,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     child: Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: MapSearchPopup(
+                        key: _searchPopupKey,
+                        enabled: !routeChrome.isSavingRoute,
+                        isInteractionAllowed: _canFocusMapSearch,
                         focusNode: _searchFocusNode,
                         searchResults: routeChrome.searchResults,
                         isLoadingMore: routeChrome.searchIsLoadingMore,

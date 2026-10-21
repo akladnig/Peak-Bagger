@@ -24,6 +24,7 @@ import 'package:peak_bagger/services/track_date_calendar_codec.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/peak_marker_glyph.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
+import 'package:peak_bagger/widgets/shared_field_decoration.dart';
 
 typedef PeakInfoPopupEditCallback = FutureOr<void> Function();
 typedef PeakInfoPopupSaveCallback = Future<String?> Function(Peak peak);
@@ -1643,7 +1644,6 @@ class _RouteWalkingSpeedControlState extends State<_RouteWalkingSpeedControl> {
 
   @override
   Widget build(BuildContext context) {
-    final textStyle = Theme.of(context).textTheme.bodySmall;
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.minus): () =>
@@ -1661,115 +1661,75 @@ class _RouteWalkingSpeedControlState extends State<_RouteWalkingSpeedControl> {
       },
       child: Padding(
         padding: const EdgeInsets.only(top: 6, bottom: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+        child: MouseRegion(
+          cursor: _cursorForEnabled(widget.enabled),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.enabled
+                ? () => _textFieldFocusNode.requestFocus()
+                : null,
+            child: Wrap(
+              key: const Key('route-walking-speed-control'),
+              spacing: 4,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Expanded(
-                  flex: 3,
-                  child: Text('Walking Speed', style: textStyle),
+                IconButton(
+                  key: const Key('route-walking-speed-decrement'),
+                  onPressed: widget.enabled
+                      ? () {
+                          _textFieldFocusNode.requestFocus();
+                          _changeSpeed(-routeTimingWalkingSpeedStepKmh);
+                        }
+                      : null,
+                  icon: const Icon(
+                    Icons.remove,
+                    semanticLabel: 'Decrease walking speed',
+                  ),
                 ),
-                Expanded(
-                  flex: 2,
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerRight,
-                      child: MouseRegion(
-                        cursor: _cursorForEnabled(widget.enabled),
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: widget.enabled
-                              ? () => _textFieldFocusNode.requestFocus()
-                              : null,
-                          child: Row(
-                            key: const Key('route-walking-speed-control'),
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                key: const Key('route-walking-speed-decrement'),
-                                onPressed: widget.enabled
-                                    ? () {
-                                        _textFieldFocusNode.requestFocus();
-                                        _changeSpeed(
-                                          -routeTimingWalkingSpeedStepKmh,
-                                        );
-                                      }
-                                    : null,
-                                icon: const Icon(Icons.remove),
-                                tooltip: 'Decrease walking speed',
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              SizedBox(
-                                width: 68,
-                                child: TextField(
-                                  key: const Key('route-walking-speed-field'),
-                                  controller: _controller,
-                                  focusNode: _textFieldFocusNode,
-                                  enabled: widget.enabled,
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(
-                                        decimal: true,
-                                      ),
-                                  textAlign: TextAlign.center,
-                                  decoration: const InputDecoration(
-                                    isDense: true,
-                                    border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  onChanged: (_) {
-                                    if (_errorText != null) {
-                                      setState(() => _errorText = null);
-                                    }
-                                  },
-                                  onSubmitted: (_) => _commitTextField(),
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'km/h',
-                                key: const Key('route-walking-speed-value'),
-                              ),
-                              IconButton(
-                                key: const Key('route-walking-speed-increment'),
-                                onPressed: widget.enabled
-                                    ? () {
-                                        _textFieldFocusNode.requestFocus();
-                                        _changeSpeed(
-                                          routeTimingWalkingSpeedStepKmh,
-                                        );
-                                      }
-                                    : null,
-                                icon: const Icon(Icons.add),
-                                tooltip: 'Increase walking speed',
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                SizedBox(
+                  width: MediaQuery.textScalerOf(context).scale(120) + 24,
+                  child: TextField(
+                    key: const Key('route-walking-speed-field'),
+                    controller: _controller,
+                    focusNode: _textFieldFocusNode,
+                    enabled: widget.enabled,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
                     ),
+                    textAlign: TextAlign.center,
+                    decoration: InputDecoration(
+                      labelText: 'Walking Speed',
+                      error: _errorText == null
+                          ? null
+                          : SharedFieldError(
+                              _errorText!,
+                              key: const Key('route-walking-speed-error'),
+                            ),
+                    ),
+                    onChanged: (_) {
+                      if (_errorText != null) setState(() => _errorText = null);
+                    },
+                    onSubmitted: (_) => _commitTextField(),
+                  ),
+                ),
+                const Text('km/h', key: Key('route-walking-speed-value')),
+                IconButton(
+                  key: const Key('route-walking-speed-increment'),
+                  onPressed: widget.enabled
+                      ? () {
+                          _textFieldFocusNode.requestFocus();
+                          _changeSpeed(routeTimingWalkingSpeedStepKmh);
+                        }
+                      : null,
+                  icon: const Icon(
+                    Icons.add,
+                    semanticLabel: 'Increase walking speed',
                   ),
                 ),
               ],
             ),
-            if (_errorText != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  _errorText!,
-                  key: const Key('route-walking-speed-error'),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );
@@ -1984,10 +1944,8 @@ class MapGotoPanel extends StatelessWidget {
                       key: const Key('goto-map-input'),
                       focusNode: focusNode,
                       controller: controller,
-                      decoration: InputDecoration(
-                        hintText: 'Go to location',
-                        isDense: true,
-                        border: const OutlineInputBorder(),
+                      decoration: sharedFieldDecoration(
+                        labelText: 'Go to location',
                         errorText: errorText,
                       ),
                       onChanged: onChanged,
@@ -2341,6 +2299,7 @@ Future<String?> showFavouriteNameDialog(
 Future<String?> showRouteTextPromptDialog(
   BuildContext context, {
   required String title,
+  String fieldLabel = 'Route name',
   required String initialValue,
   required String blankErrorText,
   required Key dialogKey,
@@ -2354,6 +2313,7 @@ Future<String?> showRouteTextPromptDialog(
     context: context,
     builder: (context) => _RouteTextPromptDialog(
       title: title,
+      fieldLabel: fieldLabel,
       initialValue: initialValue,
       blankErrorText: blankErrorText,
       dialogKey: dialogKey,
@@ -2369,6 +2329,7 @@ Future<String?> showRouteTextPromptDialog(
 class _RouteTextPromptDialog extends StatefulWidget {
   const _RouteTextPromptDialog({
     required this.title,
+    required this.fieldLabel,
     required this.initialValue,
     required this.blankErrorText,
     required this.dialogKey,
@@ -2380,6 +2341,7 @@ class _RouteTextPromptDialog extends StatefulWidget {
   });
 
   final String title;
+  final String fieldLabel;
   final String initialValue;
   final String blankErrorText;
   final Key dialogKey;
@@ -2434,7 +2396,10 @@ class _RouteTextPromptDialogState extends State<_RouteTextPromptDialog> {
           key: widget.inputKey,
           controller: _controller,
           autofocus: true,
-          decoration: InputDecoration(errorText: _errorText),
+          decoration: sharedFieldDecoration(
+            labelText: widget.fieldLabel,
+            errorText: _errorText,
+          ),
           onSubmitted: (_) => _submit(),
         ),
         actions: [
@@ -2501,7 +2466,10 @@ class _FavouriteNameDialogState extends State<FavouriteNameDialog> {
           key: const Key('favourite-name-input'),
           controller: _controller,
           autofocus: true,
-          decoration: InputDecoration(errorText: _errorText),
+          decoration: sharedFieldDecoration(
+            labelText: 'Favourite name',
+            errorText: _errorText,
+          ),
           onSubmitted: (_) => _submit(),
         ),
         actions: [
@@ -2909,10 +2877,8 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                   key: const Key('peak-info-popup-name'),
                   controller: _nameController,
                   enabled: !_isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Name',
-                    isDense: true,
-                    border: const OutlineInputBorder(),
                     errorText: _nameError,
                   ),
                   onChanged: (_) => _clearFieldErrors(),
@@ -2971,14 +2937,13 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                   key: const Key('peak-info-popup-elevation'),
                   controller: _elevationController,
                   enabled: !_isSaving,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Height',
-                    isDense: true,
-                    border: const OutlineInputBorder(),
-                    suffixText: 'm',
-                    errorText: _elevationError,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    signed: true,
                   ),
+                  decoration: sharedFieldDecoration(
+                    labelText: 'Elevation',
+                    errorText: _elevationError,
+                  ).copyWith(suffixText: 'm'),
                   onChanged: (_) => _clearFieldErrors(),
                 ),
                 if (mgrsText != null) ...[
@@ -3003,7 +2968,7 @@ class _PeakInfoPopupCardState extends State<PeakInfoPopupCard> {
                   const SizedBox(height: 4),
                 ],
                 _PeakInfoLabeledValueRow(
-                  label: 'Height:',
+                  label: 'Elevation:',
                   value: peak.elevation == null
                       ? '—'
                       : formatElevation(peak.elevation!.round()),

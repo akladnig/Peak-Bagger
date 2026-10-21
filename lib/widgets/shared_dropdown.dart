@@ -463,10 +463,10 @@ class _SharedDropdownState<T> extends State<SharedDropdown<T>> {
                         ),
                         child: LayoutBuilder(
                           builder: (context, constraints) {
-                            final padding = theme
-                                .inputDecorationTheme
-                                .contentPadding!
-                                .resolve(direction);
+                            final padding =
+                                (theme.inputDecorationTheme.contentPadding ??
+                                        const EdgeInsets.all(12))
+                                    .resolve(direction);
                             final labelStyle = theme.textTheme.titleMedium!
                                 .merge(theme.inputDecorationTheme.labelStyle)
                                 .copyWith(height: 1);
