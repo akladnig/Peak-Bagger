@@ -82,6 +82,12 @@ Completed: all 16 Work Item acceptance criteria are verified.
   wrapped-label clearance and reopening with the committed check revealed.
 - Additional final hint-width/no-op-Enter regression: **4 passed**, including retained
   long hints through nullable/unavailable selections.
+- Resumed review: `flutter analyze` **passed with no issues**, including the added
+  native resize runner. No production behaviour changed during this continuation.
+- Continuation full-suite rerun: `TZ=Australia/Hobart flutter test --reporter expanded`
+  **passed, 2,812 tests, 7 skips, zero failures (25:32)**. This independently confirms
+  the implementation run above; its result does not supersede the recorded skip
+  boundaries or claim completion of other Work Items.
 
 Initial runs caught a numeric width inference error, MaterialColor-vs-Color test
 equality, an intentionally lock-changed fixture needing a rebuild to become
@@ -127,6 +133,16 @@ It attempts to restore its original native frame on completion/failure.
   non-framework `Resize timed out` warning during teardown; its four input checks,
   framework-error check and fixture cleanup completed. No claim is made that this
   warning proves a production layout fault or a verified native frame restoration.
+- Native resize: **four combinations passed** using
+  `flutter run -d macos -t test/harness/verify_shared_dropdown.dart --dart-define=DROPDOWN_NATIVE_RESIZE_ONLY=true`.
+  Each combination opens a menu before actual macOS content resizing through
+  **1280 × 960 → 1600 × 1000 → 1280 × 960**, at **2× text**, alternating default
+  light and custom dark themes. Values and unsaved drafts survive; any menu closed
+  by metrics changes leaves no orphan and reopens normally. Menus remain within
+  content bounds, and OS Escape restores eligible trigger focus without selection.
+  The framework-error and fixture cleanup checks passed. The runner emitted the
+  same non-framework `Resize timed out` warning during teardown; restoration of
+  the original native frame is not claimed as verified.
 - All native builds completed with the existing upstream ObjectBox Swift Package
   Manager fallback warning. Native rendering/input is separate from painted widget
   assertions and attributed human visual acceptance.

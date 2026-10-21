@@ -68,8 +68,9 @@ Future<void> main() async {
     var count = 0;
     final state = key.currentState!;
     const pointerOnly = bool.fromEnvironment('DROPDOWN_NATIVE_POINTER_ONLY');
+    const resizeOnly = bool.fromEnvironment('DROPDOWN_NATIVE_RESIZE_ONLY');
     for (final size
-        in pointerOnly
+        in pointerOnly || resizeOnly
             ? <Size>[]
             : [const Size(1280, 960), const Size(1600, 1000)]) {
       for (final theme in [
@@ -223,7 +224,102 @@ CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: poi
       await _settle();
     }
 
-    for (final trigger in SharedDropdownTrigger.values) {
+    if (!pointerOnly) {
+      for (final trigger in SharedDropdownTrigger.values) {
+        for (final rows in SharedDropdownRows.values) {
+          state.update(() {
+            state.trigger = trigger;
+            state.rows = rows;
+            state.selected = 'a';
+            state.scale = 2;
+          });
+          await _settle();
+          final calls = state.selections;
+          for (final size in [
+            const Size(1280, 960),
+            const Size(1600, 1000),
+            const Size(1280, 960),
+          ]) {
+            state.focus.requestFocus();
+            await _settle();
+            await input('key code 36');
+            await _waitFor(
+              () => state.menu.isOpen && !state.focus.hasFocus,
+              'Resize check could not open/focus menu',
+            );
+            final frameResult = await script('get size of window 1');
+            _check(frameResult.exitCode == 0, 'Cannot inspect resize frame');
+            final frame = frameResult.stdout
+                .toString()
+                .trim()
+                .split(',')
+                .map((value) => double.parse(value.trim()))
+                .toList();
+            final view =
+                WidgetsBinding.instance.platformDispatcher.views.single;
+            final client = view.physicalSize / view.devicePixelRatio;
+            // Resize the actual native content, accounting for window chrome.
+            final width = (frame[0] + size.width - client.width).round();
+            final height = (frame[1] + size.height - client.height).round();
+            await input('set size of window 1 to {$width, $height}');
+            await _waitFor(() {
+              final actual = view.physicalSize / view.devicePixelRatio;
+              return (actual.width - size.width).abs() < 2 &&
+                  (actual.height - size.height).abs() < 2;
+            }, 'Native content did not resize to $size');
+            state.update(() {
+              state.size = size;
+              state.theme = size.width == 1280
+                  ? MyTheme.light
+                  : MyTheme.darkWith(custom);
+            });
+            await _settle();
+            _check(
+              state.selected == 'a' &&
+                  state.selections == calls &&
+                  state.draft.text == 'Unsaved draft',
+              'Native resize/theme rebuild changed value or draft',
+            );
+            if (!state.menu.isOpen) {
+              _check(
+                !_hasElement('shared-dropdown-menu'),
+                'Resize left an orphan overlay',
+              );
+              state.focus.requestFocus();
+              await _settle();
+              await input('key code 36');
+            }
+            await _waitFor(
+              () => state.menu.isOpen && !state.focus.hasFocus,
+              'Resized menu did not reopen/focus',
+            );
+            final menu =
+                _element('shared-dropdown-menu').findRenderObject()!
+                    as RenderBox;
+            final rect = menu.localToGlobal(Offset.zero) & menu.size;
+            _check(
+              rect.left >= 8 &&
+                  rect.top >= 8 &&
+                  rect.right <= size.width - 8 &&
+                  rect.bottom <= size.height - 8,
+              'Resized menu outside native content: $rect in $size',
+            );
+            await input('key code 53');
+            await _waitFor(
+              () => !state.menu.isOpen && state.focus.hasFocus,
+              'Resized menu did not dismiss/restore focus',
+            );
+            _check(errors.isEmpty, 'Framework errors during native resize');
+          }
+          stdout.writeln('PASS native resize/draft/theme $trigger $rows');
+        }
+      }
+    }
+
+    for (final trigger
+        in resizeOnly
+            ? <SharedDropdownTrigger>[]
+            : SharedDropdownTrigger.values) {
       for (final rows in SharedDropdownRows.values) {
         state.update(() {
           state.trigger = trigger;
@@ -254,9 +350,11 @@ CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: poi
     _check(errors.isEmpty, 'Errors during native cleanup');
     await restore();
     stdout.writeln(
-      pointerOnly
+      resizeOnly
+          ? 'PASS shared dropdown native resize: 4 combinations, no production services/data'
+          : pointerOnly
           ? 'PASS shared dropdown native pointer: 4 combinations, no production services/data'
-          : 'PASS shared dropdown native: $count keyboard configurations and 4 pointer combinations, no production services/data',
+          : 'PASS shared dropdown native: $count keyboard configurations, 4 resize and 4 pointer combinations, no production services/data',
     );
     exit(0);
   } catch (error, stack) {
@@ -305,4 +403,15 @@ Element _element(String key) {
 
   visit(WidgetsBinding.instance.rootElement!);
   return match ?? (throw StateError('Missing $key'));
+}
+
+bool _hasElement(String key) {
+  var found = false;
+  void visit(Element element) {
+    if (element.widget.key == ValueKey(key)) found = true;
+    element.visitChildren(visit);
+  }
+
+  visit(WidgetsBinding.instance.rootElement!);
+  return found;
 }

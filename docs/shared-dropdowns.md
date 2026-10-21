@@ -72,6 +72,8 @@ Native pointer injection uses CoreGraphics through the installed Xcode Swift too
 `--dart-define=DROPDOWN_NATIVE_POINTER_ONLY=true` reruns only the four pointer
 combinations without repeating the keyboard matrix. This is fixture configuration,
 not an application preference.
+`--dart-define=DROPDOWN_NATIVE_RESIZE_ONLY=true` isolates the real macOS
+content-resize/open-menu/draft/theme checks for all four combinations at 2× text.
 
 See Spec 0069's `implementation-01-verification.md` for actual command outcomes and
 the automated/native/human-evidence distinction. No template-parity or inherited
