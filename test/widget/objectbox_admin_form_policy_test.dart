@@ -11,6 +11,7 @@ import 'package:peak_bagger/services/objectbox_admin_field_policy.dart';
 import 'package:peak_bagger/services/route_admin_editor.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/objectbox_admin_read_only_value.dart';
+import 'package:peak_bagger/widgets/shared_dropdown.dart';
 
 import '../harness/admin_form_fixture.dart';
 
@@ -69,6 +70,48 @@ const _textFields = {
 };
 
 void main() {
+  testWidgets(
+    'Natural Feature selector owns only the draft and rejects a stale choice as Save begins',
+    (tester) async {
+      final pending = Completer<String?>();
+      final fixture = AdminFormFixture('NaturalFeature')
+        ..save = () => pending.future;
+      await _pump(tester, fixture);
+      await _edit(tester, fixture);
+      final selector = find.byKey(
+        const Key('objectbox-admin-natural-feature-source-of-truth'),
+      );
+      await _reveal(tester, fixture, selector);
+      await tester.tap(selector);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Manual').last);
+      await tester.pumpAndSettle();
+      expect(fixture.submitted, isEmpty);
+      expect(tester.widget<SharedDropdown<String>>(selector).value, 'Manual');
+      await tester.tap(selector);
+      await tester.pumpAndSettle();
+      final option = find.text('OSM').last;
+      final row = find
+          .ancestor(of: option, matching: find.byType(GestureDetector))
+          .first;
+      final stale = tester.widget<GestureDetector>(row).onTap!;
+      // Invoke Save directly, before rebuilding its lock into the selector.
+      tester
+          .widget<FilledButton>(find.byKey(Key(fixture.saveKey)))
+          .onPressed!();
+      stale();
+      await tester.pump();
+      expect(fixture.submitted, hasLength(1));
+      expect(find.byKey(const Key('shared-dropdown-menu')), findsNothing);
+      pending.complete('Could not save. Retry.');
+      await tester.pumpAndSettle();
+      await _reveal(tester, fixture, selector);
+      expect(tester.widget<SharedDropdown<String>>(selector).value, 'Manual');
+      expect(fixture.submitted, hasLength(1));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final name in AdminFormFixture.names) {
     testWidgets('$name record/route replacement disposes the old draft owner', (
       tester,
@@ -137,14 +180,13 @@ void main() {
           const Key('objectbox-admin-natural-feature-source-of-truth'),
         );
         await _reveal(tester, fixture, selector);
-        final dropdown = tester.widget<DropdownButton<String>>(
-          find.descendant(
-            of: selector,
-            matching: find.byType(DropdownButton<String>),
-          ),
-        );
-        expect(dropdown.items!.map((item) => item.value), ['OSM', 'Manual']);
-        expect(dropdown.onChanged, isNotNull);
+        await tester.tap(selector);
+        await tester.pumpAndSettle();
+        expect(find.text('OSM').last, findsOneWidget);
+        expect(find.text('Manual').last, findsOneWidget);
+        await tester.tap(find.text('Manual').last);
+        await tester.pumpAndSettle();
+        expect(tester.widget<SharedDropdown<String>>(selector).value, 'Manual');
       }
       final id = find.byKey(Key('objectbox-admin-${fixture.prefix}-id'));
       await _reveal(tester, fixture, id);
@@ -211,7 +253,7 @@ void main() {
       }
       expect(find.byType(TextFormField), findsNothing);
       expect(find.byType(SwitchListTile), findsNothing);
-      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+      expect(find.byType(SharedDropdown<String>), findsNothing);
       expect(fixture.submitted, isEmpty);
       expect(fixture.entity.fields.every((field) => !field.canEdit), isTrue);
       expect(tester.takeException(), isNull);

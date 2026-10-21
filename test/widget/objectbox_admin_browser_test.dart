@@ -26,6 +26,7 @@ import 'package:peak_bagger/services/route_repository.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen_states.dart';
 import 'package:peak_bagger/widgets/objectbox_admin_read_only_value.dart';
+import 'package:peak_bagger/widgets/shared_dropdown.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_objectbox_admin_repository.dart';
@@ -186,11 +187,11 @@ void main() {
       await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();
       final dropdown = tester
-          .widget<DropdownButton<ObjectBoxAdminEntityDescriptor>>(
-            find.byType(DropdownButton<ObjectBoxAdminEntityDescriptor>),
+          .widget<SharedDropdown<ObjectBoxAdminEntityDescriptor?>>(
+            find.byKey(const Key('objectbox-admin-entity-dropdown')),
           );
       expect(dropdown.value, same(fresh.singleWhere((e) => e.name == 'Route')));
-      expect(dropdown.items, hasLength(18));
+      expect(dropdown.choices, hasLength(18));
       expect(find.text('Route schema'), findsOneWidget);
       expect(find.text('Field'), findsOneWidget);
       expect(repository.exportCallCount, 0);

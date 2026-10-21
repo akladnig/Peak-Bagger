@@ -511,21 +511,13 @@ void main() {
     expect(find.byKey(const Key('objectbox-admin-table')), findsOneWidget);
     expect(find.text('Mt Ossa'), findsOneWidget);
 
-    final dropdown = tester
-        .widget<DropdownButton<ObjectBoxAdminEntityDescriptor>>(
-          find.descendant(
-            of: find.byKey(const Key('objectbox-admin-entity-dropdown')),
-            matching: find.byType(
-              DropdownButton<ObjectBoxAdminEntityDescriptor>,
-            ),
-          ),
-        );
-    expect(dropdown.items, hasLength(1));
-    expect(dropdown.items!.single.value!.name, 'Peak');
-
     await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
     await tester.pumpAndSettle();
-
+    expect(find.byKey(const Key('shared-dropdown-menu')), findsOneWidget);
+    expect(
+      find.text('Peak'),
+      findsNWidgets(2),
+    ); // closed value and single option
     expect(tester.takeException(), isNull);
   });
 
@@ -575,17 +567,14 @@ void main() {
     await container.read(objectboxAdminProvider.notifier).refresh();
     await tester.pumpAndSettle();
 
-    final dropdown = tester
-        .widget<DropdownButton<ObjectBoxAdminEntityDescriptor>>(
-          find.descendant(
-            of: find.byKey(const Key('objectbox-admin-entity-dropdown')),
-            matching: find.byType(
-              DropdownButton<ObjectBoxAdminEntityDescriptor>,
-            ),
-          ),
-        );
-    expect(dropdown.value, same(refreshedPeak));
-    expect(dropdown.items, hasLength(1));
+    expect(
+      container.read(objectboxAdminProvider).selectedEntity,
+      same(refreshedPeak),
+    );
+    expect(find.text('Refreshed Peak'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
+    await tester.pumpAndSettle();
+    expect(find.text('Refreshed Peak'), findsNWidgets(2));
     expect(find.text('Mt Ossa'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -1952,6 +1941,13 @@ void main() {
     expect(
       find.byKey(const Key('objectbox-admin-peak-details-durationMinutes')),
       findsOneWidget,
+    );
+    // Content-sized controls can change the toolbar height. Reveal each lazy
+    // detail rather than assuming it was built beside the preceding one.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('objectbox-admin-peak-details-durationLabel')),
+      100,
+      scrollable: find.byType(Scrollable).last,
     );
     expect(
       find.byKey(const Key('objectbox-admin-peak-details-durationLabel')),

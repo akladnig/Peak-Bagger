@@ -16,6 +16,8 @@ import 'package:peak_bagger/widgets/objectbox_admin_form_field.dart';
 import 'package:peak_bagger/services/objectbox_admin_field_policy.dart';
 import 'package:peak_bagger/widgets/objectbox_admin_edit_footer.dart';
 import 'package:peak_bagger/widgets/objectbox_admin_save_scope.dart';
+import 'package:peak_bagger/widgets/shared_dropdown.dart';
+import 'package:peak_bagger/widgets/shared_field_decoration.dart';
 
 // Local state also protects standalone panes and callbacks retained before a
 // rebuild. The routed screen owns the app-visible Save/navigation lifetime.
@@ -1484,7 +1486,7 @@ class _PeakListEditForm extends StatelessWidget {
                 key: const Key('objectbox-admin-peak-list-colour'),
                 controller: colourController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Colour',
                   errorText: validation.fieldErrors['colour'],
                 ),
@@ -1606,7 +1608,7 @@ class _RouteEditForm extends StatelessWidget {
                 key: const Key('objectbox-admin-route-name'),
                 controller: nameController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Name',
                   errorText: validation.fieldErrors['name'],
                 ),
@@ -1653,7 +1655,7 @@ class _RouteEditForm extends StatelessWidget {
                 key: const Key('objectbox-admin-route-colour'),
                 controller: colourController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Colour',
                   errorText: validation.fieldErrors['colour'],
                 ),
@@ -1668,7 +1670,7 @@ class _RouteEditForm extends StatelessWidget {
                 key: const Key('objectbox-admin-route-distance2d'),
                 controller: distance2dController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Distance 2D',
                   errorText: validation.fieldErrors['distance2d'],
                 ),
@@ -1685,7 +1687,7 @@ class _RouteEditForm extends StatelessWidget {
                 key: const Key('objectbox-admin-route-distance3d'),
                 controller: distance3dController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Distance 3D',
                   errorText: validation.fieldErrors['distance3d'],
                 ),
@@ -1702,7 +1704,7 @@ class _RouteEditForm extends StatelessWidget {
                 key: const Key('objectbox-admin-route-ascent'),
                 controller: ascentController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Ascent',
                   errorText: validation.fieldErrors['ascent'],
                 ),
@@ -1719,7 +1721,7 @@ class _RouteEditForm extends StatelessWidget {
                 key: const Key('objectbox-admin-route-descent'),
                 controller: descentController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Descent',
                   errorText: validation.fieldErrors['descent'],
                 ),
@@ -1736,7 +1738,7 @@ class _RouteEditForm extends StatelessWidget {
                 key: const Key('objectbox-admin-route-start-elevation'),
                 controller: startElevationController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Start Elevation',
                   errorText: validation.fieldErrors['startElevation'],
                 ),
@@ -1753,7 +1755,7 @@ class _RouteEditForm extends StatelessWidget {
                 key: const Key('objectbox-admin-route-end-elevation'),
                 controller: endElevationController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'End Elevation',
                   errorText: validation.fieldErrors['endElevation'],
                 ),
@@ -1770,7 +1772,7 @@ class _RouteEditForm extends StatelessWidget {
                 key: const Key('objectbox-admin-route-lowest-elevation'),
                 controller: lowestElevationController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Lowest Elevation',
                   errorText: validation.fieldErrors['lowestElevation'],
                 ),
@@ -1787,7 +1789,7 @@ class _RouteEditForm extends StatelessWidget {
                 key: const Key('objectbox-admin-route-highest-elevation'),
                 controller: highestElevationController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Highest Elevation',
                   errorText: validation.fieldErrors['highestElevation'],
                 ),
@@ -2308,7 +2310,7 @@ class _ContactEditForm extends StatelessWidget {
       key: Key('objectbox-admin-contact-$keyName'),
       controller: controller,
       enabled: !isSaving,
-      decoration: InputDecoration(labelText: label, errorText: errorText),
+      decoration: sharedFieldDecoration(labelText: label, errorText: errorText),
       onChanged: (_) => onChanged(),
     );
   }
@@ -2606,6 +2608,7 @@ class _NaturalFeatureAdminDetailsPaneState
                       validation: _validation,
                       submitError: _submitError,
                       locked: _isLocked,
+                      isInteractionAllowed: () => mounted && !_isLocked,
                       isSaving: _isSaving,
                       canCalculate: _coordinateSource != null,
                       onChanged: _validate,
@@ -2679,6 +2682,7 @@ class _NaturalFeatureEditForm extends StatelessWidget {
     required this.validation,
     required this.submitError,
     required this.locked,
+    required this.isInteractionAllowed,
     required this.canCalculate,
     required this.onChanged,
     required this.onLatLngChanged,
@@ -2697,6 +2701,7 @@ class _NaturalFeatureEditForm extends StatelessWidget {
   final NaturalFeatureAdminValidationResult validation;
   final String? submitError;
   final bool locked;
+  final bool Function() isInteractionAllowed;
   final bool canCalculate;
   final VoidCallback onChanged;
   final VoidCallback onLatLngChanged;
@@ -2737,20 +2742,20 @@ class _NaturalFeatureEditForm extends StatelessWidget {
                 'sourceOfTruth',
                 AdminFieldInput.sourceOfTruthSelector,
               ))
-                DropdownButtonFormField<String>(
+                SharedDropdown<String>(
                   key: const Key(
                     'objectbox-admin-natural-feature-source-of-truth',
                   ),
-                  initialValue: sourceOfTruth,
-                  decoration: InputDecoration(
-                    labelText: 'Source of truth',
-                    errorText: validation.fieldErrors['sourceOfTruth'],
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'OSM', child: Text('OSM')),
-                    DropdownMenuItem(value: 'Manual', child: Text('Manual')),
+                  value: sourceOfTruth,
+                  label: 'Source of truth',
+                  errorText: validation.fieldErrors['sourceOfTruth'],
+                  enabled: !locked,
+                  isInteractionAllowed: isInteractionAllowed,
+                  choices: const [
+                    SharedDropdownChoice(value: 'OSM', label: 'OSM'),
+                    SharedDropdownChoice(value: 'Manual', label: 'Manual'),
                   ],
-                  onChanged: locked ? null : onSourceOfTruthChanged,
+                  onSelected: onSourceOfTruthChanged,
                 )
               else
                 ObjectBoxAdminReadOnlyFormValue(
@@ -2817,7 +2822,7 @@ class _NaturalFeatureEditForm extends StatelessWidget {
           'easting' || 'northing' => TextInputType.number,
           _ => TextInputType.text,
         },
-        decoration: InputDecoration(
+        decoration: sharedFieldDecoration(
           labelText: label,
           errorText: validation.fieldErrors[field],
         ),
@@ -2937,7 +2942,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-name'),
                   controller: nameController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Name',
                     errorText: validation.fieldErrors['name'],
                   ),
@@ -2951,7 +2956,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-alt-name'),
                   controller: altNameController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Alt Name',
                     errorText: validation.fieldErrors['altName'],
                   ),
@@ -2965,7 +2970,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-osm-id'),
                   controller: osmIdController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'osmId',
                     errorText: validation.fieldErrors['osmId'],
                   ),
@@ -2980,7 +2985,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-peakbagger-pid'),
                   controller: peakbaggerPidController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'PeakBagger PID',
                     errorText: validation.fieldErrors['peakbaggerPid'],
                   ),
@@ -2995,7 +3000,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-elevation'),
                   controller: elevationController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Elevation',
                     errorText: validation.fieldErrors['elevation'],
                   ),
@@ -3010,7 +3015,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-prominence'),
                   controller: prominenceController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Prominence',
                     errorText: validation.fieldErrors['prominence'],
                   ),
@@ -3060,7 +3065,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-rating'),
                   controller: ratingController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Rating',
                     errorText: validation.fieldErrors['rating'],
                   ),
@@ -3077,7 +3082,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-duration'),
                   controller: durationController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Peak duration',
                     errorText: validation.fieldErrors['durationLabel'],
                   ),
@@ -3125,7 +3130,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-latitude'),
                   controller: latitudeController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Latitude',
                     errorText: validation.fieldErrors['latitude'],
                   ),
@@ -3140,7 +3145,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-longitude'),
                   controller: longitudeController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Longitude',
                     errorText: validation.fieldErrors['longitude'],
                   ),
@@ -3172,7 +3177,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-mgrs100k-id'),
                   controller: mgrs100kIdController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'MGRS 100km identifier',
                     errorText: validation.fieldErrors['mgrs100kId'],
                   ),
@@ -3186,7 +3191,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-easting'),
                   controller: eastingController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Easting',
                     errorText: validation.fieldErrors['easting'],
                   ),
@@ -3201,7 +3206,7 @@ class _PeakEditForm extends StatelessWidget {
                   key: const Key('objectbox-admin-peak-northing'),
                   controller: northingController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Northing',
                     errorText: validation.fieldErrors['northing'],
                   ),

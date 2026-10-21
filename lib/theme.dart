@@ -630,6 +630,40 @@ class SearchButtonThemeData extends ThemeExtension<SearchButtonThemeData> {
 const searchControlIconSize = 24.0;
 const searchControlFontSize = 14.0;
 
+/// Selection-only dropdown metrics and semantic roles, shared by every caller.
+abstract final class SharedDropdownStyle {
+  static const radius = 12.0;
+  static const minimumTarget = 48.0;
+  static const minimumRowHeight = 40.0;
+  static const optionPadding = EdgeInsets.symmetric(
+    horizontal: 12,
+    vertical: 8,
+  );
+  static const checkSize = 24.0;
+  static const iconSize = 24.0;
+  static const gap = 12.0;
+  static const viewportMargin = 8.0;
+  static const elevation = 3.0;
+
+  static TextStyle valueText(ThemeData theme) =>
+      theme.textTheme.titleMedium!.copyWith(color: theme.colorScheme.onSurface);
+  static TextStyle menuText(ThemeData theme) => theme.textTheme.bodySmall!
+      .copyWith(fontSize: 12, color: theme.colorScheme.onSurface);
+  static Color rowFill(ThemeData theme, {bool pressed = false}) =>
+      Color.alphaBlend(
+        theme.colorScheme.onSurface.withValues(alpha: pressed ? .12 : .08),
+        theme.colorScheme.surfaceContainer,
+      );
+  static Color tick(
+    ThemeData theme, {
+    bool error = false,
+    bool disabled = false,
+  }) {
+    final color = error ? theme.colorScheme.error : theme.seedColor;
+    return disabled ? color.withValues(alpha: .38) : color;
+  }
+}
+
 /// Shared Schema/Data selection and pointer-hover layers, composited once.
 Color selectedModeFill(ColorScheme colors) =>
     Color.alphaBlend(colors.primary.withValues(alpha: .12), colors.surface);

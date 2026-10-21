@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:peak_bagger/theme.dart';
+import 'package:peak_bagger/widgets/shared_dropdown.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_save_scope.dart';
 
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
 import 'package:peak_bagger/services/objectbox_admin_repository.dart';
@@ -43,23 +45,23 @@ class ObjectBoxAdminControls extends StatelessWidget {
       runSpacing: 12,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        SizedBox(
-          width: 260,
-          child: DropdownButtonFormField<ObjectBoxAdminEntityDescriptor>(
-            key: const Key('objectbox-admin-entity-dropdown'),
-            initialValue: entity,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Entity'),
-            items: state.entities
-                .map(
-                  (descriptor) => DropdownMenuItem(
-                    value: descriptor,
-                    child: Text(descriptor.displayName),
-                  ),
-                )
-                .toList(growable: false),
-            onChanged: locked ? null : onEntityChanged,
-          ),
+        SharedDropdown<ObjectBoxAdminEntityDescriptor?>(
+          key: const Key('objectbox-admin-entity-dropdown'),
+          value: entity,
+          hasSelection: entity != null,
+          label: 'Entity',
+          enabled: !locked,
+          isInteractionAllowed: () => !ObjectBoxAdminSaveScope.read(context),
+          choices: state.entities
+              .map(
+                (descriptor) =>
+                    SharedDropdownChoice<ObjectBoxAdminEntityDescriptor?>(
+                      value: descriptor,
+                      label: descriptor.displayName,
+                    ),
+              )
+              .toList(growable: false),
+          onSelected: onEntityChanged,
         ),
         ToggleButtons(
           key: const Key('objectbox-admin-schema-data-toggle'),
