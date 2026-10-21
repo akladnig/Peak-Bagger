@@ -17,6 +17,18 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
   int getEntitiesCallCount = 0;
   int loadRowsCallCount = 0;
   Object? discoveryError;
+  Future<bool> Function(int)? waypointRemover;
+  @override
+  Future<bool> deleteWaypoint(int id) async {
+    if (waypointRemover != null) return waypointRemover!(id);
+    final rows = _rowsByEntity['Waypoints'] ?? [];
+    final found = rows.any((row) => row.primaryKeyValue == id);
+    _rowsByEntity['Waypoints'] = rows
+        .where((row) => row.primaryKeyValue != id)
+        .toList();
+    return found;
+  }
+
   Future<List<ObjectBoxAdminRow>> Function(ObjectBoxAdminEntityDescriptor)?
   rowLoader;
 

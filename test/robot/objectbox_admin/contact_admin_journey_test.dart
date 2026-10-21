@@ -105,6 +105,9 @@ void main() {
 }
 
 class _ContactObjectBoxAdminRepository implements ObjectBoxAdminRepository {
+  @override
+  Future<bool> deleteWaypoint(int id) =>
+      throw UnsupportedError('Contact-only fixture');
   _ContactObjectBoxAdminRepository(this.contacts);
 
   final ContactRepository contacts;

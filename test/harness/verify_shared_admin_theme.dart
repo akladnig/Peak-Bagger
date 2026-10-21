@@ -220,7 +220,6 @@ class _SmokeState extends State<_Smoke> {
                     onModeChanged: (_) {},
                     onSearchChanged: (_) {},
                     onSearchSubmitted: () {},
-                    onSearchPressed: () {},
                     onAddPeakPressed: () {},
                     onAddContactPressed: () {},
                     onSortPressed: () {},

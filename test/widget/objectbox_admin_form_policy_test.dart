@@ -70,6 +70,52 @@ const _textFields = {
 };
 
 void main() {
+  for (final name in ['Peak', 'Route']) {
+    testWidgets(
+      '$name keeps signed numeric entry without changing parsing or precision',
+      (tester) async {
+        final fixture = AdminFormFixture(name);
+        await _pump(tester, fixture);
+        await _edit(tester, fixture);
+        final fields = name == 'Peak'
+            ? ['latitude', 'longitude', 'elevation']
+            : [
+                'start-elevation',
+                'end-elevation',
+                'lowest-elevation',
+                'highest-elevation',
+              ];
+        for (final field in fields) {
+          final finder = find.byKey(
+            Key('objectbox-admin-${fixture.prefix}-$field'),
+          );
+          final input = tester.widget<TextFormField>(finder);
+          expect(
+            tester
+                .widget<TextField>(
+                  find.descendant(of: finder, matching: find.byType(TextField)),
+                )
+                .keyboardType,
+            TextInputType.numberWithOptions(
+              signed: true,
+              decimal: field != 'elevation',
+            ),
+          );
+          await _reveal(tester, fixture, finder);
+          await tester.enterText(
+            finder,
+            field == 'elevation' ? '-12' : '-12.125',
+          );
+          await tester.pump();
+          expect(
+            input.controller!.text,
+            field == 'elevation' ? '-12' : '-12.125',
+          );
+        }
+      },
+    );
+  }
+
   testWidgets(
     'Natural Feature selector owns only the draft and rejects a stale choice as Save begins',
     (tester) async {

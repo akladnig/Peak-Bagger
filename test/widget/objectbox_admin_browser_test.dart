@@ -344,7 +344,7 @@ void main() {
     },
   );
 
-  testWidgets('admin browser filters rows and closes details pane', (
+  testWidgets('admin browser explicitly closes details and filters rows live', (
     tester,
   ) async {
     await _pumpApp(tester, repository: TestObjectBoxAdminRepository());
@@ -374,7 +374,6 @@ void main() {
     expect(find.text('Select a row to inspect full values.'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'cradle');
-    await tester.tap(find.byIcon(Icons.search));
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -1465,6 +1464,8 @@ Future<void> _pumpApp(
 }
 
 class _RouteAwareObjectBoxAdminRepository implements ObjectBoxAdminRepository {
+  @override
+  Future<bool> deleteWaypoint(int id) => base.deleteWaypoint(id);
   _RouteAwareObjectBoxAdminRepository({
     required this.base,
     required this.routeRepository,

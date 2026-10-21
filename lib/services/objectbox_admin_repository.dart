@@ -19,6 +19,7 @@ import 'package:peak_bagger/models/waypoints.dart';
 import 'package:peak_bagger/objectbox.g.dart';
 import 'package:objectbox/internal.dart' as obx_int;
 import 'objectbox_admin_field_policy.dart';
+import 'waypoints_repository.dart';
 
 abstract class ObjectBoxAdminRepository {
   List<ObjectBoxAdminEntityDescriptor> getEntities();
@@ -30,6 +31,8 @@ abstract class ObjectBoxAdminRepository {
   });
 
   Future<String> exportGpxFile(ObjectBoxAdminRow row);
+
+  Future<bool> deleteWaypoint(int id);
 }
 
 class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
@@ -45,6 +48,10 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
   final Store? _store;
   final obx_int.ModelDefinition _modelDefinition;
   final Map<String, Map<String, AdminFieldMetadata>> appMetadata;
+
+  @override
+  Future<bool> deleteWaypoint(int id) =>
+      WaypointsRepository(_store!).delete(id);
 
   /// A strict drift check for tests/maintenance, not a runtime browsing gate.
   List<String> metadataCoverageIssues() {
@@ -92,7 +99,9 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       throw StateError('ObjectBox store is required to load rows.');
     }
 
-    final trimmedQuery = searchQuery.trim().toLowerCase();
+    // Load committed projections once. Production and deterministic repositories
+    // share the exact matching policy below, never grid previews/placeholders.
+    const trimmedQuery = '';
 
     final rows = switch (entity.name) {
       'Peak' => _loadPeakRows(store, trimmedQuery, ascending),
@@ -136,7 +145,12 @@ class ObjectBoxAdminRepositoryImpl implements ObjectBoxAdminRepository {
       _ => <ObjectBoxAdminRow>[],
     };
 
-    return rows;
+    return objectBoxAdminFilterAndSortRows(
+      entity,
+      rows: rows,
+      searchQuery: searchQuery,
+      ascending: ascending,
+    );
   }
 
   @override
@@ -1242,25 +1256,13 @@ List<ObjectBoxAdminRow> objectBoxAdminFilterAndSortRows(
   final filtered = trimmedQuery.isEmpty
       ? rows
       : rows
-            .where((row) {
-              if (entity.name == 'Peak') {
-                return _peakMatchesSearch(
-                  name: row.values['name'],
-                  altName: row.values['altName'],
-                  query: trimmedQuery,
-                );
-              }
-              if (entity.name == 'NaturalFeature') {
-                return _naturalFeatureRowMatchesSearch(row, trimmedQuery);
-              }
-              if (entity.name == 'Contact') {
-                return _contactRowMatchesSearch(row, trimmedQuery);
-              }
-              final value = row.values[entity.primaryNameField];
-              return objectBoxAdminFormatValue(
-                value,
-              ).toLowerCase().contains(trimmedQuery);
-            })
+            .where(
+              (row) => objectBoxAdminRowMatchesSearch(
+                entity.name,
+                row,
+                trimmedQuery,
+              ),
+            )
             .toList(growable: false);
 
   final sorted = filtered.toList(growable: false)
@@ -1275,6 +1277,56 @@ List<ObjectBoxAdminRow> objectBoxAdminFilterAndSortRows(
     });
 
   return sorted;
+}
+
+/// Full committed display values for the existing fourteen Data loaders only.
+/// Nulls never become searchable missing-value placeholders.
+bool objectBoxAdminRowMatchesSearch(
+  String entityName,
+  ObjectBoxAdminRow row,
+  String query,
+) {
+  final normalized = query.trim().toLowerCase();
+  final fields = switch (entityName) {
+    'Peak' => const ['name', 'altName'],
+    'NaturalFeature' => const ['name', 'altName', 'tag', 'osmType', 'osmId'],
+    'Contact' => const ['firstName', 'surname', 'nickname'],
+    'PeakList' || 'Tasmap50k' || 'Route' => const ['name'],
+    'GpxTrack' => const ['trackName'],
+    'PeaksBagged' => const ['gpxId'],
+    'PeakListItemEntity' => const ['peakListName', 'peakName', 'id'],
+    'Waypoints' => const ['name', 'type', 'mgrs'],
+    'RouteGraphChunk' || 'RouteGraphTrailDisplayChunk' => const [
+      'chunkKey',
+      'recordKey',
+      'payloadJson',
+    ],
+    'RouteGraphWayIndex' => const [
+      'recordKey',
+      'chunkKey',
+      'highway',
+      'surface',
+      'footway',
+      'foot',
+      'route',
+      'access',
+      'name',
+      'normalizedName',
+      'tagsJson',
+    ],
+    'RouteGraphManifest' => const [
+      'sourceHash',
+      'schemaVersion',
+      'readinessState',
+      'lastError',
+    ],
+    _ => const <String>[],
+  };
+  return fields.any((field) {
+    final value = row.values[field];
+    return value != null &&
+        objectBoxAdminFormatValue(value).toLowerCase().contains(normalized);
+  });
 }
 
 bool _peakMatchesSearch({

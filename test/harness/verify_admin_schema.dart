@@ -253,7 +253,6 @@ class _SchemaSmokeState extends State<_SchemaSmoke> {
                     onModeChanged: (_) {},
                     onSearchChanged: (_) {},
                     onSearchSubmitted: () {},
-                    onSearchPressed: () {},
                     onAddPeakPressed: () {},
                     onAddContactPressed: () {},
                     onSortPressed: () {},

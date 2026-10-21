@@ -9,6 +9,13 @@ import 'package:go_router/go_router.dart';
 import 'package:peak_bagger/router.dart' as app_router;
 import 'package:peak_bagger/providers/objectbox_admin_save_provider.dart';
 import 'package:peak_bagger/providers/contact_provider.dart';
+import 'package:peak_bagger/providers/natural_feature_provider.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
+import 'package:peak_bagger/providers/objectbox_admin_delete_provider.dart';
+import 'package:peak_bagger/services/natural_feature_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/models/natural_feature.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/services/contact_repository.dart';
 import 'package:peak_bagger/screens/objectbox_admin_screen.dart';
 import 'package:peak_bagger/widgets/side_menu.dart';
@@ -42,6 +49,536 @@ import '../harness/test_objectbox_admin_repository.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets(
+    'live Search preserves the sole editor through exclusion, zero matches, Cmd+F, Enter, clear and Save',
+    (tester) async {
+      final peaks = [
+        _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa'),
+        _buildPeak(id: 2, osmId: 202, name: 'Anne'),
+      ];
+      final rows = {'Peak': peaks.map(_peakRow).toList()};
+      final repository = _MutablePeakRepository(peaks, rows);
+      await _pumpApp(
+        tester,
+        size: const Size(1280, 960),
+        repository: TestObjectBoxAdminRepository(
+          entities: [_peakEntity()],
+          rowsByEntity: rows,
+        ),
+        peakRepository: repository,
+      );
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mt Ossa').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+      await tester.pumpAndSettle();
+      final field = find.byKey(const Key('objectbox-admin-peak-name'));
+      await tester.enterText(field, 'Unsaved name');
+      final controller = tester.widget<TextFormField>(field).controller!;
+      final search = find.byKey(const Key('objectbox-admin-search-field'));
+      final searchWidget = tester.widget<TextField>(search);
+      expect(searchWidget.decoration!.labelText, 'Search ⌘F');
+      expect(searchWidget.decoration!.suffixIcon, isNull);
+      expect(
+        find.descendant(of: search, matching: find.byType(IconButton)),
+        findsNothing,
+      );
+      for (final query in ['Anne', 'Unsaved name', '', '  Mt Ossa  ']) {
+        await tester.enterText(search, query);
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextFormField>(field).controller,
+          same(controller),
+        );
+        expect(controller.text, 'Unsaved name');
+        if (query == 'Unsaved name') {
+          expect(find.text('No matches'), findsOneWidget);
+        }
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+        expect(
+          searchWidget.controller!.selection,
+          TextSelection(baseOffset: 0, extentOffset: query.length),
+        );
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+        expect(controller.text, 'Unsaved name');
+      }
+      await tester.binding.setSurfaceSize(const Size(1920, 1200));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextFormField>(field).controller, same(controller));
+      await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('objectbox-admin-peak-update-success-close')),
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ObjectBoxAdminScreen)),
+      );
+      expect(container.read(objectboxAdminProvider).rows, isEmpty);
+      expect(
+        container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+        1,
+      );
+      expect(repository.findById(1)?.name, 'Unsaved name');
+      expect(
+        find.byKey(const Key('objectbox-admin-peak-edit')),
+        findsOneWidget,
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
+    'deleting another Peak preserves excluded editor through Cancel, failure acknowledgement and success',
+    (tester) async {
+      final peaks = [
+        _buildPeak(id: 1, osmId: 101, name: 'Ossa'),
+        _buildPeak(id: 2, osmId: 202, name: 'Anne'),
+      ];
+      final rows = {'Peak': peaks.map(_peakRow).toList()};
+      final repository = _MutablePeakRepository(peaks, rows);
+      await _pumpApp(
+        tester,
+        size: const Size(1280, 960),
+        repository: TestObjectBoxAdminRepository(
+          entities: [_peakEntity()],
+          rowsByEntity: rows,
+        ),
+        peakRepository: repository,
+      );
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      final deleteOther = tester
+          .widget<IconButton>(
+            find.byKey(const Key('objectbox-admin-peak-delete-2')),
+          )
+          .onPressed!;
+      await tester.tap(find.text('Ossa').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+      await tester.pumpAndSettle();
+      final field = find.byKey(const Key('objectbox-admin-peak-name'));
+      await tester.enterText(field, 'Retained draft');
+      final controller = tester.widget<TextFormField>(field).controller!;
+      await tester.enterText(
+        find.byKey(const Key('objectbox-admin-search-field')),
+        '  no matches  ',
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ObjectBoxAdminScreen)),
+      );
+      for (final outcome in ['cancel', 'failure', 'success']) {
+        repository.deleteError = outcome == 'failure'
+            ? StateError('controlled removal failure')
+            : null;
+        deleteOther();
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(
+            Key(outcome == 'cancel' ? 'cancel-delete' : 'confirm-delete'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (outcome == 'failure') {
+          expect(container.read(objectboxAdminSaveProvider), isTrue);
+          await tester.tap(
+            find.byKey(const Key('objectbox-admin-delete-error-close')),
+          );
+          await tester.pumpAndSettle();
+        }
+        expect(container.read(objectboxAdminSaveProvider), isFalse);
+        expect(
+          container.read(objectboxAdminProvider).searchQuery,
+          '  no matches  ',
+        );
+        expect(
+          container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+          1,
+        );
+        expect(
+          tester.widget<TextFormField>(field).controller,
+          same(controller),
+        );
+        expect(controller.text, 'Retained draft');
+        expect(
+          repository.findById(2),
+          outcome == 'success' ? isNull : isNotNull,
+        );
+      }
+      expect(repository.saveCalls, 0);
+    },
+  );
+
+  testWidgets(
+    'Cmd+F excludes Schema, dropdown, modal and off-route Search without replay',
+    (tester) async {
+      await _pumpApp(tester, size: const Size(1280, 960));
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ObjectBoxAdminScreen)),
+      );
+      final search = tester.widget<TextField>(
+        find.byKey(const Key('objectbox-admin-search-field')),
+      );
+      Future<void> commandF() async {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+      }
+
+      await tester.tap(
+        find.byKey(const Key('objectbox-admin-entity-dropdown')),
+      );
+      await tester.pumpAndSettle();
+      await commandF();
+      expect(search.focusNode!.hasFocus, isFalse);
+      expect(find.byKey(const Key('shared-dropdown-menu')), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      final context = tester.element(find.byType(ObjectBoxAdminScreen));
+      final dialog = showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Dismiss child'),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      await commandF();
+      expect(search.focusNode!.hasFocus, isFalse);
+      await tester.tap(find.text('Dismiss child'));
+      await dialog;
+      await tester.pumpAndSettle();
+      container
+          .read(objectboxAdminProvider.notifier)
+          .setMode(ObjectBoxAdminViewMode.schema);
+      await tester.pumpAndSettle();
+      await commandF();
+      expect(
+        container.read(objectboxAdminProvider).mode,
+        ObjectBoxAdminViewMode.schema,
+      );
+      expect(search.focusNode!.hasFocus, isFalse);
+      container
+          .read(objectboxAdminProvider.notifier)
+          .setMode(ObjectBoxAdminViewMode.data);
+      await tester.pumpAndSettle();
+      expect(search.focusNode!.hasFocus, isFalse);
+      await tester.tap(find.byKey(const Key('nav-settings')));
+      await tester.pumpAndSettle();
+      await commandF();
+      expect(app_router.router.state.uri.path, '/settings');
+      expect(search.focusNode!.hasFocus, isFalse);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  for (final entityName in [
+    'Peak',
+    'NaturalFeature',
+    'Contact',
+    'GpxTrack',
+    'Route',
+    'Waypoints',
+  ]) {
+    testWidgets(
+      '$entityName confirmation gates parent and retained shell before rebuild, with usable Cancel and no replay',
+      (tester) async {
+        final peak = _buildPeak(id: 1, osmId: 101, name: 'Selected');
+        final feature = NaturalFeature(
+          id: 1,
+          name: 'Selected',
+          tag: 'water',
+          latitude: -41.5,
+          longitude: 146.5,
+          osmId: 1,
+          osmType: 'way',
+        );
+        final contact = Contact(id: 1, firstName: 'Selected');
+        final track = _buildGpxTrack(id: 1, trackName: 'Selected');
+        final route = app_route.Route(id: 1, name: 'Selected');
+        final descriptor = ObjectBoxAdminRepositoryImpl()
+            .getEntities()
+            .singleWhere((e) => e.name == entityName);
+        final row = switch (entityName) {
+          'Peak' => peakToAdminRow(peak),
+          'NaturalFeature' => naturalFeatureToAdminRow(feature),
+          'Contact' => contactToAdminRow(contact),
+          'GpxTrack' => gpxTrackToAdminRow(track),
+          'Route' => routeToAdminRow(route),
+          _ => const ObjectBoxAdminRow(
+            primaryKeyValue: 1,
+            values: {'id': 1, 'name': 'Selected'},
+          ),
+        };
+        final browserRepository = TestObjectBoxAdminRepository(
+          entities: [descriptor],
+          rowsByEntity: {
+            entityName: [row],
+          },
+        );
+        await _pumpApp(
+          tester,
+          size: const Size(1280, 960),
+          repository: browserRepository,
+          peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+          naturalFeatureRepository: NaturalFeatureRepository.test(
+            InMemoryNaturalFeatureStorage([feature]),
+          ),
+          contactRepository: ContactRepository.test(
+            InMemoryContactStorage([contact]),
+          ),
+          gpxTrackRepository: _MutableGpxTrackRepository([track]),
+          routeRepository: RouteRepository.test(InMemoryRouteStorage([route])),
+        );
+        await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Selected').first);
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(ObjectBoxAdminScreen)),
+        );
+        final notifier = container.read(objectboxAdminProvider.notifier);
+        final search = tester.widget<TextField>(
+          find.byKey(const Key('objectbox-admin-search-field')),
+        );
+        final oldClose = tester
+            .widget<IconButton>(
+              find.byKey(const Key('objectbox-admin-details-close')),
+            )
+            .onPressed!;
+        final oldSideMenu = tester
+            .widget<SideMenu>(find.byType(SideMenu))
+            .onDestinationSelected;
+        final oldKeyboard = tester
+            .widget<ShellDestinationKeyboard>(
+              find.byType(ShellDestinationKeyboard),
+            )
+            .onActivate;
+        final prefix = switch (entityName) {
+          'NaturalFeature' => 'natural-feature',
+          'GpxTrack' => 'gpx-track',
+          _ => entityName.toLowerCase(),
+        };
+        final delete = tester
+            .widget<IconButton>(
+              find.byKey(Key('objectbox-admin-$prefix-delete-1')),
+            )
+            .onPressed!;
+        delete();
+        expect(container.read(objectboxAdminSaveProvider), isTrue);
+        delete();
+        search.onChanged!('blocked');
+        search.onSubmitted!('blocked');
+        oldClose();
+        notifier.clearSelection();
+        notifier.setMode(ObjectBoxAdminViewMode.schema);
+        await notifier.selectEntity(descriptor);
+        await notifier.toggleSort();
+        oldSideMenu(app_router.shellDestinations[4]);
+        oldKeyboard(0);
+        app_router.router.goNamed('settings');
+        app_router.router.push('/settings');
+        app_router.router.replace('/settings');
+        app_router.router.pushReplacement('/settings');
+        tester
+            .widget<StatefulNavigationShell>(
+              find.byType(StatefulNavigationShell),
+            )
+            .goBranch(4);
+        await tester.pumpAndSettle();
+        expect(app_router.router.state.uri.path, '/objectbox-admin');
+        expect(find.byKey(const Key('confirm-delete')), findsOneWidget);
+        expect(container.read(objectboxAdminProvider).searchQuery, isEmpty);
+        expect(
+          container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+          1,
+        );
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('objectbox-admin-search-field')),
+              )
+              .enabled,
+          isFalse,
+        );
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        expect(search.focusNode!.hasFocus, isFalse);
+        await tester.tap(find.byKey(const Key('cancel-delete')));
+        await tester.pumpAndSettle();
+        expect(container.read(objectboxAdminSaveProvider), isFalse);
+        expect(
+          container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+          1,
+        );
+        expect(app_router.router.state.uri.path, '/objectbox-admin');
+        delete(); // usable again; child Escape cancels without closing parent
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(container.read(objectboxAdminSaveProvider), isFalse);
+        expect(
+          container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+          1,
+        );
+        final refresh = Completer<List<ObjectBoxAdminRow>>();
+        browserRepository.rowLoader = (_) => refresh.future;
+        delete();
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('confirm-delete')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(container.read(objectboxAdminSaveProvider), isTrue);
+        expect(container.read(objectboxAdminProvider).selectedRow, isNull);
+        oldSideMenu(app_router.shellDestinations[4]);
+        app_router.router.go('/settings');
+        refresh.complete([]);
+        await tester.pumpAndSettle();
+        expect(container.read(objectboxAdminSaveProvider), isFalse);
+        expect(container.read(objectboxAdminProvider).selectedRow, isNull);
+        expect(app_router.router.state.uri.path, '/objectbox-admin');
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
+  testWidgets(
+    'Track confirmed removal survives sync/read failures and Retry never deletes again',
+    (tester) async {
+      final track = _buildGpxTrack(id: 1, trackName: 'Removed');
+      final tracks = _MutableGpxTrackRepository([track]);
+      final descriptor = ObjectBoxAdminRepositoryImpl()
+          .getEntities()
+          .singleWhere((e) => e.name == 'GpxTrack');
+      var failRead = false;
+      Completer<List<ObjectBoxAdminRow>>? recoveryRead;
+      final repository = TestObjectBoxAdminRepository(entities: [descriptor])
+        ..rowLoader = (_) async {
+          if (recoveryRead != null) return recoveryRead.future;
+          if (failRead) throw StateError('Admin refresh');
+          return tracks._tracks.map(gpxTrackToAdminRow).toList();
+        };
+      await _pumpApp(
+        tester,
+        size: const Size(1280, 960),
+        repository: repository,
+        gpxTrackRepository: tracks,
+      );
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Removed').first);
+      await tester.pumpAndSettle();
+      tracks.remainingReadError = StateError('remaining Tracks / sync');
+      await tester.tap(
+        find.byKey(const Key('objectbox-admin-gpx-track-delete-1')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirm-delete')));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ObjectBoxAdminScreen)),
+      );
+      expect(tracks.findById(1), isNull);
+      expect(container.read(objectboxAdminProvider).selectedRow, isNull);
+      expect(
+        find.textContaining('Track deleted. Synchronisation'),
+        findsOneWidget,
+      );
+      final retry = find.byKey(const Key('objectbox-admin-delete-retry'));
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      expect(container.read(objectboxAdminSaveProvider), isFalse);
+      tracks.remainingReadError = null;
+      failRead = true;
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Track deleted. Refresh'), findsOneWidget);
+      final reads = tracks.readCalls;
+      failRead = false;
+      recoveryRead = Completer<List<ObjectBoxAdminRow>>();
+      final capturedRetry = tester.widget<FilledButton>(retry).onPressed!;
+      final oldSearch = tester.widget<TextField>(
+        find.byKey(const Key('objectbox-admin-search-field')),
+      );
+      capturedRetry();
+      expect(container.read(objectboxAdminSaveProvider), isTrue);
+      capturedRetry();
+      oldSearch.onChanged!('blocked recovery');
+      oldSearch.onSubmitted!('blocked recovery');
+      app_router.router.goNamed('settings');
+      app_router.router.pushReplacement('/settings');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(container.read(objectboxAdminSaveProvider), isTrue);
+      expect(app_router.router.state.uri.path, '/objectbox-admin');
+      expect(container.read(objectboxAdminProvider).searchQuery, isEmpty);
+      recoveryRead.complete([]);
+      await tester.pumpAndSettle();
+      expect(tracks.deleteCalls, 1);
+      expect(tracks.readCalls, reads);
+      expect(container.read(objectboxAdminDeleteProvider), isEmpty);
+      expect(container.read(objectboxAdminProvider).selectedRow, isNull);
+      capturedRetry(); // already completed follow-up is not replayed
+      await tester.pumpAndSettle();
+      expect(tracks.deleteCalls, 1);
+      expect(tracks.readCalls, reads);
+      expect(app_router.router.state.uri.path, '/objectbox-admin');
+    },
+  );
+  testWidgets(
+    'multiple recovery messages remain scrollable at enlarged text without replacing the draft',
+    (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pumpApp(tester, size: const Size(1280, 960));
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mt Ossa').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+      await tester.pumpAndSettle();
+      final field = find.byKey(const Key('objectbox-admin-peak-name'));
+      await tester.enterText(field, 'Retained feedback draft');
+      final controller = tester.widget<TextFormField>(field).controller!;
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ObjectBoxAdminScreen)),
+      );
+      final coordinator = container.read(objectboxAdminDeleteProvider.notifier);
+      for (var index = 0; index < 20; index++) {
+        await coordinator.run(
+          label: 'Fixture record $index',
+          confirm: () async => true,
+          remove: () async {},
+          didRemove: () {},
+          refresh: () async => throw StateError('controlled refresh'),
+          onFailure: (_, _) async {},
+        );
+      }
+      await tester.pumpAndSettle();
+      final last = find.byKey(const Key('objectbox-admin-delete-retry')).last;
+      await tester.ensureVisible(last);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(last).bottom, lessThanOrEqualTo(960));
+      expect(controller.text, 'Retained feedback draft');
+      expect(tester.widget<TextFormField>(field).controller, same(controller));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'programmatic calls are rejected before a completing Save can queue departure',
     (tester) async {
@@ -227,6 +764,9 @@ void main() {
               find.byKey(const Key('objectbox-admin-details-close')),
             )
             .onPressed!;
+        final staleSearch = tester.widget<TextField>(
+          find.byKey(const Key('objectbox-admin-search-field')),
+        );
         final staleSave = tester
             .widget<FilledButton>(
               find.byKey(const Key('objectbox-admin-peak-submit')),
@@ -234,6 +774,9 @@ void main() {
             .onPressed!;
         staleSave();
         expect(container.read(objectboxAdminSaveProvider), isTrue);
+        staleSearch.onChanged!('blocked before rebuild');
+        staleSearch.onSubmitted!('blocked before rebuild');
+        expect(container.read(objectboxAdminProvider).searchQuery, isEmpty);
         staleSave();
         staleCancel();
         staleClose();
@@ -290,6 +833,9 @@ void main() {
         );
         await tester.binding.handlePopRoute();
         await tester.pump();
+        staleSearch.onChanged!('blocked after rebuild');
+        staleSearch.onSubmitted!('blocked after rebuild');
+        expect(container.read(objectboxAdminProvider).searchQuery, isEmpty);
         staleCancel();
         staleClose();
         staleSave();
@@ -2332,6 +2878,8 @@ Future<void> _pumpApp(
   TestObjectBoxAdminRepository? repository,
   PeakRepository? peakRepository,
   ContactRepository? contactRepository,
+  NaturalFeatureRepository? naturalFeatureRepository,
+  RouteRepository? routeRepository,
   PeakListRepository? peakListRepository,
   GpxTrackRepository? gpxTrackRepository,
   MapState? mapState,
@@ -2370,6 +2918,13 @@ Future<void> _pumpApp(
         ),
         contactRepositoryProvider.overrideWithValue(
           contactRepository ?? _CountingContactRepository(),
+        ),
+        naturalFeatureRepositoryProvider.overrideWithValue(
+          naturalFeatureRepository ??
+              NaturalFeatureRepository.test(InMemoryNaturalFeatureStorage()),
+        ),
+        routeRepositoryProvider.overrideWithValue(
+          routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
         ),
         peakListRepositoryProvider.overrideWithValue(
           peakListRepository ??
@@ -2432,9 +2987,16 @@ class _MutableGpxTrackRepository extends GpxTrackRepository {
       super.test(InMemoryGpxTrackStorage());
 
   final List<GpxTrack> _tracks;
+  Object? remainingReadError;
+  int deleteCalls = 0;
+  int readCalls = 0;
 
   @override
-  List<GpxTrack> getAllTracks() => List<GpxTrack>.unmodifiable(_tracks);
+  List<GpxTrack> getAllTracks() {
+    readCalls++;
+    if (remainingReadError != null) throw remainingReadError!;
+    return List<GpxTrack>.unmodifiable(_tracks);
+  }
 
   @override
   GpxTrack? findById(int id) {
@@ -2448,6 +3010,7 @@ class _MutableGpxTrackRepository extends GpxTrackRepository {
 
   @override
   bool deleteTrack(int id) {
+    deleteCalls++;
     final previousLength = _tracks.length;
     _tracks.removeWhere((track) => track.gpxTrackId == id);
     return _tracks.length != previousLength;
@@ -2695,6 +3258,7 @@ class _MutablePeakRepository extends PeakRepository {
   final PeakSaveResult Function(Peak peak)? saveResultBuilder;
   final Completer<void>? saveGate;
   int saveCalls = 0;
+  Object? deleteError;
 
   @override
   List<Peak> getAllPeaks() => List<Peak>.unmodifiable(_peaks);
@@ -2740,6 +3304,7 @@ class _MutablePeakRepository extends PeakRepository {
 
   @override
   Future<void> delete(int peakId) async {
+    if (deleteError != null) throw deleteError!;
     _peaks.removeWhere((peak) => peak.id == peakId);
     _syncRows();
   }

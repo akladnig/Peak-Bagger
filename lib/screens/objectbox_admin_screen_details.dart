@@ -375,7 +375,8 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane>
   void didUpdateWidget(covariant _PeakAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_isSaving &&
-        (oldWidget.row != widget.row ||
+        (oldWidget.row?.primaryKeyValue != widget.row?.primaryKeyValue ||
+            (!_isEditing && oldWidget.row != widget.row) ||
             oldWidget.createMode != widget.createMode ||
             oldWidget.createOsmId != widget.createOsmId)) {
       _syncFromRow();
@@ -935,7 +936,8 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane>
   void didUpdateWidget(covariant _RouteAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_isSaving &&
-        (oldWidget.row != widget.row ||
+        (oldWidget.row?.primaryKeyValue != widget.row?.primaryKeyValue ||
+            (!_isEditing && oldWidget.row != widget.row) ||
             oldWidget.route.id != widget.route.id)) {
       _syncFromRoute();
     }
@@ -1231,9 +1233,11 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane>
   void didUpdateWidget(covariant _PeakListAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_isSaving &&
-        (oldWidget.row != widget.row ||
+        (oldWidget.row?.primaryKeyValue != widget.row?.primaryKeyValue ||
+            (!_isEditing && oldWidget.row != widget.row) ||
             oldWidget.peakList.peakListId != widget.peakList.peakListId ||
-            oldWidget.peakList.colour != widget.peakList.colour)) {
+            (!_isEditing &&
+                oldWidget.peakList.colour != widget.peakList.colour))) {
       _syncFromPeakList();
     }
   }
@@ -1744,6 +1748,7 @@ class _RouteEditForm extends StatelessWidget {
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
+                  signed: true,
                 ),
                 onChanged: (_) => onChanged(),
               ),
@@ -1761,6 +1766,7 @@ class _RouteEditForm extends StatelessWidget {
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
+                  signed: true,
                 ),
                 onChanged: (_) => onChanged(),
               ),
@@ -1778,6 +1784,7 @@ class _RouteEditForm extends StatelessWidget {
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
+                  signed: true,
                 ),
                 onChanged: (_) => onChanged(),
               ),
@@ -1795,6 +1802,7 @@ class _RouteEditForm extends StatelessWidget {
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
+                  signed: true,
                 ),
                 onChanged: (_) => onChanged(),
               ),
@@ -3004,7 +3012,9 @@ class _PeakEditForm extends StatelessWidget {
                     labelText: 'Elevation',
                     errorText: validation.fieldErrors['elevation'],
                   ),
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    signed: true,
+                  ),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
@@ -3134,7 +3144,10 @@ class _PeakEditForm extends StatelessWidget {
                     labelText: 'Latitude',
                     errorText: validation.fieldErrors['latitude'],
                   ),
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
                   onChanged: (_) => onLatLngChanged(),
                 ),
                 const SizedBox(height: 8),
@@ -3149,7 +3162,10 @@ class _PeakEditForm extends StatelessWidget {
                     labelText: 'Longitude',
                     errorText: validation.fieldErrors['longitude'],
                   ),
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
                   onChanged: (_) => onLatLngChanged(),
                 ),
                 const SizedBox(height: 8),

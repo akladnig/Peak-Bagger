@@ -10,11 +10,11 @@ class ObjectBoxAdminControls extends StatelessWidget {
   const ObjectBoxAdminControls({
     required this.state,
     required this.searchController,
+    this.searchFocusNode,
     required this.onEntityChanged,
     required this.onModeChanged,
     required this.onSearchChanged,
     required this.onSearchSubmitted,
-    required this.onSearchPressed,
     required this.onAddPeakPressed,
     required this.onAddContactPressed,
     required this.onSortPressed,
@@ -26,11 +26,11 @@ class ObjectBoxAdminControls extends StatelessWidget {
   final ObjectBoxAdminState state;
   final bool locked;
   final TextEditingController searchController;
+  final FocusNode? searchFocusNode;
   final ValueChanged<ObjectBoxAdminEntityDescriptor?> onEntityChanged;
   final ValueChanged<ObjectBoxAdminViewMode> onModeChanged;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSearchSubmitted;
-  final VoidCallback onSearchPressed;
   final VoidCallback onAddPeakPressed;
   final VoidCallback onAddContactPressed;
   final VoidCallback onSortPressed;
@@ -97,23 +97,23 @@ class ObjectBoxAdminControls extends StatelessWidget {
             children: [
               SizedBox(
                 width: 360,
-                child: TextField(
-                  key: const Key('objectbox-admin-search-field'),
-                  controller: searchController,
-                  enabled: !locked,
-                  decoration: InputDecoration(
-                    labelText: 'Search',
-                    suffixIcon: IconButton(
-                      // Preserve this existing explicit-search action in this item.
-                      style: const ButtonStyle(
-                        iconSize: WidgetStatePropertyAll(searchControlIconSize),
+                child: Semantics(
+                  label: 'Search ObjectBox Admin records',
+                  child: TextField(
+                    key: const Key('objectbox-admin-search-field'),
+                    controller: searchController,
+                    focusNode: searchFocusNode,
+                    enabled:
+                        !locked && state.schemaError == null && entity != null,
+                    decoration: const InputDecoration(
+                      labelText: 'Search ⌘F',
+                      prefixIcon: ExcludeSemantics(
+                        child: Icon(Icons.search, size: searchControlIconSize),
                       ),
-                      onPressed: locked ? null : onSearchPressed,
-                      icon: const Icon(Icons.search, semanticLabel: 'Search'),
                     ),
+                    onChanged: onSearchChanged,
+                    onSubmitted: (_) => onSearchSubmitted(),
                   ),
-                  onChanged: onSearchChanged,
-                  onSubmitted: (_) => onSearchSubmitted(),
                 ),
               ),
               if (entity?.name == 'Peak')

@@ -970,6 +970,8 @@ class _MutablePeakRepository extends PeakRepository {
 }
 
 class _RouteAwareObjectBoxAdminRepository implements ObjectBoxAdminRepository {
+  @override
+  Future<bool> deleteWaypoint(int id) => base.deleteWaypoint(id);
   _RouteAwareObjectBoxAdminRepository({
     required this.base,
     required this.routeRepository,

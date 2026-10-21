@@ -20,6 +20,92 @@ import 'package:objectbox/internal.dart' as obx;
 import 'package:peak_bagger/services/route_timing_service.dart';
 
 void main() {
+  const matchingSets = {
+    'Peak': ['name', 'altName'],
+    'NaturalFeature': ['name', 'altName', 'tag', 'osmType', 'osmId'],
+    'Contact': ['firstName', 'surname', 'nickname'],
+    'PeakList': ['name'],
+    'Tasmap50k': ['name'],
+    'GpxTrack': ['trackName'],
+    'PeaksBagged': ['gpxId'],
+    'PeakListItemEntity': ['peakListName', 'peakName', 'id'],
+    'Waypoints': ['name', 'type', 'mgrs'],
+    'Route': ['name'],
+    'RouteGraphChunk': ['chunkKey', 'recordKey', 'payloadJson'],
+    'RouteGraphWayIndex': [
+      'recordKey',
+      'chunkKey',
+      'highway',
+      'surface',
+      'footway',
+      'foot',
+      'route',
+      'access',
+      'name',
+      'normalizedName',
+      'tagsJson',
+    ],
+    'RouteGraphTrailDisplayChunk': ['recordKey', 'chunkKey', 'payloadJson'],
+    'RouteGraphManifest': [
+      'sourceHash',
+      'schemaVersion',
+      'readinessState',
+      'lastError',
+    ],
+  };
+  for (final entry in matchingSets.entries) {
+    test(
+      '${entry.key} matches exactly its complete declared fields without placeholders',
+      () {
+        final descriptor = ObjectBoxAdminRepositoryImpl()
+            .getEntities()
+            .singleWhere((e) => e.name == entry.key);
+        for (final field in {
+          ...descriptor.fields.map((f) => f.name),
+          ...entry.value,
+          'desc',
+          'extraColumn',
+        }) {
+          final row = ObjectBoxAdminRow(
+            primaryKeyValue: 1,
+            values: {field: '${'prefix ' * 80}SENTINEL'},
+          );
+          expect(
+            objectBoxAdminFilterAndSortRows(
+              descriptor,
+              rows: [row],
+              searchQuery: '  SeNtInEl ',
+              ascending: true,
+            ),
+            entry.value.contains(field) ? [row] : isEmpty,
+            reason: '${entry.key}.$field',
+          );
+        }
+        final missing = ObjectBoxAdminRow(
+          primaryKeyValue: 1,
+          values: {for (final field in entry.value) field: null},
+        );
+        expect(
+          objectBoxAdminFilterAndSortRows(
+            descriptor,
+            rows: [missing],
+            searchQuery: '—',
+            ascending: true,
+          ),
+          isEmpty,
+        );
+        expect(
+          objectBoxAdminFilterAndSortRows(
+            descriptor,
+            rows: [missing],
+            searchQuery: '   ',
+            ascending: true,
+          ),
+          [missing],
+        );
+      },
+    );
+  }
   test(
     'reviewed app metadata covers exactly every persisted model member in order',
     () {

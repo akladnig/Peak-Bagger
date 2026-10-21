@@ -33,6 +33,151 @@ void main() {
   }
 
   test(
+    'live raw Search and Enter keep committed selection outside results and after Save',
+    () async {
+      final rows = <String, List<ObjectBoxAdminRow>>{
+        'Peak': [
+          const ObjectBoxAdminRow(
+            primaryKeyValue: 1,
+            values: {'name': 'Committed Ossa'},
+          ),
+          const ObjectBoxAdminRow(primaryKeyValue: 2, values: {'name': 'Anne'}),
+        ],
+      };
+      final container = containerFor(
+        TestObjectBoxAdminRepository(entities: [peak], rowsByEntity: rows),
+      );
+      final notifier = container.read(objectboxAdminProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      notifier.selectRow(container.read(objectboxAdminProvider).rows.first);
+      for (final query in ['  ANNE ', 'draft only', '', '   ', 'Committed']) {
+        notifier.updateSearchQuery(query);
+        await Future<void>.delayed(Duration.zero);
+        final state = container.read(objectboxAdminProvider);
+        expect(state.searchQuery, query);
+        expect(state.selectedRow?.primaryKeyValue, 1);
+        expect(state.selectedRow?.values['name'], 'Committed Ossa');
+        expect(
+          state.rows.length,
+          query.trim().isEmpty
+              ? 2
+              : query == 'draft only'
+              ? 0
+              : 1,
+        );
+        await notifier.runSearch();
+        expect(
+          container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+          1,
+        );
+      }
+      rows['Peak'] = [
+        const ObjectBoxAdminRow(
+          primaryKeyValue: 1,
+          values: {'name': 'Saved outside query'},
+        ),
+      ];
+      await notifier.refreshAfterSave(keepSelectedRowPrimaryKey: 1);
+      expect(container.read(objectboxAdminProvider).rows, isEmpty);
+      expect(
+        container.read(objectboxAdminProvider).selectedRow?.values['name'],
+        'Saved outside query',
+      );
+    },
+  );
+
+  test(
+    'stale query successes/errors and selection snapshots cannot replace newer context',
+    () async {
+      final repository = TestObjectBoxAdminRepository(entities: [peak]);
+      final container = containerFor(repository);
+      final notifier = container.read(objectboxAdminProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      final initial = container.read(objectboxAdminProvider).rows;
+      notifier.selectRow(initial.first);
+      final reads = <Completer<List<ObjectBoxAdminRow>>>[];
+      repository.rowLoader = (_) {
+        final read = Completer<List<ObjectBoxAdminRow>>();
+        reads.add(read);
+        return read.future;
+      };
+      notifier.updateSearchQuery('old');
+      notifier.updateSearchQuery('Ossa');
+      reads[1].complete(initial);
+      await Future<void>.delayed(Duration.zero);
+      reads[0].completeError(StateError('obsolete'));
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(objectboxAdminProvider).error, isNull);
+      notifier.updateSearchQuery('missing');
+      notifier.clearSelection();
+      reads[2].complete(initial);
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(objectboxAdminProvider).selectedRow, isNull);
+      notifier.updateSearchQuery('newer');
+      notifier.updateSearchQuery('Ossa');
+      reads[4].complete(initial);
+      await Future<void>.delayed(Duration.zero);
+      reads[3].complete([]);
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(objectboxAdminProvider).rows, hasLength(2));
+    },
+  );
+
+  test(
+    'read errors and Retry keep selection; confirmed removal invalidates only its own identity',
+    () async {
+      final repository = TestObjectBoxAdminRepository(entities: [peak]);
+      final container = containerFor(repository);
+      final notifier = container.read(objectboxAdminProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      final rows = container.read(objectboxAdminProvider).rows;
+      notifier.selectRow(rows.first);
+      repository.rowLoader = (_) async => throw StateError('read failed');
+      await notifier.runSearch();
+      expect(
+        container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+        1,
+      );
+      repository.rowLoader = null;
+      await notifier.refresh();
+      expect(
+        container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+        1,
+      );
+      notifier.didDeleteRecord(2);
+      expect(
+        container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+        1,
+      );
+      notifier.didDeleteRecord(1);
+      expect(container.read(objectboxAdminProvider).selectedRow, isNull);
+    },
+  );
+
+  test(
+    'captured Search actions cannot run in Schema or with unavailable metadata',
+    () async {
+      final repository = TestObjectBoxAdminRepository(entities: [peak]);
+      final container = containerFor(repository);
+      final notifier = container.read(objectboxAdminProvider.notifier);
+      await Future<void>.delayed(Duration.zero);
+      notifier.setMode(ObjectBoxAdminViewMode.schema);
+      final calls = repository.loadRowsCallCount;
+      notifier.updateSearchQuery('blocked');
+      await notifier.runSearch();
+      expect(container.read(objectboxAdminProvider).searchQuery, isEmpty);
+      expect(repository.loadRowsCallCount, calls);
+      notifier.setMode(ObjectBoxAdminViewMode.data);
+      repository.discoveryError = StateError('unavailable');
+      await notifier.refresh();
+      notifier.updateSearchQuery('blocked');
+      await notifier.runSearch();
+      expect(container.read(objectboxAdminProvider).searchQuery, isEmpty);
+      expect(container.read(objectboxAdminProvider).isLoading, isFalse);
+    },
+  );
+
+  test(
     'initial discovery failure and repeated Retry are schema errors, not Data errors',
     () async {
       final repository = TestObjectBoxAdminRepository()
