@@ -7,9 +7,11 @@ delivery history; use the follow-up for current shortcut verification.
 Verification uses only **My Seed Colour / `MyTheme.dark`**, with distinct behaviour,
 failure, resize and enlarged-text checks retained. Runtime theme options are unchanged.
 
-**Status: partial — 14/15 criteria verified.** The remaining acceptance blocker is
-native Cmd+F modifier delivery/confirmation, not silently waived by the independent
-native checks below. No native application workaround is retained.
+**Current status: all 15 criteria verified**, including the subsequent real-shell
+Cmd+F correction and strict native rerun in [the follow-up](cmd-f-follow-up.md).
+The initial partial-delivery evidence below is historical; its native shortcut
+limitation was resolved by correcting the probe's device-modifier flags and
+foreground activation, not by adding a native application workaround.
 
 ## Delivered boundaries
 

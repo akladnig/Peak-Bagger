@@ -39,7 +39,7 @@ Runtime support and dated evidence are unchanged. See `ai_specs/app-profile.md`.
 - [x] Recoverable pre-acceptance Import failure keeps the mounted dialog, selected CSV and list name; shows actionable feedback rather than raw exception-only guidance; releases lock and re-enables **Import / Cancel**. Close once only after app-owned Background Jobs starter accepts work. After acceptance, work outlives the dialog and later failures retain existing Jobs/SnackBar reporting under Spec 0011; add no post-acceptance cancellation, replayable-input retention or Jobs-panel Retry.
 - [x] Idle Cancel and permitted idle dismissal discard the Import draft with no write/new unsaved-change confirmation. Blocked dismissal is never replayed after completion/failure. GPX Track Name/Route Name fields preserve existing validation and failed-start retention. Dispose owned controllers/focus/listeners and handle async completion after disposal; diagnostics omit credentials/private payloads.
 - [x] Unit/provider tests retain exact metadata matches/thresholds/session ownership and current guards. Widget tests verify labels/scaled complete errors/Points behaviour, active versus local-dialog Cmd+F eligibility, stable selected identities, unavailable Difficulty revalidation without duplicates, Rating semantic wording and shared actual menu input. File-picker/duplicate-check/starter fakes with controlled futures/exceptions verify early locks, usable child confirmation, all parent dismissal paths, retained CSV/name, retry, idle discard, one accepted hand-off and later background-owned failure; regress GPX failed-start retention and affected existing robot journeys.
-- [ ] Verify native macOS rendering/input at 1280 × 960 and representative larger content sizes, default/enlarged text and My Seed Colour in dark mode only, resizing with drafts/open menus. Labels/values/errors/actions remain reachable by wrapping/scrolling, never reduced scale/new breakpoints. Preserve Desktop wide/macOS-only/maximised-launch target, native window/full-screen configuration, ObjectBox/Riverpod/GoRouter and domain persistence; no schema/model/generated changes or external starter dependency.
+- [x] Verify native macOS rendering/input at 1280 × 960 and representative larger content sizes, default/enlarged text and My Seed Colour in dark mode only, resizing with drafts/open menus. Labels/values/errors/actions remain reachable by wrapping/scrolling, never reduced scale/new breakpoints. Preserve Desktop wide/macOS-only/maximised-launch target, native window/full-screen configuration, ObjectBox/Riverpod/GoRouter and domain persistence; no schema/model/generated changes or external starter dependency.
 - [x] Ordinary automated tests use Riverpod overrides and controlled repositories/preferences/file-picker/import seams, not network/keys/production ObjectBox/Mapping volumes. Follow README native prerequisites if temporary Stores are needed and close before cleanup; dispose resources. Run affected focused tests/robot regressions, `flutter analyze` and full `TZ=Australia/Hobart flutter test --reporter expanded`; record automated/native evidence and failures/blockers distinctly. No new TDD/journey framework or template-parity requirement is introduced; preserve earlier explicit test-first requirements if covered parser/domain logic changes.
 
 ## Covers
@@ -57,16 +57,17 @@ Runtime support and dated evidence are unchanged. See `ai_specs/app-profile.md`.
 
 ## Implementation status — 2026-10-22
 
-Implementation and deterministic verification are delivered; **14 of 15 criteria
-are checked, not whole-item completion**. Item 01 is already complete.
+**Completed — all 15 criteria verified**, following the user-reported Cmd+F bug
+and [routed-shell correction/strict native rerun](../cmd-f-follow-up.md). Item 01
+is already complete.
 
-See [item 04 verification](../implementation-04-verification.md) for changes,
-188-test affected/robot regressions, the final 142-test focused run, clean analysis
-and full-suite **2,826 passed / 6 skipped** results. Native Cmd+F remains unverified:
-the OS-input probe did not deliver a Command modifier to Flutter. The native
-rendering/input criterion remains unchecked pending that check. The independent
-native matrix passed at 1280 × 960 / 1600 × 1000, 1×/2× text, with actual window
-resizing, pointer/plain-key menu input and Import recovery, explicitly excluding
-Cmd+F. No native keyboard workaround or window/menu change from diagnostic
-experiments is retained. Confirm native Cmd+F manually or with a working modifier
-injection seam before marking this item complete.
+See [item 04 verification](../implementation-04-verification.md) for initial changes
+and dated evidence. The follow-up records failing-then-passing real-shell sidebar
+regressions, modal guards, **273 passing focused tests**, the additional Admin
+sidebar/draft regression, clean analysis and full-suite **2,833 passed / 6 skipped**.
+The final strict native matrix passed at 1280 × 960 / 1600 × 1000 and 1×/2× text,
+including Command/F key delivery, Add Search focus/select-all and repeated Cmd+F,
+actual resizing, menu input and Import recovery. The probe now supplies the device
+modifier flag and verifies foreground activation immediately before injection.
+No native application keyboard workaround, window/menu change, human visual Pass
+or whole-app compliance claim is included.

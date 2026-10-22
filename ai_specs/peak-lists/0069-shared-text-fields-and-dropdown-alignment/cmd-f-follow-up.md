@@ -33,7 +33,11 @@ dismiss that report.
 - Full suite: `TZ=Australia/Hobart flutter test --reporter expanded` — **2,833
   passed, 6 inherited skips**, exit 0 (10m 48s). The additional Admin sidebar
   assertion was also rerun separately and passed.
-- Final native outcome: pending.
+- Final strict native run: **all four configurations passed**, with no Flutter
+  rendering errors. Command/F down/up delivery is logged, and eligibility reports
+  `meta=true`, active route and no local-history owner. Add Search focus/select-all
+  and repeated Cmd+F pass at 1280 × 960 / 1600 × 1000, each at 1× / 2× text,
+  alongside the existing resize/menu/validation/import recovery checks.
 
 ## Native probe correction
 
@@ -45,7 +49,21 @@ from the macOS IOKit `IOLLEvent.h`) and real flags-changed events.
 With that correction, the initial strict native matrix **passed all four
 configurations**, including actual Command key events, Add Search focus/select-all
 and repeated Cmd+F, at 1280 × 960 / 1600 × 1000 with 1× / 2× text. The former
-skip-Find probe option is removed; the final default rerun is still under review.
+skip-Find probe option is removed. A subsequent native run failed to receive any
+Command/F events; foreground activation before launching the Swift injector was
+not sufficient under concurrent verification. The fixture now activates and
+verifies its own process **inside the injector, after Swift compilation**, directly
+before posting keys. With that correction the final strict run passed:
+
+```sh
+flutter run -d macos -t test/harness/verify_peak_list_fields.dart \
+  --dart-define=PEAK_LIST_NATIVE_TRACE_KEYS=true
+```
+
+This separates two fixture issues (device modifier flags and lost foreground)
+from the independently reproduced and corrected application sidebar-focus bug.
+The final native result verifies the actual Add dialog; the real shell's Map,
+Peak Lists and Admin routing and modal guards are verified by widget regressions.
 No human visual acceptance or whole-app runtime compliance is inferred.
 
 ### Journey Verification
