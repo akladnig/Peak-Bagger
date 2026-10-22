@@ -31,6 +31,10 @@ SharedDropdown<String>(
   `hasSelection: false` means no committed selection, unlike committed null. Supply
   `hint` for an absent value. Retained unavailable choices can be disabled but
   checked; never replace their typed value just to make a menu selectable.
+- An option may supply `groupLabel` / `groupKey` for a non-selectable heading
+  immediately before it. Headings are not synthetic typed choices: they have no
+  checkmark or keyboard target, so nullable Any and disabled retained selections
+  keep their identities. Peak List Difficulty uses this to retain region grouping.
 - Pass `enabled` for rendering **and** an `isInteractionAllowed` closure reading the
   current authoritative lock. Activation and commit reread it before rebuilding;
   widget flags alone do not reject same-frame stale callbacks. Options changing,

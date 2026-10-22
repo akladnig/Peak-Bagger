@@ -27,6 +27,8 @@ class SharedDropdownChoice<T> {
     this.icon,
     this.enabled = true,
     this.semanticLabel,
+    this.groupLabel,
+    this.groupKey,
   });
 
   final T value;
@@ -35,6 +37,10 @@ class SharedDropdownChoice<T> {
   final IconData? icon;
   final bool enabled;
   final String? semanticLabel;
+
+  /// Optional non-selectable heading before this choice (not a typed value).
+  final String? groupLabel;
+  final Key? groupKey;
 }
 
 /// Presentation only: the caller owns the typed value, draft and persistence.
@@ -639,7 +645,16 @@ class _SharedDropdownState<T> extends State<SharedDropdown<T>> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        for (var i = 0; i < widget.choices.length; i++)
+                        for (var i = 0; i < widget.choices.length; i++) ...[
+                          if (widget.choices[i].groupLabel case final group?)
+                            Padding(
+                              key: widget.choices[i].groupKey,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              child: Text(group, style: style, softWrap: true),
+                            ),
                           KeyedSubtree(
                             key: _rowKeys.putIfAbsent(i, GlobalKey.new),
                             child: _DropdownRow(
@@ -664,6 +679,7 @@ class _SharedDropdownState<T> extends State<SharedDropdown<T>> {
                               onTap: () => _select(i),
                             ),
                           ),
+                        ],
                       ],
                     ),
                   ),

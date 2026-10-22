@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,11 +25,101 @@ import 'package:peak_bagger/services/gpx_track_repository.dart';
 import 'package:peak_bagger/services/tasmap_repository.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/peak_list_peak_dialog.dart';
+import 'package:peak_bagger/widgets/shared_dropdown.dart';
 
 import '../harness/test_tasmap_repository.dart';
 import '../harness/test_map_notifier.dart';
 
 void main() {
+  testWidgets(
+    'edit Save locks fields and captured Points/submit callbacks before rebuild; failure retains draft',
+    (tester) async {
+      final peak = _buildPeak(
+        osmId: 1,
+        name: 'Peak',
+        latitude: -41,
+        longitude: 146,
+      );
+      final repository = _PendingPeakRepository(peak);
+      await _pumpDialog(
+        tester,
+        dialog: PeakListPeakDialog(
+          mode: PeakListPeakDialogMode.edit,
+          peakList: PeakList(peakListId: 1, name: 'List'),
+          peakListRepository: PeakListRepository.test(
+            InMemoryPeakListStorage(),
+          ),
+          peakItems: const [],
+          ascentRows: const [],
+          peak: peak,
+          points: 3,
+        ),
+        peakRepository: repository,
+        tasmapRepository: await TestTasmapRepository.create(),
+        gpxTrackRepository: GpxTrackRepository.test(InMemoryGpxTrackStorage()),
+      );
+      await tester.enterText(
+        find.byKey(const Key('peak-list-peak-difficulty')),
+        'Draft',
+      );
+      final points = tester.widget<SharedDropdown<int>>(
+        find.byKey(const Key('peak-list-peak-points')),
+      );
+      final save = tester
+          .widget<FilledButton>(find.byKey(const Key('peak-list-peak-save')))
+          .onPressed!;
+      save();
+      save();
+      points.onSelected(9);
+      expect(points.isInteractionAllowed!(), false);
+      expect(repository.calls, 1);
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const Key('peak-list-peak-difficulty')),
+            )
+            .enabled,
+        false,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('peak-list-peak-duration')))
+            .enabled,
+        false,
+      );
+      expect(
+        tester
+            .widget<SharedDropdown<int>>(
+              find.byKey(const Key('peak-list-peak-points')),
+            )
+            .value,
+        3,
+      );
+      repository.pending.completeError(StateError('controlled failure'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.byKey(const Key('peak-list-peak-failure-close')));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(
+              find.byKey(const Key('peak-list-peak-difficulty')),
+            )
+            .controller!
+            .text,
+        'Draft',
+      );
+      expect(
+        tester
+            .widget<SharedDropdown<int>>(
+              find.byKey(const Key('peak-list-peak-points')),
+            )
+            .value,
+        3,
+      );
+    },
+  );
   testWidgets('view mode shows metadata and history', (tester) async {
     final peak = _buildPeak(
       osmId: 101,
@@ -612,6 +703,21 @@ void main() {
           .text,
       '1',
     );
+    final search = tester.widget<TextField>(
+      find.byKey(const Key('peak-list-peak-search-input')),
+    );
+    expect(search.decoration!.labelText, 'Search ⌘F');
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+    expect(search.focusNode!.hasFocus, true);
+    expect(search.controller!.text, 'New');
+    expect(
+      search.controller!.selection,
+      const TextSelection(baseOffset: 0, extentOffset: 3),
+    );
+    expect(find.byKey(const Key('peak-selected-row-202')), findsOneWidget);
   });
 
   testWidgets('Tassy Full add mode hides non-Tasmanian peaks from search', (
@@ -1029,6 +1135,8 @@ void main() {
 
     await tester.tap(find.byKey(const Key('peak-list-peak-points')));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('7').last);
+    await tester.pumpAndSettle();
     await tester.tap(find.text('7').last);
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -1222,6 +1330,8 @@ void main() {
     );
 
     await tester.tap(find.byKey(const Key('peak-list-peak-points')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('7').last);
     await tester.pumpAndSettle();
     await tester.tap(find.text('7').last);
     await tester.enterText(
@@ -1601,6 +1711,17 @@ PeakListRepository _peakListRepository(
   );
 }
 
+class _PendingPeakRepository extends PeakRepository {
+  _PendingPeakRepository(Peak peak) : super.test(InMemoryPeakStorage([peak]));
+  final pending = Completer<Peak>();
+  int calls = 0;
+  @override
+  Future<Peak> save(Peak peak) {
+    calls++;
+    return pending.future;
+  }
+}
+
 Future<Completer<PeakListPeakDialogOutcome?>> _pumpDialog(
   WidgetTester tester, {
   required Widget dialog,
@@ -1638,6 +1759,7 @@ Future<Completer<PeakListPeakDialogOutcome?>> _pumpDialog(
         gpxTrackRepositoryProvider.overrideWithValue(gpxTrackRepository),
       ],
       child: MaterialApp(
+        theme: MyTheme.dark,
         home: Builder(
           builder: (context) {
             if (dialogShown) {

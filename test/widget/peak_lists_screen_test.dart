@@ -256,7 +256,7 @@ void main() {
   testWidgets(
     'details header keeps the title, search, filter, and add controls on one line',
     (tester) async {
-      await tester.binding.setSurfaceSize(const Size(721, 800));
+      await tester.binding.setSurfaceSize(const Size(1280, 960));
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       await _pumpPeakListsScreen(
@@ -303,12 +303,8 @@ void main() {
         'Search Peaks',
       );
       expect(
-        tester
-            .widget<Tooltip>(
-              find.ancestor(of: search, matching: find.byType(Tooltip)),
-            )
-            .message,
-        'Search Peaks',
+        find.ancestor(of: search, matching: find.byType(Tooltip)),
+        findsNothing,
       );
       expect(
         find.descendant(of: filter, matching: find.byIcon(Icons.filter_list)),
@@ -324,6 +320,117 @@ void main() {
         'A deliberately long peak list title that must ellipsize',
       );
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'details Cmd+F selects current text; popup and Add dialog own their interaction',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 960));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _pumpPeakListsScreen(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'List', [100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([_buildPeak(100, 'Alpha Peak', -42, 146)]),
+        ),
+        initialPeakListId: 1,
+      );
+      final search = find.byKey(const Key('peak-lists-name-search'));
+      await tester.enterText(search, 'Alpha');
+      Future<void> commandF() async {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+      }
+
+      await commandF();
+      final field = tester.widget<TextField>(search);
+      expect(
+        field.controller!.selection,
+        const TextSelection(baseOffset: 0, extentOffset: 5),
+      );
+      expect(field.controller!.text, 'Alpha');
+      await tester.tap(
+        find.byKey(const Key('peak-lists-metadata-filter-trigger')),
+      );
+      await tester.pump();
+      field.controller!.selection = const TextSelection.collapsed(offset: 2);
+      await commandF();
+      expect(
+        field.controller!.selection,
+        const TextSelection.collapsed(offset: 2),
+      );
+      await tester.tap(find.byKey(const Key('map-metadata-filter-close')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('peak-lists-add-peak')));
+      await tester.pumpAndSettle();
+      final local = find.byKey(const Key('peak-list-peak-search-input'));
+      await tester.enterText(local, 'local draft');
+      await commandF();
+      final localField = tester.widget<TextField>(local);
+      expect(
+        localField.controller!.selection,
+        const TextSelection(baseOffset: 0, extentOffset: 11),
+      );
+      expect(field.controller!.text, 'Alpha');
+      expect(
+        field.controller!.selection,
+        const TextSelection.collapsed(offset: 2),
+      );
+      await tester.tap(find.byKey(const Key('peak-list-peak-cancel')));
+      await tester.pumpAndSettle();
+      expect(field.controller!.text, 'Alpha');
+    },
+  );
+
+  testWidgets(
+    'enlarged details controls reflow and resize without losing Search or criteria',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 960));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _pumpPeakListsScreen(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'List', [100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([_buildPeak(100, 'Alpha Peak', -42, 146)]),
+        ),
+        initialPeakListId: 1,
+        textScaler: TextScaler.linear(2),
+      );
+      final search = find.byKey(const Key('peak-lists-name-search'));
+      await tester.enterText(search, 'Alpha');
+      await tester.pump();
+      for (final size in [const Size(1280, 960), const Size(1600, 1000)]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpAndSettle();
+        final pane = tester.getRect(
+          find.byKey(const Key('peak-lists-details-pane')),
+        );
+        for (final control in [
+          search,
+          find.byKey(const Key('peak-lists-metadata-filter-trigger')),
+          find.byKey(const Key('peak-lists-add-peak')),
+        ]) {
+          final rect = tester.getRect(control);
+          expect(rect.left, greaterThanOrEqualTo(pane.left));
+          expect(rect.right, lessThanOrEqualTo(pane.right));
+          expect(rect.bottom, lessThanOrEqualTo(pane.bottom));
+        }
+        expect(tester.widget<TextField>(search).controller!.text, 'Alpha');
+        expect(tester.takeException(), isNull);
+      }
     },
   );
 
@@ -5631,7 +5738,7 @@ Future<void> _pumpPeakListsScreen(
         ...overrides,
       ],
       child: MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: textScaler == null
             ? PeakListsScreen(initialPeakListId: initialPeakListId)
             : Builder(

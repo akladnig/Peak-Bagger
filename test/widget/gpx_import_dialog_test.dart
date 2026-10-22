@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'package:peak_bagger/widgets/gpx_import_dialog.dart';
+import 'package:peak_bagger/theme.dart';
 
 Future<bool> fakeImportRunner({
   required bool importAsRoute,
@@ -21,6 +22,67 @@ Future<String> fastPrefilledNameResolver(String filePath) async {
 
 void main() {
   group('GpxImportDialog', () {
+    for (final asRoute in [false, true]) {
+      testWidgets(
+        'scaled ${asRoute ? 'Route' : 'Track'} Name fields inherit decoration and wrap complete validation',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(1280, 960));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: MyTheme.dark,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(2)),
+                child: child!,
+              ),
+              home: Builder(
+                builder: (context) => Scaffold(
+                  body: FilledButton(
+                    onPressed: () => showDialog<void>(
+                      context: context,
+                      builder: (_) => GpxImportDialog(
+                        filePicker: _FakeSelectedGpxFilePicker([
+                          '/fixture/walk.gpx',
+                        ]),
+                        importAsRoute: asRoute,
+                        prefilledNameResolver: (_) async => '',
+                        onImport: fakeImportRunner,
+                      ),
+                    ),
+                    child: const Text('Open'),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.tap(find.text('Open'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('gpx-import-select-files')));
+          await tester.pumpAndSettle();
+          final field = tester.widget<TextField>(
+            find.byKey(const Key('gpx-import-name-field-0')),
+          );
+          expect(
+            field.decoration!.labelText,
+            asRoute ? 'Route Name' : 'Track Name',
+          );
+          expect(field.decoration!.border, isNull);
+          await tester.tap(find.byKey(const Key('gpx-import-button')));
+          await tester.pumpAndSettle();
+          final error = find.text(
+            'A ${asRoute ? 'route' : 'track'} name is required',
+          );
+          expect(error, findsOneWidget);
+          expect(tester.widget<Text>(error).maxLines, isNull);
+          expect(tester.getSize(error).height, greaterThan(30));
+          expect(field.controller!.text, '');
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     testWidgets('uses dialog margin spacing and single-line title', (
       tester,
     ) async {

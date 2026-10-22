@@ -2,8 +2,76 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/widgets/peak_selected_peaks_list.dart';
+import 'package:peak_bagger/theme.dart';
 
 void main() {
+  testWidgets(
+    'scaled labelled Points retain drafts and reject captured callbacks at the current lock',
+    (tester) async {
+      var allowed = true;
+      var writes = 0;
+      late StateSetter update;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: MyTheme.dark,
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(2)),
+                child: Scaffold(
+                  body: SizedBox(
+                    width: 676,
+                    child: PeakSelectedPeaksList(
+                      selectedPeaks: [_peak(1, 'Alpha Peak')],
+                      selectedPeakIds: const {1},
+                      pointsByPeakId: const {1: 3},
+                      enabled: allowed,
+                      isInteractionAllowed: () => allowed,
+                      onSelectionChanged: (_) => writes++,
+                      onPointsChanged: (_, _) => writes++,
+                      mapNameForPeak: (_) => 'Map',
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      final field = find.byKey(const Key('peak-selected-points-1'));
+      await tester.enterText(field, '');
+      final input = tester.widget<TextField>(field);
+      expect(input.decoration!.labelText, 'Points');
+      final increment = tester
+          .widget<IconButton>(find.byKey(const Key('peak-selected-points-up')))
+          .onPressed!;
+      final changed = input.onChanged!;
+      allowed = false;
+      increment();
+      changed('9');
+      expect(writes, 0);
+      update(() {});
+      await tester.pump();
+      expect(
+        input.controller!.text,
+        '',
+      ); // No committed-value resync on rebuild/lock focus loss.
+      expect(tester.widget<TextField>(field).enabled, false);
+      expect(tester.takeException(), isNull);
+      allowed = true;
+      update(() {});
+      await tester.pump();
+      expect(input.controller!.text, '');
+      await tester.tap(find.byKey(const Key('peak-selected-points-up')));
+      await tester.pump();
+      expect(input.controller!.text, '4');
+      expect(writes, 1);
+    },
+  );
+
   testWidgets('renders row keys and default points', (tester) async {
     await tester.pumpWidget(_Harness(selectedPeaks: [_peak(1, 'Alpha Peak')]));
 
@@ -103,6 +171,7 @@ class _HarnessState extends State<_Harness> {
         .toList(growable: false);
 
     return MaterialApp(
+      theme: MyTheme.dark,
       home: Scaffold(
         body: SizedBox.expand(
           child: PeakSelectedPeaksList(

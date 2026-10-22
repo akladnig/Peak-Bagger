@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/theme.dart';
@@ -25,6 +26,8 @@ import '../core/widgets/popup_keyboard_dismiss.dart';
 import 'dialog_helpers.dart';
 import 'peak_multi_select_results_list.dart';
 import 'peak_selected_peaks_list.dart';
+import 'shared_dropdown.dart';
+import 'shared_field_decoration.dart';
 
 enum PeakListPeakDialogMode { view, add, edit }
 
@@ -75,6 +78,7 @@ class PeakListPeakDialog extends ConsumerStatefulWidget {
 
 class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   final _searchController = TextEditingController();
+  final _searchFocus = FocusNode(debugLabel: 'Add New Peak Search');
   final _difficultyController = TextEditingController();
   final _durationController = TextEditingController();
   final _pointValues = List<int>.generate(11, (index) => index);
@@ -91,6 +95,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleSearchShortcut);
     _mode = widget.mode;
     _editPoints = widget.points ?? 0;
     _difficultyController.text = widget.peak?.difficulty ?? '';
@@ -102,10 +107,48 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);
+    _searchFocus.dispose();
     _searchController.dispose();
     _difficultyController.dispose();
     _durationController.dispose();
     super.dispose();
+  }
+
+  bool _handleSearchShortcut(KeyEvent event) {
+    if (event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.keyF ||
+        !HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isAltPressed ||
+        HardwareKeyboard.instance.isShiftPressed) {
+      return false;
+    }
+    if (!mounted) return false;
+    final route = ModalRoute.of(context);
+    if (_saving ||
+        _mode != PeakListPeakDialogMode.add ||
+        !(route?.isCurrent ?? true) ||
+        (route?.willHandlePopInternally ?? false) ||
+        !TickerMode.valuesOf(context).enabled ||
+        !_searchFocus.canRequestFocus) {
+      return false;
+    }
+    final focusedContext = FocusManager.instance.primaryFocus?.context;
+    if (focusedContext != null && ModalRoute.of(focusedContext) != route) {
+      return false;
+    }
+    _searchFocus.requestFocus();
+    _searchController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _searchController.text.length,
+    );
+    return true;
+  }
+
+  void _dismiss() {
+    if (_saving || !(ModalRoute.of(context)?.isCurrent ?? true)) return;
+    Navigator.of(context).pop();
   }
 
   @override
@@ -134,7 +177,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
               child: PopupKeyboardDismiss(
                 enabled: !_saving,
                 autofocus: false,
-                onDismiss: () => Navigator.of(context).pop(),
+                onDismiss: _dismiss,
                 child: Material(
                   key: const Key('peak-list-peak-dialog'),
                   color:
@@ -237,9 +280,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                 ],
                                 IconButton(
                                   key: const Key('peak-list-peak-close-icon'),
-                                  onPressed: _saving
-                                      ? null
-                                      : () => Navigator.of(context).pop(),
+                                  onPressed: _saving ? null : _dismiss,
                                   icon: Icon(
                                     Icons.close,
                                     size: PopupUIConstants.closeIconSize,
@@ -291,8 +332,11 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                             PopupUIConstants.surfacePadding,
                             PopupUIConstants.surfacePadding,
                           ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
+                          child: OverflowBar(
+                            alignment: MainAxisAlignment.end,
+                            spacing: PopupUIConstants.actionSpacing,
+                            overflowSpacing: PopupUIConstants.actionSpacing,
+                            overflowAlignment: OverflowBarAlignment.end,
                             children: [
                               FilledButton(
                                 key: Key(
@@ -300,9 +344,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                       ? 'peak-list-peak-close'
                                       : 'peak-list-peak-cancel',
                                 ),
-                                onPressed: _saving
-                                    ? null
-                                    : () => Navigator.of(context).pop(),
+                                onPressed: _saving ? null : _dismiss,
                                 child: Text(
                                   _mode == PeakListPeakDialogMode.view
                                       ? 'Close'
@@ -310,9 +352,6 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                                 ),
                               ),
                               if (_mode != PeakListPeakDialogMode.view) ...[
-                                const SizedBox(
-                                  width: PopupUIConstants.actionSpacing,
-                                ),
                                 FilledButton(
                                   key: const Key('peak-list-peak-save'),
                                   onPressed: _saving ? null : _saveCurrentMode,
@@ -432,7 +471,6 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   Widget _buildAddContent(BuildContext context) {
-    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
     final existingIds = widget.peakItems.map((item) => item.peakOsmId).toSet();
     final searchResults = _searchResults();
     final selectedPeaks = _selectedPeaks();
@@ -440,20 +478,28 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
-          key: const Key('peak-list-peak-search-input'),
-          controller: _searchController,
-          autofocus: true,
-          decoration: InputDecoration(
-            labelText: 'Search peaks',
-            prefixIcon: Icon(Icons.search, color: onSurfaceColor),
-            border: OutlineInputBorder(),
+        Semantics(
+          label: 'Search peaks to add',
+          child: TextField(
+            key: const Key('peak-list-peak-search-input'),
+            controller: _searchController,
+            focusNode: _searchFocus,
+            enabled: !_saving,
+            autofocus: true,
+            decoration: InputDecoration(
+              labelText: 'Search ⌘F',
+              hintText: 'Search Peaks',
+              prefixIcon: ExcludeSemantics(
+                child: Icon(Icons.search, size: searchControlIconSize),
+              ),
+            ),
+            onChanged: (value) {
+              if (_saving) return;
+              setState(() {
+                _searchQuery = value;
+              });
+            },
           ),
-          onChanged: (value) {
-            setState(() {
-              _searchQuery = value;
-            });
-          },
         ),
         const SizedBox(height: 12),
         Expanded(
@@ -464,6 +510,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
               searchQuery: _searchQuery,
               selectedPeakIds: _selectedPeakIds,
               readOnlySelectedPeakIds: existingIds,
+              enabled: !_saving,
               mapNameForPeak: _mapNameForPeak,
               onSelectionChanged: _updateSelectedPeakIds,
             ),
@@ -481,6 +528,8 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
                 mapNameForPeak: _mapNameForPeak,
                 onSelectionChanged: _updateSelectedPeakIds,
                 onPointsChanged: _updatePeakPoints,
+                enabled: !_saving,
+                isInteractionAllowed: () => !_saving,
               ),
             ),
           ),
@@ -501,33 +550,49 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
       children: [
         _DetailLine(label: 'Peak', value: Text(peak.name)),
         const SizedBox(height: 12),
-        _PointsSelector(
-          value: _editPoints,
-          values: _pointValues,
-          onChanged: (value) {
-            setState(() {
-              _editPoints = value;
-            });
-          },
+        Align(
+          alignment: Alignment.centerLeft,
+          child: SharedDropdown<int>(
+            key: const Key('peak-list-peak-points'),
+            label: 'Points',
+            value: _editPoints,
+            choices: [
+              for (final points in _pointValues)
+                SharedDropdownChoice(value: points, label: '$points'),
+            ],
+            enabled: !_saving,
+            isInteractionAllowed: () => !_saving,
+            onSelected: (value) {
+              if (_saving) return;
+              setState(() {
+                _editPoints = value;
+              });
+            },
+          ),
         ),
         const SizedBox(height: 12),
         TextField(
           key: const Key('peak-list-peak-difficulty'),
           controller: _difficultyController,
-          decoration: const InputDecoration(
-            labelText: 'Difficulty',
-            border: OutlineInputBorder(),
-          ),
+          enabled: !_saving,
+          decoration: const InputDecoration(labelText: 'Difficulty'),
         ),
         const SizedBox(height: 12),
         TextField(
           key: const Key('peak-list-peak-duration'),
           controller: _durationController,
-          decoration: const InputDecoration(
+          enabled: !_saving,
+          decoration: InputDecoration(
             labelText: 'Duration',
-            border: OutlineInputBorder(),
+            error: _durationError == null
+                ? null
+                : SharedFieldError(
+                    _durationError!,
+                    key: const Key('peak-list-peak-duration-error'),
+                  ),
           ),
           onChanged: (_) {
+            if (_saving) return;
             if (_durationError != null) {
               setState(() {
                 _durationError = null;
@@ -535,14 +600,6 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
             }
           },
         ),
-        if (_durationError case final durationError?) ...[
-          const SizedBox(height: 4),
-          Text(
-            durationError,
-            key: const Key('peak-list-peak-duration-error'),
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        ],
       ],
     );
   }
@@ -642,6 +699,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   Future<void> _enterEditMode() async {
+    if (_saving) return;
     setState(() {
       _mode = PeakListPeakDialogMode.edit;
       _editPoints = _pointsForPeak(widget.peak?.osmId ?? 0);
@@ -655,6 +713,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   Future<void> _saveCurrentMode() async {
+    if (!mounted || _saving) return;
     if (_mode == PeakListPeakDialogMode.add) {
       await _saveAdd();
       return;
@@ -981,6 +1040,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   void _updateSelectedPeakIds(Set<int> selectedPeakIds) {
+    if (!mounted || _saving) return;
     setState(() {
       _selectedPeakIds
         ..clear()
@@ -989,6 +1049,7 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   void _updatePeakPoints(int peakId, int points) {
+    if (!mounted || _saving) return;
     setState(() {
       _selectedPeakIds.add(peakId);
       _selectedPoints[peakId] = points;
@@ -1028,39 +1089,6 @@ class _DetailLine extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _PointsSelector extends StatelessWidget {
-  const _PointsSelector({
-    required this.value,
-    required this.values,
-    required this.onChanged,
-  });
-
-  final int value;
-  final List<int> values;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return DropdownButtonFormField<int>(
-      key: const Key('peak-list-peak-points'),
-      initialValue: value,
-      decoration: const InputDecoration(
-        labelText: 'Points',
-        border: OutlineInputBorder(),
-      ),
-      items: [
-        for (final entry in values)
-          DropdownMenuItem<int>(value: entry, child: Text(entry.toString())),
-      ],
-      onChanged: (selected) {
-        if (selected != null) {
-          onChanged(selected);
-        }
-      },
     );
   }
 }
