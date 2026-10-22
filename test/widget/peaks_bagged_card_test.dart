@@ -72,8 +72,14 @@ void main() {
 
       expect(
         tester
-            .widget<InkWell>(_cardControl('summary-period-dropdown'))
-            .mouseCursor,
+            .widgetList<MouseRegion>(
+              find.descendant(
+                of: _cardControl('summary-period-dropdown'),
+                matching: find.byType(MouseRegion),
+              ),
+            )
+            .firstWhere((region) => region.cursor != MouseCursor.defer)
+            .cursor,
         SystemMouseCursors.click,
       );
       expect(
@@ -86,13 +92,15 @@ void main() {
 
       await tester.tap(_cardControl('summary-period-dropdown'));
       await tester.pumpAndSettle();
-      for (final item in tester.widgetList<MenuItemButton>(
-        find.byType(MenuItemButton),
+      for (final item in tester.widgetList<MouseRegion>(
+        find.descendant(
+          of: find.byKey(const Key('shared-dropdown-menu')),
+          matching: find.byType(MouseRegion),
+        ),
       )) {
-        expect(
-          item.style?.mouseCursor?.resolve(const <WidgetState>{}),
-          SystemMouseCursors.click,
-        );
+        if (item.cursor != MouseCursor.defer) {
+          expect(item.cursor, SystemMouseCursors.click);
+        }
       }
 
       await tester.tapAt(const Offset(300, 300));
@@ -151,7 +159,7 @@ void main() {
         ],
         now: DateTime(2026, 5, 31, 12),
         width: 560,
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
       );
 
       await _selectPeriod(tester, 'Month');
@@ -328,14 +336,12 @@ void main() {
       expect(tooltipTextWidgets, hasLength(3));
       expect(
         tooltipTextWidgets[1].style?.color,
-        lighten(
-          MyTheme.light.extension<ChartSeriesTheme>()!.primarySeriesColor,
-        ),
+        lighten(MyTheme.dark.extension<ChartSeriesTheme>()!.primarySeriesColor),
       );
       expect(
         tooltipTextWidgets[2].style?.color,
         lighten(
-          MyTheme.light.extension<ChartSeriesTheme>()!.secondarySeriesColor,
+          MyTheme.dark.extension<ChartSeriesTheme>()!.secondarySeriesColor,
         ),
       );
     });

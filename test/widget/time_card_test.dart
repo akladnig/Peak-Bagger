@@ -14,9 +14,11 @@ import 'package:peak_bagger/widgets/dashboard/summary_chart.dart';
 import 'package:peak_bagger/widgets/dashboard/time_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../harness/summary_chart_controls.dart';
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
-  for (final theme in [MyTheme.light, MyTheme.dark]) {
+  for (final theme in [MyTheme.dark]) {
     for (final allZero in [false, true]) {
       testWidgets(
         'clustered spacing groups pairs across periods, pages and resizing ${theme.brightness} (all zero: $allZero)',
@@ -75,11 +77,7 @@ void main() {
       );
     }
   }
-  for (final theme in [
-    MyTheme.light,
-    MyTheme.dark,
-    ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.orange)),
-  ]) {
+  for (final theme in [MyTheme.dark]) {
     for (final type in [TimeChartType.line, TimeChartType.clusteredColumn]) {
       testWidgets(
         '${type.name} has independent values, themed selection and full tooltip rows ${theme.brightness} ${theme.colorScheme.primary}',
@@ -346,6 +344,88 @@ void main() {
   );
 
   testWidgets(
+    'Period uses stable content-sized labelled fields and shared label-only menu rendering',
+    (tester) async {
+      for (final scale in [1.0, 1.5]) {
+        await _pump(
+          tester,
+          tracks: [_track(1, 18000000, 14400000)],
+          textScale: scale,
+        );
+        final period = find.byKey(const Key('summary-period-dropdown'));
+        final width = tester.getSize(period).width;
+        expect(width, lessThan(700));
+        expect(
+          width,
+          tester
+              .getSize(
+                find.descendant(
+                  of: period,
+                  matching: find.byType(InputDecorator),
+                ),
+              )
+              .width,
+        );
+        expect(tester.getSize(period).height, greaterThanOrEqualTo(48));
+        expect(
+          find.descendant(of: period, matching: find.text('Period')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: period, matching: find.byType(Tooltip)),
+          findsNothing,
+        );
+        for (final value in SummaryPeriodPreset.values) {
+          await tester.tap(period);
+          await tester.pumpAndSettle();
+          final menu = find.byKey(sharedSummaryMenuKey);
+          expect(tester.getSize(menu).width, greaterThanOrEqualTo(width));
+          expect(
+            tester
+                .widgetList<Text>(
+                  find.descendant(of: menu, matching: find.byType(Text)),
+                )
+                .map((t) => t.style!.fontSize),
+            everyElement(12),
+          );
+          expect(
+            find.descendant(of: menu, matching: find.byType(Icon)),
+            findsOneWidget,
+          ); // Only the committed trailing check.
+          for (final choice in SummaryPeriodPreset.values) {
+            final row = find.byKey(Key('time-period-${choice.name}'));
+            expect(tester.getSize(row).height, greaterThanOrEqualTo(40));
+            expect(
+              tester
+                  .widget<ColoredBox>(
+                    find
+                        .descendant(of: row, matching: find.byType(ColoredBox))
+                        .first,
+                  )
+                  .color,
+              MyTheme.dark.colorScheme.surfaceContainer,
+            );
+          }
+          await tester.tap(find.byKey(Key('time-period-${value.name}')));
+          await tester.pumpAndSettle();
+          expect(_chart(tester).period, value);
+          expect(tester.getSize(period).width, width);
+        }
+        await _pump(
+          tester,
+          tracks: [_track(1, 18000000, 14400000)],
+          textScale: scale,
+          width: 750,
+        );
+        expect(
+          tester.getSize(period).width,
+          width,
+        ); // Extra toolbar space does not stretch the box.
+      }
+    },
+  );
+
+  testWidgets(
     'chart menu has exact order, icons, accessible selection and no-op dismissal',
     (tester) async {
       final semantics = tester.ensureSemantics();
@@ -356,8 +436,25 @@ void main() {
         onSummary: (_) => reports++,
       );
       final button = find.byKey(const Key('time-chart-type-button'));
-      expect(tester.widget<FloatingActionButton>(button).tooltip, 'Chart type');
+      expect(
+        find.descendant(of: button, matching: find.byTooltip('Chart type')),
+        findsOneWidget,
+      );
       expect(find.bySemanticsLabel('Chart type'), findsOneWidget);
+      expect(
+        tester
+            .getSemantics(find.bySemanticsLabel('Chart type'))
+            .getSemanticsData()
+            .value,
+        'Stacked column view',
+      );
+      final iconButton = find.descendant(
+        of: button,
+        matching: find.byType(IconButton),
+      );
+      expect(iconButton, findsOneWidget);
+      expect(tester.getSize(iconButton).width, greaterThanOrEqualTo(48));
+      expect(tester.getSize(iconButton).height, greaterThanOrEqualTo(48));
       expect(find.byKey(const Key('summary-mode-fab')), findsNothing);
       await tester.tap(find.byKey(const Key('time-bucket-11')));
       await tester.pumpAndSettle();
@@ -365,30 +462,28 @@ void main() {
       final beforeReports = reports;
       await tester.tap(button);
       await tester.pumpAndSettle();
-      final items = tester
-          .widgetList<MenuItemButton>(find.byType(MenuItemButton))
-          .toList();
+      final menu = find.byKey(sharedSummaryMenuKey);
       expect(
         tester
             .widgetList<Text>(
-              find.descendant(
-                of: find.byType(MenuItemButton),
-                matching: find.byType(Text),
-              ),
+              find.descendant(of: menu, matching: find.byType(Text)),
             )
             .map((t) => t.data),
         ['Stacked column view', 'Line view', 'Clustered column view'],
       );
-      expect(items.map((i) => (i.leadingIcon as Icon).icon), [
-        Icons.stacked_bar_chart,
-        Icons.show_chart,
-        Icons.bar_chart,
-      ]);
-      expect(items.map((i) => (i.trailingIcon as Icon?)?.icon), [
-        Icons.check,
-        null,
-        null,
-      ]);
+      expect(
+        tester
+            .widgetList<Icon>(
+              find.descendant(of: menu, matching: find.byType(Icon)),
+            )
+            .where((i) => i.icon != Icons.check)
+            .map((i) => i.icon),
+        [Icons.stacked_bar_chart, Icons.show_chart, Icons.bar_chart],
+      );
+      expect(
+        find.descendant(of: menu, matching: find.byIcon(Icons.check)),
+        findsOneWidget,
+      );
       expect(
         tester
             .getSemantics(find.bySemanticsLabel('Stacked column view'))
@@ -400,7 +495,7 @@ void main() {
       );
       await tester.tap(find.byKey(const Key('time-chart-type-stackedColumn')));
       await tester.pumpAndSettle();
-      expect(find.byType(MenuItemButton), findsNothing);
+      expect(find.byKey(sharedSummaryMenuKey), findsNothing);
       expect(_chart(tester).inspectionIdentity, identity);
       expect(reports, beforeReports);
       expect(find.byKey(const Key('time-tooltip')), findsOneWidget);
@@ -413,7 +508,7 @@ void main() {
           await tester.tapAt(const Offset(790, 590));
         }
         await tester.pumpAndSettle();
-        expect(find.byType(MenuItemButton), findsNothing);
+        expect(find.byKey(sharedSummaryMenuKey), findsNothing);
         expect(_chart(tester).inspectionIdentity, identity);
         expect(find.byKey(const Key('time-tooltip')), findsOneWidget);
       }
@@ -423,7 +518,7 @@ void main() {
         (TimeChartType.stackedColumn, Icons.stacked_bar_chart),
       ]) {
         await _selectType(tester, entry.$1);
-        expect(find.byType(MenuItemButton), findsNothing);
+        expect(find.byKey(sharedSummaryMenuKey), findsNothing);
         expect(
           find.descendant(of: button, matching: find.byIcon(entry.$2)),
           findsOneWidget,
@@ -447,10 +542,8 @@ void main() {
           isTrue,
         );
         expect(
-          tester
-              .widgetList<MenuItemButton>(find.byType(MenuItemButton))
-              .where((i) => i.trailingIcon != null),
-          hasLength(1),
+          find.descendant(of: menu, matching: find.byIcon(Icons.check)),
+          findsOneWidget,
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
@@ -459,7 +552,7 @@ void main() {
     },
   );
 
-  for (final theme in [MyTheme.light, MyTheme.dark]) {
+  for (final theme in [MyTheme.dark]) {
     testWidgets(
       'menu supports pointer and available keyboard controls at enlarged text ${theme.brightness}',
       (tester) async {
@@ -508,7 +601,7 @@ void main() {
         expect(find.text('Stacked column view'), findsOneWidget);
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
-        expect(find.byType(MenuItemButton), findsNothing);
+        expect(find.byKey(sharedSummaryMenuKey), findsNothing);
         expect(find.byType(BarChart), findsOneWidget);
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
@@ -517,7 +610,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
         expect(find.byType(LineChart), findsOneWidget);
-        expect(find.byType(MenuItemButton), findsNothing);
+        expect(find.byKey(sharedSummaryMenuKey), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
@@ -539,9 +632,7 @@ void main() {
       // open-menu selection rather than invoking a callback after dismissal.
       await tester.tap(find.byKey(const Key('time-chart-type-button')));
       await tester.pump();
-      final select = tester
-          .widget<MenuItemButton>(find.byKey(const Key('time-chart-type-line')))
-          .onPressed!;
+      final select = summaryChoiceAction(tester, 'time-chart-type-line');
       select();
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
@@ -552,7 +643,7 @@ void main() {
       await tester.tap(
         find.byKey(const Key('time-chart-type-clusteredColumn')),
       );
-      // MenuItemButton defers its action until the next post-frame callback.
+      // A retained row callback must also be safe after anchor disposal.
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
       select();
@@ -714,7 +805,7 @@ Future<void> _pump(
   await tester.pumpWidget(
     ProviderScope(
       child: MaterialApp(
-        theme: theme,
+        theme: theme ?? MyTheme.dark,
         home: Scaffold(
           body: MediaQuery(
             data: MediaQueryData(textScaler: TextScaler.linear(textScale)),

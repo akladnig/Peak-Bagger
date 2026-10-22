@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
+import 'package:peak_bagger/providers/time_chart_type_provider.dart';
 import 'package:peak_bagger/services/summary_card_service.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_chart.dart';
 
@@ -94,6 +96,22 @@ class DashboardRobot {
     await tester.pumpAndSettle();
     await tester.tap(find.text(label).last);
     await tester.pumpAndSettle();
+  }
+
+  Future<void> selectTimeChartType(TimeChartType type) async {
+    await revealCard('time');
+    await tester.tap(summaryControl('time', 'time-chart-type-button'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('time-chart-type-${type.name}')));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> closeTimeMenuUnchanged() async {
+    await tester.tap(summaryControl('time', 'time-chart-type-button'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('shared-dropdown-menu')), findsNothing);
   }
 
   Future<void> scrollSummary(String cardId, double delta) async {

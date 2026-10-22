@@ -54,7 +54,12 @@ SharedDropdown<String>(
   `unchanged`, `selected`, `tabForward`, `tabBackward` and `unavailable`, so the card
   can restore its own inspection/focus reason or continue whole-card traversal.
   Default field integration restores eligible invoker focus; Tab continues normal
-  traversal. Dashboard caller migration remains Spec 0069 item 06, not this slice.
+  traversal. Dashboard uses `lib/widgets/dashboard/dashboard_dropdown.dart` as a
+  thin card-ownership adapter: Period uses labelled-field/label-only presentation,
+  and Time's Chart type uses icon-only/icon-plus-label presentation. P/C, full-card
+  Tab traversal and unchanged-versus-changed inspection return remain card-owned.
+  Time's separate header/chart-height reachability checks remain gated under
+  Spec 0066; this dropdown migration does not change card/grid geometry.
 
 ## Complete field errors
 
@@ -65,6 +70,12 @@ content caps stay separate. The shared Admin builder's consumers use this helper
 validation timing and existing read-only/five-line presentation are unchanged.
 
 ## Verification
+
+Use only **My Seed Colour (`#7E47EB`) in dark mode** (`MyTheme.dark`) for widget,
+native and visual verification. Do not repeat checks with light or custom-seed
+themes; keep distinct input, error, variant, scale, resize and draft-retention
+checks. The app profile's 2026-10-21 amendment supersedes older theme matrices;
+dated verification records retain their historical scope/counts.
 
 Widget coverage: `test/widget/shared_dropdown{,_rendering}_test.dart`, existing
 shared-field tests and affected Admin selector/form/browser/shell/robot regressions.
@@ -78,6 +89,15 @@ combinations without repeating the keyboard matrix. This is fixture configuratio
 not an application preference.
 `--dart-define=DROPDOWN_NATIVE_RESIZE_ONLY=true` isolates the real macOS
 content-resize/open-menu/draft/theme checks for all four combinations at 2× text.
+
+For the production Dashboard caller adapter, run
+`flutter run -d macos -t test/harness/verify_dashboard_dropdowns.dart`.
+This isolated fixture uses the real Time/summary menus, a controlled Track/date,
+in-memory Time preference storage and card focus ownership. It exercises OS keyboard
+and pointer input, unchanged Enter, dismissal, preference timing and open-menu resize
+at 1280 × 960 / 1600 × 1000 content sizes and 1× / 1.5× text in My Seed Colour/dark.
+It excludes the inherited Time header/chart-height reachability gate and does not
+establish whole-Dashboard layout or human visual acceptance.
 
 See Spec 0069's `implementation-01-verification.md` for actual command outcomes and
 the automated/native/human-evidence distinction. No template-parity or inherited

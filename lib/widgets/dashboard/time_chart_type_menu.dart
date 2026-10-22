@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import '../../providers/time_chart_type_provider.dart';
+import '../shared_dropdown.dart';
 import 'dashboard_dropdown.dart';
 
 extension TimeChartTypePresentation on TimeChartType {
@@ -33,9 +34,13 @@ class TimeChartTypeMenu extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(timeChartTypeProvider.select((s) => s.selected));
     return DashboardDropdown<TimeChartType>(
+      key: const Key('time-chart-type-button'),
+      label: 'Chart type',
       selected: selected,
       shortcut: LogicalKeyboardKey.keyC,
-      alignment: AlignmentDirectional.bottomEnd,
+      trigger: SharedDropdownTrigger.iconOnly,
+      rows: SharedDropdownRows.iconAndLabel,
+      icon: selected.icon,
       onOpen: onOpen,
       onSelected: (type) {
         if (type == selected) return;
@@ -44,24 +49,13 @@ class TimeChartTypeMenu extends ConsumerWidget {
       },
       choices: [
         for (final type in TimeChartType.values)
-          DashboardDropdownChoice(
+          SharedDropdownChoice(
             key: Key('time-chart-type-${type.name}'),
             value: type,
             label: type.label,
             icon: type.icon,
           ),
       ],
-      buttonBuilder: (focusNode, toggle) => TooltipTheme(
-        data: TooltipTheme.of(context).copyWith(excludeFromSemantics: true),
-        child: FloatingActionButton.small(
-          key: const Key('time-chart-type-button'),
-          focusNode: focusNode,
-          tooltip: 'Chart type',
-          mouseCursor: SystemMouseCursors.click,
-          onPressed: toggle,
-          child: Icon(selected.icon, semanticLabel: 'Chart type'),
-        ),
-      ),
     );
   }
 }

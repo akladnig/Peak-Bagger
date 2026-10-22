@@ -13,6 +13,7 @@ import 'package:peak_bagger/widgets/dashboard/elevation_card.dart';
 import 'package:peak_bagger/widgets/dashboard/peaks_bagged_card.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_card.dart';
 import 'package:peak_bagger/widgets/dashboard/summary_chart.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/dashboard/time_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -464,6 +465,7 @@ class _Harness {
       ProviderScope(
         overrides: [dashboardReferenceClockProvider.overrideWithValue(clock)],
         child: MaterialApp(
+          theme: MyTheme.dark,
           home: Scaffold(body: SizedBox(width: 700, height: 400, child: body)),
         ),
       ),

@@ -10,6 +10,7 @@ import '../../models/gpx_track.dart';
 import '../../providers/summary_page_controller.dart';
 import '../../services/summary_card_service.dart';
 import '../../theme.dart';
+import '../shared_dropdown.dart';
 import 'summary_chart.dart';
 import 'summary_page_browser.dart';
 import 'dashboard_card_keyboard.dart';
@@ -685,8 +686,6 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
 }
 
 class _SummaryHeader extends StatelessWidget {
-  static const double _periodDropdownWidth = 160;
-
   const _SummaryHeader({
     required this.keyPrefix,
     required this.period,
@@ -726,67 +725,36 @@ class _SummaryHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: _periodDropdownWidth,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: theme.colorScheme.outline),
-                  borderRadius: BorderRadius.circular(6),
-                ),
+            Expanded(
+              child: Align(
+                alignment: AlignmentDirectional.topStart,
                 child: DashboardDropdown<SummaryPeriodPreset>(
+                  key: const Key('summary-period-dropdown'),
+                  label: 'Period',
                   selected: period,
                   shortcut: LogicalKeyboardKey.keyP,
-                  minimumWidth: _periodDropdownWidth,
                   onOpen: onOpenPeriod,
                   onSelected: (value) {
                     if (value != period) onPeriodChanged(value);
                   },
                   choices: [
                     for (final value in SummaryPeriodPreset.values)
-                      DashboardDropdownChoice(
+                      SharedDropdownChoice(
                         key: Key('$keyPrefix-period-${value.name}'),
                         value: value,
                         label: value.label,
                       ),
                   ],
-                  buttonBuilder: (focusNode, toggle) {
-                    return InkWell(
-                      key: const Key('summary-period-dropdown'),
-                      focusNode: focusNode,
-                      mouseCursor: SystemMouseCursors.click,
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: toggle,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                period.label,
-                                style: theme.textTheme.bodyMedium,
-                              ),
-                            ),
-                            const Icon(Icons.expand_more),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
                 ),
               ),
             ),
             const SizedBox(width: 12),
-            const Spacer(),
             _SummaryNavigationButton(
               buttonKey: const Key('summary-first-window'),
               label: 'First',
