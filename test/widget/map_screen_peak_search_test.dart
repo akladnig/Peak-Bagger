@@ -36,6 +36,23 @@ import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
+  testWidgets('Cmd+F opens active Map Search from shell navigation focus', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(_mapStateWithPeaks());
+    await _pumpMapAppWithNotifier(tester, notifier);
+    await tester.pumpAndSettle();
+    final shellFocus = tester
+        .widget<Focus>(find.byKey(const Key('shell-destination-1-focus')))
+        .focusNode!;
+    shellFocus.requestFocus();
+    await tester.pump();
+    expect(shellFocus.hasFocus, true);
+    await _cmdF(tester);
+    await tester.pumpAndSettle();
+    expect(notifier.state.showPeakSearch, true);
+    expect(find.byKey(const Key('map-search-input')), findsOneWidget);
+  });
   testWidgets(
     'Cmd+F selects the raw query without resetting criteria or pending debounce',
     (tester) async {

@@ -67,6 +67,7 @@ import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/local_topo_overlay_tile_provider.dart';
 import '../core/constants.dart';
+import '../core/search_shortcuts.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
 import 'package:peak_bagger/widgets/map_peak_lists_drawer.dart';
@@ -84,10 +85,6 @@ import 'package:peak_bagger/theme.dart';
 import 'map_screen_layers.dart';
 import 'map_screen_peak_layer.dart';
 import 'map_screen_panels.dart';
-
-class _FocusMapSearchIntent extends Intent {
-  const _FocusMapSearchIntent();
-}
 
 class DismissSurfaceIntent extends Intent {
   const DismissSurfaceIntent();
@@ -230,6 +227,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleSearchShortcut);
     WidgetsBinding.instance.addObserver(this);
     _mapController = MapController();
     _mapNotifier = ref.read(mapProvider.notifier);
@@ -2673,6 +2671,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);
     for (final cancel in _cancelFrameMeasurements) {
       cancel();
     }
@@ -2753,10 +2752,25 @@ class _MapScreenState extends ConsumerState<MapScreen>
   bool _canFocusMapSearch() =>
       mounted &&
       !ref.read(mapProvider).isSavingRoute &&
-      TickerMode.valuesOf(context).enabled &&
-      (ModalRoute.of(context)?.isCurrent ?? true) &&
+      // The popup's own dropdown commits must remain eligible while its menu
+      // owns local history. Cmd+F uses the stricter check below.
+      isSearchSurfaceActive(context, allowLocalHistory: true) &&
       !(_scaffoldKey.currentState?.isEndDrawerOpen ?? false) &&
       !(_scaffoldKey.currentState?.isDrawerOpen ?? false);
+
+  bool _handleSearchShortcut(KeyEvent event) {
+    if (!isFindShortcut(event) ||
+        !_canFocusMapSearch() ||
+        !isSearchSurfaceActive(context)) {
+      return false;
+    }
+    if (ref.read(mapProvider).showPeakSearch) {
+      _searchPopupKey.currentState?.focusSearch();
+    } else {
+      ref.read(mapProvider.notifier).openSearchPopup();
+    }
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2824,25 +2838,12 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
     return Shortcuts(
       shortcuts: const {
-        SingleActivator(LogicalKeyboardKey.keyF, meta: true):
-            _FocusMapSearchIntent(),
         SingleActivator(LogicalKeyboardKey.escape): DismissSurfaceIntent(),
         SingleActivator(LogicalKeyboardKey.keyC, control: true):
             DismissSurfaceIntent(),
       },
       child: Actions(
         actions: {
-          _FocusMapSearchIntent: CallbackAction<_FocusMapSearchIntent>(
-            onInvoke: (_) {
-              if (!_canFocusMapSearch()) return null;
-              if (ref.read(mapProvider).showPeakSearch) {
-                _searchPopupKey.currentState?.focusSearch();
-              } else {
-                ref.read(mapProvider.notifier).openSearchPopup();
-              }
-              return null;
-            },
-          ),
           DismissSurfaceIntent: CallbackAction<DismissSurfaceIntent>(
             onInvoke: (intent) => _dismissHighestPrioritySurface(),
           ),

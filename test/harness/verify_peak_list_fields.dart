@@ -1,7 +1,5 @@
 // Isolated native macOS input/render checks; no application startup or live data.
 // flutter run -d macos -t test/harness/verify_peak_list_fields.dart
-// If OS modifier injection is unavailable, PEAK_LIST_NATIVE_SKIP_FIND=true
-// runs independent checks only. It does NOT verify native Cmd+F.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -105,6 +103,14 @@ Future<void> commandF() async {
     '''
 import CoreGraphics
 import Darwin
+import AppKit
+let application = NSRunningApplication(processIdentifier: $pid)!
+application.activate(options: [.activateIgnoringOtherApps])
+usleep(300000)
+guard NSWorkspace.shared.frontmostApplication?.processIdentifier == $pid else {
+  fputs("Fixture is not foreground for shortcut injection\\n", stderr)
+  exit(1)
+}
 let source = CGEventSource(stateID: .hidSystemState)
 func post(_ key: CGKeyCode, _ down: Bool, _ flags: CGEventFlags) {
   let event = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: down)
@@ -113,9 +119,12 @@ func post(_ key: CGKeyCode, _ down: Bool, _ flags: CGEventFlags) {
   event?.post(tap: .cghidEventTap)
   usleep(100000)
 }
-post(55, true, .maskCommand)
-post(3, true, .maskCommand)
-post(3, false, .maskCommand)
+// Flutter tracks left/right device flags, not only the generic Command bit.
+// NX_DEVICELCMDKEYMASK from IOKit/hidsystem/IOLLEvent.h is 0x00000008.
+let leftCommand = CGEventFlags(rawValue: CGEventFlags.maskCommand.rawValue | 0x8)
+post(55, true, leftCommand)
+post(3, true, leftCommand)
+post(3, false, leftCommand)
 post(55, false, [])
 ''',
   ]);
@@ -149,10 +158,24 @@ Future<void> resizeContent(Size size) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  const skipFind = bool.fromEnvironment('PEAK_LIST_NATIVE_SKIP_FIND');
   if (const bool.fromEnvironment('PEAK_LIST_NATIVE_TRACE_KEYS')) {
     HardwareKeyboard.instance.addHandler((event) {
       stdout.writeln('Native key $event');
+      if (event.logicalKey == LogicalKeyboardKey.keyF &&
+          has('peak-list-peak-search-input')) {
+        final context = element('peak-list-peak-search-input');
+        var navigator = Navigator.maybeOf(context);
+        stdout.writeln(
+          'Find eligibility meta=${HardwareKeyboard.instance.isMetaPressed} ticker=${TickerMode.valuesOf(context).enabled} route=${ModalRoute.of(context)?.isCurrent}/${ModalRoute.of(context)?.willHandlePopInternally}',
+        );
+        while (navigator != null) {
+          stdout.writeln(
+            'Parent route=${ModalRoute.of(navigator.context)?.isCurrent}/${ModalRoute.of(navigator.context)?.willHandlePopInternally}',
+          );
+          navigator = navigator.context
+              .findAncestorStateOfType<NavigatorState>();
+        }
+      }
       return false;
     });
   }
@@ -206,29 +229,25 @@ Future<void> main() async {
           has('peak-selected-points-1'),
           'Native checkbox did not select peak',
         );
-        if (!skipFind) {
-          await commandF();
-          stdout.writeln(
-            'Cmd+F query=${field('peak-list-peak-search-input').controller!.value} focus=${field('peak-list-peak-search-input').focusNode!.hasFocus}',
-          );
-          check(
-            field(
-                  'peak-list-peak-search-input',
-                ).controller!.selection.textInside(
-                  field('peak-list-peak-search-input').controller!.text,
-                ) ==
-                'Native',
-            'Local Cmd+F failed',
-          );
-          await commandF();
-          check(
-            field(
-                  'peak-list-peak-search-input',
-                ).controller!.selection.baseOffset ==
-                0,
-            'Repeated native Cmd+F failed',
-          );
-        }
+        await commandF();
+        stdout.writeln(
+          'Cmd+F query=${field('peak-list-peak-search-input').controller!.value} focus=${field('peak-list-peak-search-input').focusNode!.hasFocus}',
+        );
+        check(
+          field('peak-list-peak-search-input').controller!.selection.textInside(
+                field('peak-list-peak-search-input').controller!.text,
+              ) ==
+              'Native',
+          'Local Cmd+F failed',
+        );
+        await commandF();
+        check(
+          field(
+                'peak-list-peak-search-input',
+              ).controller!.selection.baseOffset ==
+              0,
+          'Repeated native Cmd+F failed',
+        );
         await click('peak-selected-points-up');
         check(
           field('peak-selected-points-1').controller!.text == '2',
@@ -238,7 +257,7 @@ Future<void> main() async {
           state.mode = PeakListPeakDialogMode.edit;
         });
         await settle();
-        if (!skipFind) await commandF();
+        await commandF();
         await click('peak-list-peak-duration');
         await input('keystroke "tomorrow"');
         await click('peak-list-peak-save');
@@ -289,7 +308,7 @@ Future<void> main() async {
         await input('key code 53');
         check(!has('shared-dropdown-menu'), 'Resized menu did not dismiss');
         stdout.writeln(
-          'PASS Peak List native fields $size scale=$scale; Cmd+F=${skipFind ? "NOT VERIFIED" : "verified"}',
+          'PASS Peak List native fields $size scale=$scale; Cmd+F=verified',
         );
       }
     }

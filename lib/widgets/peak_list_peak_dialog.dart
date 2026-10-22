@@ -7,6 +7,7 @@ import 'package:peak_bagger/theme.dart';
 import '../core/constants.dart';
 import '../core/date_formatters.dart';
 import '../core/number_formatters.dart';
+import '../core/search_shortcuts.dart';
 
 import '../models/gpx_track.dart';
 import '../models/peak.dart';
@@ -116,26 +117,12 @@ class _PeakListPeakDialogState extends ConsumerState<PeakListPeakDialog> {
   }
 
   bool _handleSearchShortcut(KeyEvent event) {
-    if (event is! KeyDownEvent ||
-        event.logicalKey != LogicalKeyboardKey.keyF ||
-        !HardwareKeyboard.instance.isMetaPressed ||
-        HardwareKeyboard.instance.isControlPressed ||
-        HardwareKeyboard.instance.isAltPressed ||
-        HardwareKeyboard.instance.isShiftPressed) {
-      return false;
-    }
+    if (!isFindShortcut(event)) return false;
     if (!mounted) return false;
-    final route = ModalRoute.of(context);
     if (_saving ||
         _mode != PeakListPeakDialogMode.add ||
-        !(route?.isCurrent ?? true) ||
-        (route?.willHandlePopInternally ?? false) ||
-        !TickerMode.valuesOf(context).enabled ||
+        !isSearchSurfaceActive(context) ||
         !_searchFocus.canRequestFocus) {
-      return false;
-    }
-    final focusedContext = FocusManager.instance.primaryFocus?.context;
-    if (focusedContext != null && ModalRoute.of(focusedContext) != route) {
       return false;
     }
     _searchFocus.requestFocus();

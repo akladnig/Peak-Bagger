@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
+import 'package:peak_bagger/core/search_shortcuts.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
@@ -118,32 +119,19 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen>
   }
 
   bool _handleSearchShortcut(KeyEvent event) {
-    if (event is! KeyDownEvent ||
-        event.logicalKey != LogicalKeyboardKey.keyF ||
-        !HardwareKeyboard.instance.isMetaPressed ||
-        HardwareKeyboard.instance.isControlPressed ||
-        HardwareKeyboard.instance.isAltPressed ||
-        HardwareKeyboard.instance.isShiftPressed) {
-      return false;
-    }
+    if (!isFindShortcut(event)) return false;
     if (!mounted || _savePending) return false;
     final state = ref.read(objectboxAdminProvider);
-    final route = ModalRoute.of(context);
     if (state.mode != ObjectBoxAdminViewMode.data ||
         state.selectedEntity == null ||
         state.schemaError != null ||
         !_searchFocus.canRequestFocus ||
-        !(route?.isCurrent ?? true) ||
-        (route?.willHandlePopInternally ?? false)) {
+        !isSearchSurfaceActive(context)) {
       return false;
     }
     final localRouter = GoRouter.maybeOf(context);
     if (localRouter != null &&
         localRouter.state.uri.path != '/objectbox-admin') {
-      return false;
-    }
-    final focusedContext = FocusManager.instance.primaryFocus?.context;
-    if (focusedContext != null && ModalRoute.of(focusedContext) != route) {
       return false;
     }
     _searchFocus.requestFocus();

@@ -1,6 +1,9 @@
 # Work Item 04 verification — Peak List fields and import recovery
 
 Date: 2026-10-22. Scope: [item 04](work-items/04-peak-list-fields-filters-and-import-recovery.md).
+Subsequent user-reported Cmd+F failure and routed-shell correction:
+[Cmd+F follow-up](cmd-f-follow-up.md). The earlier evidence below is retained as
+delivery history; use the follow-up for current shortcut verification.
 Verification uses only **My Seed Colour / `MyTheme.dark`**, with distinct behaviour,
 failure, resize and enlarged-text checks retained. Runtime theme options are unchanged.
 

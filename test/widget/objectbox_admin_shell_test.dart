@@ -95,10 +95,17 @@ void main() {
         if (query == 'Unsaved name') {
           expect(find.text('No matches'), findsOneWidget);
         }
+        final shellFocus = tester
+            .widget<Focus>(find.byKey(const Key('shell-destination-3-focus')))
+            .focusNode!;
+        shellFocus.requestFocus();
+        await tester.pump();
+        expect(shellFocus.hasFocus, true);
         await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
         await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
         await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
         await tester.pump();
+        expect(searchWidget.focusNode!.hasFocus, true);
         expect(
           searchWidget.controller!.selection,
           TextSelection(baseOffset: 0, extentOffset: query.length),

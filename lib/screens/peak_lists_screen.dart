@@ -21,6 +21,7 @@ import 'package:path/path.dart' as p;
 import '../core/constants.dart';
 import '../core/date_formatters.dart';
 import '../core/number_formatters.dart';
+import '../core/search_shortcuts.dart';
 import '../models/geo_areas.dart';
 import '../models/peak.dart';
 import '../models/peak_list.dart';
@@ -110,29 +111,13 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   }
 
   bool _handleSearchShortcut(KeyEvent event) {
-    if (event is! KeyDownEvent ||
-        event.logicalKey != LogicalKeyboardKey.keyF ||
-        !HardwareKeyboard.instance.isMetaPressed ||
-        HardwareKeyboard.instance.isControlPressed ||
-        HardwareKeyboard.instance.isAltPressed ||
-        HardwareKeyboard.instance.isShiftPressed) {
-      return false;
-    }
+    if (!isFindShortcut(event)) return false;
     if (!mounted ||
         _selectedPeakListId == null ||
         !_nameSearchFocus.canRequestFocus ||
         _nameSearchFocus.context == null ||
-        !TickerMode.valuesOf(context).enabled ||
+        !isSearchSurfaceActive(context) ||
         ref.read(peakListDetailsMetadataFilterProvider).isPopupVisible) {
-      return false;
-    }
-    final route = ModalRoute.of(context);
-    if (!(route?.isCurrent ?? true) ||
-        (route?.willHandlePopInternally ?? false)) {
-      return false;
-    }
-    final focusedContext = FocusManager.instance.primaryFocus?.context;
-    if (focusedContext != null && ModalRoute.of(focusedContext) != route) {
       return false;
     }
     _nameSearchFocus.requestFocus();

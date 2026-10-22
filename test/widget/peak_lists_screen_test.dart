@@ -56,6 +56,90 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
+  testWidgets('Cmd+F enters active branch Search from shell navigation focus', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 960));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpPeakListsApp(
+      tester,
+      filePicker: TestPeakListFilePicker(),
+      repository: PeakListRepository.test(
+        InMemoryPeakListStorage([
+          _buildPeakList(1, 'List', [100]),
+        ]),
+      ),
+      peakRepository: PeakRepository.test(
+        InMemoryPeakStorage([_buildPeak(100, 'Alpha Peak', -42, 146)]),
+      ),
+    );
+    final search = find.byKey(const Key('peak-lists-name-search'));
+    await tester.enterText(search, 'Alpha');
+    await tester.pumpAndSettle();
+    final field = tester.widget<TextField>(search);
+    final shellFocus = tester
+        .widget<Focus>(find.byKey(const Key('shell-destination-2-focus')))
+        .focusNode!;
+    shellFocus.requestFocus();
+    await tester.pump();
+    expect(shellFocus.hasFocus, true);
+    expect(field.focusNode!.hasFocus, false);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+    await tester.pump();
+    expect(field.focusNode!.hasFocus, true);
+    expect(
+      field.controller!.selection,
+      const TextSelection(baseOffset: 0, extentOffset: 5),
+    );
+    expect(field.controller!.text, 'Alpha');
+  });
+
+  testWidgets(
+    'Cmd+F ignores a root dialog even when it leaves branch Search focused',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 960));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await _pumpPeakListsApp(
+        tester,
+        filePicker: TestPeakListFilePicker(),
+        repository: PeakListRepository.test(
+          InMemoryPeakListStorage([
+            _buildPeakList(1, 'List', [100]),
+          ]),
+        ),
+        peakRepository: PeakRepository.test(
+          InMemoryPeakStorage([_buildPeak(100, 'Alpha Peak', -42, 146)]),
+        ),
+      );
+      final search = find.byKey(const Key('peak-lists-name-search'));
+      await tester.enterText(search, 'Alpha');
+      await tester.pumpAndSettle();
+      final field = tester.widget<TextField>(search);
+      final closed = showDialog<void>(
+        context: tester.element(search),
+        requestFocus: false,
+        builder: (_) =>
+            const AlertDialog(content: Text('Blocking root dialog')),
+      );
+      await tester.pumpAndSettle();
+      expect(field.focusNode!.hasFocus, true);
+      field.controller!.selection = const TextSelection.collapsed(offset: 1);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+      await tester.pump();
+      expect(
+        field.controller!.selection,
+        const TextSelection.collapsed(offset: 1),
+      );
+      Navigator.of(tester.element(find.byType(AlertDialog))).pop();
+      await closed;
+      await tester.pumpAndSettle();
+    },
+  );
+
   testWidgets('empty state renders copy and shell panes', (tester) async {
     await _pumpPeakListsApp(
       tester,
