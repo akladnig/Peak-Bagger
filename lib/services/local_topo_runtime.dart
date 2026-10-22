@@ -456,6 +456,8 @@ class LocalTopoRuntime {
 
   Future<void> restore({
     Future<SharedPreferences> Function()? loadPreferences,
+    bool Function()? isCurrent,
+    bool allowSnapshot = true,
   }) async {
     final preferences =
         await (loadPreferences ?? SharedPreferences.getInstance)();
@@ -467,7 +469,18 @@ class LocalTopoRuntime {
     final rawSnapshot = preferences.getString(
       localTopoCapabilitySnapshotPrefsKey,
     );
-    if (savedBaseUrl != null && rawSnapshot != null && rawSnapshot.isNotEmpty) {
+    final status = preferences.getString('local_topo_validation_status_v1');
+    // A snapshot written during validation is not committed until its final
+    // status write succeeds. Legacy snapshots without a status remain supported.
+    final snapshotCommitted =
+        status == null ||
+        status == 'live-validated' ||
+        status == 'restored-snapshot';
+    if (allowSnapshot &&
+        snapshotCommitted &&
+        savedBaseUrl != null &&
+        rawSnapshot != null &&
+        rawSnapshot.isNotEmpty) {
       try {
         final decoded = jsonDecode(rawSnapshot);
         final parsedSnapshot = LocalTopoCapabilitySnapshot.fromStoredJson(
@@ -478,14 +491,14 @@ class LocalTopoRuntime {
         }
       } catch (error, stackTrace) {
         developer.log(
-          'Failed to decode stored local topo snapshot.',
-          error: error,
+          'Failed to decode stored local topo snapshot (${error.runtimeType}).',
           stackTrace: stackTrace,
           name: 'LocalTopoRuntime',
         );
       }
     }
 
+    if (!(isCurrent?.call() ?? true)) return;
     _state = LocalTopoPersistedState(
       savedBaseUrl: savedBaseUrl,
       capabilitySnapshot: capabilitySnapshot,
@@ -495,26 +508,36 @@ class LocalTopoRuntime {
   Future<void> saveBaseUrl(
     Uri? baseUrl, {
     Future<SharedPreferences> Function()? loadPreferences,
+    bool Function()? isCurrent,
   }) async {
     final preferences =
         await (loadPreferences ?? SharedPreferences.getInstance)();
+    if (!(isCurrent?.call() ?? true)) return;
     if (baseUrl == null) {
-      await preferences.remove(localTileServerBaseUrlPrefsKey);
-      await preferences.remove(localTopoCapabilitySnapshotPrefsKey);
+      _requireWrite(await preferences.remove(localTileServerBaseUrlPrefsKey));
+      if (!(isCurrent?.call() ?? true)) return;
       _state = const LocalTopoPersistedState();
+      _requireWrite(
+        await preferences.remove(localTopoCapabilitySnapshotPrefsKey),
+      );
       return;
     }
 
-    await preferences.setString(
-      localTileServerBaseUrlPrefsKey,
-      baseUrl.toString(),
+    _requireWrite(
+      await preferences.setString(
+        localTileServerBaseUrlPrefsKey,
+        baseUrl.toString(),
+      ),
     );
+    if (!(isCurrent?.call() ?? true)) return;
 
     final existingSnapshot = capabilitySnapshot;
     if (existingSnapshot != null &&
         existingSnapshot.baseUrl.toString() != baseUrl.toString()) {
-      await preferences.remove(localTopoCapabilitySnapshotPrefsKey);
       _state = LocalTopoPersistedState(savedBaseUrl: baseUrl);
+      _requireWrite(
+        await preferences.remove(localTopoCapabilitySnapshotPrefsKey),
+      );
       return;
     }
 
@@ -527,18 +550,36 @@ class LocalTopoRuntime {
   Future<void> saveValidatedSnapshot(
     LocalTopoCapabilitySnapshot snapshot, {
     Future<SharedPreferences> Function()? loadPreferences,
+    bool activate = true,
+    bool persistBaseUrl = true,
+    bool Function()? isCurrent,
   }) async {
     final preferences =
         await (loadPreferences ?? SharedPreferences.getInstance)();
-    await preferences.setString(
-      localTileServerBaseUrlPrefsKey,
-      snapshot.baseUrl.toString(),
-    );
-    await preferences.setString(
-      localTopoCapabilitySnapshotPrefsKey,
-      jsonEncode(snapshot.toJson()),
+    if (!(isCurrent?.call() ?? true)) return;
+    if (persistBaseUrl) {
+      _requireWrite(
+        await preferences.setString(
+          localTileServerBaseUrlPrefsKey,
+          snapshot.baseUrl.toString(),
+        ),
+      );
+    }
+    if (!(isCurrent?.call() ?? true)) return;
+    _requireWrite(
+      await preferences.setString(
+        localTopoCapabilitySnapshotPrefsKey,
+        jsonEncode(snapshot.toJson()),
+      ),
     );
 
+    if (activate && (isCurrent?.call() ?? true)) {
+      activateConfirmedSnapshot(snapshot);
+    }
+  }
+
+  /// Publish only after the caller's complete persistence boundary succeeds.
+  void activateConfirmedSnapshot(LocalTopoCapabilitySnapshot snapshot) {
     _state = LocalTopoPersistedState(
       savedBaseUrl: snapshot.baseUrl,
       capabilitySnapshot: snapshot,
@@ -547,18 +588,38 @@ class LocalTopoRuntime {
 
   Future<void> clearCapabilitySnapshot({
     Future<SharedPreferences> Function()? loadPreferences,
+    bool Function()? isCurrent,
   }) async {
+    if (!(isCurrent?.call() ?? true)) return;
+    deactivateSnapshot();
     final preferences =
         await (loadPreferences ?? SharedPreferences.getInstance)();
-    await preferences.remove(localTopoCapabilitySnapshotPrefsKey);
+    if (!(isCurrent?.call() ?? true)) return;
+    _requireWrite(
+      await preferences.remove(localTopoCapabilitySnapshotPrefsKey),
+    );
+  }
 
+  /// Disable availability without asserting that a preference removal succeeded.
+  void deactivateSnapshot() {
     _state = LocalTopoPersistedState(savedBaseUrl: savedBaseUrl);
+  }
+
+  void _requireWrite(bool saved) {
+    if (!saved) {
+      throw StateError('Local Topo preference write was not accepted');
+    }
   }
 
   Future<void> clear({
     Future<SharedPreferences> Function()? loadPreferences,
+    bool Function()? isCurrent,
   }) async {
-    await saveBaseUrl(null, loadPreferences: loadPreferences);
+    await saveBaseUrl(
+      null,
+      loadPreferences: loadPreferences,
+      isCurrent: isCurrent,
+    );
   }
 
   @visibleForTesting

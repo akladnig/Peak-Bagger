@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:peak_bagger/widgets/shared_dropdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -179,50 +180,41 @@ void main() {
 
     expect(find.textContaining('Outlier Filter: None'), findsOneWidget);
     expect(
-      find.widgetWithText(
-        DropdownButtonFormField<GpxTrackOutlierFilter>,
-        'None',
-      ),
+      find.widgetWithText(SharedDropdown<GpxTrackOutlierFilter>, 'None'),
       findsOneWidget,
     );
     expect(
-      find.widgetWithText(
-        DropdownButtonFormField<GpxTrackElevationSmoother>,
-        'None',
-      ),
+      find.widgetWithText(SharedDropdown<GpxTrackElevationSmoother>, 'None'),
       findsOneWidget,
     );
     expect(
-      find.widgetWithText(
-        DropdownButtonFormField<GpxTrackPositionSmoother>,
-        'None',
-      ),
+      find.widgetWithText(SharedDropdown<GpxTrackPositionSmoother>, 'None'),
       findsOneWidget,
     );
 
     expect(
       tester
-          .widget<DropdownButtonFormField<int>>(
+          .widget<SharedDropdown<int>>(
             find.byKey(const Key('gpx-filter-hampel-window')),
           )
-          .onChanged,
-      isNull,
+          .enabled,
+      isFalse,
     );
     expect(
       tester
-          .widget<DropdownButtonFormField<int>>(
+          .widget<SharedDropdown<int>>(
             find.byKey(const Key('gpx-filter-elevation-window')),
           )
-          .onChanged,
-      isNull,
+          .enabled,
+      isFalse,
     );
     expect(
       tester
-          .widget<DropdownButtonFormField<int>>(
+          .widget<SharedDropdown<int>>(
             find.byKey(const Key('gpx-filter-position-window')),
           )
-          .onChanged,
-      isNull,
+          .enabled,
+      isFalse,
     );
   });
 }
@@ -245,6 +237,8 @@ Finder _settingsScrollable() {
 }
 
 void _setTallSurface(WidgetTester tester) {
+  tester.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+  addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
   tester.view.physicalSize = const Size(1024, 1400);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);

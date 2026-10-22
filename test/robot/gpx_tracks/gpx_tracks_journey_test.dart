@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:peak_bagger/widgets/shared_dropdown.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../harness/mapping_catalog_fixture.dart';
@@ -679,22 +680,16 @@ void main() {
     );
 
     expect(
-      tester
-          .widget<DropdownButtonFormField<int>>(robot.hampelWindowField)
-          .onChanged,
-      isNull,
+      tester.widget<SharedDropdown<int>>(robot.hampelWindowField).enabled,
+      isFalse,
     );
     expect(
-      tester
-          .widget<DropdownButtonFormField<int>>(robot.elevationWindowField)
-          .onChanged,
-      isNull,
+      tester.widget<SharedDropdown<int>>(robot.elevationWindowField).enabled,
+      isFalse,
     );
     expect(
-      tester
-          .widget<DropdownButtonFormField<int>>(robot.positionWindowField)
-          .onChanged,
-      isNull,
+      tester.widget<SharedDropdown<int>>(robot.positionWindowField).enabled,
+      isFalse,
     );
 
     router.go('/map');

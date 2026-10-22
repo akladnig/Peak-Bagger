@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:peak_bagger/widgets/shared_dropdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -88,10 +89,10 @@ void main() {
       find.byKey(const Key('theme-scheme-variant-dropdown')),
       findsOneWidget,
     );
-    expect(find.text('Seeded Scheme Variant'), findsOneWidget);
+    expect(find.text('Seeded Scheme Variant'), findsNWidgets(2));
     expect(
       tester
-          .widget<DropdownButton<DynamicSchemeVariant>>(
+          .widget<SharedDropdown<DynamicSchemeVariant>>(
             find.byKey(const Key('theme-scheme-variant-dropdown')),
           )
           .value,
@@ -326,7 +327,7 @@ void main() {
 
     expect(
       tester
-          .widget<DropdownButton<DynamicSchemeVariant>>(
+          .widget<SharedDropdown<DynamicSchemeVariant>>(
             find.byKey(const Key('theme-scheme-variant-dropdown')),
           )
           .value,
@@ -353,7 +354,7 @@ void main() {
 
     expect(
       tester
-          .widget<DropdownButton<DynamicSchemeVariant>>(
+          .widget<SharedDropdown<DynamicSchemeVariant>>(
             find.byKey(const Key('theme-scheme-variant-dropdown')),
           )
           .value,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:peak_bagger/services/mapping_data_store.dart';
 import 'dart:convert';
 
@@ -18,7 +19,9 @@ final localTopoSettingsPreferencesLoaderProvider =
     });
 
 final localTopoSettingsHttpClientProvider = Provider<http.Client>((ref) {
-  return http.Client();
+  final client = http.Client();
+  ref.onDispose(client.close);
+  return client;
 });
 
 final localTopoSettingsProvider =
@@ -77,19 +80,30 @@ class LocalTopoSettingsState {
     this.validationStatus = LocalTopoValidationStatus.empty,
     this.activeSnapshot,
     this.detailMessage,
+    this.isPending = false,
+    this.needsClearRetry = false,
+    this.storageConfirmed = true,
   });
 
   final String savedBaseUrlText;
   final LocalTopoValidationStatus validationStatus;
   final LocalTopoCapabilitySnapshot? activeSnapshot;
   final String? detailMessage;
+  final bool isPending;
+  final bool needsClearRetry;
+  final bool storageConfirmed;
 
   String get validationStatusLabel => validationStatus.label;
   bool get isValidating =>
-      validationStatus == LocalTopoValidationStatus.validating;
+      isPending || validationStatus == LocalTopoValidationStatus.validating;
   bool get hasSavedBaseUrl => savedBaseUrlText.trim().isNotEmpty;
-  bool get canRetry => !isValidating && hasSavedBaseUrl;
-  bool get canClear => hasSavedBaseUrl || activeSnapshot != null;
+  bool get canRetry => !isValidating && storageConfirmed && hasSavedBaseUrl;
+  bool get canClear =>
+      !isValidating &&
+      (needsClearRetry ||
+          !storageConfirmed ||
+          hasSavedBaseUrl ||
+          activeSnapshot != null);
 
   LocalTopoSettingsState copyWith({
     String? savedBaseUrlText,
@@ -98,6 +112,9 @@ class LocalTopoSettingsState {
     bool clearActiveSnapshot = false,
     String? detailMessage,
     bool clearDetailMessage = false,
+    bool? isPending,
+    bool? needsClearRetry,
+    bool? storageConfirmed,
   }) {
     return LocalTopoSettingsState(
       savedBaseUrlText: savedBaseUrlText ?? this.savedBaseUrlText,
@@ -108,6 +125,9 @@ class LocalTopoSettingsState {
       detailMessage: clearDetailMessage
           ? null
           : (detailMessage ?? this.detailMessage),
+      isPending: isPending ?? this.isPending,
+      needsClearRetry: needsClearRetry ?? this.needsClearRetry,
+      storageConfirmed: storageConfirmed ?? this.storageConfirmed,
     );
   }
 }
@@ -117,6 +137,7 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
 
   int _validationRequestSerial = 0;
   bool _hasUserOverride = false;
+  bool _attemptPending = false;
 
   @override
   LocalTopoSettingsState build() {
@@ -124,18 +145,21 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
     registerLocalTopoRegionKeyValidator(
       (regionKey) => catalog.regionByKey(regionKey) != null,
     );
-    unawaited(_hydrate());
+    final serial = ++_validationRequestSerial;
+    _attemptPending = false;
+    _hasUserOverride = false;
+    unawaited(_hydrate(serial));
     return const LocalTopoSettingsState();
   }
 
   Future<void> saveAndValidate(String rawValue) async {
-    _hasUserOverride = true;
-    final trimmed = rawValue.trim();
-    if (trimmed.isEmpty) {
+    if (_attemptPending) return;
+    if (rawValue.trim().isEmpty) {
       await clearSetting();
       return;
     }
-
+    _hasUserOverride = true;
+    final trimmed = rawValue.trim();
     final baseUrl = parseLocalTileServerBaseUrl(trimmed);
     if (baseUrl == null) {
       state = state.copyWith(
@@ -145,48 +169,83 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
       return;
     }
 
-    final normalizedBaseUrlText = baseUrl.toString();
-    final prefsLoader = ref.read(localTopoSettingsPreferencesLoaderProvider);
-    final previousSavedBaseUrlText =
-        localTopoRuntime.savedBaseUrl?.toString() ?? '';
-    final hadSnapshot = localTopoRuntime.hasCapabilitySnapshot;
-    final isSameSavedBaseUrl =
-        previousSavedBaseUrlText == normalizedBaseUrlText;
-    final previousSnapshot = localTopoRuntime.capabilitySnapshot;
+    final previous = state;
     final previousBoundsSupport = _snapshotSupportsCurrentVisibleBounds(
-      previousSnapshot,
+      previous.activeSnapshot,
     );
-    final retainedSnapshot = isSameSavedBaseUrl
-        ? localTopoRuntime.capabilitySnapshot
-        : null;
-
-    if (!isSameSavedBaseUrl) {
-      await localTopoRuntime.saveBaseUrl(baseUrl, loadPreferences: prefsLoader);
-      if (hadSnapshot) {
+    final loader = ref.read(localTopoSettingsPreferencesLoaderProvider);
+    final requestSerial = ++_validationRequestSerial;
+    _attemptPending = true;
+    state = state.copyWith(isPending: true, clearDetailMessage: true);
+    SharedPreferences? prefs;
+    var validationStarted = false;
+    try {
+      prefs = await loader();
+      if (!_isLatestRequest(requestSerial)) return;
+      await localTopoRuntime.saveBaseUrl(
+        baseUrl,
+        loadPreferences: () async => prefs!,
+        isCurrent: () => _isLatestRequest(requestSerial),
+      );
+      if (!_isLatestRequest(requestSerial)) return;
+      validationStarted = true;
+      if (previous.savedBaseUrlText != baseUrl.toString()) {
         _fallbackToTracestrackIfLocalTopoSelected();
       }
-    }
-
-    final requestSerial = ++_validationRequestSerial;
-    await _persistValidationStatus(LocalTopoValidationStatus.validating);
-    state = LocalTopoSettingsState(
-      savedBaseUrlText: normalizedBaseUrlText,
-      validationStatus: LocalTopoValidationStatus.validating,
-      activeSnapshot: retainedSnapshot,
-      detailMessage: 'Validating live capabilities from /capabilities.',
-    );
-
-    try {
-      final snapshot = await _fetchValidatedSnapshot(baseUrl);
-      if (!_isLatestRequest(requestSerial)) {
+      await _persistValidationStatus(
+        prefs,
+        LocalTopoValidationStatus.validating,
+      );
+      if (!_isLatestRequest(requestSerial)) return;
+      state = LocalTopoSettingsState(
+        savedBaseUrlText: baseUrl.toString(),
+        validationStatus: LocalTopoValidationStatus.validating,
+        isPending: true,
+        activeSnapshot: localTopoRuntime.capabilitySnapshot,
+        detailMessage: 'Validating live capabilities from /capabilities.',
+      );
+      LocalTopoCapabilitySnapshot snapshot;
+      try {
+        snapshot = await _fetchValidatedSnapshot(baseUrl);
+      } catch (error, stackTrace) {
+        if (!_isLatestRequest(requestSerial)) return;
+        _logFailure('capability validation', error, stackTrace);
+        // Disable immediately, even if the following cleanup cannot persist.
+        localTopoRuntime.deactivateSnapshot();
+        _fallbackToTracestrackIfLocalTopoSelected();
+        await localTopoRuntime.clearCapabilitySnapshot(
+          loadPreferences: () async => prefs!,
+          isCurrent: () => _isLatestRequest(requestSerial),
+        );
+        if (!_isLatestRequest(requestSerial)) return;
+        await _persistValidationStatus(
+          prefs,
+          LocalTopoValidationStatus.validationFailed,
+        );
+        if (!_isLatestRequest(requestSerial)) return;
+        state = LocalTopoSettingsState(
+          savedBaseUrlText: baseUrl.toString(),
+          validationStatus: LocalTopoValidationStatus.validationFailed,
+          detailMessage:
+              'Capability validation failed. Check the server, then use Retry for the saved URL.',
+        );
         return;
       }
-
+      if (!_isLatestRequest(requestSerial)) return;
       await localTopoRuntime.saveValidatedSnapshot(
         snapshot,
-        loadPreferences: prefsLoader,
+        loadPreferences: () async => prefs!,
+        activate: false,
+        persistBaseUrl: false,
+        isCurrent: () => _isLatestRequest(requestSerial),
       );
-      await _persistValidationStatus(LocalTopoValidationStatus.liveValidated);
+      if (!_isLatestRequest(requestSerial)) return;
+      await _persistValidationStatus(
+        prefs,
+        LocalTopoValidationStatus.liveValidated,
+      );
+      if (!_isLatestRequest(requestSerial)) return;
+      localTopoRuntime.activateConfirmedSnapshot(snapshot);
       ref
           .read(localTopoOverlayOutageReporterProvider)
           .resetAfterCapabilityValidation();
@@ -203,24 +262,20 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
           !_snapshotSupportsCurrentVisibleBounds(snapshot)) {
         _fallbackToTracestrackIfLocalTopoSelected();
       }
-    } catch (error) {
-      if (!_isLatestRequest(requestSerial)) {
-        return;
+    } catch (error, stackTrace) {
+      if (!_isLatestRequest(requestSerial)) return;
+      _logFailure('preference save', error, stackTrace);
+      await _recoverPersistenceFailure(
+        prefs,
+        previous,
+        requestSerial,
+        allowPrevious: !validationStarted,
+      );
+    } finally {
+      if (_isLatestRequest(requestSerial)) {
+        _attemptPending = false;
+        state = state.copyWith(isPending: false);
       }
-
-      await localTopoRuntime.clearCapabilitySnapshot(
-        loadPreferences: prefsLoader,
-      );
-      await _persistValidationStatus(
-        LocalTopoValidationStatus.validationFailed,
-      );
-      _fallbackToTracestrackIfLocalTopoSelected();
-
-      state = LocalTopoSettingsState(
-        savedBaseUrlText: normalizedBaseUrlText,
-        validationStatus: LocalTopoValidationStatus.validationFailed,
-        detailMessage: '$error',
-      );
     }
   }
 
@@ -244,81 +299,214 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
   }
 
   Future<void> clearSetting() async {
+    if (_attemptPending) return;
     _hasUserOverride = true;
-    _validationRequestSerial += 1;
-
-    await localTopoRuntime.clear(
-      loadPreferences: ref.read(localTopoSettingsPreferencesLoaderProvider),
-    );
-    await _clearPersistedValidationStatus();
+    final serial = ++_validationRequestSerial;
+    final previous = state;
+    final loader = ref.read(localTopoSettingsPreferencesLoaderProvider);
+    _attemptPending = true;
+    state = state.copyWith(isPending: true, clearDetailMessage: true);
+    SharedPreferences? prefs;
+    localTopoRuntime.deactivateSnapshot();
     _fallbackToTracestrackIfLocalTopoSelected();
+    try {
+      prefs = await loader();
+      if (!_isLatestRequest(serial)) return;
+      await localTopoRuntime.clear(
+        loadPreferences: () async => prefs!,
+        isCurrent: () => _isLatestRequest(serial),
+      );
+      if (!_isLatestRequest(serial)) return;
+      if (!await prefs.remove(localTopoValidationStatusPrefsKey)) {
+        throw StateError('Validation status removal was not accepted');
+      }
+      if (!_isLatestRequest(serial)) return;
+      state = const LocalTopoSettingsState(
+        detailMessage: 'No saved local tile server base URL.',
+      );
+    } catch (error, stackTrace) {
+      if (!_isLatestRequest(serial)) return;
+      _logFailure('preference clear', error, stackTrace);
+      await _recoverPersistenceFailure(prefs, previous, serial, clearing: true);
+    } finally {
+      if (_isLatestRequest(serial)) {
+        _attemptPending = false;
+        state = state.copyWith(isPending: false);
+      }
+    }
+  }
 
-    state = const LocalTopoSettingsState(
-      validationStatus: LocalTopoValidationStatus.empty,
-      detailMessage: 'No saved local tile server base URL.',
+  Future<void> _recoverPersistenceFailure(
+    SharedPreferences? prefs,
+    LocalTopoSettingsState previous,
+    int serial, {
+    bool allowPrevious = false,
+    bool clearing = false,
+  }) async {
+    var confirmed = true;
+    var saved =
+        localTopoRuntime.savedBaseUrl?.toString() ??
+        (clearing && prefs != null ? '' : previous.savedBaseUrlText);
+    var retainPrevious = allowPrevious && prefs == null;
+    try {
+      if (prefs != null) {
+        // Failed SharedPreferences writes still update its cache. Read storage,
+        // not that optimistic cache, before choosing Save versus Retry recovery.
+        await prefs.reload();
+        if (!_isLatestRequest(serial)) return;
+        final rawSaved = prefs.getString(localTileServerBaseUrlPrefsKey) ?? '';
+        saved = parseLocalTileServerBaseUrl(rawSaved)?.toString() ?? rawSaved;
+        retainPrevious = allowPrevious && saved == previous.savedBaseUrlText;
+        await localTopoRuntime.restore(
+          loadPreferences: () async => prefs,
+          allowSnapshot: false,
+          isCurrent: () => _isLatestRequest(serial),
+        );
+        if (!_isLatestRequest(serial)) return;
+        if (retainPrevious && previous.activeSnapshot != null) {
+          final rawSnapshot = prefs.getString(
+            localTopoCapabilitySnapshotPrefsKey,
+          );
+          retainPrevious =
+              rawSnapshot != null &&
+              jsonEncode(
+                    LocalTopoCapabilitySnapshot.fromStoredJson(
+                      jsonDecode(rawSnapshot),
+                    ).toJson(),
+                  ) ==
+                  jsonEncode(previous.activeSnapshot!.toJson());
+        }
+        if (!retainPrevious) {
+          // Best-effort durable quarantine; either failure must still leave the
+          // current runtime unavailable and never report Live validated.
+          try {
+            await _persistValidationStatus(
+              prefs,
+              LocalTopoValidationStatus.validationFailed,
+            );
+          } catch (error, stackTrace) {
+            _logFailure('recovery status', error, stackTrace);
+          }
+          if (!_isLatestRequest(serial)) return;
+          try {
+            await localTopoRuntime.clearCapabilitySnapshot(
+              loadPreferences: () async => prefs,
+              isCurrent: () => _isLatestRequest(serial),
+            );
+          } catch (error, stackTrace) {
+            _logFailure('recovery snapshot cleanup', error, stackTrace);
+          }
+        }
+      }
+    } catch (error, stackTrace) {
+      confirmed = false;
+      retainPrevious = false;
+      _logFailure('preference readback', error, stackTrace);
+    }
+    if (!_isLatestRequest(serial)) return;
+    if (retainPrevious && !clearing) {
+      if (previous.activeSnapshot case final snapshot?) {
+        localTopoRuntime.activateConfirmedSnapshot(snapshot);
+      }
+      state = previous.copyWith(
+        isPending: false,
+        detailMessage:
+            'The URL could not be saved. Your previous configuration is unchanged. Try Save again.',
+      );
+      return;
+    }
+    localTopoRuntime.deactivateSnapshot();
+    _fallbackToTracestrackIfLocalTopoSelected();
+    state = LocalTopoSettingsState(
+      savedBaseUrlText: saved,
+      validationStatus: LocalTopoValidationStatus.validationFailed,
+      needsClearRetry: clearing,
+      storageConfirmed: confirmed,
+      detailMessage: !confirmed
+          ? 'Storage could not be confirmed. Local Topo is unavailable. Try Save or Clear again.'
+          : clearing
+          ? 'Clear did not finish. Local Topo is unavailable. Try Clear again.'
+          : 'Preferences could not be completed. Local Topo is unavailable. ${saved.isEmpty ? 'Try Save again.' : 'Use Retry for the saved URL.'}',
     );
   }
 
-  Future<void> _hydrate() async {
-    final prefsLoader = ref.read(localTopoSettingsPreferencesLoaderProvider);
-    final prefs = await prefsLoader();
-    final savedBaseUrlText =
-        prefs.getString(localTileServerBaseUrlPrefsKey) ?? '';
-    final persistedStatus = _parseLocalTopoValidationStatus(
-      prefs.getString(localTopoValidationStatusPrefsKey),
-    );
+  Future<void> _hydrate(int serial) async {
+    try {
+      final prefsLoader = ref.read(localTopoSettingsPreferencesLoaderProvider);
+      final prefs = await prefsLoader();
+      if (!_isLatestRequest(serial) || _hasUserOverride) return;
+      final savedBaseUrlText =
+          prefs.getString(localTileServerBaseUrlPrefsKey) ?? '';
+      final persistedStatus = _parseLocalTopoValidationStatus(
+        prefs.getString(localTopoValidationStatusPrefsKey),
+      );
 
-    await localTopoRuntime.restore(loadPreferences: prefsLoader);
-    if (!ref.mounted || _hasUserOverride) {
-      return;
-    }
+      await localTopoRuntime.restore(
+        loadPreferences: () async => prefs,
+        isCurrent: () => _isLatestRequest(serial) && !_hasUserOverride,
+      );
+      if (!_isLatestRequest(serial) || _hasUserOverride) {
+        return;
+      }
 
-    final snapshot = localTopoRuntime.capabilitySnapshot;
-    if (snapshot != null) {
+      final snapshot = localTopoRuntime.capabilitySnapshot;
+      if (snapshot != null) {
+        state = LocalTopoSettingsState(
+          savedBaseUrlText: snapshot.baseUrl.toString(),
+          validationStatus: LocalTopoValidationStatus.restoredSnapshot,
+          activeSnapshot: snapshot,
+          detailMessage:
+              'Using the last successful capability snapshot without probing the server.',
+        );
+        return;
+      }
+
+      if (savedBaseUrlText.trim().isEmpty) {
+        state = const LocalTopoSettingsState(
+          validationStatus: LocalTopoValidationStatus.empty,
+          detailMessage: 'No saved local tile server base URL.',
+        );
+        return;
+      }
+
+      final parsedBaseUrl = parseLocalTileServerBaseUrl(savedBaseUrlText);
+      if (parsedBaseUrl == null) {
+        state = LocalTopoSettingsState(
+          savedBaseUrlText: savedBaseUrlText,
+          validationStatus: LocalTopoValidationStatus.invalidUrlSyntax,
+          detailMessage: 'The saved URL is not a valid http or https base URL.',
+        );
+        return;
+      }
+
+      final validationStatus = switch (persistedStatus) {
+        LocalTopoValidationStatus.liveValidated ||
+        LocalTopoValidationStatus.restoredSnapshot ||
+        LocalTopoValidationStatus.validating ||
+        null => LocalTopoValidationStatus.validationFailed,
+        final value => value,
+      };
+
       state = LocalTopoSettingsState(
-        savedBaseUrlText: snapshot.baseUrl.toString(),
-        validationStatus: LocalTopoValidationStatus.restoredSnapshot,
-        activeSnapshot: snapshot,
+        savedBaseUrlText: parsedBaseUrl.toString(),
+        validationStatus: validationStatus,
         detailMessage:
-            'Using the last successful capability snapshot without probing the server.',
+            validationStatus == LocalTopoValidationStatus.validationFailed
+            ? 'The saved URL is not currently backed by a successful validation snapshot.'
+            : 'Enter a valid http or https base URL.',
       );
-      return;
-    }
-
-    if (savedBaseUrlText.trim().isEmpty) {
+    } catch (error, stackTrace) {
+      if (!_isLatestRequest(serial) || _hasUserOverride) return;
+      _logFailure('preference loading', error, stackTrace);
+      localTopoRuntime.deactivateSnapshot();
+      _fallbackToTracestrackIfLocalTopoSelected();
       state = const LocalTopoSettingsState(
-        validationStatus: LocalTopoValidationStatus.empty,
-        detailMessage: 'No saved local tile server base URL.',
+        validationStatus: LocalTopoValidationStatus.validationFailed,
+        storageConfirmed: false,
+        detailMessage:
+            'Settings could not be loaded. Local Topo is unavailable. Try Save or Clear again.',
       );
-      return;
     }
-
-    final parsedBaseUrl = parseLocalTileServerBaseUrl(savedBaseUrlText);
-    if (parsedBaseUrl == null) {
-      state = LocalTopoSettingsState(
-        savedBaseUrlText: savedBaseUrlText,
-        validationStatus: LocalTopoValidationStatus.invalidUrlSyntax,
-        detailMessage: 'The saved URL is not a valid http or https base URL.',
-      );
-      return;
-    }
-
-    final validationStatus = switch (persistedStatus) {
-      LocalTopoValidationStatus.liveValidated ||
-      LocalTopoValidationStatus.restoredSnapshot ||
-      LocalTopoValidationStatus.validating ||
-      null => LocalTopoValidationStatus.validationFailed,
-      final value => value,
-    };
-
-    state = LocalTopoSettingsState(
-      savedBaseUrlText: parsedBaseUrl.toString(),
-      validationStatus: validationStatus,
-      detailMessage:
-          validationStatus == LocalTopoValidationStatus.validationFailed
-          ? 'The saved URL is not currently backed by a successful validation snapshot.'
-          : 'Enter a valid http or https base URL.',
-    );
   }
 
   Future<LocalTopoCapabilitySnapshot> _fetchValidatedSnapshot(
@@ -355,18 +543,23 @@ class LocalTopoSettingsNotifier extends Notifier<LocalTopoSettingsState> {
   }
 
   Future<void> _persistValidationStatus(
+    SharedPreferences prefs,
     LocalTopoValidationStatus validationStatus,
   ) async {
-    final prefs = await ref.read(localTopoSettingsPreferencesLoaderProvider)();
-    await prefs.setString(
+    if (!await prefs.setString(
       localTopoValidationStatusPrefsKey,
       validationStatus.storageValue,
-    );
+    )) {
+      throw StateError('Validation status write was not accepted');
+    }
   }
 
-  Future<void> _clearPersistedValidationStatus() async {
-    final prefs = await ref.read(localTopoSettingsPreferencesLoaderProvider)();
-    await prefs.remove(localTopoValidationStatusPrefsKey);
+  void _logFailure(String phase, Object error, StackTrace stackTrace) {
+    developer.log(
+      'Local Topo $phase failed (${error.runtimeType}).',
+      name: 'LocalTopoSettings',
+      stackTrace: stackTrace,
+    );
   }
 
   void _fallbackToTracestrackIfLocalTopoSelected() {

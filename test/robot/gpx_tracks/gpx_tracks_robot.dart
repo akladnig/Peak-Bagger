@@ -532,38 +532,33 @@ class GpxTracksRobot {
   }
 
   Future<void> setOutlierFilterNone() async {
-    await tester.scrollUntilVisible(
-      outlierFilterField,
-      200.0,
-      scrollable: _settingsScrollable,
-    );
-    await tester.tap(outlierFilterField);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('None').last);
-    await tester.pumpAndSettle();
+    await _selectFilterValue(outlierFilterField, 'None');
   }
 
   Future<void> setElevationSmootherNone() async {
-    await tester.scrollUntilVisible(
-      elevationSmootherField,
-      200.0,
-      scrollable: _settingsScrollable,
-    );
-    await tester.tap(elevationSmootherField);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('None').last);
-    await tester.pumpAndSettle();
+    await _selectFilterValue(elevationSmootherField, 'None');
   }
 
   Future<void> setPositionSmootherNone() async {
+    await _selectFilterValue(positionSmootherField, 'None');
+  }
+
+  Future<void> _selectFilterValue(Finder field, String label) async {
     await tester.scrollUntilVisible(
-      positionSmootherField,
+      field,
       200.0,
       scrollable: _settingsScrollable,
     );
-    await tester.tap(positionSmootherField);
+    await tester.tap(
+      find.descendant(of: field, matching: find.byType(InputDecorator)),
+    );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('None').last);
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('shared-dropdown-menu')),
+        matching: find.text(label),
+      ),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -578,15 +573,7 @@ class GpxTracksRobot {
   }
 
   Future<void> setHampelWindow(int value) async {
-    await tester.scrollUntilVisible(
-      hampelWindowField,
-      200.0,
-      scrollable: _settingsScrollable,
-    );
-    await tester.tap(hampelWindowField);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('$value').last);
-    await tester.pumpAndSettle();
+    await _selectFilterValue(hampelWindowField, '$value');
   }
 
   Future<void> setPeakCorrelationDistance(int value) async {
