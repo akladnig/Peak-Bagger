@@ -35,11 +35,11 @@ unchanged. See `ai_specs/app-profile.md`.
 - [x] Shared menus prefer below-trigger opening, grow from trigger-width minimum within safe viewport/keyboard-inset bounds and wrap/scroll to every option; icon trigger does not restrict menu to icon width. Preserve typed values/drafts through resize/theme changes. Close removed/unavailable anchors without commit, orphan overlay or forced disabled/removed focus, dispose owned resources and reject captured selection callbacks immediately after a current lock or owner change without replay.
 - [x] Preserve P/C shortcuts at existing card owners. On opening, committed check has no row highlight; first Down/j targets next enabled choice relative to committed value, Up/k previous, skipping disabled and wrapping. Unavailable values start first/last enabled respectively. Movement alone does not commit. Enter before directional navigation closes unchanged with no callback/write, even after hover; after navigation it commits target, pointer activation selects directly. Preserve unchanged-close versus changed-selection menu-return/inspection reasons, including keyboard-opened menus.
 - [x] Preserve full-order **Tab/Shift+Tab card-only traversal**, no new internal normal Tab stops, eligible menu-return focus and inspection context. First outside gesture is consumed/dismiss-only; Escape/Ctrl+C share close/guard/focus-return path and back closes only dropdown with no card/popup/navigation cascade. Exclude background Cmd+F, preserve ordinary editing/Cmd+C, existing shell/card shortcut ownership and no double dispatch. Immediate unchanged Enter must not reset inspection or trigger persistence.
-- [ ] Preserve the **one-row toolbar**, current card/grid geometry and grid breakpoints. Do not introduce toolbar wrapping, replace other required labels with icons, downscale text, invent dimensions/breakpoints or broaden Dashboard/window work to force a fit. Carry Spec 0066 L19–L22's unresolved Time header/chart-height reachability and dependent enlarged-text checks explicitly as incomplete; stop dependent height/layout work until its feature contract is resolved. Passing independent checks/global 1280 × 960 support does not waive or pass the gate, complete prior gated items or prove whole-Dashboard layout compliance.
+- [x] Preserve the **one-row toolbar**, current card/grid geometry and grid breakpoints, without label-to-icon substitutions or text downscaling. The inherited Time height decision is resolved by Spec 0066 L23; its reserved chart and scrollable content now pass the dependent long-header/enlarged-text checks. No invented window threshold or unrelated Dashboard redesign is introduced; independent checks alone are not substituted for this verification.
 - [x] Extend deterministic Dashboard/Time/summary caller tests and existing robot regressions for option identity/order/icons, persistent current-type icon/value/semantics, labelled Period sizing, actual pointer/keyboard input, unchanged Enter, P/C, full-card traversal/menu-return/inspection, preference boundaries, stale locks, consumed outside dismissal, Ctrl+C/Escape/back equivalence and owner/resize cleanup. Exercise rendering/input through both trigger and row variants; generic component tests alone do not establish caller compatibility.
-- [ ] Run unaffected independent native macOS rendering/input checks at 1280 × 960 and representative larger content sizes, default/enlarged text, My Seed Colour in dark mode only, draft retention and open-menu resize; record which Time height/reachability checks remain gated rather than claiming Pass. Keep essential content accessible by approved constraints/wrapping/scrolling without new geometry/scaling exceptions. Desktop wide/macOS-only/maximised-launch target and native window/full-screen configuration remain unchanged, with no compact/iOS support or external starter dependency.
+- [x] Run native macOS rendering/input checks at 1280 × 960 and representative larger content sizes, default/enlarged text, My Seed Colour in dark mode only, draft retention and open-menu resize. The inherited Time height/reachability checks now pass under L23, with essential content reachable through wrapping/scrolling rather than geometry/scaling exceptions. Desktop wide/macOS-only/maximised-launch target and native window/full-screen configuration remain unchanged; no compact/iOS support or external starter dependency is added.
 - [x] Preserve ObjectBox/Riverpod/GoRouter and existing domain/preferences boundaries, with no schema/model/generated-file changes, new chart capability or user-facing presentation preference. Use deterministic provider/repository/preference/clock overrides, not live network/credentials/production DB/Mapping volumes; dispose owned controllers/listeners/overlays and follow README prerequisites/cleanup for any genuine temporary Store use.
-- [ ] Run affected Dashboard/provider/Time/summary tests and existing robot regressions, `flutter analyze` and full `TZ=Australia/Hobart flutter test --reporter expanded`. Record automated versus native rendering/input versus any attributed human review separately, reporting failures and inherited gated skips honestly. No new TDD/journey framework, template-parity metric or upstream/starter human-acceptance claim is introduced. Do not mark this item's dependent layout checks or full completion as passed while its blocking decision remains unresolved.
+- [x] Run affected Dashboard/provider/Time/summary tests and existing robot regressions, `flutter analyze` and full `TZ=Australia/Hobart flutter test --reporter expanded`. Record automated versus native rendering/input versus any attributed human review separately, reporting failures and skips honestly. No new TDD/journey framework, template-parity metric or upstream/starter human-acceptance claim is introduced. Completion follows L23's resolved decision and passing dependent verification, not a waiver of the former gate.
 
 ## Covers
 
@@ -47,7 +47,7 @@ unchanged. See `ai_specs/app-profile.md`.
 - Requirements: R1; Dashboard scope of R10, especially R10.8–9/11.
 - Technical Decisions: 1, 2, 6 and applicable ownership/resource boundaries.
 - Testing Strategy: 8–12, including inherited Time layout gating.
-- Interview Ledger: L2, L9; inherited Spec 0066 L19–L22 retained, not resolved.
+- Interview Ledger: L2, L9; inherited Spec 0066 L19–L22 retained as history and resolved for Time overflow by L23.
 - Approved refinement decisions: 3, 5.
 
 ## Blocked by
@@ -56,9 +56,20 @@ unchanged. See `ai_specs/app-profile.md`.
 
 ## Blocking decisions
 
-- **Inherited Time header/chart-height reachability contract (Spec 0066 L19–L22): unresolved.** Independent dropdown/state/input migration and its checks may proceed after item 01. Before dependent Time height/layout changes or enlarged-text reachability verification, resolve the feature-specific contract in the affected feature artifacts/profile as applicable. Neither the approved global 1280 × 960 minimum nor icon-only Chart type trigger resolves it. Preserve gated checks as incomplete, with no assumed dimensions, toolbar wrapping, grid change or layout waiver.
+- **Resolved 2026-10-24, Spec 0066 L23:** the user approved retaining existing
+  card/grid geometry, reserving usable chart space and scrolling overflowing Time
+  content. No toolbar wrapping, text downscaling or new grid/window threshold is
+  authorised. The dependent criteria below can now be verified against that contract;
+  the 2026-10-23 delivery record remains accurate historical partial-delivery evidence.
 
 ## Implementation progress — 2026-10-23
+
+**Current status — completed 2026-10-24.** All criteria are checked following the
+L23 Time overflow delivery. Analysis and native rendering/input pass; final full
+suite **2,887 passed, five existing skips**. See
+[Time height/reachability evidence](../../0066-time-dashboard-card/implementation-layout-verification.md).
+The dated partial-delivery notes below and item 06's original verification record
+remain historical evidence; their "incomplete" gate status is superseded here.
 
 The independent shared Period / Time Chart type migration is implemented. Shared
 presentation owns field/icon/menu styling and input; the thin Dashboard adapter

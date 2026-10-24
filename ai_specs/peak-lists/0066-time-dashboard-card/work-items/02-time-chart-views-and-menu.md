@@ -38,7 +38,7 @@ All paths below are relative to the project root.
 - [x] Every view uses `ChartSeriesTheme.primarySeriesColor`, currently derived from `colorScheme.primaryContainer`, for Total Time and `secondarySeriesColor`, currently `#2E7D32`, for Moving Time; never substitute raw seed/`colorScheme.primary`. Reuse shared selected and lightened-tooltip colour derivations across light/dark and changed-seed themes.
 - [x] Every inspected bucket uses the reference date title and exactly two rows in order `Total Time: <duration>` and `Moving Time: <duration>`, preserving `xd yh zm` all-three-component formatting and decimal-day axes from Work Item 01. Preserve hover/pinned behavior for both series, including coincident and zero values. Clear incompatible inspection on type changes without changing the calendar page; Work Item 05 supplies keyboard equivalents/accessible inspected values.
 - [x] All three types share the same eligible Track set, calendar boundaries, initial `Last 12 Months` current page, exact preset order, Total Time-only header/averages, horizontal browsing, First/Previous/Next/Last destinations, refresh clamping, current-page following and historical remapping, and activation/interaction clock reconciliation without a midnight timer. Superseded type/page/data callbacks cannot restore stale tooltips or selected pages.
-- [ ] Time's wrapping summary header and full labels/values remain intact at enlarged text; the toolbar stays one row. Resolve any actual dependent Pending value under the parent Spec/Work Item 01 gate before dependent layout/verification; no new dimensions, compact breakpoints, routes, or window policy are selected here.
+- [x] Time's wrapping summary header and full labels/values remain intact at enlarged text; the toolbar stays one row. L23 resolves the inherited height policy with fixed card/grid geometry, a usable reserved plot and vertically scrollable Time content; no new window dimensions, compact breakpoints, routes or native-window policy are selected.
 - [x] Distance/Elevation/Peaks Bagged retain their existing binary controls, exact labels, initial mode defaults, eligibility, chart/header presentation, palettes, and chart preferences. No new chart-type menu, subset stacking, clustered choice, wrapping header, or chart-preference migration appears on those cards. No combined card-actions menu is introduced.
 - [x] Add behavior-focused widget/rendering coverage for exact menu order/icons/labels/current marker, `Chart type`, pointer/Escape/outside dismissal, same-choice no-op, page preservation, subset/equal/zero geometry, coincident lines, independent clustered values, colours in light/dark and changed-seed themes, exact tooltip rows, loading/empty states, and stale-inspection clearing. Reuse deterministic Tracks/clocks/provider overrides and stable menu/item selectors; scope duplicated control keys to the card, retain `time-...` selectors and existing robot selectors/journeys, fake tiles when needed, and dispose resources. No strict TDD or new robot journey is mandated.
 - [x] Run `flutter analyze`, affected Time/summary/Dashboard widget tests under `TZ=Australia/Hobart`, and the complete `TZ=Australia/Hobart flutter test` suite; check affected macOS-wide light/dark pointer/available keyboard behavior, focus and enlarged text without downscaling. Report actual results and any dependent dimension gate. Later 04–05 keyboard criteria remain required for feature completion.
@@ -54,9 +54,18 @@ All paths below are relative to the project root.
 ## Blocked by
 
 - Uses the implemented independent data/calendar/formatter/chart foundation from [01 — Add Time's eligible-duration chart and calendar summaries](01-time-card-calendar-and-summaries.md). On 2026-10-18 the user explicitly authorised independent Work Item 02 work while carrying forward Work Item 01's unresolved layout gate (Interview Ledger L20).
-- Work Item 01's wrapping-header height/reachability and dependent enlarged-text Dashboard verification remain gated under L19. This authorisation does not mark 01 complete or resolve any Pending profile/window value.
+- L19's product decision was resolved by L23 on 2026-10-24: retain card/grid
+  geometry, reserve usable chart space and scroll overflowing Time content. The
+  remaining layout criterion requires executed verification, not another window
+  decision. Earlier progress entries below retain their historical scope.
 
 ## Implementation progress — 2026-10-18
+
+**Current status — completed 2026-10-24 under L23.** The inherited wrapping-header
+criterion now passes for all three chart types with retained geometry and scrollable
+overflow. Full suite: **2,887 passed, five existing skips**; native/input/analysis
+evidence is in [the layout delivery record](../implementation-layout-verification.md).
+The following partial-delivery entry remains dated history.
 
 **Independent chart/menu scope implemented and verified under L20. Full Work Item completion remains conditional on the unchecked inherited wrapping-header layout criterion.** Work Item 01 remains incomplete under L19; no dimensions or layout policy were selected here.
 

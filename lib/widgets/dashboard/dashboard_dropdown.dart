@@ -76,6 +76,12 @@ class _DashboardDropdownState<T> extends State<DashboardDropdown<T>> {
 
   void _openForKeyboard() {
     if (!_allowed || _menu.isOpen) return;
+    // A Time toolbar can be outside its card's vertical viewport. Reveal the
+    // existing invoker without adding an internal card-traversal focus stop.
+    Scrollable.ensureVisible(
+      context,
+      alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+    );
     _keyboardOpened = true;
     _menu.open();
     if (!_menu.isOpen) _keyboardOpened = false;

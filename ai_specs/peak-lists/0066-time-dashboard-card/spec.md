@@ -138,6 +138,29 @@ Add a **Time** card to the existing Dashboard. Derive two series from eligible c
 
 ## Open Questions
 
+**Time gate resolution — 2026-10-24, L23:** the user approved retaining existing
+card/grid geometry, reserving usable chart space and scrolling overflowing Time
+content. This supersedes the unresolved layout prerequisite in Technical Decision 9
+and the historical L19–L22 gate statements below for this affected scope. The global
+1280 × 960 minimum and unbounded larger resize range are already approved. No new
+Time breakpoint, card height, full-screen decision, maximum duration or text-scale
+reduction is introduced. Time's full summary header, one-row controls, complete
+date range and chart share one vertical card viewport. The chart fills available
+space when possible; otherwise a minimum derived from four legible axis-label
+intervals plus existing renderer insets is retained and content scrolls. Keyboard
+inspection reveals the chart; P/C reveals the existing invoking control before
+opening its menu, without extra Tab stops or changed menu-return reasons. Verify
+1× / 1.5× / 2× text, minimum/larger content sizes, every chart type, long values,
+actual scrolling/reachability, state-preserving resizing/reordering and native
+macOS input. Runtime completion is recorded separately, not inferred from approval.
+
+**Verified delivery — 2026-10-24:** this height/reachability gate is now closed;
+Work Items 01–02 and Spec 0069 item 06 are complete. Analysis and native macOS
+rendering/input pass; full suite **2,887 passed, five existing skips**. See
+[layout delivery evidence](implementation-layout-verification.md). The subsequent
+L19–L22 entries retain historical gate/authorisation provenance; native full-screen
+and the separately documented shell-accessibility gap remain outside this closure.
+
 - The named Pending profile/window values remain unresolved. They do not block this Spec or independent data/preference logic; resolve a value before any actual dependent layout work, rather than inventing dimensions.
 - **Implementation gate (2026-10-18, L19):** the user selected `Leave layout gated` after Work Item 01's long-summary/enlarged-text regression exposed insufficient remaining plot height. Keep header-height/reachability acceptance incomplete pending the actual supported window/Time layout contract. The existing regression viewport is evidence only. Independent Time work and verification can proceed; see [Work Item 01 progress](work-items/01-time-card-calendar-and-summaries.md#implementation-progress--2026-10-18).
 - **Independent Work Item 02 authorisation (2026-10-18, L20):** the user authorised chart/menu work against Work Item 01's implemented foundation while retaining L19's layout gate and incomplete dependent verification. Work Item 01 remains incomplete.

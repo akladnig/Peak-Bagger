@@ -18,10 +18,10 @@ Apply three separate contracts: mandatory shared rules from the local standard, 
 | Supported platforms | **macOS only**. Scaffold directories or historical text do not add supported platforms. |
 | Layout scope | **Wide desktop only**, with compact rows/toolbars and keyboard/pointer affordances. No required compact/narrow navigation shell. |
 | Launch window behaviour | **Maximised on launch**, as required by Desktop wide. |
-| Resizing policy | Resizable desktop window; **Pending — supported macOS resize range**, to be settled alongside minimum usable dimensions. |
+| Resizing policy | Resizable desktop window: content width **≥1280** and height **≥960 logical points**, with **no fixed app-defined maximum**; larger sizes depend on the available display area. Approved 2026-10-19. |
 | Native macOS window mode | **Pending — native macOS full-screen choice**. Launch maximisation does not require entering native full-screen. |
-| Minimum usable width | **Pending — minimum usable macOS width**. |
-| Minimum usable height | **Pending — minimum usable macOS height**. |
+| Minimum usable width | **1280 logical points** of app content, approved 2026-10-19. |
+| Minimum usable height | **960 logical points** of app content, approved 2026-10-19. |
 | Compact/wide navigation breakpoint | **Not applicable** to the selected wide-only scope. |
 | iOS viewport/Drawer/touch-layout verification | **Not applicable**; iOS and compact/narrow layouts are outside the selected profile. |
 | Feature content thresholds | **Pending — feature-specific wide-layout thresholds**, where an affected Spec needs them; not inferred from native configuration. |
@@ -29,6 +29,22 @@ Apply three separate contracts: mandatory shared rules from the local standard, 
 **Pending-value gate:** named `Pending` fields pass this documentation release. Resolve the relevant values in this profile and the affected implementation Spec before dependent layout implementation or dimension-dependent acceptance criteria. Unrelated work may proceed. Native minimum content size `1024 × 0` and launch zoom, recorded below, are observations, not approved usable width/height targets. No universal dimensions or adaptive breakpoint are invented.
 
 ### Desktop wide obligations
+
+**Time overflow decision — approved 2026-10-24:** retain the existing Dashboard
+card/grid dimensions, aspect ratio and column thresholds. Time alone uses one
+vertical card-content viewport containing its full wrapping summary header,
+one-row toolbar/date range and chart. Reserve a usable chart area and scroll content
+that does not fit, without truncation or reduced text scale. Its chart minimum is
+an implementation metric derived from the active axis text/scaler and existing
+plot insets, not a new window minimum or grid breakpoint. Verify 1×, 1.5× and 2×
+text at the approved minimum and larger sizes, including the existing 1600 × 1000
+long-duration regression. No Time-specific window threshold is needed. This
+resolves Spec 0066 L19's product decision, superseding the earlier gate references
+for this scope. Verification passed and is recorded in
+[the Time layout delivery](peak-lists/0066-time-dashboard-card/implementation-layout-verification.md),
+without claiming whole-app compliance. Native
+full-screen remains a separate non-blocking Pending choice. Dropdown typography,
+other cards' presentation and domain/preference semantics are unchanged.
 
 - Keep essential content, labels, values, validation, and actions usable at the declared supported window range and text scales through wrapping or scrolling; a wide but short window still needs height-aware handling.
 - Preserve visible keyboard focus/traversal, selection distinct from hover, pressed/disabled feedback, pointer cursors, accessible labels, and tooltips.

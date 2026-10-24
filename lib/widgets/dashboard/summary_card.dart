@@ -15,6 +15,7 @@ import 'summary_chart.dart';
 import 'summary_page_browser.dart';
 import 'dashboard_card_keyboard.dart';
 import 'dashboard_dropdown.dart';
+import 'time_card_viewport.dart';
 
 class SummaryVisibleSummary {
   const SummaryVisibleSummary({
@@ -99,6 +100,8 @@ class SummaryCard extends ConsumerStatefulWidget {
     this.barSeriesStyle,
     this.chartTypeControlBuilder,
     this.enableKeyboardInspection = false,
+    this.scrollTimeContent = false,
+    this.header,
   });
 
   final List<GpxTrack> tracks;
@@ -115,6 +118,8 @@ class SummaryCard extends ConsumerStatefulWidget {
   final Widget Function(VoidCallback onOpen, VoidCallback onChanged)?
   chartTypeControlBuilder;
   final bool enableKeyboardInspection;
+  final bool scrollTimeContent;
+  final Widget? header;
 
   @override
   ConsumerState<SummaryCard> createState() => _SummaryCardState();
@@ -124,6 +129,7 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
   final SummaryCardService _service = const SummaryCardService();
   final ScrollController _scrollController = ScrollController();
   final Object _cardIdentity = Object();
+  final _viewportKey = GlobalKey<TimeCardViewportState>();
   SummaryPeriodPreset get _period =>
       ref.read(summaryPageControllerProvider(_cardIdentity)).period;
   late SummaryDisplayMode _mode;
@@ -176,12 +182,24 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
   };
 
   late final _inspectionActions = <LogicalKeyboardKey, VoidCallback>{
+    if (widget.scrollTimeContent) ...{
+      LogicalKeyboardKey.pageUp: () => _scrollTimePage(forward: false),
+      LogicalKeyboardKey.pageDown: () => _scrollTimePage(forward: true),
+    },
     LogicalKeyboardKey.arrowLeft: () => _stepInspection(false),
     LogicalKeyboardKey.keyH: () => _stepInspection(false),
     LogicalKeyboardKey.arrowRight: () => _stepInspection(true),
     LogicalKeyboardKey.keyL: () => _stepInspection(true),
     LogicalKeyboardKey.escape: _clearKeyboardInspection,
   };
+
+  void _scrollTimePage({required bool forward}) {
+    if (mounted &&
+        _keyboard?.isActive() == true &&
+        _keyboard?.menuOwnsFocus == false) {
+      _viewportKey.currentState?.scrollPage(forward: forward);
+    }
+  }
 
   void _clearKeyboardInspection() {
     if (!mounted) return;
@@ -248,6 +266,24 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
       _inspectionIdentity = page.identity;
       _inspection = (index: index, pinned: true);
     });
+    _revealKeyboardChart();
+  }
+
+  void _revealKeyboardChart() {
+    if (!widget.scrollTimeContent) return;
+    final revision = _revision;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          revision != _revision ||
+          _keyboard?.isActive() != true ||
+          _keyboard?.focusNode.hasPrimaryFocus != true ||
+          _keyboard?.menuOwnsFocus == true) {
+        return;
+      }
+      // Only the card's own vertical viewport; the board retains whole-card
+      // reveal/traversal ownership and the chart keeps its horizontal controller.
+      _viewportKey.currentState?.revealChart();
+    });
   }
 
   void _onKeyboardFocus() {
@@ -284,6 +320,7 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
     final next = index + (forward ? 1 : -1);
     if (next >= 0 && next < page.buckets.length) {
       setState(() => _inspection = (index: next, pinned: true));
+      _revealKeyboardChart();
       return;
     }
     final navigation = selection.navigation(
@@ -486,8 +523,13 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
     // StatefulShellRoute retains Dashboard offstage. Activation changes this
     // dependency even when Tracks and the injected clock closure are unchanged.
     TickerMode.valuesOf(context);
-    return widget.isLoading ? _buildLoadingState() : _buildContent();
+    if (widget.isLoading) return _statusContent(_buildLoadingState());
+    return _buildContent();
   }
+
+  Widget _statusContent(Widget child) => widget.scrollTimeContent
+      ? TimeCardViewport(key: _viewportKey, header: widget.header, chart: child)
+      : child;
 
   Widget _buildLoadingState() {
     _reportVisibleSummary(null);
@@ -528,11 +570,13 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
     });
     if (navigation == null) {
       _reportVisibleSummary(null);
-      return Center(
-        key: Key('${widget.adapter.keyPrefix}-empty-state'),
-        child: Text(
-          widget.adapter.emptyStateText,
-          style: Theme.of(context).textTheme.bodyMedium,
+      return _statusContent(
+        Center(
+          key: Key('${widget.adapter.keyPrefix}-empty-state'),
+          child: Text(
+            widget.adapter.emptyStateText,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
         ),
       );
     }
@@ -570,115 +614,121 @@ class _SummaryCardState extends ConsumerState<SummaryCard> {
         ),
       ),
     );
+    final controls = _SummaryHeader(
+      keyPrefix: widget.adapter.keyPrefix,
+      period: _period,
+      mode: _displayMode,
+      chartTypeControl: widget.chartTypeControlBuilder?.call(
+        _reconcileForChartMenu,
+        () => _navigate(SummaryPageAction.reconcile),
+      ),
+      visibleRangeText: formatSummaryDateRange(page.start, page.lastDay),
+      onPeriodChanged: _selectPeriod,
+      onOpenPeriod: _reconcileForChartMenu,
+      onToggleMode: _toggleMode,
+      onFirst: () => _navigate(SummaryPageAction.first),
+      onPrevious: () => _navigate(SummaryPageAction.adjacent, pages: -1),
+      onNext: () => _navigate(SummaryPageAction.adjacent),
+      onLast: () => _navigate(SummaryPageAction.last),
+      canMoveFirst: navigation.canFirst,
+      canMovePrevious: navigation.canPrevious,
+      canMoveNext: navigation.canNext,
+      canMoveLast: navigation.canLast,
+      wrapRange: widget.scrollTimeContent,
+    );
+    final chart = LayoutBuilder(
+      builder: (context, constraints) {
+        final width = math.max<double>(
+          constraints.maxWidth - DashboardUI.yAxisLabelWidth,
+          1,
+        );
+        final identity = _chartIdentity(referenceDate, page);
+        final inputRevision = _inputRevision;
+        return SummaryPageBrowser(
+          key: Key('${widget.adapter.keyPrefix}-page-browser'),
+          revision: (identity, inputRevision),
+          enabled: navigation.canPrevious || navigation.canNext,
+          onPages: (pages) {
+            // Timers run before a queued frame's rebuild. Reject input
+            // synchronously superseded by a toolbar action as well as
+            // the cancellation performed by didUpdateWidget.
+            if (_revision != revision ||
+                _inputRevision != inputRevision ||
+                !TickerMode.valuesOf(context).enabled) {
+              return;
+            }
+            _navigate(
+              SummaryPageAction.adjacent,
+              pages: pages,
+              inputReference: referenceDate,
+            );
+          },
+          child: SummaryChart(
+            key: Key('${widget.adapter.keyPrefix}-scroll-view'),
+            keyPrefix: widget.adapter.keyPrefix,
+            controller: _scrollController,
+            buckets: timeline.buckets,
+            secondaryBuckets: secondary?.buckets,
+            mode: _displayMode,
+            barSeriesStyle:
+                widget.barSeriesStyle ?? widget.adapter.barSeriesStyle,
+            valueScale: widget.adapter.chartValueScale,
+            bucketExtent: width / timeline.buckets.length,
+            period: _period,
+            referenceDate: referenceDate,
+            chartMaxYFor: widget.adapter.chartMaxYFor,
+            tooltipValueTexts: widget.adapter.tooltipValueTexts,
+            tooltipValueTextColors: widget.adapter.tooltipValueTextColors,
+            tooltipTitleText: widget.adapter.tooltipTitleText,
+            yAxisLabelText: widget.adapter.yAxisLabelText,
+            secondarySeriesOnTop: widget.adapter.secondarySeriesOnTop,
+            inspectionIdentity: identity,
+            inspection: _inspectionIdentity == identity ? _inspection : null,
+            onInspectionChanged: !widget.enableKeyboardInspection
+                ? null
+                : (inspection) {
+                    if (_revision != revision ||
+                        _referenceDate != referenceDate) {
+                      return;
+                    }
+                    // A tap/key can pin before this frame's hover-exit
+                    // callback has rebuilt with the new presentation.
+                    if (inspection == null && _inspection?.pinned == true) {
+                      return;
+                    }
+                    setState(() {
+                      _inspectionIdentity = identity;
+                      _inspection = inspection;
+                    });
+                  },
+            scrollable: false,
+            onInspect: () {
+              if (_revision != revision) return false;
+              if (_referenceDate == referenceDate) return true;
+              _navigate(SummaryPageAction.reconcile);
+              return false;
+            },
+          ),
+        );
+      },
+    );
+    if (widget.scrollTimeContent) {
+      return TimeCardViewport(
+        key: _viewportKey,
+        header: widget.header,
+        controls: controls,
+        chart: chart,
+        minimumChartHeight: SummaryChart.minimumUsableHeight(context),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _SummaryHeader(
-            keyPrefix: widget.adapter.keyPrefix,
-            period: _period,
-            mode: _displayMode,
-            chartTypeControl: widget.chartTypeControlBuilder?.call(
-              _reconcileForChartMenu,
-              () => _navigate(SummaryPageAction.reconcile),
-            ),
-            visibleRangeText: formatSummaryDateRange(page.start, page.lastDay),
-            onPeriodChanged: _selectPeriod,
-            onOpenPeriod: _reconcileForChartMenu,
-            onToggleMode: _toggleMode,
-            onFirst: () => _navigate(SummaryPageAction.first),
-            onPrevious: () => _navigate(SummaryPageAction.adjacent, pages: -1),
-            onNext: () => _navigate(SummaryPageAction.adjacent),
-            onLast: () => _navigate(SummaryPageAction.last),
-            canMoveFirst: navigation.canFirst,
-            canMovePrevious: navigation.canPrevious,
-            canMoveNext: navigation.canNext,
-            canMoveLast: navigation.canLast,
-          ),
+          controls,
           const SizedBox(height: 12),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final width = math.max<double>(
-                  constraints.maxWidth - DashboardUI.yAxisLabelWidth,
-                  1,
-                );
-                final identity = _chartIdentity(referenceDate, page);
-                final inputRevision = _inputRevision;
-                return SummaryPageBrowser(
-                  key: Key('${widget.adapter.keyPrefix}-page-browser'),
-                  revision: (identity, inputRevision),
-                  enabled: navigation.canPrevious || navigation.canNext,
-                  onPages: (pages) {
-                    // Timers run before a queued frame's rebuild. Reject input
-                    // synchronously superseded by a toolbar action as well as
-                    // the cancellation performed by didUpdateWidget.
-                    if (_revision != revision ||
-                        _inputRevision != inputRevision ||
-                        !TickerMode.valuesOf(context).enabled) {
-                      return;
-                    }
-                    _navigate(
-                      SummaryPageAction.adjacent,
-                      pages: pages,
-                      inputReference: referenceDate,
-                    );
-                  },
-                  child: SummaryChart(
-                    key: Key('${widget.adapter.keyPrefix}-scroll-view'),
-                    keyPrefix: widget.adapter.keyPrefix,
-                    controller: _scrollController,
-                    buckets: timeline.buckets,
-                    secondaryBuckets: secondary?.buckets,
-                    mode: _displayMode,
-                    barSeriesStyle:
-                        widget.barSeriesStyle ?? widget.adapter.barSeriesStyle,
-                    valueScale: widget.adapter.chartValueScale,
-                    bucketExtent: width / timeline.buckets.length,
-                    period: _period,
-                    referenceDate: referenceDate,
-                    chartMaxYFor: widget.adapter.chartMaxYFor,
-                    tooltipValueTexts: widget.adapter.tooltipValueTexts,
-                    tooltipValueTextColors:
-                        widget.adapter.tooltipValueTextColors,
-                    tooltipTitleText: widget.adapter.tooltipTitleText,
-                    yAxisLabelText: widget.adapter.yAxisLabelText,
-                    secondarySeriesOnTop: widget.adapter.secondarySeriesOnTop,
-                    inspectionIdentity: identity,
-                    inspection: _inspectionIdentity == identity
-                        ? _inspection
-                        : null,
-                    onInspectionChanged: !widget.enableKeyboardInspection
-                        ? null
-                        : (inspection) {
-                            if (_revision != revision ||
-                                _referenceDate != referenceDate) {
-                              return;
-                            }
-                            // A tap/key can pin before this frame's hover-exit
-                            // callback has rebuilt with the new presentation.
-                            if (inspection == null &&
-                                _inspection?.pinned == true) {
-                              return;
-                            }
-                            setState(() {
-                              _inspectionIdentity = identity;
-                              _inspection = inspection;
-                            });
-                          },
-                    scrollable: false,
-                    onInspect: () {
-                      if (_revision != revision) return false;
-                      if (_referenceDate == referenceDate) return true;
-                      _navigate(SummaryPageAction.reconcile);
-                      return false;
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
+          Expanded(child: chart),
         ],
       ),
     );
@@ -703,6 +753,7 @@ class _SummaryHeader extends StatelessWidget {
     required this.canMoveLast,
     required this.canMovePrevious,
     required this.canMoveNext,
+    this.wrapRange = false,
   });
 
   final String keyPrefix;
@@ -721,6 +772,7 @@ class _SummaryHeader extends StatelessWidget {
   final bool canMoveLast;
   final bool canMovePrevious;
   final bool canMoveNext;
+  final bool wrapRange;
 
   @override
   Widget build(BuildContext context) {
@@ -804,8 +856,8 @@ class _SummaryHeader extends StatelessWidget {
         Text(
           visibleRangeText,
           key: Key('$keyPrefix-period-range'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          maxLines: wrapRange ? null : 1,
+          overflow: wrapRange ? null : TextOverflow.ellipsis,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

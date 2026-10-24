@@ -1418,6 +1418,95 @@ void main() {
   );
 
   testWidgets(
+    'Time overflow keeps keyboard inspection, P/C menus and full-card traversal reachable',
+    (tester) async {
+      final track = _track(1, 2026, 10)
+        ..totalTimeMillis = 123456 * Duration.millisecondsPerDay
+        ..movingTime = 123456 * Duration.millisecondsPerDay;
+      final h = await _Harness.pump(
+        tester,
+        tracks: [track],
+        size: const Size(1600, 1000),
+        scale: 2,
+      );
+      await h.focus('time');
+      final viewport = h.control('time', 'time-card-viewport');
+      final scroll = tester
+          .state<ScrollableState>(
+            find
+                .descendant(of: viewport, matching: find.byType(Scrollable))
+                .first,
+          )
+          .position;
+      expect(scroll.maxScrollExtent, greaterThan(0));
+      expect(scroll.pixels, scroll.maxScrollExtent);
+      final initial = h.chart('time').buckets.first.start;
+      final type = h.container.read(timeChartTypeProvider).selected;
+      for (var i = 0; i < 4; i++) {
+        await h.key(LogicalKeyboardKey.pageUp);
+      }
+      expect(scroll.pixels, 0);
+      final header = h.control('time', 'dashboard-card-time-drag-handle');
+      expect(
+        tester.getRect(header).top,
+        greaterThanOrEqualTo(tester.getRect(viewport).top),
+      );
+      for (var i = 0; i < 4; i++) {
+        await h.key(LogicalKeyboardKey.pageDown);
+      }
+      expect(scroll.pixels, scroll.maxScrollExtent);
+      for (final shortcut in [
+        LogicalKeyboardKey.keyP,
+        LogicalKeyboardKey.keyC,
+      ]) {
+        await h.key(shortcut);
+        expect(find.byKey(sharedSummaryMenuKey), findsOneWidget);
+        await h.key(LogicalKeyboardKey.enter);
+        h.expectFocus('time');
+        await h.key(LogicalKeyboardKey.arrowLeft);
+        expect(scroll.pixels, scroll.maxScrollExtent);
+        expect(h.page('time'), initial);
+        expect(h.container.read(timeChartTypeProvider).selected, type);
+      }
+      await h.key(LogicalKeyboardKey.keyP);
+      await h.key(LogicalKeyboardKey.tab);
+      h.expectFocus('latest-walk');
+      await h.tabBack();
+      h.expectFocus('time');
+      expect(scroll.pixels, scroll.maxScrollExtent);
+      for (final chartType in TimeChartType.values) {
+        await h.container
+            .read(timeChartTypeProvider.notifier)
+            .select(chartType);
+        await tester.pumpAndSettle();
+        await h.key(LogicalKeyboardKey.arrowLeft);
+        final page = h.page('time');
+        for (final size in [
+          const Size(1280, 960),
+          const Size(1920, 1200),
+          const Size(1600, 1000),
+        ]) {
+          await tester.binding.setSurfaceSize(size);
+          await tester.pumpAndSettle();
+          expect(h.page('time'), page);
+          expect(h.container.read(timeChartTypeProvider).selected, chartType);
+          await h.key(LogicalKeyboardKey.keyC);
+          expect(find.byKey(sharedSummaryMenuKey), findsOneWidget);
+          await h.key(LogicalKeyboardKey.escape);
+          h.expectFocus('time');
+        }
+      }
+      final page = h.page('time');
+      await h.reorder(forward: true);
+      h.expectFocus('time');
+      expect(h.page('time'), page);
+      await h.key(LogicalKeyboardKey.arrowLeft);
+      expect(h.control('time', 'time-tooltip'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'refresh removing a closing menu releases its keyboard ownership',
     (tester) async {
       final h = await _Harness.pump(tester, populated: true);

@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../harness/mapping_catalog_fixture.dart';
@@ -28,124 +29,176 @@ import '../harness/test_map_notifier.dart';
 
 void main() {
   group('DashboardScreen', () {
-    for (final theme in [MyTheme.light, MyTheme.dark]) {
-      testWidgets(
-        'Time header wraps full duration summaries at enlarged scale in ${theme.brightness}',
-        (tester) async {
-          SharedPreferences.setMockInitialValues({});
-          const duration =
-              123456 * Duration.millisecondsPerDay +
-              23 * Duration.millisecondsPerHour +
-              59 * Duration.millisecondsPerMinute;
-          final notifier = TestMapNotifier(
-            MapState(
-              center: const LatLng(-41.5, 146.5),
-              zoom: 10,
-              basemap: Basemap.tracestrack,
-              tracks: [
-                GpxTrack(
-                  contentHash: 'time',
-                  trackName: 'Time fixture',
-                  trackDate: DateTime(2026, 10, 15),
-                  totalTimeMillis: duration,
-                  movingTime: duration,
+    for (final size in [
+      const Size(1280, 960),
+      const Size(1600, 1000),
+      const Size(1920, 1200),
+    ]) {
+      for (final scale in [1.0, 1.5, 2.0]) {
+        final theme = MyTheme.dark;
+        testWidgets(
+          'Time header wraps full duration summaries and scrolls at $size / $scale',
+          (tester) async {
+            SharedPreferences.setMockInitialValues({});
+            const duration =
+                123456 * Duration.millisecondsPerDay +
+                23 * Duration.millisecondsPerHour +
+                59 * Duration.millisecondsPerMinute;
+            final notifier = TestMapNotifier(
+              MapState(
+                center: const LatLng(-41.5, 146.5),
+                zoom: 10,
+                basemap: Basemap.tracestrack,
+                tracks: [
+                  GpxTrack(
+                    contentHash: 'time',
+                    trackName: 'Time fixture',
+                    trackDate: DateTime(2026, 10, 15),
+                    totalTimeMillis: duration,
+                    movingTime: duration,
+                  ),
+                ],
+              ),
+            );
+            final container = ProviderContainer(
+              overrides: [
+                ...mappingCatalogTestOverrides,
+                mapProvider.overrideWith(() => notifier),
+                peakListRepositoryProvider.overrideWithValue(
+                  PeakListRepository.test(InMemoryPeakListStorage()),
+                ),
+                peaksBaggedRepositoryProvider.overrideWithValue(
+                  PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
                 ),
               ],
-            ),
-          );
-          final container = ProviderContainer(
-            overrides: [
-              ...mappingCatalogTestOverrides,
-              mapProvider.overrideWith(() => notifier),
-              peakListRepositoryProvider.overrideWithValue(
-                PeakListRepository.test(InMemoryPeakListStorage()),
-              ),
-              peaksBaggedRepositoryProvider.overrideWithValue(
-                PeaksBaggedRepository.test(InMemoryPeaksBaggedStorage()),
-              ),
-            ],
-          );
-          addTearDown(container.dispose);
-          // Existing wide regression constraints, not approved window minima.
-          await tester.binding.setSurfaceSize(const Size(1600, 1000));
-          addTearDown(() => tester.binding.setSurfaceSize(null));
-          await tester.pumpWidget(
-            UncontrolledProviderScope(
-              container: container,
-              child: MaterialApp(
-                theme: theme.copyWith(platform: TargetPlatform.macOS),
-                home: MediaQuery(
-                  data: MediaQueryData(textScaler: TextScaler.linear(1.5)),
-                  child: DashboardScreen(now: DateTime(2026, 10, 15)),
+            );
+            addTearDown(container.dispose);
+            await tester.binding.setSurfaceSize(size);
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+            await tester.pumpWidget(
+              UncontrolledProviderScope(
+                container: container,
+                child: MaterialApp(
+                  theme: theme.copyWith(platform: TargetPlatform.macOS),
+                  home: MediaQuery(
+                    data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                    child: DashboardScreen(now: DateTime(2026, 10, 15)),
+                  ),
                 ),
               ),
-            ),
-          );
-          await tester.pumpAndSettle();
-          final card = find.byKey(const Key('dashboard-card-time'));
-          final header = find.byKey(
-            const Key('dashboard-card-time-drag-handle'),
-          );
-          Finder control(String key) =>
-              find.descendant(of: card, matching: find.byKey(Key(key)));
-          await tester.tap(control('summary-period-dropdown'));
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('All Time').last);
-          await tester.pumpAndSettle();
-          final total = find.descendant(
-            of: header,
-            matching: find.text('Total: 123456d 23h 59m'),
-          );
-          final average = find.descendant(
-            of: header,
-            matching: find.text('Annual Avg: 123456d 23h 59m'),
-          );
-          expect(total, findsOneWidget);
-          expect(average, findsOneWidget);
-          expect(
-            find.descendant(of: header, matching: find.byType(FittedBox)),
-            findsNothing,
-          );
-          expect(tester.widget<Text>(total).maxLines, isNull);
-          expect(tester.widget<Text>(average).softWrap, isNot(false));
-          expect(MediaQuery.textScalerOf(tester.element(total)).scale(1), 1.5);
-          expect(
-            tester.getRect(total).bottom,
-            lessThanOrEqualTo(tester.getRect(average).top),
-          );
-          expect(
-            tester.getRect(average).bottom,
-            lessThanOrEqualTo(tester.getRect(header).bottom),
-          );
-          final y = tester.getCenter(control('summary-first-window')).dy;
-          for (final action in ['prev', 'next', 'last']) {
-            expect(tester.getCenter(control('summary-$action-window')).dy, y);
-          }
-          final chart = find.descendant(
-            of: card,
-            matching: find.byType(SummaryChart),
-          );
-          expect(tester.getSize(chart).height, greaterThan(0));
-          notifier.setTracks([]);
-          await tester.pumpAndSettle();
-          expect(
-            find.descendant(
+            );
+            await tester.pumpAndSettle();
+            final card = find.byKey(const Key('dashboard-card-time'));
+            final header = find.byKey(
+              const Key('dashboard-card-time-drag-handle'),
+            );
+            Finder control(String key) =>
+                find.descendant(of: card, matching: find.byKey(Key(key)));
+            await tester.tap(control('summary-period-dropdown'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('All Time').last);
+            await tester.pumpAndSettle();
+            final total = find.descendant(
               of: header,
-              matching: find.byKey(const Key('time-header-summaries')),
-            ),
-            findsNothing,
-          );
-          expect(
-            find.descendant(of: card, matching: find.text('No time data yet')),
-            findsOneWidget,
-          );
-          expect(tester.takeException(), isNull);
-        },
-        // Gated by pending window/layout dimensions, confirmed by the user
-        // 2026-10-18. This fixture leaves a 32px chart and fl_chart cannot paint.
-        // Resolve the layout contract before implementing its height policy.
-        skip: true,
-      );
+              matching: find.text('Total: 123456d 23h 59m'),
+            );
+            final average = find.descendant(
+              of: header,
+              matching: find.text('Annual Avg: 123456d 23h 59m'),
+            );
+            expect(total, findsOneWidget);
+            expect(average, findsOneWidget);
+            expect(
+              find.descendant(of: header, matching: find.byType(FittedBox)),
+              findsNothing,
+            );
+            expect(tester.widget<Text>(total).maxLines, isNull);
+            expect(tester.widget<Text>(average).softWrap, isNot(false));
+            expect(
+              MediaQuery.textScalerOf(tester.element(total)).scale(1),
+              scale,
+            );
+            expect(
+              tester.getRect(average).bottom,
+              lessThanOrEqualTo(tester.getRect(header).bottom),
+            );
+            final y = tester.getCenter(control('summary-first-window')).dy;
+            for (final action in ['prev', 'next', 'last']) {
+              expect(tester.getCenter(control('summary-$action-window')).dy, y);
+            }
+            final chart = find.descendant(
+              of: card,
+              matching: find.byType(SummaryChart),
+            );
+            final viewport = control('time-card-viewport');
+            expect(viewport, findsOneWidget);
+            final scrollable = find
+                .descendant(of: viewport, matching: find.byType(Scrollable))
+                .first;
+            final position = tester.state<ScrollableState>(scrollable).position;
+            if (size.width == 1600 && scale >= 1.5) {
+              expect(position.maxScrollExtent, greaterThan(0));
+            }
+            final geometry = tester.getSize(card);
+            if (position.maxScrollExtent > 0) {
+              await tester.sendEventToBinding(
+                PointerScrollEvent(
+                  position: tester.getCenter(viewport),
+                  scrollDelta: const Offset(0, 1000),
+                ),
+              );
+            }
+            await tester.pumpAndSettle();
+            expect(position.pixels, position.maxScrollExtent);
+            expect(tester.getSize(chart).height, greaterThan(100));
+            for (var i = 1; i <= 4; i++) {
+              final previous = tester.getRect(
+                control('time-y-axis-label-${i - 1}'),
+              );
+              final next = tester.getRect(control('time-y-axis-label-$i'));
+              expect(previous.bottom, lessThanOrEqualTo(next.top));
+            }
+            expect(
+              tester.getRect(chart).bottom,
+              lessThanOrEqualTo(tester.getRect(card).bottom),
+            );
+            expect(tester.getSize(card), geometry);
+            position.jumpTo(0);
+            await tester.pumpAndSettle();
+            if (size.width == 1600 && scale == 2) {
+              final drag = await tester.startGesture(
+                tester.getTopLeft(header) + const Offset(16, 16),
+              );
+              await drag.moveBy(const Offset(8, 24));
+              await tester.pumpAndSettle();
+              expect(tester.takeException(), isNull);
+              await drag.cancel();
+              await tester.pumpAndSettle();
+            }
+            expect(
+              tester.widget<Text>(control('time-period-range')).maxLines,
+              isNull,
+            );
+            notifier.setTracks([]);
+            await tester.pumpAndSettle();
+            expect(
+              find.descendant(
+                of: header,
+                matching: find.byKey(const Key('time-header-summaries')),
+              ),
+              findsNothing,
+            );
+            expect(
+              find.descendant(
+                of: card,
+                matching: find.text('No time data yet'),
+              ),
+              findsOneWidget,
+            );
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
     }
 
     testWidgets('renders eight dashboard cards', (tester) async {

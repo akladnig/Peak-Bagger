@@ -17,6 +17,22 @@ enum SummaryDisplayMode { columns, line }
 typedef SummaryChartInspection = ({int index, bool pinned});
 
 class SummaryChart extends StatefulWidget {
+  static const plotTopInset = 20.0;
+  static const plotBottomInset = 28.0;
+
+  /// Four readable tick intervals plus the renderer's existing plot insets.
+  /// Measured from the active text style/scaler, not a window breakpoint.
+  static double minimumUsableHeight(BuildContext context) {
+    final painter = TextPainter(
+      text: TextSpan(text: '0d', style: Theme.of(context).textTheme.bodySmall),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final height = plotTopInset + plotBottomInset + 4 * (painter.height + 8);
+    painter.dispose();
+    return height;
+  }
+
   const SummaryChart({
     super.key,
     required this.keyPrefix,
@@ -195,8 +211,8 @@ class _SummaryChartState extends State<SummaryChart> {
                 children: [
                   Positioned(
                     left: 0,
-                    top: 20,
-                    bottom: 28,
+                    top: SummaryChart.plotTopInset,
+                    bottom: SummaryChart.plotBottomInset,
                     width: yAxisLabelWidth,
                     child: IgnorePointer(
                       child: DashboardChartYAxisLabels(
@@ -218,8 +234,8 @@ class _SummaryChartState extends State<SummaryChart> {
                   // Draw the y-axis
                   Positioned(
                     left: yAxisLabelWidth,
-                    top: 20,
-                    bottom: 28,
+                    top: SummaryChart.plotTopInset,
+                    bottom: SummaryChart.plotBottomInset,
                     child: IgnorePointer(
                       child: ColoredBox(
                         key: Key('${widget.keyPrefix}-y-axis-separator'),
@@ -247,8 +263,8 @@ class _SummaryChartState extends State<SummaryChart> {
                             Positioned.fill(
                               child: Padding(
                                 padding: const EdgeInsets.only(
-                                  top: 20,
-                                  bottom: 28,
+                                  top: SummaryChart.plotTopInset,
+                                  bottom: SummaryChart.plotBottomInset,
                                 ),
                                 child: widget.mode == SummaryDisplayMode.columns
                                     ? _SummaryBarChart(

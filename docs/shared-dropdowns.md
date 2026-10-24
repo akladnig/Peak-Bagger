@@ -58,8 +58,8 @@ SharedDropdown<String>(
   thin card-ownership adapter: Period uses labelled-field/label-only presentation,
   and Time's Chart type uses icon-only/icon-plus-label presentation. P/C, full-card
   Tab traversal and unchanged-versus-changed inspection return remain card-owned.
-  Time's separate header/chart-height reachability checks remain gated under
-  Spec 0066; this dropdown migration does not change card/grid geometry.
+  Spec 0066 L23 now supplies Time's scrollable overflow policy while retaining
+  card/grid geometry. P/C reveals its toolbar before opening a scrolled-off invoker.
 
 ## Complete field errors
 
@@ -98,6 +98,14 @@ and pointer input, unchanged Enter, dismissal, preference timing and open-menu r
 at 1280 × 960 / 1600 × 1000 content sizes and 1× / 1.5× text in My Seed Colour/dark.
 It excludes the inherited Time header/chart-height reachability gate and does not
 establish whole-Dashboard layout or human visual acceptance.
+
+The later Time height/reachability probe uses the actual Dashboard grid:
+`flutter run -d macos -t test/harness/verify_time_card_layout.dart`.
+It covers long summaries, all chart types, actual 1280 × 960 / 1600 × 1000 content
+sizes and 1× / 1.5× / 2× text. Native wheel and Page Up/Down scroll Time content;
+P/C reveals its controls and directional inspection reveals its reserved plot.
+See `ai_specs/peak-lists/0066-time-dashboard-card/implementation-layout-verification.md`
+for execution results, the resolved L23 scope and the separate human-review limit.
 
 See Spec 0069's `implementation-01-verification.md` for actual command outcomes and
 the automated/native/human-evidence distinction. No template-parity or inherited
