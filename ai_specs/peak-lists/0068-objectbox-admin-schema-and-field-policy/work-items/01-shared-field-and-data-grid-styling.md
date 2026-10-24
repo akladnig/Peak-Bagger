@@ -23,6 +23,11 @@ All paths below are relative to the project root; read the standard, then the pr
 
 ## Acceptance criteria
 
+**2026-10-21 verification override:** test My Seed Colour (`#7E47EB`) in dark mode
+only (`MyTheme.dark`), with no alternate seeds/light/custom-theme matrices. This
+supersedes broader verification clauses below; keep behaviour/scale/resize checks.
+Runtime support and dated evidence are unchanged. See `ai_specs/app-profile.md`.
+
 - [x] Central definitions in `lib/theme.dart` own the field decoration for both application themes. Define `searchControlFontSize = 14.0` and `searchControlIconSize = 24.0`; labels use the former with `colorScheme.onSurface`, dense layout and actual text scaling. Ordinary field labels remain visible independently of placeholders.
 - [x] The default shape is `OutlineInputBorder(borderSide: BorderSide(color: colorScheme.onPrimary))` with supplied constructor defaults, not the card/popup radius. Enabled/unfocused idle uses `colorScheme.outline`, width 1; enabled/unfocused hover uses the currently effective configured seed, width 1; focused outline uses that seed, width 2. Keep error/disabled border priority. For filled outlined fields, centrally resolve `activeIndicatorBorder` and leave `enabledBorder` unset so hover is resolved by Flutter.
 - [x] Enabled pointer hover, including focused hover, uses exactly `Color.alphaBlend(primary.withValues(alpha: .08), Color.alphaBlend(primary.withValues(alpha: .12), surface))` from the current scheme. Share the selected-Data/hover layer definitions centrally, avoid double overlays, restore prior fill on exit and suppress disabled hover. Add no idle selected tint or focus-only fill. Live seed/scheme changes and rollback update the rendered roles without hard-coded seed colours.

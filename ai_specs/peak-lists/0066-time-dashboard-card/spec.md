@@ -113,6 +113,13 @@ Add a **Time** card to the existing Dashboard. Derive two series from eligible c
 
 ## Testing Strategy
 
+**Verification amendment — 2026-10-21:** theme-related tests and native/visual
+checks use only My Seed Colour (`#7E47EB`, `MyTheme.dark`) in dark mode. This
+supersedes light/dark/changed-seed verification in this Spec and its Work Items.
+Keep distinct chart, keyboard, preference, failure, scale and resize checks.
+Runtime theme support and dated evidence are unchanged; inherited Time layout
+checks remain gated, not waived. See `ai_specs/app-profile.md` (project-root-relative).
+
 1. **Approach:** behavior-focused unit/provider and widget coverage is the default for this feature. No strict one-test-at-a-time TDD or new robot-journey mandate was selected. Retain existing Dashboard robot journeys and selectors; extend their fixtures/helpers only as necessary for the added card. Documentation publication requires artifact/link/traceability checks, not runtime tests.
 2. **Aggregation and eligibility:** verify both durations present, negative values, Moving Time greater than Total Time, zero/zero and zero-moving pairs, unknown/future Track dates, same-set eligibility for both series/endpoints, sums retaining sub-minute precision, and wholly-empty versus navigable-zero pages. Assert the four-moving/one-resting/thirty-minute-pause example contributes five/four hours without changing stored data. Include multi-day durations assigned to the Track date. [L2] [L8]
 3. **Formatting and scale:** verify exact day/hour/minute text for zero, sub-minute, minute/hour/day boundaries, fractional-minute averages, multi-day totals, and no premature per-Track rounding. Verify `0d`, `2.5d`, `5d`, trimmed decimal labels, distinct sub-day ticks, all-zero scaling, and unchanged existing Track-details formatting. [L6] [L7]

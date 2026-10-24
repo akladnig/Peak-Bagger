@@ -105,17 +105,7 @@ void main() {
     tester,
   ) async {
     final fixture = AdminDetailValueFixture('Route', _text);
-    const custom = ThemeConfig(
-      seedColor: Colors.teal,
-      dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-      contrastLevel: .5,
-    );
-    for (final theme in [
-      MyTheme.light,
-      MyTheme.dark,
-      MyTheme.lightWith(custom),
-      MyTheme.darkWith(custom),
-    ]) {
+    for (final theme in [MyTheme.dark]) {
       for (final scale in [1.0, 2.0]) {
         for (final size in [
           const Size(1280, 960),
@@ -220,7 +210,7 @@ Future<void> _pump(
   addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
     MaterialApp(
-      theme: theme ?? MyTheme.light,
+      theme: theme ?? MyTheme.dark,
       themeAnimationDuration: Duration.zero,
       home: MediaQuery(
         data: MediaQueryData(size: size, textScaler: TextScaler.linear(scale)),

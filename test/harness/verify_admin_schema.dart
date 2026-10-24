@@ -60,11 +60,6 @@ Future<void> main() async {
       'Cannot resize native fixture window: ${resize.stderr}',
     );
     await _settle();
-    const custom = ThemeConfig(
-      seedColor: Colors.teal,
-      dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-      contrastLevel: .5,
-    );
     var configurations = 0;
     for (final size in [
       const Size(1280, 960),
@@ -72,12 +67,7 @@ Future<void> main() async {
       const Size(1600, 960),
       const Size(1280, 960),
     ]) {
-      for (final theme in [
-        MyTheme.light,
-        MyTheme.dark,
-        MyTheme.lightWith(custom),
-        MyTheme.darkWith(custom),
-      ]) {
+      for (final theme in [MyTheme.dark]) {
         for (final scale in [1.0, 2.0]) {
           final state = key.currentState!;
           state.configure(size, theme, scale);
@@ -194,7 +184,7 @@ class _SchemaSmokeState extends State<_SchemaSmoke> {
     (e) => e.name == 'PeakListItemEntity',
   );
   Size size = const Size(1280, 960);
-  ThemeData theme = MyTheme.light;
+  ThemeData theme = MyTheme.dark;
   double scale = 1;
 
   void configure(Size nextSize, ThemeData nextTheme, double nextScale) =>

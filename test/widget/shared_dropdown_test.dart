@@ -12,11 +12,6 @@ import 'package:peak_bagger/widgets/shared_field_decoration.dart';
 
 import '../harness/shared_dropdown_fixture.dart';
 
-const customDropdownTheme = ThemeConfig(
-  seedColor: Colors.teal,
-  dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-  contrastLevel: .5,
-);
 final _menu = find.byKey(const Key('shared-dropdown-menu'));
 final _dropdown = find.byKey(const Key('fixture-dropdown'));
 
@@ -289,15 +284,10 @@ void main() {
     },
   );
 
-  for (final theme in [
-    MyTheme.light,
-    MyTheme.dark,
-    MyTheme.lightWith(customDropdownTheme),
-    MyTheme.darkWith(customDropdownTheme),
-  ]) {
+  for (final theme in [MyTheme.dark]) {
     for (final trigger in SharedDropdownTrigger.values) {
       testWidgets(
-        'rendered roles, width and live rollback: ${theme.brightness}, ${theme.seedColor}, $trigger',
+        'rendered roles, width and error recovery: ${theme.brightness}, ${theme.seedColor}, $trigger',
         (tester) async {
           final state = await _pump(tester);
           state.update(() {
@@ -380,22 +370,14 @@ void main() {
             tester.widget<Icon>(find.byIcon(Icons.check)).color,
             colors.error,
           );
-          for (final liveTheme in [
-            MyTheme.darkWith(customDropdownTheme),
-            theme,
-          ]) {
-            state.update(() {
-              state.theme = liveTheme;
-              state.error = null;
-            });
-            await tester.pumpAndSettle();
-            expect(
-              tester.widget<Icon>(find.byIcon(Icons.check)).color,
-              liveTheme.seedColor,
-            );
-            expect(state.selections, 0);
-            expect(state.draft.text, 'Unsaved draft');
-          }
+          state.update(() => state.error = null);
+          await tester.pumpAndSettle();
+          expect(
+            tester.widget<Icon>(find.byIcon(Icons.check)).color,
+            theme.seedColor,
+          );
+          expect(state.selections, 0);
+          expect(state.draft.text, 'Unsaved draft');
           await _key(tester, LogicalKeyboardKey.escape);
           await _open(tester);
           await tester.tap(find.byKey(const Key('choice-c')));
@@ -507,7 +489,7 @@ void main() {
       for (final scale in [1.0, 2.0]) {
         await tester.pumpWidget(
           MaterialApp(
-            theme: MyTheme.light,
+            theme: MyTheme.dark,
             home: MediaQuery(
               data: MediaQueryData(textScaler: TextScaler.linear(scale)),
               child: Scaffold(

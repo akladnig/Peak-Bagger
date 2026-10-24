@@ -1,3 +1,8 @@
+> **Verification superseded — 2026-10-21:** this is historical light-theme work.
+> Future theme tests use only My Seed Colour (`#7E47EB`) in dark mode, following
+> `ai_specs/app-profile.md`. Do not restore light-theme or alternate-seed tests
+> from the requirements below. Runtime support and historical evidence are unchanged.
+
 <goal>
 Make `./lib/theme.dart` update the light theme so it mirrors the dark theme semantically, not by copying dark colors.
 

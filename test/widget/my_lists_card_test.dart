@@ -172,9 +172,7 @@ Future<void> _pumpMyListsCard(
         ),
       ],
       child: MaterialApp(
-        theme: MyTheme.light,
-        darkTheme: MyTheme.dark,
-        themeMode: ThemeMode.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(width: width, height: 320, child: const MyListsCard()),
         ),

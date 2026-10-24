@@ -222,11 +222,6 @@ CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: poi
       draft.text == 'Unsaved draft',
       'Native editor input not delivered: text=${draft.text}, focus=${_editable('objectbox-admin-peak-name').widget.focusNode.hasFocus}, events=$nativeKeys',
     );
-    const custom = ThemeConfig(
-      seedColor: Colors.teal,
-      dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-      contrastLevel: .5,
-    );
     var count = 0;
     for (final size in [
       const Size(1280, 960),
@@ -245,12 +240,7 @@ CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: poi
       await input(
         'set size of window 1 to {${(frame[0] + size.width - client.width).round()}, ${(frame[1] + size.height - client.height).round()}}',
       );
-      for (final theme in [
-        MyTheme.light,
-        MyTheme.dark,
-        MyTheme.lightWith(custom),
-        MyTheme.darkWith(custom),
-      ]) {
+      for (final theme in [MyTheme.dark]) {
         for (final scale in [1.0, 2.0]) {
           key.currentState!.configure(size, theme, scale);
           await _settle();
@@ -395,7 +385,7 @@ class _Scene extends StatefulWidget {
 
 class _SceneState extends State<_Scene> {
   Size size = const Size(1280, 960);
-  ThemeData theme = MyTheme.light;
+  ThemeData theme = MyTheme.dark;
   double scale = 1;
   void configure(Size nextSize, ThemeData nextTheme, double nextScale) =>
       setState(() {

@@ -21,7 +21,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(track: track, onClose: () {}),
         ),
@@ -54,7 +54,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -88,7 +88,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -131,7 +131,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: UiConstants.preferredLeftWidth,
@@ -175,7 +175,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(track: track, onClose: () {}),
         ),
@@ -205,7 +205,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: MyTheme.light,
+          theme: MyTheme.dark,
           home: Scaffold(
             body: MapTrackInfoPanel(track: track, onClose: () {}),
           ),
@@ -236,7 +236,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -280,7 +280,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -354,7 +354,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: MyTheme.light,
+          theme: MyTheme.dark,
           home: Scaffold(
             body: SizedBox(
               width: 600,
@@ -392,7 +392,7 @@ void main() {
   testWidgets('shows disabled inline recalculation progress', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -437,7 +437,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(
             track: track,
@@ -477,7 +477,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(
             track: track,
@@ -514,7 +514,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(
             track: track,
@@ -532,7 +532,7 @@ void main() {
   });
 
   testWidgets(
-    'uses a scoped onSecondary content theme and keeps export separate',
+    'uses a scoped onSurface content theme and keeps export separate',
     (tester) async {
       final track = GpxTrack(
         contentHash: 'hash',
@@ -554,7 +554,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: MyTheme.light,
+          theme: MyTheme.dark,
           home: Scaffold(
             body: SizedBox(
               width: 600,
@@ -594,7 +594,7 @@ void main() {
         ),
       );
 
-      expect(panel.color, MyTheme.light.colorScheme.surfaceContainer);
+      expect(panel.color, MyTheme.dark.colorScheme.surfaceContainer);
       expect(contentThemeFinder, findsOneWidget);
 
       final contentTheme = tester.widget<Theme>(contentThemeFinder).data;

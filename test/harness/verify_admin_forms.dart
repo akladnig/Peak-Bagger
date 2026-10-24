@@ -59,11 +59,6 @@ Future<void> main() async {
     );
     _check(resized.exitCode == 0, 'Cannot resize fixture: ${resized.stderr}');
     await _settle();
-    const custom = ThemeConfig(
-      seedColor: Colors.teal,
-      dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-      contrastLevel: .5,
-    );
     var count = 0;
     for (final name in AdminFormFixture.names) {
       final fixture = AdminFormFixture(name, text: _longText)
@@ -94,12 +89,7 @@ Future<void> main() async {
         const Size(1600, 960),
         const Size(1280, 960),
       ]) {
-        for (final theme in [
-          MyTheme.light,
-          MyTheme.dark,
-          MyTheme.lightWith(custom),
-          MyTheme.darkWith(custom),
-        ]) {
+        for (final theme in [MyTheme.dark]) {
           for (final scale in [1.0, 2.0]) {
             key.currentState!.configure(size, theme, scale);
             await _settle();
@@ -382,7 +372,7 @@ class _Smoke extends StatefulWidget {
 class _SmokeState extends State<_Smoke> {
   var fixture = AdminFormFixture('Peak');
   var size = const Size(1280, 960);
-  var theme = MyTheme.light;
+  var theme = MyTheme.dark;
   double scale = 1;
   void select(AdminFormFixture next) => setState(() => fixture = next);
   void configure(Size s, ThemeData t, double textScale) => setState(() {

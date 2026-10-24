@@ -136,11 +136,7 @@ class _SmokeAppState extends ConsumerState<_SmokeApp> {
   Widget build(BuildContext context) {
     ref.watch(trackDateMigrationBootstrapProvider);
     return MaterialApp(
-      theme: MyTheme.light,
-      darkTheme: MyTheme.dark,
-      themeMode: const bool.fromEnvironment('MIGRATION_SMOKE_DARK')
-          ? ThemeMode.dark
-          : ThemeMode.light,
+      theme: MyTheme.dark,
       home: const TrackDateMigrationHost(child: _SmokeDone()),
     );
   }

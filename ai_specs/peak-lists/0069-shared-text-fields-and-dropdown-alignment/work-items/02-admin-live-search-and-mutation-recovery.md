@@ -23,6 +23,11 @@ All paths below are relative to the project root; read the standard, then the pr
 
 ## Acceptance criteria
 
+**2026-10-21 verification override:** test My Seed Colour (`#7E47EB`) in dark mode
+only (`MyTheme.dark`), with no alternate seeds/light/custom-theme matrices. This
+supersedes broader verification clauses below; keep behaviour/scale/resize checks.
+Runtime support and dated evidence are unchanged. See `ai_specs/app-profile.md`.
+
 - [x] Preserve `/objectbox-admin`, all-persisted-entity Schema coverage and existing selected-subset Data/mutation coverage. No new loaders/editors/delete capability or broad sorting redesign is added. Schema-only `RouteGraphImportMetadata`, `TrackReplacementRecoveryIssue`, `PeakRegionFingerprint`, `TrackDateMigrationMetadata` retain current Data availability; existing ID-based versus shared name/title sorting remains a separately scoped alignment gap, not a claimed completion.
 - [x] Every accepted Search edit immediately filters committed local records without debounce/submission. Enter/keyboard Search also applies current query; clear/whitespace restores otherwise eligible rows. Preserve raw field text, trimming/case-folding only matching criteria. Use complete display values, not grid previews or missing-value placeholders, and preserve exactly the following matching sets through a deterministic production/fake seam (not the narrower generic fallback):
 

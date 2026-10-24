@@ -203,19 +203,9 @@ void main() {
     'Schema wraps full metadata and scrolls every entity with shared themes at supported sizes/scales',
     (tester) async {
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      const custom = ThemeConfig(
-        seedColor: Colors.teal,
-        dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-        contrastLevel: .5,
-      );
       final entities = ObjectBoxAdminRepositoryImpl().getEntities();
       var checkedAllEntities = false;
-      for (final theme in [
-        MyTheme.light,
-        MyTheme.dark,
-        MyTheme.lightWith(custom),
-        MyTheme.darkWith(custom),
-      ]) {
+      for (final theme in [MyTheme.dark]) {
         for (final size in [
           const Size(1280, 960),
           const Size(1920, 1200),

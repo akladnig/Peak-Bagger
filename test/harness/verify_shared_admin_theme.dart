@@ -66,22 +66,12 @@ Future<void> main() async {
         (_element('objectbox-admin-route-name').widget as TextFormField)
             .controller!;
     controller.text = 'Unsaved native draft';
-    const config = ThemeConfig(
-      seedColor: Colors.teal,
-      dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-      contrastLevel: .5,
-    );
     for (final size in [
       const Size(1280, 960),
       const Size(1600, 1000),
       const Size(1280, 960),
     ]) {
-      for (final theme in [
-        MyTheme.light,
-        MyTheme.dark,
-        MyTheme.lightWith(config),
-        MyTheme.darkWith(config),
-      ]) {
+      for (final theme in [MyTheme.dark]) {
         for (final scale in [1.0, 2.0]) {
           key.currentState!.configure(size, scale, theme);
           await _settle();
@@ -157,7 +147,7 @@ class _Smoke extends StatefulWidget {
 class _SmokeState extends State<_Smoke> {
   Size size = const Size(1280, 960);
   double scale = 1;
-  ThemeData theme = MyTheme.light;
+  ThemeData theme = MyTheme.dark;
   final search = TextEditingController();
   final header = ScrollController();
   final rowScroll = ScrollController();

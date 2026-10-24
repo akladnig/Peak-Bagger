@@ -23,6 +23,11 @@ All paths below are relative to the project root; read the standard, then the pr
 
 ## Acceptance criteria
 
+**2026-10-21 verification override:** test My Seed Colour (`#7E47EB`) in dark mode
+only (`MyTheme.dark`), with no alternate seeds/light/custom-theme matrices. This
+supersedes broader verification clauses below; keep behaviour/scale/resize checks.
+Runtime support and dated evidence are unchanged. See `ai_specs/app-profile.md`.
+
 - [x] All five existing editors show labelled footer **Cancel / Save**, in that order, both using `FilledButton` with shared `primaryContainer` background/`onPrimaryContainer` foreground in both themes. Align right where space permits and wrap/reflow so actions remain reachable. Pending Save has visible progress/disabled semantics; affected header actions retain accessible names, permitted tooltips and central circular interaction/focus styling.
 - [x] For an existing record in each editor, Cancel discards the single unsaved draft, restores committed values and returns to read-only details for that same record without any write. Peak and Contact existing create-flow cancellation abandons creation without saving and leaves create mode; add no other create flow. Verify policy/read-only/multiline integration from Work Item 04 does not change these outcomes.
 - [x] Failed Save retains the draft and field input for retry or cancellation, with the existing validation, errors and persistence boundary. Existing successful Save, refresh, selected-record lifecycle and domain actions remain intact. Do not fabricate success before completion, duplicate writes, add confirmations or introduce another draft owner.

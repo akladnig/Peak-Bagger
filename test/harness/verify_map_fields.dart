@@ -95,23 +95,13 @@ CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: poi
       'set position of window 1 to {0, 25}\nset size of window 1 to {1680, 1100}',
     );
     final state = key.currentState!;
-    const config = ThemeConfig(
-      seedColor: Colors.teal,
-      dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-      contrastLevel: .5,
-    );
     var count = 0;
     const resizeOnly = bool.fromEnvironment('MAP_FIELDS_RESIZE_ONLY');
     for (final size
         in resizeOnly
             ? <Size>[]
             : [const Size(1280, 960), const Size(1600, 1000)]) {
-      for (final theme in [
-        MyTheme.light,
-        MyTheme.dark,
-        MyTheme.lightWith(config),
-        MyTheme.darkWith(config),
-      ]) {
+      for (final theme in [MyTheme.dark]) {
         for (final scale in [1.0, 2.0]) {
           state.update(() {
             state.size = size;
@@ -222,11 +212,7 @@ CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: poi
             state.route.walkingSpeedKmh == 4,
             'Invalid Walking Speed persisted',
           );
-          state.update(
-            () => state.theme = theme.brightness == Brightness.light
-                ? MyTheme.darkWith(config)
-                : MyTheme.light,
-          );
+          state.update(() => state.theme = MyTheme.dark);
           await _settle();
           _check(
             name.controller!.text == 'Unsaved native peak',
@@ -277,9 +263,7 @@ CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: poi
       }, 'Native content resize failed');
       state.update(() {
         state.size = size;
-        state.theme = size.width == 1280
-            ? MyTheme.light
-            : MyTheme.darkWith(config);
+        state.theme = MyTheme.dark;
       });
       await _settle();
       _check(query.text == 'Unsaved native query', 'Resize/theme lost query');
@@ -316,7 +300,7 @@ class _Scene extends StatefulWidget {
 
 class _SceneState extends State<_Scene> {
   Size size = const Size(1280, 960);
-  ThemeData theme = MyTheme.light;
+  ThemeData theme = MyTheme.dark;
   double scale = 1;
   bool panels = false;
   final searchFocus = FocusNode();

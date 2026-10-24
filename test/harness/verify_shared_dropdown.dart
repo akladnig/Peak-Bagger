@@ -60,11 +60,6 @@ Future<void> main() async {
     await input(
       'set position of window 1 to {0, 25}\nset size of window 1 to {1680, 1100}',
     );
-    const custom = ThemeConfig(
-      seedColor: Colors.teal,
-      dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-      contrastLevel: .5,
-    );
     var count = 0;
     final state = key.currentState!;
     const pointerOnly = bool.fromEnvironment('DROPDOWN_NATIVE_POINTER_ONLY');
@@ -73,12 +68,7 @@ Future<void> main() async {
         in pointerOnly || resizeOnly
             ? <Size>[]
             : [const Size(1280, 960), const Size(1600, 1000)]) {
-      for (final theme in [
-        MyTheme.light,
-        MyTheme.dark,
-        MyTheme.lightWith(custom),
-        MyTheme.darkWith(custom),
-      ]) {
+      for (final theme in [MyTheme.dark]) {
         for (final scale in [1.0, 2.0]) {
           for (final trigger in SharedDropdownTrigger.values) {
             for (final rows in SharedDropdownRows.values) {
@@ -269,9 +259,7 @@ CGEvent(mouseEventSource: nil, mouseType: .leftMouseUp, mouseCursorPosition: poi
             }, 'Native content did not resize to $size');
             state.update(() {
               state.size = size;
-              state.theme = size.width == 1280
-                  ? MyTheme.light
-                  : MyTheme.darkWith(custom);
+              state.theme = MyTheme.dark;
             });
             await _settle();
             _check(

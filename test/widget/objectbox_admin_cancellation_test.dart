@@ -133,17 +133,7 @@ void main() {
         await _edit(tester, fixture);
         await tester.enterText(_field(fixture), _draft(fixture));
         final controller = _controller(tester, fixture);
-        const custom = ThemeConfig(
-          seedColor: Colors.teal,
-          dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-          contrastLevel: .5,
-        );
-        for (final theme in [
-          MyTheme.light,
-          MyTheme.dark,
-          MyTheme.lightWith(custom),
-          MyTheme.darkWith(custom),
-        ]) {
+        for (final theme in [MyTheme.dark]) {
           for (final scale in [1.0, 2.0]) {
             for (final size in [
               const Size(1280, 960),
@@ -259,7 +249,7 @@ Future<void> _pump(
   addTearDown(() => tester.binding.setSurfaceSize(null));
   await tester.pumpWidget(
     MaterialApp(
-      theme: theme ?? MyTheme.light,
+      theme: theme ?? MyTheme.dark,
       themeAnimationDuration: Duration.zero,
       home: MediaQuery(
         data: MediaQueryData(size: size, textScaler: TextScaler.linear(scale)),

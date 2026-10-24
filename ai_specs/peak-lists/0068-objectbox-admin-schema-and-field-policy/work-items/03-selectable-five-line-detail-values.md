@@ -22,6 +22,11 @@ All paths below are relative to the project root; read the standard, then the pr
 
 ## Acceptance criteria
 
+**2026-10-21 verification override:** test My Seed Colour (`#7E47EB`) in dark mode
+only (`MyTheme.dark`), with no alternate seeds/light/custom-theme matrices. This
+supersedes broader verification clauses below; keep behaviour/scale/resize checks.
+Runtime support and dated evidence are unchanged. See `ai_specs/app-profile.md`.
+
 - [x] Audit all generic and entity-specific detail paths and use a shared labelled value/viewport component (or actual local equivalent) for long text rather than a Route/GPX field-name allowlist. Preserve complete values, existing labels/formatting and appropriate scalar/boolean semantics, including existing read-only boolean presentation.
 - [x] Each long value's viewport is capped at five rendered text lines measured from the active text style, line metrics, available wrapping width and actual text scale, recalculating for constraint/theme/scale changes. Short values take only their needed height. The cap concerns value content, not labels or the entire panel; do not impose a fixed unscaled pixel height or force every value to five lines.
 - [x] Each long value scrolls independently of the outer panel. Users can reach, select and copy content beyond the initial fifth line. Keep the complete stored/displayed text; no ellipsis, substring preview, destructive transformation or outer-panel-only scrolling substitutes for full-value access. `SelectableText(maxLines: 5)` alone is not proof.

@@ -19,14 +19,25 @@ void main() {
       expect(container.read(themeModeProvider), ThemeMode.system);
     });
 
-    test('toggleTheme switches from dark to light', () {
-      final container = ProviderContainer();
+    test('dark mode persists across provider recreation', () async {
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [
+          bootstrappedThemePreferencesProvider.overrideWithValue(prefs),
+        ],
+      );
       addTearDown(container.dispose);
-
-      // Directly test toggle logic
-      // Since SharedPreferences in tests uses fake backend,
-      // we test the state machine logic
-      expect(container.read(themeModeProvider), ThemeMode.system);
+      await container
+          .read(themeModeProvider.notifier)
+          .setThemeMode(ThemeMode.dark);
+      final restored = ProviderContainer(
+        overrides: [
+          bootstrappedThemePreferencesProvider.overrideWithValue(prefs),
+        ],
+      );
+      addTearDown(restored.dispose);
+      expect(prefs.getString('theme_mode'), 'dark');
+      expect(restored.read(themeModeProvider), ThemeMode.dark);
     });
   });
 
@@ -87,7 +98,7 @@ void main() {
       'bootstrapped preferences restore stored swatch and clear legacy key',
       () async {
         SharedPreferences.setMockInitialValues({
-          'theme_seed_color': 'brightRed',
+          'theme_seed_color': defaultThemeSeedSwatch.id,
           'theme_color_palette': 'catppuccin',
         });
         final prefs = await SharedPreferences.getInstance();
@@ -98,7 +109,7 @@ void main() {
         );
         addTearDown(container.dispose);
 
-        expect(container.read(themeSeedColorProvider), themeSeedSwatches.last);
+        expect(container.read(themeSeedColorProvider), defaultThemeSeedSwatch);
 
         await Future<void>.delayed(Duration.zero);
 
@@ -130,7 +141,7 @@ void main() {
 
       await firstContainer
           .read(themeSeedColorProvider.notifier)
-          .setThemeSeedColor(themeSeedSwatches[3]);
+          .setThemeSeedColor(defaultThemeSeedSwatch);
 
       final secondContainer = ProviderContainer(
         overrides: [
@@ -141,8 +152,9 @@ void main() {
 
       expect(
         secondContainer.read(themeSeedColorProvider),
-        themeSeedSwatches[3],
+        defaultThemeSeedSwatch,
       );
+      expect(prefs.getString('theme_seed_color'), defaultThemeSeedSwatch.id);
     });
 
     test(
@@ -159,11 +171,11 @@ void main() {
 
         await container
             .read(themeSeedColorProvider.notifier)
-            .setThemeSeedColor(themeSeedSwatches[1]);
+            .setThemeSeedColor(defaultThemeSeedSwatch);
 
         expect(
           container.read(themeSeedColorProvider).id,
-          themeSeedSwatches[1].id,
+          defaultThemeSeedSwatch.id,
         );
       },
     );

@@ -23,6 +23,11 @@ All paths below are relative to the project root; read the standard, then the pr
 
 ## Acceptance criteria
 
+**2026-10-21 verification override:** test My Seed Colour (`#7E47EB`) in dark mode
+only (`MyTheme.dark`), with no alternate seeds/light/custom-theme matrices. This
+supersedes broader verification clauses below; keep behaviour/scale/resize checks.
+Runtime support and dated evidence are unchanged. See `ai_specs/app-profile.md`.
+
 - [x] Retain the established `InputDecorationThemeData` foundation in both themes: `searchControlFontSize = 14.0`, `searchControlIconSize = 24.0`, dense layout, 14px `onSurface` labels, central padding and always-floating ordinary labels. Default shape remains `OutlineInputBorder(borderSide: BorderSide(color: colorScheme.onPrimary))` with constructor-default unspecified radius/metrics. Enabled/unfocused idle uses `outline` at 1px, hover effective configured seed at 1px, focus effective seed at 2px; error/focused-error/disabled retain priority. Filled outlines centrally resolve `activeIndicatorBorder`, leaving `enabledBorder` unset.
 - [x] Enabled field hover, including focused hover, uses exactly `Color.alphaBlend(primary.withValues(alpha: .08), Color.alphaBlend(primary.withValues(alpha: .12), surface))` once, sharing the mode-control layers. Exit restores the prior fill; disabled hover is suppressed, with no idle selected tint or focus-only fill. Colours follow live effective seed/variant/contrast/brightness and preference rollback; do not substitute DataGrid row hover.
 - [x] A central/common error presentation keeps complete beside-field errors soft-wrapped and reachable without ellipsis, arbitrary hidden tails or fixed-height clipping. Labels/errors remain outside editable-content viewport caps. Integrate/regress the shared Admin builder without changing existing validation timing, logical field coverage, read-only selectable values or measured five-line viewports. Verify long errors actually wrap rather than merely exist.

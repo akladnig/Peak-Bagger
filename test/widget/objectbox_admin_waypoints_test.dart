@@ -104,7 +104,7 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          theme: MyTheme.light,
+          theme: MyTheme.dark,
           home: MediaQuery(
             data: const MediaQueryData(textScaler: TextScaler.linear(2.0)),
             child: Scaffold(
@@ -128,7 +128,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final dataGridTheme = MyTheme.light.extension<DataGridTheme>()!;
+      final dataGridTheme = MyTheme.dark.extension<DataGridTheme>()!;
       final rowTiles = find.byType(ObjectBoxAdminDataRowTile);
       final selectedRowContainer = find.descendant(
         of: rowTiles.first,

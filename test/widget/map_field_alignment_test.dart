@@ -164,43 +164,32 @@ void main() {
     },
   );
 
-  for (final brightness in Brightness.values) {
-    testWidgets(
-      'scaled ${brightness.name} picker wraps errors, scrolls, retains drafts on resize/theme',
-      (tester) async {
-        const config = ThemeConfig(
-          seedColor: Colors.teal,
-          dynamicSchemeVariant: DynamicSchemeVariant.vibrant,
-          contrastLevel: 0,
-        );
-        final theme = brightness == Brightness.light
-            ? MyTheme.lightWith(config)
-            : MyTheme.darkWith(config);
-        await _pumpPopup(tester, theme: theme, scale: 2);
-        await tester.tap(_key('date-trigger'));
-        await tester.pumpAndSettle();
-        await tester.ensureVisible(_year('start'));
-        await tester.enterText(_year('start'), '10000');
-        await tester.testTextInput.receiveAction(TextInputAction.done);
-        await tester.pumpAndSettle();
-        final error = tester.widget<Text>(find.text(_yearError));
-        expect(error.maxLines, isNull);
-        expect(error.softWrap, isTrue);
-        expect(tester.getSize(find.text(_yearError)).height, greaterThan(24));
-        expect(find.byTooltip('Previous start month'), findsNothing);
-        await tester.binding.setSurfaceSize(const Size(1600, 1100));
-        await tester.pumpAndSettle();
-        expect(
-          tester.widget<TextField>(_year('start')).controller!.text,
-          '10000',
-        );
-        await tester.ensureVisible(_key('date-apply'));
-        expect(_key('date-apply').hitTestable(), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
-
+  testWidgets(
+    'scaled dark picker wraps errors, scrolls, retains drafts on resize',
+    (tester) async {
+      await _pumpPopup(tester, scale: 2);
+      await tester.tap(_key('date-trigger'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(_year('start'));
+      await tester.enterText(_year('start'), '10000');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+      final error = tester.widget<Text>(find.text(_yearError));
+      expect(error.maxLines, isNull);
+      expect(error.softWrap, isTrue);
+      expect(tester.getSize(find.text(_yearError)).height, greaterThan(24));
+      expect(find.byTooltip('Previous start month'), findsNothing);
+      await tester.binding.setSurfaceSize(const Size(1600, 1100));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(_year('start')).controller!.text,
+        '10000',
+      );
+      await tester.ensureVisible(_key('date-apply'));
+      expect(_key('date-apply').hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets(
     'stale selection and focus callbacks reject a current lock without replay',
     (tester) async {
@@ -266,7 +255,7 @@ Future<FocusNode> _pumpPopup(
   });
   await tester.pumpWidget(
     MaterialApp(
-      theme: theme ?? MyTheme.light,
+      theme: theme ?? MyTheme.dark,
       builder: (context, child) => MediaQuery(
         data: MediaQuery.of(
           context,

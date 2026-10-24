@@ -23,6 +23,11 @@ All paths below are relative to the project root; read the standard, then the pr
 
 ## Acceptance criteria
 
+**2026-10-21 verification override:** test My Seed Colour (`#7E47EB`) in dark mode
+only (`MyTheme.dark`), with no alternate seeds/light/custom-theme matrices. This
+supersedes broader verification clauses below; keep behaviour/scale/resize checks.
+Runtime support and dated evidence are unchanged. See `ai_specs/app-profile.md`.
+
 - [x] The same structured policy used for Schema `Read-only` governs eligibility to create direct editable controls in all five existing hand-built forms. Explicit eligibility is required; missing metadata fails closed. Do not parse displayed Attributes, infer editability from names/record values or add a general automatic form generator.
 - [x] Preserve exactly these existing direct editable fields and their intended input/control types, with no new entity editor or create flow:
   - `Peak`: `name`, `altName`, `osmId`, `peakbaggerPid`, `elevation`, `prominence`, `country`, `county`, `range`, `rating`, `durationLabel`, `difficulty`, `viaFerrata`, `notes`, `latitude`, `longitude`, `region`, `mgrs100kId`, `easting`, `northing`, `verified`.

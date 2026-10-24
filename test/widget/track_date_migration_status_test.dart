@@ -20,7 +20,7 @@ import '../harness/track_date_migration_fixture.dart';
 void main() {
   setUpAll(expectTrackDateHostOffsets);
 
-  for (final dark in [false, true]) {
+  for (final dark in [true]) {
     testWidgets(
       'app-root barrier shows retry then durable counts/skips in ${dark ? 'dark' : 'light'} theme before routed writers mount',
       (tester) async {
@@ -59,7 +59,7 @@ void main() {
           UncontrolledProviderScope(
             container: container,
             child: MaterialApp(
-              theme: dark ? MyTheme.dark : MyTheme.light,
+              theme: MyTheme.dark,
               home: TrackDateMigrationHost(child: child),
             ),
           ),

@@ -171,9 +171,7 @@ Future<void> _pumpCard(
         peaksBaggedRepositoryProvider.overrideWithValue(peaksBaggedRepository),
       ],
       child: MaterialApp(
-        theme: MyTheme.light,
-        darkTheme: MyTheme.dark,
-        themeMode: ThemeMode.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: width,

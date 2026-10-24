@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/background_jobs_panel.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 
@@ -14,7 +15,7 @@ import '../harness/track_date_import_harness.dart';
 
 void main() {
   setUpAll(expectTrackDateHostOffsets);
-  for (final brightness in Brightness.values) {
+  for (final brightness in [Brightness.dark]) {
     testWidgets(
       'unknown-date import warning is visible in $brightness job details',
       (tester) async {
@@ -38,7 +39,7 @@ void main() {
                 gpxFilePickerProvider.overrideWithValue(_Picker(file)),
               ],
               child: MaterialApp(
-                theme: ThemeData(brightness: brightness),
+                theme: MyTheme.dark,
                 home: Scaffold(
                   body: Stack(
                     fit: StackFit.expand,

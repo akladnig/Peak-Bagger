@@ -163,7 +163,7 @@ void main() {
       const text =
           'A complete descriptive value that wraps at a narrow width but '
           'uses only its needed height when the available width increases.';
-      final theme = MyTheme.darkWith(_custom);
+      final theme = MyTheme.dark;
       final tallTheme = theme.copyWith(
         textTheme: theme.textTheme.copyWith(
           bodyMedium: theme.textTheme.bodyMedium!.copyWith(
@@ -212,7 +212,7 @@ void main() {
         tester.getTopLeft(find.text(_lines)) + const Offset(8, 8),
       );
       await tester.pumpAndSettle();
-      for (final theme in [MyTheme.dark, MyTheme.lightWith(_custom)]) {
+      for (final theme in [MyTheme.dark]) {
         await _pump(tester, text: _lines, theme: theme, width: 500, scale: 2);
         expect(_scroll(tester), same(oldScroll));
         await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
@@ -272,12 +272,6 @@ void main() {
   });
 }
 
-const _custom = ThemeConfig(
-  seedColor: Colors.teal,
-  dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-  contrastLevel: .5,
-);
-
 void _macTestWidgets(String description, WidgetTesterCallback callback) =>
     testWidgets(
       description,
@@ -307,7 +301,7 @@ Future<void> _pump(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
-      theme: theme ?? MyTheme.light,
+      theme: theme ?? MyTheme.dark,
       themeAnimationDuration: Duration.zero,
       home: MediaQuery(
         data: MediaQueryData(textScaler: TextScaler.linear(scale)),

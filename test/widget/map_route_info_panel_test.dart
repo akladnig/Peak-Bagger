@@ -18,7 +18,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -55,7 +55,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -90,7 +90,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -139,7 +139,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -208,7 +208,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -259,7 +259,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -330,7 +330,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -383,7 +383,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -432,7 +432,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -482,7 +482,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -523,7 +523,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -567,7 +567,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(
             route: route,
@@ -622,7 +622,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(route: route, onClose: () {}),
         ),
@@ -658,7 +658,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -686,7 +686,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -724,7 +724,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -799,7 +799,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -923,7 +923,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -971,7 +971,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,

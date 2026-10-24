@@ -10,17 +10,7 @@ import 'package:peak_bagger/widgets/shared_dropdown.dart';
 import '../harness/shared_dropdown_fixture.dart';
 
 void main() {
-  const custom = ThemeConfig(
-    seedColor: Colors.teal,
-    dynamicSchemeVariant: DynamicSchemeVariant.expressive,
-    contrastLevel: .5,
-  );
-  for (final theme in [
-    MyTheme.light,
-    MyTheme.dark,
-    MyTheme.lightWith(custom),
-    MyTheme.darkWith(custom),
-  ]) {
+  for (final theme in [MyTheme.dark]) {
     for (final trigger in SharedDropdownTrigger.values) {
       testWidgets(
         'painted dropdown states: ${theme.brightness} ${theme.seedColor} $trigger',

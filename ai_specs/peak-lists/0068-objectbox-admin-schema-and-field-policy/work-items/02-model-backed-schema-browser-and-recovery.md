@@ -25,6 +25,11 @@ All paths below are relative to the project root; read the standard, then the pr
 
 ## Acceptance criteria
 
+**2026-10-21 verification override:** test My Seed Colour (`#7E47EB`) in dark mode
+only (`MyTheme.dark`), with no alternate seeds/light/custom-theme matrices. This
+supersedes broader verification clauses below; keep behaviour/scale/resize checks.
+Runtime support and dated evidence are unchanged. See `ai_specs/app-profile.md`.
+
 - [x] `ObjectBoxAdminRepository.getEntities()` and injected `getObjectBoxModel()` remain the discovery seam. Schema covers all 18 current persisted entities, even with no records or no Data row loader: `Peak`, `Tasmap50k`, `GpxTrack`, `PeakList`, `PeaksBagged`, `Route`, `RouteGraphChunk`, `RouteGraphManifest`, `RouteGraphWayIndex`, `RouteGraphTrailDisplayChunk`, `Waypoints`, `PeakListItemEntity`, `RouteGraphImportMetadata`, `TrackReplacementRecoveryIssue`, `Contact`, `NaturalFeature`, `PeakRegionFingerprint`, `TrackDateMigrationMetadata`. Widgets do not maintain a second replacement entity list.
 - [x] Every persisted property and declared ObjectBox relationship, including PK and persisted getter/setter `Route.gpxRouteJson`, appears once in model member order. Exclude transient members/non-persisted getters, not model-persisted getters. Preserve entity display labels, canonical-name de-duplication, selector identity and Spec 0056 selection restoration.
 - [x] The existing `Schema` mode renders read-only columns exactly **Field**, **Type**, **Attributes**, in that order. Preserve **Entity**, **Schema / Data**, `/objectbox-admin` and **ObjectBox Admin**. Metadata wraps/scrolls completely with the prerequisite's central metrics; no schema editing, record actions or artificial action column is added.

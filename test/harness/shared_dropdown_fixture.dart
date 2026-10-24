@@ -39,7 +39,7 @@ class SharedDropdownFixture extends StatefulWidget {
 }
 
 class SharedDropdownFixtureState extends State<SharedDropdownFixture> {
-  ThemeData theme = MyTheme.light;
+  ThemeData theme = MyTheme.dark;
   double scale = 1;
   Size size = const Size(1280, 960);
   double fieldWidth = 600;

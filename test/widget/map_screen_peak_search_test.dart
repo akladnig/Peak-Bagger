@@ -559,7 +559,7 @@ void main() {
     final focusNode = FocusNode();
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapSearchPopup(
             focusNode: focusNode,
@@ -625,7 +625,7 @@ void main() {
     final focusNode = FocusNode();
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapSearchPopup(
             focusNode: focusNode,
@@ -1895,7 +1895,7 @@ class _MapSearchResultsHarness extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      theme: MyTheme.light,
+      theme: MyTheme.dark,
       home: MediaQuery(
         data: MediaQueryData(textScaler: textScaler),
         child: Scaffold(

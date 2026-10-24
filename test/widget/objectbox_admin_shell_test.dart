@@ -1168,7 +1168,7 @@ void main() {
     ]) {
       await tester.pumpWidget(
         MaterialApp(
-          theme: MyTheme.light,
+          theme: MyTheme.dark,
           home: Scaffold(body: SizedBox(width: 300, child: widget)),
         ),
       );

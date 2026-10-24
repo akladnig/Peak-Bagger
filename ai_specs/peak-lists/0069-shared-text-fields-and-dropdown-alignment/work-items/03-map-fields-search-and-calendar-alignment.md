@@ -20,6 +20,11 @@ All paths below are relative to the project root; read the standard, then the pr
 
 ## Acceptance criteria
 
+**2026-10-21 verification override:** test My Seed Colour (`#7E47EB`) in dark mode
+only (`MyTheme.dark`), with no alternate seeds/light/custom-theme matrices. This
+supersedes broader verification clauses below; keep behaviour/scale/resize checks.
+Runtime support and dated evidence are unchanged. See `ai_specs/app-profile.md`.
+
 - [x] Audit/align every covered Map constructor and repeated runtime field: Search, `Start date`, `End date`, both `Year` inputs, `Walking Speed`, `Go to location`, route-name/waypoint-name prompts, `Favourite name`, Peak Info `Name` / `Elevation`, bottom-sheet `Route name`, and each Terrain relief shading / Contour lines `Opacity`. Remove redundant local generic decoration/padding/density rather than copy the central theme. Preserve existing other labels and accepted input/units.
 - [x] Missing labels use exactly `Route name`, `Waypoint name`, `Favourite name`, `Go to location`, `Walking Speed`, `Opacity`; labels remain visible independently of placeholders. Overlay/other repeated inputs expose contextual accessible names. Peak Info uses exactly **Elevation** in editing and **Elevation:** in read-only display, retaining metres, validation, calculations and stored data; unrelated height concepts/glossary are unchanged.
 - [x] Inherit central dense 14px `onSurface` labels, default outline shape/radius, neutral idle/effective-seed hover/focus borders, error/disabled priority and once-composited Data hover fill through both themes/live seed changes/rollback. Ordinary labels always float; no ordinary input has a Search icon or individual submit action. Complete errors use the common soft-wrapping policy without ellipsis/fixed-height clipping, including compact numeric inputs and adjacent units/actions; never defeat scaling with `FittedBox.scaleDown`.
