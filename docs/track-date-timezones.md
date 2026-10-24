@@ -107,6 +107,6 @@ For controlled native macOS verification, run
 temporary database injects one completion-write failure; use keyboard/pointer
 `Retry`, inspect counts/skipped reasons, then `Continue`. Debug assertions verify
 rollback and the subsequent durable correction. Quit closes the store and
-deletes the fixture directory. Add
-`--dart-define=MIGRATION_SMOKE_DARK=true` for the dark theme. Never use the normal
+deletes the fixture directory. Verification uses My Seed Colour in dark mode only;
+no theme flag or alternate-colour run is needed. Never use the normal
 app database as a migration test fixture.

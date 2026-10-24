@@ -172,7 +172,10 @@ class ObjectBoxAdminRobot {
         child: const App(),
       ),
     );
+    // Complete the guarded route parse without waiting on unrelated loading
+    // animations; individual robot actions settle their own completed work.
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   }
 
   Future<void> openAdminFromMenu() async {

@@ -10,6 +10,7 @@ import 'package:peak_bagger/core/widgets/popup_shell.dart';
 import 'package:peak_bagger/services/gpx_file_picker.dart';
 import 'package:peak_bagger/services/track_name_normalisation.dart';
 import 'dialog_helpers.dart';
+import 'shared_field_decoration.dart';
 
 typedef GpxImportRunner =
     Future<bool> Function({
@@ -307,16 +308,20 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
               key: Key('gpx-import-name-field-$index'),
               controller: file.nameController,
               enabled: !_isImporting,
-              decoration: InputDecoration(
-                labelText: _importAsRoute ? 'Route Name' : 'Track Name',
-                errorText: _nameErrors[file.path],
-                helperText: _basename(file.path),
-                helperMaxLines: 1,
-                helperStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
+              decoration:
+                  sharedFieldDecoration(
+                    labelText: _importAsRoute ? 'Route Name' : 'Track Name',
+                    errorText: _nameErrors[file.path],
+                  ).copyWith(
+                    helperText: _basename(file.path),
+                    helperMaxLines: 1,
+                    helperStyle: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
               onChanged: (_) {
+                if (_isImporting) return;
                 if (_nameErrors.containsKey(file.path)) {
                   setState(() {
                     _nameErrors = Map.from(_nameErrors)..remove(file.path);
@@ -331,6 +336,8 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
   }
 
   Future<void> _selectFiles() async {
+    if (_isImporting || _isSelectingFiles) return;
+    final preparedControllers = <TextEditingController>[];
     setState(() {
       _isSelectingFiles = true;
     });
@@ -353,14 +360,16 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
           }
 
           final prefilledName = await resolvePrefilledName(path);
-          return _SelectedFile(
-            path: path,
-            nameController: TextEditingController(text: prefilledName),
-          );
+          final controller = TextEditingController(text: prefilledName);
+          preparedControllers.add(controller);
+          return _SelectedFile(path: path, nameController: controller);
         }),
       );
 
       final newPaths = newFiles.map((file) => file.path).toSet();
+      if (!mounted) {
+        return;
+      }
       for (final file in _selectedFiles) {
         if (!newPaths.contains(file.path)) {
           file.nameController.dispose();
@@ -383,6 +392,11 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
         _formatPickerError(error),
       );
     } finally {
+      for (final controller in preparedControllers) {
+        if (!_selectedFiles.any((file) => file.nameController == controller)) {
+          controller.dispose();
+        }
+      }
       if (mounted && _isSelectingFiles) {
         setState(() {
           _isSelectingFiles = false;
@@ -425,6 +439,7 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
   }
 
   Future<void> _import() async {
+    if (_isImporting || _isSelectingFiles || _selectedFiles.isEmpty) return;
     // Validate all names
     final errors = <String, String>{};
     final pathToEditedNames = <String, String>{};
@@ -473,9 +488,8 @@ class _GpxImportDialogState extends State<GpxImportDialog> {
       });
 
       developer.log(
-        'GPX import could not be started',
+        'GPX import could not be started (${error.runtimeType})',
         name: 'gpx_import',
-        error: error,
         stackTrace: stackTrace,
       );
       await _showFailureDialog(

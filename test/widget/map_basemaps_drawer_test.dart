@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -260,6 +261,35 @@ void main() {
           .read(localTopoOverlaySettingsProvider)
           .terrainReliefShadingEnabled,
       isTrue,
+    );
+    final input = find.byKey(
+      const Key('overlay-opacity-input-terrainReliefShading'),
+    );
+    expect(tester.widget<TextField>(input).decoration!.labelText, 'Opacity');
+    expect(
+      find.bySemanticsLabel(RegExp('Terrain relief shading opacity')),
+      findsWidgets,
+    );
+    for (final invalid in ['', 'no', '-1', '101']) {
+      await tester.enterText(input, invalid);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(input).controller!.text, '35');
+      expect(
+        container
+            .read(localTopoOverlaySettingsProvider)
+            .terrainReliefShadingOpacity,
+        35,
+      );
+    }
+    await tester.enterText(input, '55');
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    expect(
+      container
+          .read(localTopoOverlaySettingsProvider)
+          .terrainReliefShadingOpacity,
+      55,
     );
   });
 

@@ -20,6 +20,7 @@ class TimeCard extends ConsumerWidget {
     required this.isLoading,
     this.now,
     this.onVisibleSummaryChanged,
+    this.header,
   });
 
   static const adapter = SummaryCardMetricAdapter(
@@ -42,6 +43,7 @@ class TimeCard extends ConsumerWidget {
   final bool isLoading;
   final DateTime? now;
   final ValueChanged<SummaryVisibleSummary?>? onVisibleSummaryChanged;
+  final Widget? header;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -57,6 +59,8 @@ class TimeCard extends ConsumerWidget {
             now: now,
             onVisibleSummaryChanged: onVisibleSummaryChanged,
             adapter: adapter,
+            scrollTimeContent: true,
+            header: header,
             enableKeyboardInspection: true,
             displayMode: type == TimeChartType.line
                 ? SummaryDisplayMode.line

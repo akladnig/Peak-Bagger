@@ -89,6 +89,7 @@ void main() {
         ),
       );
       await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
 
       await tester.tap(robot.navMap);
       await tester.pump();

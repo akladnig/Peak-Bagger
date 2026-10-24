@@ -5,6 +5,27 @@ parent: spec.md
 
 ## Records
 
+### L23
+
+Status: current — supersedes L19's unresolved Time overflow policy, retaining
+L20–L22's historical independent-work authorisations.
+
+Source: explicit user instruction, 2026-10-24: "continue with retain the existing
+card/grid geometry, reserve a usable chart area, and make overflowing Time content
+scrollable."
+
+Decision: retain Dashboard card/grid geometry, existing column thresholds and the
+one-row toolbar. Give Time one vertical content viewport for its full wrapping
+summary header, toolbar/date range and a chart that cannot collapse below a usable
+area. Overflow scrolls, not truncates/downscales. Preserve card-only Tab traversal,
+card shortcuts, pointer inspection, calendar/type identity, preferences and other
+cards. Use the approved global 1280 × 960-and-larger content range; no additional
+Time window threshold or native full-screen decision is required. A measured
+axis-text/inset-based chart minimum is an implementation metric, not an invented
+product dimension. Verify default/enlarged text (1× / 1.5× / 2×), resize, scrolling,
+keyboard reveal and the former long-duration paint failure before marking gated
+criteria complete. No dropdown font-size change is authorised by this decision.
+
 ### L1
 
 Status: current
@@ -298,7 +319,8 @@ Source: Latest one-by-one refinement discussion of finding 3; the user deferred 
 
 ### L19
 
-Status: current
+Status: superseded by L23 for Time's overflow/height policy; retained as historical
+gate and independent-work provenance.
 
 Question: During Work Item 01 implementation, what minimum usable macOS content width/height, supported resize range and Time wide-layout thresholds should be recorded after the enlarged-text header regression exposed insufficient chart height? The existing `1600 × 1000` / `1.5×` fixture was explicitly identified as test evidence only.
 

@@ -128,6 +128,16 @@ these do not prevent a macOS build.
 The `pub get` notice about newer versions is informational; use
 `flutter pub outdated` to review upgrades separately.
 
+## Theme Verification
+
+Theme-related tests and native/manual visual checks use **My Seed Colour
+(`#7E47EB`) in dark mode only** (`MyTheme.dark`). Do not add light-mode or other
+seed-colour matrices. Keep distinct behaviour, failure, text-scale and resize
+checks. Runtime theme options are unchanged. See the
+[approved testing scope](ai_specs/app-profile.md#theme-testing-scope--approved-2026-10-21),
+which supersedes older Spec/Work Item theme-testing requirements; dated evidence
+retains its original scope and counts.
+
 ## Local-First By Design
 
 Peak Bagger stores its working data locally with ObjectBox. That local-first approach supports fast access to peaks, tracks, routes, ascents, and list data while enabling offline workflows and richer maintenance tools than a simple viewer app.

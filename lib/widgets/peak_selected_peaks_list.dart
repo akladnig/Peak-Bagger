@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../core/number_formatters.dart';
 import '../models/peak.dart';
+import '../theme.dart';
 
 class PeakSelectedPeaksList extends StatelessWidget {
   const PeakSelectedPeaksList({
@@ -12,6 +13,8 @@ class PeakSelectedPeaksList extends StatelessWidget {
     required this.onSelectionChanged,
     required this.onPointsChanged,
     required this.mapNameForPeak,
+    this.enabled = true,
+    this.isInteractionAllowed,
     super.key,
   });
 
@@ -21,6 +24,8 @@ class PeakSelectedPeaksList extends StatelessWidget {
   final ValueChanged<Set<int>> onSelectionChanged;
   final void Function(int peakId, int points) onPointsChanged;
   final String Function(Peak peak) mapNameForPeak;
+  final bool enabled;
+  final bool Function()? isInteractionAllowed;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +64,8 @@ class PeakSelectedPeaksList extends StatelessWidget {
                 mapName: mapNameForPeak(peak),
                 onSelectionChanged: onSelectionChanged,
                 onPointsChanged: onPointsChanged,
+                enabled: enabled,
+                isInteractionAllowed: isInteractionAllowed,
               );
             },
           ),
@@ -78,6 +85,8 @@ class _PeakSelectedRow extends StatefulWidget {
     required this.mapName,
     required this.onSelectionChanged,
     required this.onPointsChanged,
+    required this.enabled,
+    this.isInteractionAllowed,
   });
 
   final Peak peak;
@@ -87,6 +96,8 @@ class _PeakSelectedRow extends StatefulWidget {
   final String mapName;
   final ValueChanged<Set<int>> onSelectionChanged;
   final void Function(int peakId, int points) onPointsChanged;
+  final bool enabled;
+  final bool Function()? isInteractionAllowed;
 
   @override
   State<_PeakSelectedRow> createState() => _PeakSelectedRowState();
@@ -96,6 +107,11 @@ class _PeakSelectedRowState extends State<_PeakSelectedRow> {
   late final TextEditingController _pointsController;
   late final FocusNode _focusNode;
   bool _syncingText = false;
+  bool _hadFocus = false;
+  bool get _allowed =>
+      mounted &&
+      widget.enabled &&
+      (widget.isInteractionAllowed?.call() ?? true);
 
   @override
   void initState() {
@@ -108,7 +124,9 @@ class _PeakSelectedRowState extends State<_PeakSelectedRow> {
   void didUpdateWidget(covariant _PeakSelectedRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     final nextText = widget.points.toString();
-    if (!_focusNode.hasFocus && _pointsController.text != nextText) {
+    if (oldWidget.points != widget.points &&
+        !_focusNode.hasFocus &&
+        _pointsController.text != nextText) {
       _setControllerText(nextText);
     }
   }
@@ -140,7 +158,7 @@ class _PeakSelectedRowState extends State<_PeakSelectedRow> {
               value: widget.selected,
               activeColor: Colors.green,
               checkColor: Colors.white,
-              onChanged: _toggleSelection,
+              onChanged: widget.enabled ? _toggleSelection : null,
             ),
             Expanded(
               flex: 3,
@@ -170,11 +188,18 @@ class _PeakSelectedRowState extends State<_PeakSelectedRow> {
             ),
             const SizedBox(width: 8),
             SizedBox(
-              width: 96,
+              width:
+                  120 +
+                  MediaQuery.textScalerOf(
+                        context,
+                      ).scale(searchControlFontSize) *
+                      4,
               child: _PointsControl(
                 fieldKey: pointsKey,
                 controller: _pointsController,
                 focusNode: _focusNode,
+                enabled: widget.enabled,
+                peakName: widget.peak.name,
                 onChanged: _onPointsChanged,
                 onIncrement: () => _adjustPoints(1),
                 onDecrement: () => _adjustPoints(-1),
@@ -187,6 +212,7 @@ class _PeakSelectedRowState extends State<_PeakSelectedRow> {
   }
 
   void _toggleSelection(bool? value) {
+    if (!_allowed) return;
     final next = <int>{...widget.selectedPeakIds};
     if (value ?? false) {
       next.add(widget.peak.osmId);
@@ -197,17 +223,23 @@ class _PeakSelectedRowState extends State<_PeakSelectedRow> {
   }
 
   void _handleFocusChange() {
+    final lostFocus = _hadFocus && !_focusNode.hasFocus;
+    _hadFocus = _focusNode.hasFocus;
+    if (!lostFocus) return;
+    if (!_allowed) return;
     if (!_focusNode.hasFocus && _pointsController.text.isEmpty) {
       _commitPoints(1);
     }
   }
 
   void _adjustPoints(int delta) {
+    if (!_allowed) return;
     final current = int.tryParse(_pointsController.text) ?? widget.points;
     _commitPoints((current + delta).clamp(0, 10).toInt());
   }
 
   void _onPointsChanged(String value) {
+    if (!_allowed) return;
     if (_syncingText) {
       return;
     }
@@ -222,6 +254,7 @@ class _PeakSelectedRowState extends State<_PeakSelectedRow> {
   }
 
   void _commitPoints(int value) {
+    if (!_allowed) return;
     final clamped = value.clamp(0, 10).toInt();
     final nextText = clamped.toString();
     _setControllerText(nextText);
@@ -253,6 +286,8 @@ class _PointsControl extends StatelessWidget {
     required this.onChanged,
     required this.onIncrement,
     required this.onDecrement,
+    required this.enabled,
+    required this.peakName,
   });
 
   final Key fieldKey;
@@ -261,6 +296,8 @@ class _PointsControl extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
+  final bool enabled;
+  final String peakName;
 
   @override
   Widget build(BuildContext context) {
@@ -273,36 +310,41 @@ class _PointsControl extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
-          key: const Key('peak-selected-points-down'),
-          style: buttonStyle,
-          onPressed: onDecrement,
-          iconSize: 16,
-          icon: const Icon(Icons.remove),
+        Semantics(
+          label: 'Decrease Points for $peakName',
+          child: IconButton(
+            key: const Key('peak-selected-points-down'),
+            style: buttonStyle,
+            onPressed: enabled ? onDecrement : null,
+            iconSize: 16,
+            icon: const Icon(Icons.remove),
+          ),
         ),
-        SizedBox(
-          width: 38,
-          child: TextField(
-            key: fieldKey,
-            controller: controller,
-            focusNode: focusNode,
-            textAlign: TextAlign.center,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            onChanged: onChanged,
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-              border: OutlineInputBorder(),
+        Expanded(
+          child: Semantics(
+            label: 'Points for $peakName',
+            child: TextField(
+              key: fieldKey,
+              controller: controller,
+              focusNode: focusNode,
+              enabled: enabled,
+              textAlign: TextAlign.center,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: onChanged,
+              decoration: const InputDecoration(labelText: 'Points'),
             ),
           ),
         ),
-        IconButton(
-          key: const Key('peak-selected-points-up'),
-          style: buttonStyle,
-          onPressed: onIncrement,
-          iconSize: 16,
-          icon: const Icon(Icons.add),
+        Semantics(
+          label: 'Increase Points for $peakName',
+          child: IconButton(
+            key: const Key('peak-selected-points-up'),
+            style: buttonStyle,
+            onPressed: enabled ? onIncrement : null,
+            iconSize: 16,
+            icon: const Icon(Icons.add),
+          ),
         ),
       ],
     );

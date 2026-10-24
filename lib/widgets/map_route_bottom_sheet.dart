@@ -17,6 +17,7 @@ import 'package:peak_bagger/services/elevation_profile_series_builder.dart';
 import 'package:peak_bagger/services/route_elevation_sampler.dart';
 import 'package:peak_bagger/services/route_planner.dart';
 import 'package:peak_bagger/widgets/elevation_profile_chart.dart';
+import 'package:peak_bagger/widgets/shared_field_decoration.dart';
 
 enum _RouteModeVisualState { inactive, active, selected }
 
@@ -187,7 +188,7 @@ class _RouteDraftControlsOverlayState
       previous,
       next,
     ) {
-      if (_routeNameController.text != next) {
+      if (!_routeNameFocusNode.hasFocus && _routeNameController.text != next) {
         _routeNameController.value = TextEditingValue(
           text: next,
           selection: TextSelection.collapsed(offset: next.length),
@@ -280,7 +281,8 @@ class _RouteDraftControlsOverlayState
                     final after = ref.read(mapProvider);
                     if (after.routeDraftRequestId ==
                             before.routeDraftRequestId ||
-                        after.routeDraftStage != RouteDraftStage.routingSegment) {
+                        after.routeDraftStage !=
+                            RouteDraftStage.routingSegment) {
                       return;
                     }
                     recorder.event('route.mode-action.accepted', {
@@ -642,7 +644,6 @@ class _RouteEditingGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final hasPeakTarget = routeDraftPeak != null;
     final routeModeSelectedColor = Colors.green;
     final routeModeActiveColor = Colors.purple;
@@ -672,7 +673,7 @@ class _RouteEditingGroup extends StatelessWidget {
               ),
               activeColor: routeModeActiveColor,
               selectedColor: routeModeSelectedColor,
-              onPressed: isRouting
+              onPressed: isRouting || isSavingRoute
                   ? null
                   : () => onModeSelected(RouteMode.straightLine),
             ),
@@ -716,7 +717,8 @@ class _RouteEditingGroup extends StatelessWidget {
                   routeDraftPeak == null ||
                       routeDraftMarkers.isEmpty ||
                       isClosedLoop ||
-                      isRouting
+                      isRouting ||
+                      isSavingRoute
                   ? null
                   : () => onModeSelected(RouteMode.routeToPeak),
             ),
@@ -731,7 +733,7 @@ class _RouteEditingGroup extends StatelessWidget {
               ),
               activeColor: routeModeActiveColor,
               selectedColor: routeModeSelectedColor,
-              onPressed: isRouting
+              onPressed: isRouting || isSavingRoute
                   ? null
                   : () => onModeSelected(RouteMode.snapToTrail),
             ),
@@ -761,28 +763,15 @@ class _RouteEditingGroup extends StatelessWidget {
                 key: const Key('route-name-field'),
                 controller: routeNameController,
                 focusNode: routeNameFocusNode,
+                enabled: !isSavingRoute,
                 onChanged: onNameChanged,
                 maxLines: 1,
                 textAlignVertical: TextAlignVertical.center,
-                decoration: const InputDecoration(
-                  hintText: 'Route name',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
+                decoration: sharedFieldDecoration(
+                  labelText: 'Route name',
+                  errorText: routeDraftNameError,
                 ),
               ),
-              if (routeDraftNameError != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  routeDraftNameError!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
-              ],
             ],
           ),
         ),

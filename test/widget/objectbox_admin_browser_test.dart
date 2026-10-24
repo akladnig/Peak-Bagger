@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,12 +23,318 @@ import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/theme.dart';
+import 'package:peak_bagger/screens/objectbox_admin_screen_states.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_read_only_value.dart';
+import 'package:peak_bagger/widgets/shared_dropdown.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_objectbox_admin_repository.dart';
 
 void main() {
-  testWidgets('admin browser filters rows and closes details pane', (
+  testWidgets(
+    'unavailable app metadata is disclosed in Schema, not a discovery error',
+    (tester) async {
+      final entity = ObjectBoxAdminRepositoryImpl(
+        appMetadata: {},
+      ).getEntities().singleWhere((entity) => entity.name == 'Contact');
+      await _pumpApp(
+        tester,
+        repository: TestObjectBoxAdminRepository(entities: [entity]),
+      );
+      await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Schema'));
+      await tester.pumpAndSettle();
+      expect(find.text('Field'), findsOneWidget);
+      expect(find.text('firstName'), findsOneWidget);
+      expect(find.text('Storage: string'), findsNWidgets(3));
+      expect(
+        find.text('Read-only · App metadata unavailable'),
+        findsNWidgets(3),
+      );
+      expect(
+        find.byKey(const Key('objectbox-admin-schema-error-state')),
+        findsNothing,
+      );
+      expect(find.text('Retry'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'routed Schema stays browsable during pending/failed Data and retains Data Retry',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 960));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final pending = Completer<List<ObjectBoxAdminRow>>();
+      final repository = TestObjectBoxAdminRepository(
+        entities: ObjectBoxAdminRepositoryImpl().getEntities(),
+      )..rowLoader = (_) => pending.future;
+      await _pumpApp(tester, repository: repository);
+      await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      await tester.tap(find.text('Schema'));
+      await tester.pumpAndSettle();
+      expect(find.text('Field'), findsOneWidget);
+      expect(find.text('Type'), findsOneWidget);
+      expect(find.text('Attributes'), findsOneWidget);
+      expect(find.text('Name · Non-nullable · Required'), findsOneWidget);
+      expect(
+        find.text('PK · Assignable · Non-nullable · Read-only'),
+        findsOneWidget,
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      pending.completeError(StateError('controlled Data failure'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('objectbox-admin-schema-table')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('objectbox-admin-error-state')),
+        findsNothing,
+      );
+      await tester.tap(find.text('Data'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('controlled Data failure'), findsOneWidget);
+      repository.rowLoader = (_) async => [];
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('objectbox-admin-error-state')),
+        findsNothing,
+      );
+      await tester.tap(find.text('Schema'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('objectbox-admin-entity-dropdown')),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('RouteGraphImportMetadata').last,
+        250,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.tap(find.text('RouteGraphImportMetadata').last);
+      await tester.pumpAndSettle();
+      expect(find.text('multiCoverageMigrationComplete'), findsOneWidget);
+      expect(find.text('bool'), findsOneWidget);
+      expect(find.text('No matches'), findsNothing);
+      expect(repository.exportCallCount, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'visible schema Retry repeats discovery and restores the canonical selector after refresh failure',
+    (tester) async {
+      final actual = ObjectBoxAdminRepositoryImpl().getEntities();
+      final repository = TestObjectBoxAdminRepository(entities: actual)
+        ..discoveryError = StateError('initial discovery');
+      await _pumpApp(tester, repository: repository);
+      await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('objectbox-admin-schema-error-state')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('objectbox-admin-error-state')),
+        findsNothing,
+      );
+      expect(find.text('No selectable entities'), findsNothing);
+      final calls = repository.getEntitiesCallCount;
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(repository.getEntitiesCallCount, calls + 1);
+      expect(repository.loadRowsCallCount, 0);
+      expect(
+        find.byKey(const Key('objectbox-admin-schema-error-state')),
+        findsOneWidget,
+      );
+      repository.discoveryError = null;
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(
+          find.byKey(const Key('objectbox-admin-entity-dropdown')),
+        ),
+      );
+      final notifier = container.read(objectboxAdminProvider.notifier);
+      await notifier.selectEntity(actual.singleWhere((e) => e.name == 'Route'));
+      await tester.tap(find.text('Schema'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('objectbox-admin-schema-table')),
+        findsOneWidget,
+      );
+      repository.discoveryError = StateError('refresh discovery');
+      await notifier.refresh();
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('objectbox-admin-schema-table')),
+        findsNothing,
+      );
+      expect(find.text('Route schema'), findsNothing);
+      expect(find.text('Retry'), findsOneWidget);
+      final fresh = ObjectBoxAdminRepositoryImpl().getEntities();
+      repository
+        ..discoveryError = null
+        ..replaceEntities([...fresh, ...fresh]);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      final dropdown = tester
+          .widget<SharedDropdown<ObjectBoxAdminEntityDescriptor?>>(
+            find.byKey(const Key('objectbox-admin-entity-dropdown')),
+          );
+      expect(dropdown.value, same(fresh.singleWhere((e) => e.name == 'Route')));
+      expect(dropdown.choices, hasLength(18));
+      expect(find.text('Route schema'), findsOneWidget);
+      expect(find.text('Field'), findsOneWidget);
+      expect(repository.exportCallCount, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Schema wraps full metadata and scrolls every entity with shared themes at supported sizes/scales',
+    (tester) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final entities = ObjectBoxAdminRepositoryImpl().getEntities();
+      var checkedAllEntities = false;
+      for (final theme in [MyTheme.dark]) {
+        for (final size in [
+          const Size(1280, 960),
+          const Size(1920, 1200),
+          const Size(1600, 960),
+        ]) {
+          await tester.binding.setSurfaceSize(size);
+          for (final scale in [1.0, 2.0]) {
+            final candidates = checkedAllEntities
+                ? entities.where(
+                    (entity) => const {
+                      'PeakListItemEntity',
+                      'TrackDateMigrationMetadata',
+                    }.contains(entity.name),
+                  )
+                : entities;
+            checkedAllEntities = true;
+            for (final entity in candidates) {
+              await tester.pumpWidget(
+                MaterialApp(
+                  theme: theme,
+                  themeAnimationDuration: Duration.zero,
+                  home: MediaQuery(
+                    data: MediaQueryData(
+                      size: size,
+                      textScaler: TextScaler.linear(scale),
+                    ),
+                    child: Scaffold(
+                      body: ObjectBoxAdminSchemaView(entity: entity),
+                    ),
+                  ),
+                ),
+              );
+              await tester.pump();
+              expect(find.text('Field'), findsOneWidget);
+              expect(find.text('Type'), findsOneWidget);
+              expect(find.text('Attributes'), findsOneWidget);
+              expect(find.byType(IconButton), findsNothing);
+              final last = entity.fields.last;
+              final row = find.byKey(
+                ValueKey('objectbox-admin-schema-${entity.name}-${last.name}'),
+              );
+              await tester.scrollUntilVisible(
+                row,
+                500,
+                scrollable: find.byType(Scrollable).first,
+              );
+              final cells = tester
+                  .widgetList<SelectableText>(
+                    find.descendant(
+                      of: row,
+                      matching: find.byType(SelectableText),
+                    ),
+                  )
+                  .toList();
+              expect(cells.map((cell) => cell.data), [
+                last.name,
+                last.typeLabel,
+                last.attributes.join(' · '),
+              ]);
+              for (final cell in cells) {
+                expect(cell.maxLines, isNull);
+                expect(cell.style!.color, theme.colorScheme.onSurface);
+              }
+              expect(
+                tester.takeException(),
+                isNull,
+                reason: '${entity.name}, $size, $scale, ${theme.brightness}',
+              );
+            }
+          }
+        }
+      }
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus?.context, isNotNull);
+    },
+  );
+
+  testWidgets(
+    'shared Admin fields keep an unsaved draft and reachable actions through supported resizing',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 960));
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pumpApp(tester, repository: TestObjectBoxAdminRepository());
+      await tester.tap(find.byKey(const Key('side-menu-objectbox-admin')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mt Ossa'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+      await tester.pumpAndSettle();
+      final name = find.byKey(const Key('objectbox-admin-peak-name'));
+      await tester.enterText(name, 'Unsaved resize draft');
+      for (final size in [
+        const Size(1280, 960),
+        const Size(1920, 1200),
+        const Size(1600, 960),
+        const Size(1280, 960),
+      ]) {
+        await tester.binding.setSurfaceSize(size);
+        await tester.pumpAndSettle();
+        final input = tester.widget<TextFormField>(name);
+        expect(input.controller!.text, 'Unsaved resize draft');
+        final decorator = tester.widget<InputDecorator>(
+          find.descendant(of: name, matching: find.byType(InputDecorator)),
+        );
+        final theme = Theme.of(tester.element(name));
+        expect(
+          decorator.decoration.labelStyle!.fontSize,
+          searchControlFontSize,
+        );
+        expect(decorator.decoration.enabledBorder, isNull);
+        expect(
+          decorator.decoration.focusedBorder!.borderSide,
+          BorderSide(color: theme.seedColor, width: 2),
+        );
+        final save = find.byKey(const Key('objectbox-admin-peak-submit'));
+        expect(save.hitTestable(), findsOneWidget);
+        expect(
+          find.byKey(const Key('objectbox-admin-details-close')).hitTestable(),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    },
+  );
+
+  testWidgets('admin browser explicitly closes details and filters rows live', (
     tester,
   ) async {
     await _pumpApp(tester, repository: TestObjectBoxAdminRepository());
@@ -55,7 +364,6 @@ void main() {
     expect(find.text('Select a row to inspect full values.'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'cradle');
-    await tester.tap(find.byIcon(Icons.search));
     await tester.pump();
     await tester.pumpAndSettle();
 
@@ -113,7 +421,13 @@ void main() {
       find.byKey(const Key('objectbox-admin-route-delete-1')),
       findsOneWidget,
     );
-    expect(find.text('0x00000000'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('objectbox-admin-details-list')),
+        matching: find.text('0x00000000'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('gpxRouteJson').last, findsOneWidget);
     expect(find.text('displayRoutePointsByZoom').last, findsOneWidget);
 
@@ -780,7 +1094,10 @@ void main() {
           matching: find.byType(Scrollable),
         )
         .first;
-    expect((distance2dTile.subtitle as SelectableText).data, '1234');
+    expect(
+      (distance2dTile.subtitle as ObjectBoxAdminReadOnlyValue).text,
+      '1234',
+    );
 
     await tester.scrollUntilVisible(
       find.widgetWithText(ListTile, 'filteredTrack'),
@@ -793,8 +1110,8 @@ void main() {
                     find.widgetWithText(ListTile, 'filteredTrack'),
                   )
                   .subtitle
-              as SelectableText)
-          .data,
+              as ObjectBoxAdminReadOnlyValue)
+          .text,
       contains('<gpx><trk>'),
     );
 
@@ -807,8 +1124,8 @@ void main() {
       (tester
                   .widget<ListTile>(find.widgetWithText(ListTile, 'distance3d'))
                   .subtitle
-              as SelectableText)
-          .data,
+              as ObjectBoxAdminReadOnlyValue)
+          .text,
       '0',
     );
 
@@ -821,8 +1138,8 @@ void main() {
       (tester
                   .widget<ListTile>(find.widgetWithText(ListTile, 'descent'))
                   .subtitle
-              as SelectableText)
-          .data,
+              as ObjectBoxAdminReadOnlyValue)
+          .text,
       '0',
     );
 
@@ -837,8 +1154,8 @@ void main() {
                     find.widgetWithText(ListTile, 'startElevation'),
                   )
                   .subtitle
-              as SelectableText)
-          .data,
+              as ObjectBoxAdminReadOnlyValue)
+          .text,
       '0',
     );
 
@@ -853,8 +1170,8 @@ void main() {
                     find.widgetWithText(ListTile, 'endElevation'),
                   )
                   .subtitle
-              as SelectableText)
-          .data,
+              as ObjectBoxAdminReadOnlyValue)
+          .text,
       '0',
     );
 
@@ -869,8 +1186,8 @@ void main() {
                     find.widgetWithText(ListTile, 'elevationProfile'),
                   )
                   .subtitle
-              as SelectableText)
-          .data,
+              as ObjectBoxAdminReadOnlyValue)
+          .text,
       contains('segmentIndex'),
     );
   });
@@ -1130,10 +1447,15 @@ Future<void> _pumpApp(
       child: const App(),
     ),
   );
+  // Wait for the guarded route parse, not for deliberately pending Data reads
+  // (or unrelated dashboard loading animations) to finish.
   await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
 }
 
 class _RouteAwareObjectBoxAdminRepository implements ObjectBoxAdminRepository {
+  @override
+  Future<bool> deleteWaypoint(int id) => base.deleteWaypoint(id);
   _RouteAwareObjectBoxAdminRepository({
     required this.base,
     required this.routeRepository,
@@ -1190,6 +1512,26 @@ Peak _buildPeak({required int id, required int osmId, required String name}) {
 }
 
 ObjectBoxAdminEntityDescriptor _peakEntity() {
+  final preview = _peakPreviewEntity();
+  final actual = ObjectBoxAdminRepositoryImpl().getEntities().singleWhere(
+    (entity) => entity.name == 'Peak',
+  );
+  return ObjectBoxAdminEntityDescriptor(
+    name: preview.name,
+    displayName: preview.displayName,
+    primaryKeyField: preview.primaryKeyField,
+    primaryNameField: preview.primaryNameField,
+    fields: preview.fields
+        .map(
+          (field) => actual.fields.singleWhere(
+            (candidate) => candidate.name == field.name,
+          ),
+        )
+        .toList(),
+  );
+}
+
+ObjectBoxAdminEntityDescriptor _peakPreviewEntity() {
   return const ObjectBoxAdminEntityDescriptor(
     name: 'Peak',
     displayName: 'Peak',

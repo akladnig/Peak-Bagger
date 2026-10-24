@@ -252,6 +252,8 @@ void main() {
 }
 
 Future<void> _pumpApp(WidgetTester tester, TestMapNotifier notifier) async {
+  await tester.binding.setSurfaceSize(const Size(1280, 960));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
   final tasmapRepository = await TestTasmapRepository.create(
     maps: [_resolvedMap()],
   );

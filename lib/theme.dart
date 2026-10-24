@@ -120,6 +120,7 @@ class DataGridTheme extends ThemeExtension<DataGridTheme> {
     required this.pressedRowColor,
     required this.selectedRowColor,
     required this.selectedRowBorderColor,
+    required this.focusBorder,
   });
 
   final EdgeInsetsGeometry headerPadding;
@@ -134,24 +135,31 @@ class DataGridTheme extends ThemeExtension<DataGridTheme> {
   final Color pressedRowColor;
   final Color selectedRowColor;
   final Color selectedRowBorderColor;
+  final BorderSide focusBorder;
 
   static DataGridTheme fromColorScheme(
     ColorScheme colorScheme,
-    TextTheme textTheme,
-  ) {
+    TextTheme textTheme, {
+    Color? seedColor,
+  }) {
+    final selectionBase = colorScheme.brightness == Brightness.dark
+        ? seedColor ?? _defaultSeedColor
+        : colorScheme.primaryContainer;
+    final selected = darken(selectionBase, 0.30);
     return DataGridTheme(
       headerPadding: const EdgeInsets.symmetric(vertical: 4),
       rowPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       columnGap: 12,
       headerTextStyle: textTheme.labelLarge ?? const TextStyle(),
       rowTextStyle: textTheme.bodyMedium ?? const TextStyle(),
-      dividerColor: colorScheme.outlineVariant,
+      dividerColor: colorScheme.onPrimary,
       dividerThickness: 1,
-      hoverColor: colorScheme.primaryContainer.withValues(alpha: 0.5),
+      hoverColor: Color.lerp(selected, Colors.white, 0.10)!,
       hoveredTextColor: colorScheme.onSurface,
-      pressedRowColor: colorScheme.primary.withValues(alpha: 0.12),
-      selectedRowColor: darken(colorScheme.primaryContainer, 0.30),
-      selectedRowBorderColor: darken(colorScheme.primaryContainer, 0.08),
+      pressedRowColor: selectedModeFill(colorScheme),
+      selectedRowColor: selected,
+      selectedRowBorderColor: darken(selectionBase, 0.08),
+      focusBorder: BorderSide(color: colorScheme.primary, width: 2),
     );
   }
 
@@ -169,6 +177,7 @@ class DataGridTheme extends ThemeExtension<DataGridTheme> {
     Color? pressedRowColor,
     Color? selectedRowColor,
     Color? selectedRowBorderColor,
+    BorderSide? focusBorder,
   }) {
     return DataGridTheme(
       headerPadding: headerPadding ?? this.headerPadding,
@@ -184,6 +193,7 @@ class DataGridTheme extends ThemeExtension<DataGridTheme> {
       selectedRowColor: selectedRowColor ?? this.selectedRowColor,
       selectedRowBorderColor:
           selectedRowBorderColor ?? this.selectedRowBorderColor,
+      focusBorder: focusBorder ?? this.focusBorder,
     );
   }
 
@@ -224,6 +234,7 @@ class DataGridTheme extends ThemeExtension<DataGridTheme> {
       selectedRowBorderColor:
           Color.lerp(selectedRowBorderColor, other.selectedRowBorderColor, t) ??
           selectedRowBorderColor,
+      focusBorder: BorderSide.lerp(focusBorder, other.focusBorder, t),
     );
   }
 }
@@ -616,8 +627,132 @@ class SearchButtonThemeData extends ThemeExtension<SearchButtonThemeData> {
   }
 }
 
-const searchControlIconSize = PopupUIConstants.searchIconSize;
-const searchControlFontSize = 12.0;
+const searchControlIconSize = 24.0;
+const searchControlFontSize = 14.0;
+
+/// Selection-only dropdown metrics and semantic roles, shared by every caller.
+abstract final class SharedDropdownStyle {
+  static const radius = 12.0;
+  static const minimumTarget = 48.0;
+  static const minimumRowHeight = 40.0;
+  static const optionPadding = EdgeInsets.symmetric(
+    horizontal: 12,
+    vertical: 8,
+  );
+  static const checkSize = 24.0;
+  static const iconSize = 24.0;
+  static const gap = 12.0;
+  static const viewportMargin = 8.0;
+  static const elevation = 3.0;
+
+  static TextStyle valueText(ThemeData theme) =>
+      theme.textTheme.titleMedium!.copyWith(color: theme.colorScheme.onSurface);
+  static TextStyle menuText(ThemeData theme) => theme.textTheme.bodySmall!
+      .copyWith(fontSize: 12, color: theme.colorScheme.onSurface);
+  static Color rowFill(ThemeData theme, {bool pressed = false}) =>
+      Color.alphaBlend(
+        theme.colorScheme.onSurface.withValues(alpha: pressed ? .12 : .08),
+        theme.colorScheme.surfaceContainer,
+      );
+  static Color tick(
+    ThemeData theme, {
+    bool error = false,
+    bool disabled = false,
+  }) {
+    final color = error ? theme.colorScheme.error : theme.seedColor;
+    return disabled ? color.withValues(alpha: .38) : color;
+  }
+}
+
+/// Shared Schema/Data selection and pointer-hover layers, composited once.
+Color selectedModeFill(ColorScheme colors) =>
+    Color.alphaBlend(colors.primary.withValues(alpha: .12), colors.surface);
+
+Color hoveredSelectedModeFill(ColorScheme colors) => Color.alphaBlend(
+  colors.primary.withValues(alpha: .08),
+  selectedModeFill(colors),
+);
+
+InputDecorationThemeData _inputDecorationTheme(
+  ColorScheme colors,
+  Color seedColor,
+) => InputDecorationThemeData(
+  labelStyle: TextStyle(
+    fontSize: searchControlFontSize,
+    color: colors.onSurface,
+  ),
+  floatingLabelBehavior: FloatingLabelBehavior.always,
+  isDense: true,
+  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+  border: OutlineInputBorder(borderSide: BorderSide(color: colors.onPrimary)),
+  filled: true,
+  // Resolve the complete fill here; InputDecorator must not add a second layer.
+  hoverColor: Colors.transparent,
+  fillColor: WidgetStateColor.resolveWith((states) {
+    if (!states.contains(WidgetState.disabled) &&
+        states.contains(WidgetState.hovered)) {
+      return hoveredSelectedModeFill(colors);
+    }
+    return colors.surface;
+  }),
+  // Filled outlined fields use activeIndicatorBorder when enabledBorder is null.
+  activeIndicatorBorder: WidgetStateBorderSide.resolveWith((states) {
+    if (states.contains(WidgetState.disabled)) {
+      return BorderSide(color: colors.onSurface.withValues(alpha: .38));
+    }
+    if (states.contains(WidgetState.error)) {
+      return BorderSide(color: colors.error);
+    }
+    return BorderSide(
+      color: states.contains(WidgetState.hovered) ? seedColor : colors.outline,
+    );
+  }),
+  focusedBorder: OutlineInputBorder(
+    borderSide: BorderSide(color: seedColor, width: 2),
+  ),
+  errorBorder: OutlineInputBorder(borderSide: BorderSide(color: colors.error)),
+  focusedErrorBorder: OutlineInputBorder(
+    borderSide: BorderSide(color: colors.error, width: 2),
+  ),
+  disabledBorder: OutlineInputBorder(
+    borderSide: BorderSide(color: colors.onSurface.withValues(alpha: .38)),
+  ),
+);
+
+IconButtonThemeData _iconButtonTheme(ColorScheme colors) => IconButtonThemeData(
+  style: ButtonStyle(
+    shape: const WidgetStatePropertyAll(CircleBorder()),
+    backgroundColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.disabled)) return Colors.transparent;
+      if (states.contains(WidgetState.pressed)) {
+        return colors.onSurface.withValues(alpha: .12);
+      }
+      if (states.contains(WidgetState.hovered)) {
+        return colors.onSurface.withValues(alpha: .08);
+      }
+      return Colors.transparent;
+    }),
+    foregroundColor: WidgetStateProperty.resolveWith(
+      (states) => colors.onSurface.withValues(
+        alpha: states.contains(WidgetState.disabled) ? .38 : 1,
+      ),
+    ),
+    // Paint the circular state layer once, without an additional ink overlay.
+    overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+    side: WidgetStateProperty.resolveWith(
+      (states) =>
+          !states.contains(WidgetState.disabled) &&
+              states.contains(WidgetState.focused)
+          ? BorderSide(color: colors.primary, width: 2)
+          : BorderSide.none,
+    ),
+    mouseCursor: WidgetStateProperty.resolveWith(
+      (states) => states.contains(WidgetState.disabled)
+          ? SystemMouseCursors.basic
+          : SystemMouseCursors.click,
+    ),
+  ),
+);
 const _searchButtonPadding = EdgeInsets.symmetric(horizontal: 10, vertical: 8);
 const _searchButtonMinimumSize = Size(0, 30);
 
@@ -626,6 +761,7 @@ FilledButtonThemeData _filledButtonTheme(ColorScheme colorScheme) {
     style: FilledButton.styleFrom(
       backgroundColor: colorScheme.primaryContainer,
       foregroundColor: colorScheme.onPrimaryContainer,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ),
   );
 }
@@ -665,10 +801,11 @@ SearchButtonThemeData _searchButtonTheme(
         return colorScheme.primary;
       }),
       backgroundColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.hovered)) {
-          return lighten(colorScheme.primaryContainer, 0.08);
+        if (!states.contains(WidgetState.disabled) &&
+            states.contains(WidgetState.hovered)) {
+          return hoveredSelectedModeFill(colorScheme);
         }
-        return colorScheme.primaryContainer;
+        return selectedModeFill(colorScheme);
       }),
       side: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.hovered)) {
@@ -676,12 +813,7 @@ SearchButtonThemeData _searchButtonTheme(
         }
         return BorderSide(color: colorScheme.primary);
       }),
-      overlayColor: WidgetStateProperty.resolveWith((states) {
-        if (states.contains(WidgetState.hovered)) {
-          return colorScheme.primary.withValues(alpha: 0.08);
-        }
-        return null;
-      }),
+      overlayColor: const WidgetStatePropertyAll(Colors.transparent),
     ),
     unselectedStyle: ButtonStyle(
       padding: const WidgetStatePropertyAll(_searchButtonPadding),
@@ -732,18 +864,12 @@ class MyTheme {
 
   static ThemeData lightWith(ThemeConfig config) => _createLightTheme(config);
 
-  static ColorScheme _withOutlineVariantMatchingPrimary(ColorScheme scheme) {
-    return scheme.copyWith(outlineVariant: scheme.onPrimary);
-  }
-
   static ColorScheme _darkColorScheme(ThemeConfig config) {
-    return _withOutlineVariantMatchingPrimary(
-      ColorScheme.fromSeed(
-        seedColor: config.seedColor,
-        brightness: Brightness.dark,
-        dynamicSchemeVariant: config.dynamicSchemeVariant,
-        contrastLevel: config.contrastLevel,
-      ),
+    return ColorScheme.fromSeed(
+      seedColor: config.seedColor,
+      brightness: Brightness.dark,
+      dynamicSchemeVariant: config.dynamicSchemeVariant,
+      contrastLevel: config.contrastLevel,
     );
   }
 
@@ -761,6 +887,16 @@ class MyTheme {
       filledButtonTheme: _filledButtonTheme(colorScheme),
       textButtonTheme: _textButtonTheme(colorScheme, config.seedColor),
       outlinedButtonTheme: _outlinedButtonTheme(colorScheme, config.seedColor),
+      inputDecorationTheme: _inputDecorationTheme(
+        colorScheme,
+        config.seedColor,
+      ),
+      iconButtonTheme: _iconButtonTheme(colorScheme),
+      toggleButtonsTheme: ToggleButtonsThemeData(
+        fillColor: selectedModeFill(colorScheme),
+        selectedColor: colorScheme.primary,
+        hoverColor: colorScheme.primary.withValues(alpha: .08),
+      ),
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,
@@ -774,7 +910,11 @@ class MyTheme {
       extensions: [
         SeedColourTheme(config.seedColor),
         RowHoverTheme.dark,
-        DataGridTheme.fromColorScheme(colorScheme, resolvedTextTheme),
+        DataGridTheme.fromColorScheme(
+          colorScheme,
+          resolvedTextTheme,
+          seedColor: config.seedColor,
+        ),
         ChartSeriesTheme.fromColorScheme(colorScheme),
         _searchButtonTheme(colorScheme, config.seedColor),
       ],
@@ -782,13 +922,11 @@ class MyTheme {
   }
 
   static ColorScheme _lightColorScheme(ThemeConfig config) {
-    return _withOutlineVariantMatchingPrimary(
-      ColorScheme.fromSeed(
-        seedColor: config.seedColor,
-        brightness: Brightness.light,
-        dynamicSchemeVariant: config.dynamicSchemeVariant,
-        contrastLevel: config.contrastLevel,
-      ),
+    return ColorScheme.fromSeed(
+      seedColor: config.seedColor,
+      brightness: Brightness.light,
+      dynamicSchemeVariant: config.dynamicSchemeVariant,
+      contrastLevel: config.contrastLevel,
     );
   }
 
@@ -806,6 +944,16 @@ class MyTheme {
       filledButtonTheme: _filledButtonTheme(colorScheme),
       textButtonTheme: _textButtonTheme(colorScheme, config.seedColor),
       outlinedButtonTheme: _outlinedButtonTheme(colorScheme, config.seedColor),
+      inputDecorationTheme: _inputDecorationTheme(
+        colorScheme,
+        config.seedColor,
+      ),
+      iconButtonTheme: _iconButtonTheme(colorScheme),
+      toggleButtonsTheme: ToggleButtonsThemeData(
+        fillColor: selectedModeFill(colorScheme),
+        selectedColor: colorScheme.primary,
+        hoverColor: colorScheme.primary.withValues(alpha: .08),
+      ),
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,
@@ -819,7 +967,11 @@ class MyTheme {
       extensions: [
         SeedColourTheme(config.seedColor),
         RowHoverTheme.light,
-        DataGridTheme.fromColorScheme(colorScheme, resolvedTextTheme),
+        DataGridTheme.fromColorScheme(
+          colorScheme,
+          resolvedTextTheme,
+          seedColor: config.seedColor,
+        ),
         ChartSeriesTheme.fromColorScheme(colorScheme),
         _searchButtonTheme(colorScheme, config.seedColor),
       ],

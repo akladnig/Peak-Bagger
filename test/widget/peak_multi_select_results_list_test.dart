@@ -246,7 +246,7 @@ class _HarnessState extends State<_Harness> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      theme: MyTheme.light,
+      theme: MyTheme.dark,
       home: MediaQuery(
         data: MediaQueryData(textScaler: widget.textScaler),
         child: Scaffold(

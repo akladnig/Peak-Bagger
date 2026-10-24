@@ -261,6 +261,7 @@ Future<void> _pumpApp(WidgetTester tester, {List overrides = const []}) async {
     ),
   );
   await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
 }
 
 class _NoopPeakListRewritePort implements PeakListRewritePort {

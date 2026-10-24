@@ -14,6 +14,7 @@ import 'package:peak_bagger/providers/my_ascents_summary_provider.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/peak_marker_info_settings_provider.dart';
 import 'package:peak_bagger/screens/dashboard_screen.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/services/performance_measurement.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
 import 'package:peak_bagger/services/my_ascents_summary_service.dart';
@@ -70,7 +71,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: DashboardScreen()),
+        child: MaterialApp(theme: MyTheme.dark, home: const DashboardScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -122,7 +123,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: DashboardScreen()),
+          child: MaterialApp(
+            theme: MyTheme.dark,
+            home: const DashboardScreen(),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -165,7 +169,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: DashboardScreen()),
+        child: MaterialApp(theme: MyTheme.dark, home: const DashboardScreen()),
       ),
     );
     expect(find.byKey(const Key('elevation-empty-state')), findsOneWidget);
@@ -204,6 +208,7 @@ void main() {
       Widget app(bool enabled) => UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
+          theme: MyTheme.dark,
           home: TickerMode(enabled: enabled, child: const DashboardScreen()),
         ),
       );
@@ -254,7 +259,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: DashboardScreen()),
+          child: MaterialApp(
+            theme: MyTheme.dark,
+            home: const DashboardScreen(),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -325,7 +333,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: DashboardScreen()),
+          child: MaterialApp(
+            theme: MyTheme.dark,
+            home: const DashboardScreen(),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -409,7 +420,10 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: MaterialApp(home: DashboardScreen(now: DateTime(2026, 10, 11))),
+        child: MaterialApp(
+          theme: MyTheme.dark,
+          home: DashboardScreen(now: DateTime(2026, 10, 11)),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -452,7 +466,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: DashboardScreen()),
+        child: MaterialApp(theme: MyTheme.dark, home: const DashboardScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -507,7 +521,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: const MaterialApp(home: DashboardScreen()),
+          child: MaterialApp(
+            theme: MyTheme.dark,
+            home: const DashboardScreen(),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -564,7 +581,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: DashboardScreen()),
+        child: MaterialApp(theme: MyTheme.dark, home: const DashboardScreen()),
       ),
     );
     await tester.pumpAndSettle();
@@ -607,7 +624,7 @@ void main() {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
-        child: const MaterialApp(home: DashboardScreen()),
+        child: MaterialApp(theme: MyTheme.dark, home: const DashboardScreen()),
       ),
     );
     await tester.pump();

@@ -282,7 +282,7 @@ void main() {
     expect(find.byKey(const ValueKey('latest-walk-map-20')), findsOneWidget);
   });
 
-  for (final brightness in Brightness.values) {
+  for (final brightness in [Brightness.dark]) {
     testWidgets('local dates survive walk navigation in ${brightness.name}', (
       tester,
     ) async {
@@ -310,7 +310,7 @@ void main() {
       await _pumpReady(
         tester,
         MaterialApp(
-          theme: brightness == Brightness.light ? MyTheme.light : MyTheme.dark,
+          theme: MyTheme.dark,
           home: Scaffold(
             body: SizedBox(
               width: 420,

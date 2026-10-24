@@ -67,6 +67,7 @@ import 'package:peak_bagger/services/tile_cache_service.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/local_topo_overlay_tile_provider.dart';
 import '../core/constants.dart';
+import '../core/search_shortcuts.dart';
 import 'package:peak_bagger/widgets/map_action_rail.dart';
 import 'package:peak_bagger/widgets/map_basemaps_drawer.dart';
 import 'package:peak_bagger/widgets/map_peak_lists_drawer.dart';
@@ -149,6 +150,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   final _gotoController = TextEditingController();
   final _gotoFocusNode = FocusNode();
   final _searchFocusNode = FocusNode();
+  final _searchPopupKey = GlobalKey<MapSearchPopupState>();
   final _mapFocusNode = FocusNode();
   String? _gotoError;
   bool _mapReady = false;
@@ -225,6 +227,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleSearchShortcut);
     WidgetsBinding.instance.addObserver(this);
     _mapController = MapController();
     _mapNotifier = ref.read(mapProvider.notifier);
@@ -1360,6 +1363,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
     final name = await showRouteTextPromptDialog(
       context,
       title: 'Create Waypoint',
+      fieldLabel: 'Waypoint name',
       initialValue: '',
       blankErrorText: 'A Waypoint name must be entered',
       dialogKey: const Key('route-waypoint-name-dialog'),
@@ -2667,6 +2671,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);
     for (final cancel in _cancelFrameMeasurements) {
       cancel();
     }
@@ -2744,6 +2749,29 @@ class _MapScreenState extends ConsumerState<MapScreen>
     _routeDraftOverlayVisible = false;
   }
 
+  bool _canFocusMapSearch() =>
+      mounted &&
+      !ref.read(mapProvider).isSavingRoute &&
+      // The popup's own dropdown commits must remain eligible while its menu
+      // owns local history. Cmd+F uses the stricter check below.
+      isSearchSurfaceActive(context, allowLocalHistory: true) &&
+      !(_scaffoldKey.currentState?.isEndDrawerOpen ?? false) &&
+      !(_scaffoldKey.currentState?.isDrawerOpen ?? false);
+
+  bool _handleSearchShortcut(KeyEvent event) {
+    if (!isFindShortcut(event) ||
+        !_canFocusMapSearch() ||
+        !isSearchSurfaceActive(context)) {
+      return false;
+    }
+    if (ref.read(mapProvider).showPeakSearch) {
+      _searchPopupKey.currentState?.focusSearch();
+    } else {
+      ref.read(mapProvider.notifier).openSearchPopup();
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     MapRebuildDebugCounters.recordRouteRootBuild();
@@ -2756,6 +2784,7 @@ class _MapScreenState extends ConsumerState<MapScreen>
         (state) => (
           endDrawerMode: state.endDrawerMode,
           showPeakSearch: state.showPeakSearch,
+          isSavingRoute: state.isSavingRoute,
           peakSearchMappingUnavailableReason:
               state.peakSearchMappingUnavailableReason,
           searchResults: state.searchPopupResults,
@@ -2871,13 +2900,6 @@ class _MapScreenState extends ConsumerState<MapScreen>
               } else if (mapState.routeDraftCanUndo) {
                 notifier.undoRouteDraftEdit();
               }
-              return KeyEventResult.handled;
-            }
-
-            if (event is KeyDownEvent &&
-                HardwareKeyboard.instance.isMetaPressed &&
-                key == LogicalKeyboardKey.keyF) {
-              notifier.openSearchPopup();
               return KeyEventResult.handled;
             }
 
@@ -4310,6 +4332,9 @@ class _MapScreenState extends ConsumerState<MapScreen>
                     child: Padding(
                       padding: const EdgeInsets.only(top: 16),
                       child: MapSearchPopup(
+                        key: _searchPopupKey,
+                        enabled: !routeChrome.isSavingRoute,
+                        isInteractionAllowed: _canFocusMapSearch,
                         focusNode: _searchFocusNode,
                         searchResults: routeChrome.searchResults,
                         isLoadingMore: routeChrome.searchIsLoadingMore,

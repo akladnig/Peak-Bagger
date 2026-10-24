@@ -28,11 +28,12 @@ import '../harness/mapping_catalog_fixture.dart';
 import '../harness/dashboard_order_writer.dart';
 import '../harness/test_map_notifier.dart';
 import '../harness/time_chart_preference_storage.dart';
+import '../harness/summary_chart_controls.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  for (final theme in [MyTheme.light, MyTheme.dark]) {
+  for (final theme in [MyTheme.dark]) {
     testWidgets(
       'keyboard reorder retains/reveals ID and full traversal ${theme.brightness}',
       (tester) async {
@@ -111,7 +112,7 @@ void main() {
         final h = await _Harness.pump(
           tester,
           orderWriter: writer,
-          theme: thrown ? MyTheme.dark : MyTheme.light,
+          theme: MyTheme.dark,
           scale: 1.5,
         );
         await h.focus('distance');
@@ -796,7 +797,7 @@ void main() {
     },
   );
 
-  for (final theme in [MyTheme.light, MyTheme.dark]) {
+  for (final theme in [MyTheme.dark]) {
     testWidgets(
       'Time focus/inspection palette and accessible scaled values ${theme.brightness}',
       (tester) async {
@@ -973,7 +974,7 @@ void main() {
     },
   );
 
-  for (final theme in [MyTheme.light, MyTheme.dark]) {
+  for (final theme in [MyTheme.dark]) {
     testWidgets(
       'named card focus is distinct from hover and controls stay pointer-operable ${theme.brightness}',
       (tester) async {
@@ -1097,11 +1098,10 @@ void main() {
       expect(h.page('time'), initial);
 
       await h.key(LogicalKeyboardKey.keyC);
-      final dismissedChoice = tester
-          .widget<MenuItemButton>(
-            find.byKey(const Key('time-chart-type-clusteredColumn')),
-          )
-          .onPressed!;
+      final dismissedChoice = summaryChoiceAction(
+        tester,
+        'time-chart-type-clusteredColumn',
+      );
       await h.key(LogicalKeyboardKey.arrowDown);
       await h.key(LogicalKeyboardKey.keyK);
       await h.key(LogicalKeyboardKey.arrowUp);
@@ -1120,8 +1120,13 @@ void main() {
       await h.key(LogicalKeyboardKey.keyP);
       expect(
         tester
-            .widgetList<MenuItemButton>(find.byType(MenuItemButton))
-            .map((b) => ((b.child as Semantics).child as Text).data),
+            .widgetList<Text>(
+              find.descendant(
+                of: find.byKey(sharedSummaryMenuKey),
+                matching: find.byType(Text),
+              ),
+            )
+            .map((b) => b.data),
         SummaryPeriodPreset.values.map((p) => p.label),
       );
       await h.key(LogicalKeyboardKey.arrowDown);
@@ -1146,7 +1151,7 @@ void main() {
         await h.key(LogicalKeyboardKey.keyC);
         expect(h.chart(id).mode, isNot(mode));
         expect(h.page(id), page);
-        expect(find.byType(MenuItemButton), findsNothing);
+        expect(find.byKey(sharedSummaryMenuKey), findsNothing);
       }
       expect(tester.takeException(), isNull);
     },
@@ -1216,7 +1221,7 @@ void main() {
       }
       expect(h.page('distance'), initial);
       expect(h.chart('distance').mode, mode);
-      expect(find.byType(MenuItemButton), findsNothing);
+      expect(find.byKey(sharedSummaryMenuKey), findsNothing);
       h.shellFocus.requestFocus();
       await tester.pump();
       await h.key(LogicalKeyboardKey.keyB);
@@ -1241,20 +1246,265 @@ void main() {
     },
   );
 
-  testWidgets('closing a pointer menu leaves outside typing focus intact', (
-    tester,
-  ) async {
-    final h = await _Harness.pump(tester, populated: true);
-    await tester.tap(h.control('time', 'time-chart-type-button'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(TextField));
-    await tester.pumpAndSettle();
-    expect(h.editFocus.hasPrimaryFocus, isTrue);
-    expect(h.owner('time').menuOwnsFocus, isFalse);
-    await tester.enterText(find.byType(TextField), 'wbc');
-    expect(find.text('wbc'), findsOneWidget);
-    expect(find.byType(MenuItemButton), findsNothing);
-  });
+  testWidgets(
+    'outside gesture only dismisses before another gesture focuses typing',
+    (tester) async {
+      final h = await _Harness.pump(tester, populated: true);
+      await tester.tap(h.control('time', 'time-chart-type-button'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      expect(h.editFocus.hasPrimaryFocus, isFalse);
+      expect(h.owner('time').menuOwnsFocus, isFalse);
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      expect(h.editFocus.hasPrimaryFocus, isTrue);
+      await tester.enterText(find.byType(TextField), 'wbc');
+      expect(find.text('wbc'), findsOneWidget);
+      expect(find.byKey(sharedSummaryMenuKey), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'unchanged Enter after hover preserves Time inspection and never writes preferences',
+    (tester) async {
+      final storage = TestTimeChartPreferenceStorage();
+      final h = await _Harness.pump(
+        tester,
+        populated: true,
+        timeStorage: storage,
+      );
+      await h.focus('time');
+      final rows = h.inspectionRows();
+      final page = h.page('time');
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(mouse.removePointer);
+      for (final shortcut in [
+        LogicalKeyboardKey.keyC,
+        LogicalKeyboardKey.keyP,
+      ]) {
+        await h.key(shortcut);
+        await mouse.moveTo(
+          tester.getCenter(
+            find.byKey(
+              Key(
+                shortcut == LogicalKeyboardKey.keyC
+                    ? 'time-chart-type-line'
+                    : 'time-period-month',
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        // Hover must not become a keyboard target. Leave the pointer outside the
+        // chart before closing so overlay removal is not a separate chart hover.
+        await mouse.moveTo(const Offset(1390, 5));
+        await tester.pumpAndSettle();
+        await h.key(LogicalKeyboardKey.enter);
+        expect(find.byKey(sharedSummaryMenuKey), findsNothing);
+        expect(h.page('time'), page);
+        expect(h.inspectionRows(), rows);
+        expect(storage.writes, isEmpty);
+        h.expectFocus('time');
+        expect(
+          h.owner('time').focusEvents.value.$2,
+          DashboardCardFocusReason.menuReturn,
+        );
+      }
+    },
+  );
+
+  testWidgets(
+    'both Dashboard menus reject same-frame obscured-route callbacks and consume dismissal keys',
+    (tester) async {
+      final storage = TestTimeChartPreferenceStorage();
+      final h = await _Harness.pump(
+        tester,
+        populated: true,
+        timeStorage: storage,
+      );
+      await h.focus('time');
+      for (final shortcut in [
+        LogicalKeyboardKey.keyC,
+        LogicalKeyboardKey.keyP,
+      ]) {
+        final choice = shortcut == LogicalKeyboardKey.keyC
+            ? 'time-chart-type-line'
+            : 'time-period-month';
+        await h.key(shortcut);
+        final select = summaryChoiceAction(tester, choice);
+        final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+        navigator.push(
+          MaterialPageRoute<void>(
+            builder: (_) => const Scaffold(body: Text('Other route')),
+          ),
+        );
+        select(); // Before the obscured owner/anchor rebuilds.
+        await tester.pumpAndSettle();
+        expect(storage.writes, isEmpty);
+        navigator.pop();
+        await tester.pumpAndSettle();
+        expect(h.chart('time').period, SummaryPeriodPreset.last12Months);
+        await h.focus('time');
+        for (final dismissal in ['escape', 'control-c', 'back']) {
+          final rows = h.inspectionRows();
+          await h.key(shortcut);
+          await h.key(LogicalKeyboardKey.arrowDown);
+          if (dismissal == 'control-c') {
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+            await h.key(LogicalKeyboardKey.keyC);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+          } else if (dismissal == 'back') {
+            await tester.binding.handlePopRoute();
+            await tester.pumpAndSettle();
+          } else {
+            await h.key(LogicalKeyboardKey.escape);
+          }
+          expect(find.byKey(sharedSummaryMenuKey), findsNothing);
+          expect(h.inspectionRows(), rows);
+          expect(storage.writes, isEmpty);
+          h.expectFocus('time');
+        }
+      }
+    },
+  );
+
+  testWidgets(
+    'caller resize and removed menus preserve values/drafts and reject orphan callbacks',
+    (tester) async {
+      final storage = TestTimeChartPreferenceStorage();
+      final h = await _Harness.pump(
+        tester,
+        populated: true,
+        timeStorage: storage,
+      );
+      await tester.enterText(find.byType(TextField), 'Unsaved dashboard note');
+      for (final shortcut in [
+        LogicalKeyboardKey.keyC,
+        LogicalKeyboardKey.keyP,
+      ]) {
+        await h.focus('time');
+        final page = h.page('time');
+        await h.key(shortcut);
+        await tester.binding.setSurfaceSize(const Size(1920, 1200));
+        await tester.pumpAndSettle();
+        expect(h.page('time'), page);
+        expect(storage.writes, isEmpty);
+        expect(find.text('Unsaved dashboard note'), findsOneWidget);
+        if (find.byKey(sharedSummaryMenuKey).evaluate().isNotEmpty) {
+          await h.key(LogicalKeyboardKey.escape);
+        }
+        await h.focus('time');
+        await h.key(shortcut);
+        final captured = summaryChoiceAction(
+          tester,
+          shortcut == LogicalKeyboardKey.keyC
+              ? 'time-chart-type-line'
+              : 'time-period-month',
+        );
+        h.setTracks([]);
+        await tester.pumpAndSettle();
+        captured();
+        await tester.pumpAndSettle();
+        expect(find.byKey(sharedSummaryMenuKey), findsNothing);
+        expect(h.owner('time').menuOwnsFocus, isFalse);
+        expect(storage.writes, isEmpty);
+        expect(find.text('Unsaved dashboard note'), findsOneWidget);
+        h.setTracks([_track(1, 1989, 2), _track(2, 2024, 6)]);
+        await tester.pumpAndSettle();
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Time overflow keeps keyboard inspection, P/C menus and full-card traversal reachable',
+    (tester) async {
+      final track = _track(1, 2026, 10)
+        ..totalTimeMillis = 123456 * Duration.millisecondsPerDay
+        ..movingTime = 123456 * Duration.millisecondsPerDay;
+      final h = await _Harness.pump(
+        tester,
+        tracks: [track],
+        size: const Size(1600, 1000),
+        scale: 2,
+      );
+      await h.focus('time');
+      final viewport = h.control('time', 'time-card-viewport');
+      final scroll = tester
+          .state<ScrollableState>(
+            find
+                .descendant(of: viewport, matching: find.byType(Scrollable))
+                .first,
+          )
+          .position;
+      expect(scroll.maxScrollExtent, greaterThan(0));
+      expect(scroll.pixels, scroll.maxScrollExtent);
+      final initial = h.chart('time').buckets.first.start;
+      final type = h.container.read(timeChartTypeProvider).selected;
+      for (var i = 0; i < 4; i++) {
+        await h.key(LogicalKeyboardKey.pageUp);
+      }
+      expect(scroll.pixels, 0);
+      final header = h.control('time', 'dashboard-card-time-drag-handle');
+      expect(
+        tester.getRect(header).top,
+        greaterThanOrEqualTo(tester.getRect(viewport).top),
+      );
+      for (var i = 0; i < 4; i++) {
+        await h.key(LogicalKeyboardKey.pageDown);
+      }
+      expect(scroll.pixels, scroll.maxScrollExtent);
+      for (final shortcut in [
+        LogicalKeyboardKey.keyP,
+        LogicalKeyboardKey.keyC,
+      ]) {
+        await h.key(shortcut);
+        expect(find.byKey(sharedSummaryMenuKey), findsOneWidget);
+        await h.key(LogicalKeyboardKey.enter);
+        h.expectFocus('time');
+        await h.key(LogicalKeyboardKey.arrowLeft);
+        expect(scroll.pixels, scroll.maxScrollExtent);
+        expect(h.page('time'), initial);
+        expect(h.container.read(timeChartTypeProvider).selected, type);
+      }
+      await h.key(LogicalKeyboardKey.keyP);
+      await h.key(LogicalKeyboardKey.tab);
+      h.expectFocus('latest-walk');
+      await h.tabBack();
+      h.expectFocus('time');
+      expect(scroll.pixels, scroll.maxScrollExtent);
+      for (final chartType in TimeChartType.values) {
+        await h.container
+            .read(timeChartTypeProvider.notifier)
+            .select(chartType);
+        await tester.pumpAndSettle();
+        await h.key(LogicalKeyboardKey.arrowLeft);
+        final page = h.page('time');
+        for (final size in [
+          const Size(1280, 960),
+          const Size(1920, 1200),
+          const Size(1600, 1000),
+        ]) {
+          await tester.binding.setSurfaceSize(size);
+          await tester.pumpAndSettle();
+          expect(h.page('time'), page);
+          expect(h.container.read(timeChartTypeProvider).selected, chartType);
+          await h.key(LogicalKeyboardKey.keyC);
+          expect(find.byKey(sharedSummaryMenuKey), findsOneWidget);
+          await h.key(LogicalKeyboardKey.escape);
+          h.expectFocus('time');
+        }
+      }
+      final page = h.page('time');
+      await h.reorder(forward: true);
+      h.expectFocus('time');
+      expect(h.page('time'), page);
+      await h.key(LogicalKeyboardKey.arrowLeft);
+      expect(h.control('time', 'time-tooltip'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'refresh removing a closing menu releases its keyboard ownership',
@@ -1262,9 +1512,7 @@ void main() {
       final h = await _Harness.pump(tester, populated: true);
       await h.focus('time');
       await h.key(LogicalKeyboardKey.keyC);
-      final select = tester
-          .widget<MenuItemButton>(find.byKey(const Key('time-chart-type-line')))
-          .onPressed!;
+      final select = summaryChoiceAction(tester, 'time-chart-type-line');
       final owner = h.owner('time');
       select();
       (h.container.read(mapProvider.notifier) as TestMapNotifier).setTracks([]);
@@ -1349,7 +1597,7 @@ class _Harness {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          theme: (theme ?? MyTheme.light).copyWith(
+          theme: (theme ?? MyTheme.dark).copyWith(
             platform: TargetPlatform.macOS,
           ),
           home: MediaQuery(
@@ -1373,7 +1621,10 @@ class _Harness {
                     valueListenable: h.active,
                     builder: (_, enabled, _) => TickerMode(
                       enabled: enabled,
-                      child: const DashboardScreen(),
+                      child: const HeroMode(
+                        enabled: false,
+                        child: DashboardScreen(),
+                      ),
                     ),
                   ),
                 ),

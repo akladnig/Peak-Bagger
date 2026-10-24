@@ -113,6 +113,13 @@ Add a **Time** card to the existing Dashboard. Derive two series from eligible c
 
 ## Testing Strategy
 
+**Verification amendment — 2026-10-21:** theme-related tests and native/visual
+checks use only My Seed Colour (`#7E47EB`, `MyTheme.dark`) in dark mode. This
+supersedes light/dark/changed-seed verification in this Spec and its Work Items.
+Keep distinct chart, keyboard, preference, failure, scale and resize checks.
+Runtime theme support and dated evidence are unchanged; inherited Time layout
+checks remain gated, not waived. See `ai_specs/app-profile.md` (project-root-relative).
+
 1. **Approach:** behavior-focused unit/provider and widget coverage is the default for this feature. No strict one-test-at-a-time TDD or new robot-journey mandate was selected. Retain existing Dashboard robot journeys and selectors; extend their fixtures/helpers only as necessary for the added card. Documentation publication requires artifact/link/traceability checks, not runtime tests.
 2. **Aggregation and eligibility:** verify both durations present, negative values, Moving Time greater than Total Time, zero/zero and zero-moving pairs, unknown/future Track dates, same-set eligibility for both series/endpoints, sums retaining sub-minute precision, and wholly-empty versus navigable-zero pages. Assert the four-moving/one-resting/thirty-minute-pause example contributes five/four hours without changing stored data. Include multi-day durations assigned to the Track date. [L2] [L8]
 3. **Formatting and scale:** verify exact day/hour/minute text for zero, sub-minute, minute/hour/day boundaries, fractional-minute averages, multi-day totals, and no premature per-Track rounding. Verify `0d`, `2.5d`, `5d`, trimmed decimal labels, distinct sub-day ticks, all-zero scaling, and unchanged existing Track-details formatting. [L6] [L7]
@@ -137,6 +144,29 @@ Add a **Time** card to the existing Dashboard. Derive two series from eligible c
 - New network/API dependencies, credentials, packages without demonstrated necessity, compact/iOS/touch layouts, or replacing ObjectBox/Riverpod/GoRouter.
 
 ## Open Questions
+
+**Time gate resolution — 2026-10-24, L23:** the user approved retaining existing
+card/grid geometry, reserving usable chart space and scrolling overflowing Time
+content. This supersedes the unresolved layout prerequisite in Technical Decision 9
+and the historical L19–L22 gate statements below for this affected scope. The global
+1280 × 960 minimum and unbounded larger resize range are already approved. No new
+Time breakpoint, card height, full-screen decision, maximum duration or text-scale
+reduction is introduced. Time's full summary header, one-row controls, complete
+date range and chart share one vertical card viewport. The chart fills available
+space when possible; otherwise a minimum derived from four legible axis-label
+intervals plus existing renderer insets is retained and content scrolls. Keyboard
+inspection reveals the chart; P/C reveals the existing invoking control before
+opening its menu, without extra Tab stops or changed menu-return reasons. Verify
+1× / 1.5× / 2× text, minimum/larger content sizes, every chart type, long values,
+actual scrolling/reachability, state-preserving resizing/reordering and native
+macOS input. Runtime completion is recorded separately, not inferred from approval.
+
+**Verified delivery — 2026-10-24:** this height/reachability gate is now closed;
+Work Items 01–02 and Spec 0069 item 06 are complete. Analysis and native macOS
+rendering/input pass; full suite **2,887 passed, five existing skips**. See
+[layout delivery evidence](implementation-layout-verification.md). The subsequent
+L19–L22 entries retain historical gate/authorisation provenance; native full-screen
+and the separately documented shell-accessibility gap remain outside this closure.
 
 - The named Pending profile/window values remain unresolved. They do not block this Spec or independent data/preference logic; resolve a value before any actual dependent layout work, rather than inventing dimensions.
 - **Implementation gate (2026-10-18, L19):** the user selected `Leave layout gated` after Work Item 01's long-summary/enlarged-text regression exposed insufficient remaining plot height. Keep header-height/reachability acceptance incomplete pending the actual supported window/Time layout contract. The existing regression viewport is evidence only. Independent Time work and verification can proceed; see [Work Item 01 progress](work-items/01-time-card-calendar-and-summaries.md#implementation-progress--2026-10-18).

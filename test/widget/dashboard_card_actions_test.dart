@@ -216,7 +216,7 @@ void main() {
     },
   );
 
-  for (final theme in [MyTheme.light, MyTheme.dark]) {
+  for (final theme in [MyTheme.dark]) {
     for (final id in ['my-lists', 'my-ascents']) {
       testWidgets(
         '$id first/non-wrapping selection, measured scroll and distinct focus/hover ${theme.brightness}',
@@ -806,7 +806,7 @@ class _Harness {
       UncontrolledProviderScope(
         container: h.container,
         child: MaterialApp.router(
-          theme: (theme ?? MyTheme.light).copyWith(
+          theme: (theme ?? MyTheme.dark).copyWith(
             platform: TargetPlatform.macOS,
           ),
           routerConfig: h.router,

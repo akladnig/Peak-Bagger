@@ -80,7 +80,7 @@ void main() {
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
-          theme: (theme ?? MyTheme.light).copyWith(
+          theme: (theme ?? MyTheme.dark).copyWith(
             platform: TargetPlatform.macOS,
           ),
           home: MediaQuery(
@@ -101,7 +101,7 @@ void main() {
     await tester.pump();
   }
 
-  for (final theme in [MyTheme.light, MyTheme.dark]) {
+  for (final theme in [MyTheme.dark]) {
     testWidgets(
       'pending/read failure/exact pointer Retry at enlarged text ${theme.brightness}',
       (tester) async {
@@ -408,6 +408,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
+            theme: MyTheme.dark,
             home: Scaffold(
               body: SizedBox(
                 width: 700,

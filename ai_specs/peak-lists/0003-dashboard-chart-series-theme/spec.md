@@ -36,7 +36,7 @@ Dashboard chart series colors are split between `lib/widgets/dashboard/dashboard
 ## Testing Strategy
 
 1. Use focused TDD for the theme refactor and chart-color wiring. Add or update one assertion at a time for the moved helper, the new `ChartSeriesTheme`, and the summary-chart color source change. [L1]
-2. Extend `test/theme_test.dart` as the primary seam for verifying that `ChartSeriesTheme` is registered on both light and dark themes and that the moved helper still behaves the same. [L1]
+2. Extend `test/theme_test.dart` as the primary seam for verifying `ChartSeriesTheme` and its helper using My Seed Colour (`#7E47EB`) in dark mode only. Runtime light-theme registration remains required; its testing matrix is superseded by the 2026-10-21 app-profile amendment. [L1; verification amended 2026-10-21]
 3. Update the existing widget tests that currently import `dashboard_series_colors.dart`, especially `test/widget/distance_card_test.dart` and `test/widget/peaks_bagged_card_test.dart`, so they import `package:peak_bagger/theme.dart` and continue to assert the same tooltip colors. [L1]
 4. Keep `test/widget/summary_chart_tooltip_test.dart` as the widget seam for summary-chart behavior. If the color-source change needs direct coverage, add the smallest assertion necessary there rather than creating a new broad harness. [L1]
 5. No robot or multi-screen journey coverage is required. This refactor stays within theme wiring and existing dashboard widgets, so unit and widget coverage are the right split. [L1]

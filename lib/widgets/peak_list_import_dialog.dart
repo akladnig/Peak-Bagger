@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:peak_bagger/core/widgets/popup_keyboard_dismiss.dart';
@@ -16,6 +18,42 @@ typedef PeakListImportRunner =
 
 typedef PeakListImportStarter =
     Future<bool> Function({required String listName, required String csvPath});
+
+/// The route gate also rejects direct Navigator.pop, not just maybePop/back.
+/// Child confirmations have their own route and remain independently dismissible.
+Future<bool?> showPeakListImportDialog({
+  required BuildContext context,
+  required PeakListFilePicker filePicker,
+  required PeakListImportStarter onImport,
+  required PeakListDuplicateNameChecker duplicateNameChecker,
+}) => Navigator.of(context, rootNavigator: true).push<bool>(
+  _PeakListImportRoute(
+    context: context,
+    builder: (_) => PeakListImportDialog(
+      filePicker: filePicker,
+      onImport: onImport,
+      duplicateNameChecker: duplicateNameChecker,
+    ),
+  ),
+);
+
+class _PeakListImportRoute extends DialogRoute<bool> {
+  _PeakListImportRoute({required super.context, required super.builder});
+  bool _locked = false;
+  set locked(bool value) {
+    if (_locked == value) return;
+    _locked = value;
+    changedExternalState();
+  }
+
+  @override
+  bool get barrierDismissible => !_locked;
+  @override
+  RoutePopDisposition get popDisposition =>
+      _locked ? RoutePopDisposition.doNotPop : super.popDisposition;
+  @override
+  bool didPop(bool? result) => !_locked && super.didPop(result);
+}
 
 class PeakListImportPresentationResult {
   const PeakListImportPresentationResult({
@@ -47,6 +85,8 @@ class PeakListImportPresentationResult {
   String get title => updated ? 'Peak List Updated' : 'Peak List Created';
 }
 
+/// Present with [showPeakListImportDialog] so all parent dismissal paths share
+/// the synchronous attempt gate, while duplicate-confirmation routes stay usable.
 class PeakListImportDialog extends StatefulWidget {
   const PeakListImportDialog({
     required this.filePicker,
@@ -68,6 +108,19 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
   String? _selectedFilePath;
   String? _nameError;
   bool _isImporting = false;
+  bool _isSelectingFile = false;
+  String? _failure;
+
+  void _setImporting(bool value) {
+    final route = ModalRoute.of(context);
+    if (route is _PeakListImportRoute) route.locked = value;
+    setState(() => _isImporting = value);
+  }
+
+  void _dismiss() {
+    if (_isImporting || !(ModalRoute.of(context)?.isCurrent ?? true)) return;
+    Navigator.of(context).pop();
+  }
 
   @override
   void dispose() {
@@ -79,17 +132,18 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
   Widget build(BuildContext context) {
     return PopupKeyboardDismiss(
       enabled: !_isImporting,
-      onDismiss: () => Navigator.of(context).pop(),
+      onDismiss: _dismiss,
       child: AlertDialog(
         key: const Key('peak-list-import-dialog'),
         title: const Text('Import Peak List'),
+        scrollable: true,
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             FilledButton(
               key: const Key('peak-list-select-file'),
-              onPressed: _isImporting ? null : _selectFile,
+              onPressed: _isImporting || _isSelectingFile ? null : _selectFile,
               child: const Text('Select Peak Lists'),
             ),
             const SizedBox(height: 12),
@@ -104,6 +158,7 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
               enabled: !_isImporting,
               errorText: _nameError,
               onChanged: (_) {
+                if (_isImporting) return;
                 if (_nameError != null) {
                   setState(() {
                     _nameError = null;
@@ -111,25 +166,39 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
                 }
               },
             ),
+            if (_failure case final failure?) ...[
+              const SizedBox(height: 12),
+              Text(
+                failure,
+                key: const Key('peak-list-import-error'),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
           ],
         ),
         actions: [
           FilledButton(
             key: const Key('peak-list-import-cancel'),
-            onPressed: _isImporting ? null : () => Navigator.of(context).pop(),
+            onPressed: _isImporting ? null : _dismiss,
             child: const Text('Cancel'),
           ),
           FilledButton(
             key: const Key('peak-list-import-button'),
-            onPressed: _selectedFilePath == null || _isImporting
+            onPressed:
+                _selectedFilePath == null || _isImporting || _isSelectingFile
                 ? null
                 : _import,
             child: _isImporting
-                ? const SizedBox(
-                    key: Key('peak-list-import-progress'),
+                ? SizedBox(
+                    key: const Key('peak-list-import-progress'),
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      value: (ModalRoute.of(context)?.isCurrent ?? true)
+                          ? null
+                          : 0,
+                    ),
                   )
                 : const Text('Import'),
           ),
@@ -139,9 +208,11 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
   }
 
   Future<void> _selectFile() async {
+    if (_isImporting || _isSelectingFile) return;
+    setState(() => _isSelectingFile = true);
     try {
       final selected = await widget.filePicker.pickCsvFile();
-      if (!mounted || selected == null) {
+      if (!mounted || _isImporting || selected == null) {
         return;
       }
 
@@ -157,6 +228,8 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
         Navigator.of(context, rootNavigator: true).context,
         _formatPickerError(error),
       );
+    } finally {
+      if (mounted) setState(() => _isSelectingFile = false);
     }
   }
 
@@ -168,15 +241,12 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
     return error.toString();
   }
 
-  String _formatImportError(Object error) {
-    if (error case FormatException(:final message)) {
-      return message.toString();
-    }
-
-    return error.toString();
-  }
-
   Future<void> _import() async {
+    if (_isImporting ||
+        _isSelectingFile ||
+        !(ModalRoute.of(context)?.isCurrent ?? true)) {
+      return;
+    }
     final name = _nameController.text.trim();
     if (name.isEmpty) {
       setState(() {
@@ -190,47 +260,45 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
       return;
     }
 
-    final duplicateName = await widget.duplicateNameChecker(name);
-    if (!mounted) {
-      return;
-    }
-    if (duplicateName) {
-      final confirmed = await _confirmUpdate();
-      if (!mounted || confirmed != true) {
-        return;
-      }
-    }
-
-    setState(() {
-      _isImporting = true;
-    });
-
-    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    _setImporting(true);
+    setState(() => _failure = null);
     try {
+      final duplicateName = await widget.duplicateNameChecker(name);
+      if (!mounted) return;
+      if (duplicateName) {
+        final confirmed = await _confirmUpdate();
+        if (!mounted || confirmed != true) return;
+      }
       final accepted = await widget.onImport(listName: name, csvPath: csvPath);
       if (!mounted) {
         return;
       }
-      setState(() {
-        _isImporting = false;
-      });
       if (accepted) {
+        _setImporting(false);
         Navigator.of(context).pop(true);
+      } else {
+        setState(
+          () => _failure =
+              'The import could not be started. Your file and list name have been kept. Check Background Jobs for running work, then try Import again.',
+        );
       }
-    } catch (error) {
+    } catch (error, stackTrace) {
       if (!mounted) {
         return;
       }
-      rootNavigator.pop();
-      await _showFailureDialog(
-        rootNavigator.context,
-        _formatImportError(error),
+      // Do not log file paths, list names or exception payloads.
+      developer.log(
+        'Peak List import could not be started (${error.runtimeType})',
+        name: 'peak_list_import',
+        stackTrace: stackTrace,
+      );
+      setState(
+        () => _failure =
+            'The import could not be started. Your file and list name have been kept. Try Import again, or Cancel to discard them.',
       );
     } finally {
       if (mounted && _isImporting) {
-        setState(() {
-          _isImporting = false;
-        });
+        _setImporting(false);
       }
     }
   }
@@ -253,7 +321,17 @@ class _PeakListImportDialogState extends State<PeakListImportDialog> {
       context: dialogContext,
       title: 'Peak List Import Failed',
       closeKey: 'peak-list-import-error-close',
-      content: Text(error),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'The CSV file could not be selected. Try Select Peak Lists again.',
+          ),
+          const SizedBox(height: 12),
+          Text(error),
+        ],
+      ),
     );
   }
 }

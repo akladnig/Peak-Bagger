@@ -517,7 +517,7 @@ void main() {
     });
   }
 
-  for (final theme in [MyTheme.light, MyTheme.dark]) {
+  for (final theme in [MyTheme.dark]) {
     testWidgets(
       'single-row toolbar supports focus, semantics and enlarged text in ${theme.brightness.name}',
       (tester) async {
@@ -719,7 +719,7 @@ Future<void> _pump(
   await tester.pumpWidget(
     ProviderScope(
       child: MaterialApp(
-        theme: theme,
+        theme: theme ?? MyTheme.dark,
         home: Scaffold(
           body: MediaQuery(
             data: MediaQueryData(textScaler: TextScaler.linear(textScale)),

@@ -42,6 +42,55 @@ import '../harness/test_map_notifier.dart';
 
 void main() {
   testWidgets(
+    'Route name and mode reject captured callbacks during current Save',
+    (tester) async {
+      final notifier = TestMapNotifier(
+        MapState(
+          center: const LatLng(-41.5, 146.5),
+          zoom: 15,
+          basemap: Basemap.tracestrack,
+          isRouteDrafting: true,
+          routeDraftName: 'Unsaved route',
+          routeDraftMode: RouteMode.straightLine,
+          routeDraftStage: RouteDraftStage.awaitingNextPoint,
+        ),
+      );
+      await _pumpMap(tester, notifier);
+      final field = find.byKey(const Key('route-name-field'));
+      final name = tester.widget<TextFormField>(field);
+      final mode = tester.widget<FilledButton>(
+        find.descendant(
+          of: find.byKey(const Key('route-mode-snap-to-trail')),
+          matching: find.byType(FilledButton),
+        ),
+      );
+      expect(
+        tester
+            .widget<TextField>(
+              find.descendant(of: field, matching: find.byType(TextField)),
+            )
+            .decoration!
+            .labelText,
+        'Route name',
+      );
+      notifier.state = notifier.state.copyWith(isSavingRoute: true);
+      name.onChanged!('Stale name');
+      mode.onPressed!();
+      expect(notifier.state.routeDraftName, 'Unsaved route');
+      expect(notifier.state.routeDraftMode, RouteMode.straightLine);
+      await tester.pump();
+      expect(tester.widget<TextFormField>(field).enabled, isFalse);
+      notifier.state = notifier.state.copyWith(isSavingRoute: false);
+      await tester.pumpAndSettle();
+      expect(notifier.state.routeDraftName, 'Unsaved route');
+      expect(
+        tester.widget<TextFormField>(field).controller!.text,
+        'Unsaved route',
+      );
+    },
+  );
+
+  testWidgets(
     'route-to-peak button action waits for current visible statistics',
     (tester) async {
       final events = <Map<String, Object?>>[];

@@ -68,6 +68,11 @@ void main() {
     expect(result.naturalFeature?.altName, 'Lake Alt');
     expect(result.naturalFeature?.tag, 'water');
     expect(result.naturalFeature?.sourceOfTruth, 'Manual');
+    expect(result.naturalFeature?.sourceKey, 'Manual:node:123');
+    expect(result.naturalFeature?.sourceRecordKey, 'Manual:node:123');
+    expect(source.sourceOfTruth, 'OSM');
+    expect(source.sourceKey, 'OSM:node:123');
+    expect(source.sourceRecordKey, 'OSM:node:123');
   });
 
   test('recalculates MGRS and derived grid zone from latitude longitude', () {

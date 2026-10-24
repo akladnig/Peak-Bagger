@@ -5,8 +5,9 @@ import 'package:peak_bagger/services/objectbox_admin_repository.dart';
 
 void main() {
   test('trims a valid contact and composes its display name', () {
+    final source = Contact(id: 4, nickname: 'Committed');
     final result = ContactAdminEditor.validateAndBuild(
-      source: Contact(id: 4),
+      source: source,
       form: const ContactAdminFormState(
         firstName: ' Ada ',
         surname: ' Lovelace ',
@@ -20,6 +21,8 @@ void main() {
     expect(result.contact?.surname, 'Lovelace');
     expect(result.contact?.nickname, 'Countess');
     expect(contactDisplayName(result.contact!), 'Ada Lovelace');
+    expect(source.nickname, 'Committed');
+    expect(source.firstName, isEmpty);
   });
 
   test('uses nickname only when both name parts are blank', () {

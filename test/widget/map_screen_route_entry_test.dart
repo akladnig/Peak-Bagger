@@ -377,6 +377,9 @@ Future<void> _pumpApp(
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
+  // Guarded route parsing mounts the dashboard a frame later. Let its startup
+  // preference restoration complete before issuing a cold-start selection.
+  await tester.pump(const Duration(milliseconds: 100));
 }
 
 class _InitialStateMapNotifier extends MapNotifier {

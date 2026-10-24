@@ -16,12 +16,41 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
   int exportCallCount = 0;
   int getEntitiesCallCount = 0;
   int loadRowsCallCount = 0;
+  Object? discoveryError;
+  Future<bool> Function(int)? waypointRemover;
+  @override
+  Future<bool> deleteWaypoint(int id) async {
+    if (waypointRemover != null) return waypointRemover!(id);
+    final rows = _rowsByEntity['Waypoints'] ?? [];
+    final found = rows.any((row) => row.primaryKeyValue == id);
+    _rowsByEntity['Waypoints'] = rows
+        .where((row) => row.primaryKeyValue != id)
+        .toList();
+    return found;
+  }
+
+  Future<List<ObjectBoxAdminRow>> Function(ObjectBoxAdminEntityDescriptor)?
+  rowLoader;
 
   void replaceEntities(List<ObjectBoxAdminEntityDescriptor> entities) {
     _entities = entities;
   }
 
-  static final _defaultEntities = [
+  // Editor tests use real discovered policy/coverage, not implicit eligibility
+  // from legacy preview-only descriptors. Explicitly injected descriptors are
+  // left untouched so missing-policy/fallback tests remain meaningful.
+  static final _defaultEntities = _previewEntities
+      .map((preview) {
+        if (!{'Peak', 'PeakList', 'Route'}.contains(preview.name)) {
+          return preview;
+        }
+        return ObjectBoxAdminRepositoryImpl().getEntities().singleWhere(
+          (entity) => entity.name == preview.name,
+        );
+      })
+      .toList(growable: false);
+
+  static final _previewEntities = [
     const ObjectBoxAdminEntityDescriptor(
       name: 'Peak',
       displayName: 'Peak',
@@ -472,6 +501,7 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
   @override
   List<ObjectBoxAdminEntityDescriptor> getEntities() {
     getEntitiesCallCount += 1;
+    if (discoveryError != null) throw discoveryError!;
     return _entities;
   }
 
@@ -482,6 +512,7 @@ class TestObjectBoxAdminRepository implements ObjectBoxAdminRepository {
     required bool ascending,
   }) async {
     loadRowsCallCount += 1;
+    if (rowLoader != null) return rowLoader!(entity);
     final rows = _rowsByEntity[entity.name] ?? const [];
     return objectBoxAdminFilterAndSortRows(
       entity,

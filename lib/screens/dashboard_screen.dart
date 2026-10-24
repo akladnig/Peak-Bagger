@@ -451,12 +451,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             onVisibleSummaryChanged:
                                 _handleDistanceSummaryChanged,
                           ),
-                          'time' => TimeCard(
-                            tracks: tracks,
-                            isLoading: isLoadingTracks,
-                            now: widget.now,
-                            onVisibleSummaryChanged: _handleTimeSummaryChanged,
-                          ),
+                          'time' => null,
                           'latest-walk' => LatestWalkCard(
                             key: ValueKey(
                               'latest-walk-card-${latestWalkTrackId ?? 'empty'}',
@@ -534,6 +529,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             _ => null,
                           },
                           body: body,
+                          bodyWithHeaderBuilder: definition.id != 'time'
+                              ? null
+                              : (header) => TimeCard(
+                                  tracks: tracks,
+                                  isLoading: isLoadingTracks,
+                                  now: widget.now,
+                                  onVisibleSummaryChanged:
+                                      _handleTimeSummaryChanged,
+                                  header: header,
+                                ),
                           onMove: (draggedId, targetId) {
                             unawaited(
                               ref
@@ -572,13 +577,15 @@ class _DashboardCard extends StatefulWidget {
     required this.keyboard,
     required this.headerTrailing,
     required this.body,
+    this.bodyWithHeaderBuilder,
     required this.onMove,
   });
 
   final DashboardCardDefinition definition;
   final DashboardCardKeyboardController keyboard;
   final Widget? headerTrailing;
-  final Widget body;
+  final Widget? body;
+  final Widget Function(Widget header)? bodyWithHeaderBuilder;
   final void Function(String draggedId, String targetId) onMove;
 
   @override
@@ -624,6 +631,16 @@ class _DashboardCardState extends State<_DashboardCard>
             builder: (context, candidateData, rejectedData) {
               final isHovered =
                   _isPointerHovered || _isDragging || candidateData.isNotEmpty;
+              final header = _DashboardCardHeader(
+                definition: widget.definition,
+                headerTrailing: widget.headerTrailing,
+                onDragStarted: () {
+                  if (!_isDragging) setState(() => _isDragging = true);
+                },
+                onDragEnded: () {
+                  if (_isDragging) setState(() => _isDragging = false);
+                },
+              );
               return MouseRegion(
                 onEnter: (_) {
                   if (!_isPointerHovered) {
@@ -654,26 +671,15 @@ class _DashboardCardState extends State<_DashboardCard>
                           : 1,
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _DashboardCardHeader(
-                        definition: widget.definition,
-                        headerTrailing: widget.headerTrailing,
-                        onDragStarted: () {
-                          if (!_isDragging) {
-                            setState(() => _isDragging = true);
-                          }
-                        },
-                        onDragEnded: () {
-                          if (_isDragging) {
-                            setState(() => _isDragging = false);
-                          }
-                        },
+                  child:
+                      widget.bodyWithHeaderBuilder?.call(header) ??
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          header,
+                          Expanded(child: widget.body!),
+                        ],
                       ),
-                      Expanded(child: widget.body),
-                    ],
-                  ),
                 ),
               );
             },
@@ -768,25 +774,33 @@ class _DashboardCardDragFeedback extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Container(
-                color: theme.colorScheme.onPrimary,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: _DashboardCardHeaderRow(
-                  title: definition.title,
-                  headerTrailing: headerTrailing,
-                  titleStyle: theme.textTheme.titleMedium,
-                ),
-              ),
-              const Expanded(child: SizedBox.shrink()),
+              if (definition.id == 'time')
+                Expanded(
+                  child: SingleChildScrollView(
+                    primary: false,
+                    child: _feedbackHeader(theme),
+                  ),
+                )
+              else
+                _feedbackHeader(theme),
+              if (definition.id != 'time')
+                const Expanded(child: SizedBox.shrink()),
             ],
           ),
         ),
       ),
     );
   }
+
+  Widget _feedbackHeader(ThemeData theme) => Container(
+    color: theme.colorScheme.onPrimary,
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    child: _DashboardCardHeaderRow(
+      title: definition.title,
+      headerTrailing: headerTrailing,
+      titleStyle: theme.textTheme.titleMedium,
+    ),
+  );
 }
 
 class _DashboardCardHeaderRow extends StatelessWidget {

@@ -11,6 +11,8 @@ import '../core/widgets/popup_shell.dart';
 import '../models/map_search_result.dart';
 import '../theme.dart';
 import 'map_search_results_list.dart';
+import 'shared_dropdown.dart';
+import 'shared_field_decoration.dart';
 
 const _noRegionSelection = '__map_search_no_region__';
 const _minimumPopupWidth = 320.0;
@@ -42,6 +44,8 @@ class MapSearchPopup extends StatefulWidget {
     this.naturalFeaturesUnavailableReason,
     this.onRetryNaturalFeatures,
     this.clock = DateTime.now,
+    this.isInteractionAllowed,
+    this.enabled = true,
     super.key,
   });
 
@@ -70,12 +74,14 @@ class MapSearchPopup extends StatefulWidget {
   final String? naturalFeaturesUnavailableReason;
   final VoidCallback? onRetryNaturalFeatures;
   final DateTime Function() clock;
+  final bool Function()? isInteractionAllowed;
+  final bool enabled;
 
   @override
-  State<MapSearchPopup> createState() => _MapSearchPopupState();
+  State<MapSearchPopup> createState() => MapSearchPopupState();
 }
 
-class _MapSearchPopupState extends State<MapSearchPopup> {
+class MapSearchPopupState extends State<MapSearchPopup> {
   static const _searchDebounceDuration = Duration(milliseconds: 180);
   static final _pickerTapRegionGroup = Object();
 
@@ -92,12 +98,55 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   bool _isDateQueryInvalid = false;
   bool _isPickerOpen = false;
   bool _shouldAutofocusSearchInput = true;
+  final _regionMenu = MenuController();
+  final _sortMenu = MenuController();
+  final _groupMenu = MenuController();
+  final _startMonthMenu = MenuController();
+  final _endMonthMenu = MenuController();
+  bool _menuDismissedThisTurn = false;
+
+  bool get _hasOpenMenu => [
+    _regionMenu,
+    _sortMenu,
+    _groupMenu,
+    _startMonthMenu,
+    _endMonthMenu,
+  ].any((menu) => menu.isOpen);
   String? _startDateError;
   String? _endDateError;
   TrackCalendarDay? _draftStart;
   TrackCalendarDay? _draftEnd;
   late DateTime _startCalendarMonth;
   late DateTime _endCalendarMonth;
+
+  bool get _allowed =>
+      mounted &&
+      widget.enabled &&
+      (widget.isInteractionAllowed?.call() ?? true) &&
+      TickerMode.valuesOf(context).enabled &&
+      (ModalRoute.of(context)?.isCurrent ?? true);
+
+  /// Select the raw query, never the parsed/debounced provider projection.
+  void focusSearch() {
+    if (!_allowed ||
+        _isPickerOpen ||
+        _hasOpenMenu ||
+        !widget.focusNode.canRequestFocus) {
+      return;
+    }
+    widget.focusNode.requestFocus();
+    _queryController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _queryController.text.length,
+    );
+  }
+
+  void _menuClosed(SharedDropdownCloseReason _) {
+    // TapRegion callbacks can run after the menu's consumed outside gesture
+    // already closed it. Keep that same event from dismissing the picker too.
+    _menuDismissedThisTurn = true;
+    scheduleMicrotask(() => _menuDismissedThisTurn = false);
+  }
 
   @override
   void initState() {
@@ -109,7 +158,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
     _endCalendarMonth = fallbackMonth;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updatePopupWidth();
-      if (mounted && !_isPickerOpen) {
+      if (_allowed && !_isPickerOpen) {
         widget.focusNode.requestFocus();
       }
     });
@@ -167,6 +216,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   }
 
   void _handleQueryChanged(String value) {
+    if (!_allowed) return;
     _pendingQuery = value;
     _searchDebounceTimer?.cancel();
     final dateQuery = const TrackDateQueryParser().parseQuery(value);
@@ -195,7 +245,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
       return;
     }
     _searchDebounceTimer = Timer(_searchDebounceDuration, () {
-      if (!mounted) {
+      if (!_allowed) {
         return;
       }
       widget.onChanged(value);
@@ -203,6 +253,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   }
 
   void _openPicker() {
+    if (!_allowed) return;
     _searchDebounceTimer?.cancel();
     final activeRange = widget.trackDateRange;
     setState(() {
@@ -247,6 +298,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   }
 
   void _applyPicker() {
+    if (!_allowed) return;
     final start = _draftStart;
     final end = _draftEnd ?? start;
     if (start == null || end == null || start.compareTo(end) > 0) {
@@ -264,6 +316,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   }
 
   void _clearPicker() {
+    if (!_allowed) return;
     final hadTypedRange = _hasTypedTrackDateRange;
     setState(() {
       _hasTypedTrackDateRange = false;
@@ -285,6 +338,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   }
 
   void _updateDraftFromText({required bool isStart, required String value}) {
+    if (!_allowed) return;
     final trimmedValue = value.trim();
     if (trimmedValue.isEmpty) {
       setState(() {
@@ -313,6 +367,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   }
 
   void _setDraftDate({required bool isStart, required TrackCalendarDay date}) {
+    if (!_allowed) return;
     setState(() {
       if (isStart) {
         _draftStart = date;
@@ -340,6 +395,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   }
 
   void _changeCalendarMonth({required bool isStart, required int delta}) {
+    if (!_allowed) return;
     final currentMonth = isStart ? _startCalendarMonth : _endCalendarMonth;
     final nextMonth = _offsetMonth(currentMonth, delta);
     if (nextMonth == null) {
@@ -354,11 +410,8 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
     });
   }
 
-  void _changeCalendarYear({required bool isStart, required String value}) {
-    final year = int.tryParse(value);
-    if (year == null || year < 1 || year > 9999) {
-      return;
-    }
+  void _changeCalendarYear({required bool isStart, required int year}) {
+    if (!_allowed || !_isPickerOpen) return;
     final currentMonth = isStart ? _startCalendarMonth : _endCalendarMonth;
     setState(() {
       final nextMonth = DateTime(year, currentMonth.month);
@@ -379,6 +432,7 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
   }
 
   void _flushPendingQuery() {
+    if (!_allowed) return;
     if (!(_searchDebounceTimer?.isActive ?? false)) {
       return;
     }
@@ -388,7 +442,6 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final maxWidth = math.max(
       _minimumPopupWidth,
       MediaQuery.sizeOf(context).width - 32,
@@ -408,65 +461,70 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TapRegion(
-                groupId: _pickerTapRegionGroup,
-                onTapOutside: _isPickerOpen ? (_) => _discardPicker() : null,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              Flexible(
+                flex: _isPickerOpen ? 20 : 0,
+                fit: FlexFit.loose,
+                child: SingleChildScrollView(
+                  child: TapRegion(
+                    groupId: _pickerTapRegionGroup,
+                    onTapOutside: _isPickerOpen
+                        ? (_) {
+                            // A menu lives in the overlay, outside this region.
+                            // It owns both row clicks and its first outside gesture.
+                            if (!_hasOpenMenu && !_menuDismissedThisTurn) {
+                              _discardPicker();
+                            }
+                          }
+                        : null,
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: TextField(
-                            key: const Key('map-search-input'),
-                            controller: _queryController,
-                            focusNode: widget.focusNode,
-                            autofocus: _shouldAutofocusSearchInput,
-                            decoration: InputDecoration(
-                              labelText: 'Search',
-                              error: _isDateQueryInvalid
-                                  ? const Text(
-                                      'Enter a valid date or date range',
-                                      key: Key(
-                                        'map-search-date-query-validation',
-                                      ),
-                                    )
-                                  : null,
-                              labelStyle: const TextStyle(
-                                fontSize: searchControlFontSize,
-                              ),
-                              isDense: true,
-                              border: OutlineInputBorder(
-                                borderSide: BorderSide(color: theme.seedColour),
-                              ),
-                              enabledBorder: OutlineInputBorder(
-                                borderSide: BorderSide(color: theme.seedColour),
-                              ),
-                              focusedBorder: OutlineInputBorder(
-                                borderSide: BorderSide(
-                                  color: theme.seedColour,
-                                  width: 2,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Semantics(
+                                label: 'Main Map Search',
+                                child: TextField(
+                                  key: const Key('map-search-input'),
+                                  controller: _queryController,
+                                  enabled: widget.enabled,
+                                  focusNode: widget.focusNode,
+                                  autofocus: _shouldAutofocusSearchInput,
+                                  decoration: InputDecoration(
+                                    labelText: 'Search ⌘F',
+                                    hintText: 'Search Peaks',
+                                    error: _isDateQueryInvalid
+                                        ? const SharedFieldError(
+                                            'Enter a valid date or date range',
+                                            key: Key(
+                                              'map-search-date-query-validation',
+                                            ),
+                                          )
+                                        : null,
+                                    prefixIcon: const Icon(
+                                      Icons.search,
+                                      size: searchControlIconSize,
+                                    ),
+                                  ),
+                                  onChanged: _handleQueryChanged,
+                                  onSubmitted: (_) => _flushPendingQuery(),
                                 ),
                               ),
-                              prefixIcon: const Icon(
-                                Icons.search,
-                                size: searchControlIconSize,
-                              ),
                             ),
-                            onChanged: _handleQueryChanged,
-                            onSubmitted: (_) => _flushPendingQuery(),
-                          ),
+                            const SizedBox(width: 8),
+                            _buildDatePicker(context),
+                          ],
                         ),
-                        const SizedBox(width: 8),
-                        _buildDatePicker(context),
+                        if (_isPickerOpen) ...[
+                          const SizedBox(
+                            height: PopupUIConstants.actionSpacing,
+                          ),
+                          _buildDatePickerSurface(context),
+                        ],
                       ],
                     ),
-                    if (_isPickerOpen) ...[
-                      const SizedBox(height: PopupUIConstants.actionSpacing),
-                      _buildDatePickerSurface(context),
-                    ],
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: PopupUIConstants.actionSpacing),
@@ -550,103 +608,94 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                     const SizedBox(width: 8),
                     const SizedBox(height: 32, child: VerticalDivider()),
                     const SizedBox(width: 8),
-                    PopupMenuButton<String>(
+                    SharedDropdown<String>(
                       key: const Key('map-search-filter-button'),
+                      controller: _regionMenu,
+                      onClosed: _menuClosed,
+                      label: 'Region',
+                      value: widget.selectedRegionKey ?? _noRegionSelection,
+                      enabled: widget.enabled,
+                      isInteractionAllowed: () => _allowed,
                       onSelected: (value) {
+                        if (!_allowed) return;
                         _flushPendingQuery();
                         widget.onSelectRegionKey(
                           value == _noRegionSelection ? null : value,
                         );
                       },
-                      itemBuilder: (context) => [
-                        const PopupMenuItem<String>(
+                      choices: [
+                        const SharedDropdownChoice<String>(
                           key: Key('map-search-region-none'),
                           value: _noRegionSelection,
-                          child: Text('None'),
+                          label: 'None',
                         ),
                         ...widget.availableRegions.map(
-                          (region) => PopupMenuItem<String>(
+                          (region) => SharedDropdownChoice<String>(
                             key: Key('map-search-region-${region.key}'),
                             value: region.key,
-                            child: Text(region.name),
+                            label: region.name,
                           ),
                         ),
                       ],
-                      child: _menuButton(
-                        context,
-                        key: const Key('map-search-filter-trigger'),
-                        icon: Icons.filter_list,
-                        isSelected: widget.selectedRegionKey != null,
-                        label: _regionLabel(),
-                        compact: true,
-                      ),
                     ),
                     const SizedBox(width: 8),
-                    PopupMenuButton<MapSearchSort>(
+                    SharedDropdown<MapSearchSort>(
                       key: const Key('map-search-sort-button'),
+                      controller: _sortMenu,
+                      onClosed: _menuClosed,
+                      label: 'Sort',
+                      value: widget.sort,
+                      enabled: widget.enabled,
+                      isInteractionAllowed: () => _allowed,
                       onSelected: (value) {
+                        if (!_allowed) return;
                         _flushPendingQuery();
                         widget.onSelectSort(value);
                       },
-                      itemBuilder: (context) => const [
-                        PopupMenuItem<MapSearchSort>(
+                      choices: const [
+                        SharedDropdownChoice<MapSearchSort>(
                           key: Key('map-search-sort-name-ascending'),
                           value: MapSearchSort.nameAscending,
-                          child: Text('Name ascending'),
+                          label: 'Name ascending',
                         ),
-                        PopupMenuItem<MapSearchSort>(
+                        SharedDropdownChoice<MapSearchSort>(
                           key: Key('map-search-sort-name-descending'),
                           value: MapSearchSort.nameDescending,
-                          child: Text('Name descending'),
+                          label: 'Name descending',
                         ),
                       ],
-                      child: _menuButton(
-                        context,
-                        key: const Key('map-search-sort-trigger'),
-                        icon: Icons.sort,
-                        isSelected: true,
-                        label: widget.sort == MapSearchSort.nameAscending
-                            ? 'Sort A-Z'
-                            : 'Sort Z-A',
-                        compact: true,
-                      ),
                     ),
                     const SizedBox(width: 8),
-                    PopupMenuButton<MapSearchGroup>(
+                    SharedDropdown<MapSearchGroup>(
                       key: const Key('map-search-group-button'),
+                      controller: _groupMenu,
+                      onClosed: _menuClosed,
+                      label: 'Group',
+                      value: widget.group,
+                      enabled: widget.enabled,
+                      isInteractionAllowed: () => _allowed,
                       onSelected: (value) {
+                        if (!_allowed) return;
                         _flushPendingQuery();
                         widget.onSelectGroup(value);
                       },
-                      itemBuilder: (context) => const [
-                        PopupMenuItem<MapSearchGroup>(
+                      choices: const [
+                        SharedDropdownChoice<MapSearchGroup>(
                           key: Key('map-search-group-none'),
                           value: MapSearchGroup.none,
-                          child: Text('None'),
+                          label: 'None',
                         ),
-                        PopupMenuItem<MapSearchGroup>(
+                        SharedDropdownChoice<MapSearchGroup>(
                           key: Key('map-search-group-region'),
                           value: MapSearchGroup.region,
-                          child: Text('Region'),
+                          label: 'Region',
                         ),
-                        PopupMenuItem<MapSearchGroup>(
+                        SharedDropdownChoice<MapSearchGroup>(
                           key: Key('map-search-group-type'),
                           value: MapSearchGroup.type,
-                          child: Text('Type'),
+                          label: 'Type',
                         ),
                       ],
-                      child: _menuButton(
-                        context,
-                        key: const Key('map-search-group-trigger'),
-                        icon: Icons.layers,
-                        isSelected: widget.group != MapSearchGroup.none,
-                        label: switch (widget.group) {
-                          MapSearchGroup.none => 'Group',
-                          MapSearchGroup.region => 'Group Region',
-                          MapSearchGroup.type => 'Group Type',
-                        },
-                        compact: true,
-                      ),
                     ),
                   ],
                 ),
@@ -738,7 +787,10 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
 
   KeyEventResult _handlePickerKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.escape) {
+        (event.logicalKey == LogicalKeyboardKey.escape ||
+            (event.logicalKey == LogicalKeyboardKey.keyC &&
+                HardwareKeyboard.instance.isControlPressed &&
+                !HardwareKeyboard.instance.isMetaPressed))) {
       _discardPicker();
       return KeyEventResult.handled;
     }
@@ -781,26 +833,30 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  TextButton(
-                    key: const Key('map-search-date-clear'),
-                    onPressed: _clearPicker,
-                    child: const Text('Clear'),
-                  ),
-                  const Spacer(),
-                  TextButton(
-                    key: const Key('map-search-date-cancel'),
-                    onPressed: _discardPicker,
-                    child: const Text('Cancel'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    key: const Key('map-search-date-apply'),
-                    onPressed: _canApplyPicker ? _applyPicker : null,
-                    child: const Text('Apply'),
-                  ),
-                ],
+              Align(
+                alignment: Alignment.centerRight,
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton(
+                      key: const Key('map-search-date-clear'),
+                      onPressed: _clearPicker,
+                      child: const Text('Clear'),
+                    ),
+                    FilledButton(
+                      key: const Key('map-search-date-cancel'),
+                      onPressed: _discardPicker,
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(
+                      key: const Key('map-search-date-apply'),
+                      onPressed: _canApplyPicker ? _applyPicker : null,
+                      child: const Text('Apply'),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -827,8 +883,14 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
                 decoration: InputDecoration(
                   labelText: '$prefix date',
                   hintText: 'd MMM yyyy',
-                  errorText: error,
-                  isDense: true,
+                  error: error == null
+                      ? null
+                      : SharedFieldError(
+                          error,
+                          key: Key(
+                            'map-search-date-${isStart ? 'start' : 'end'}-validation',
+                          ),
+                        ),
                 ),
                 onChanged: (value) =>
                     _updateDraftFromText(isStart: isStart, value: value),
@@ -846,12 +908,6 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
             ],
           ],
         ),
-        if (error != null)
-          Text(
-            error,
-            key: Key('map-search-date-${isStart ? 'start' : 'end'}-validation'),
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
         const SizedBox(height: 8),
         _buildCalendar(context, isStart: isStart, month: calendarMonth),
       ],
@@ -883,7 +939,6 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
           selected: selected,
           child: IconButton(
             key: Key('map-search-date-$prefix-day-$day'),
-            tooltip: _formatEditableDate(calendarDay),
             style: IconButton.styleFrom(
               backgroundColor: selected
                   ? Theme.of(context).colorScheme.primaryContainer
@@ -901,10 +956,12 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
           children: [
             IconButton(
               key: Key('map-search-date-$prefix-previous-month'),
-              tooltip: 'Previous $prefix month',
               onPressed: () =>
                   _changeCalendarMonth(isStart: isStart, delta: -1),
-              icon: const Icon(Icons.chevron_left),
+              icon: Icon(
+                Icons.chevron_left,
+                semanticLabel: 'Previous $prefix month',
+              ),
             ),
             Expanded(
               child: Text(
@@ -915,45 +972,45 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
             ),
             IconButton(
               key: Key('map-search-date-$prefix-next-month'),
-              tooltip: 'Next $prefix month',
               onPressed: () => _changeCalendarMonth(isStart: isStart, delta: 1),
-              icon: const Icon(Icons.chevron_right),
+              icon: Icon(
+                Icons.chevron_right,
+                semanticLabel: 'Next $prefix month',
+              ),
             ),
           ],
         ),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.start,
           children: [
-            Expanded(
-              child: DropdownButtonFormField<int>(
-                key: Key('map-search-date-$prefix-month'),
-                initialValue: month.month,
-                isDense: true,
-                decoration: const InputDecoration(labelText: 'Month'),
-                items: List.generate(
-                  12,
-                  (index) => DropdownMenuItem(
-                    value: index + 1,
-                    child: Text(_monthNames[index]),
-                  ),
+            SharedDropdown<int>(
+              key: Key('map-search-date-$prefix-month'),
+              controller: isStart ? _startMonthMenu : _endMonthMenu,
+              onClosed: _menuClosed,
+              label: 'Month',
+              value: month.month,
+              isInteractionAllowed: () => _allowed && _isPickerOpen,
+              choices: List.generate(
+                12,
+                (index) => SharedDropdownChoice(
+                  key: Key('map-search-date-$prefix-month-${index + 1}'),
+                  value: index + 1,
+                  label: _monthNames[index],
                 ),
-                onChanged: (value) {
-                  if (value == null) {
-                    return;
-                  }
-                  _setCalendarMonth(isStart: isStart, month: value);
-                },
               ),
+              onSelected: (value) {
+                if (!_allowed || !_isPickerOpen) return;
+                _setCalendarMonth(isStart: isStart, month: value);
+              },
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextFormField(
-                key: Key('map-search-date-$prefix-year'),
-                initialValue: '${month.year}',
-                decoration: const InputDecoration(labelText: 'Year'),
-                keyboardType: TextInputType.number,
-                onFieldSubmitted: (value) =>
-                    _changeCalendarYear(isStart: isStart, value: value),
-              ),
+            _CalendarYearField(
+              key: Key('map-search-date-$prefix-year'),
+              year: month.year,
+              semanticLabel: '${isStart ? 'Start' : 'End'} calendar year',
+              onSubmitted: (year) =>
+                  _changeCalendarYear(isStart: isStart, year: year),
             ),
           ],
         ),
@@ -973,7 +1030,10 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
           crossAxisCount: 7,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 1.25,
+          mainAxisExtent: math.max(
+            40,
+            MediaQuery.textScalerOf(context).scale(20) + 16,
+          ),
           children: cells,
         ),
       ],
@@ -1046,40 +1106,6 @@ class _MapSearchPopupState extends State<MapSearchPopup> {
     }
     return '${day.day} ${_monthNames[day.month - 1]} ${day.year}';
   }
-
-  Widget _menuButton(
-    BuildContext context, {
-    required Key key,
-    required IconData icon,
-    required bool isSelected,
-    required String label,
-    bool compact = false,
-  }) {
-    return _SearchMenuButton(
-      key: key,
-      icon: icon,
-      iconSize: compact ? searchControlIconSize : null,
-      label: label,
-      labelStyle: compact
-          ? const TextStyle(fontSize: searchControlFontSize)
-          : null,
-      style: Theme.of(
-        context,
-      ).extension<SearchButtonThemeData>()?.styleFor(isSelected),
-    );
-  }
-
-  String _regionLabel() {
-    if (widget.selectedRegionKey == null) {
-      return 'Filter';
-    }
-    for (final region in widget.availableRegions) {
-      if (region.key == widget.selectedRegionKey) {
-        return region.compactName;
-      }
-    }
-    return 'Filter';
-  }
 }
 
 class _MappingUnavailableState extends StatelessWidget {
@@ -1147,54 +1173,81 @@ class _NaturalFeaturesMappingUnavailableState extends StatelessWidget {
   }
 }
 
-class _SearchMenuButton extends StatefulWidget {
-  const _SearchMenuButton({
-    required this.icon,
-    required this.label,
-    this.iconSize,
-    this.labelStyle,
-    this.style,
+class _CalendarYearField extends StatefulWidget {
+  const _CalendarYearField({
+    required this.year,
+    required this.semanticLabel,
+    required this.onSubmitted,
     super.key,
   });
 
-  final IconData icon;
-  final String label;
-  final double? iconSize;
-  final TextStyle? labelStyle;
-  final ButtonStyle? style;
+  final int year;
+  final String semanticLabel;
+  final ValueChanged<int> onSubmitted;
 
   @override
-  State<_SearchMenuButton> createState() => _SearchMenuButtonState();
+  State<_CalendarYearField> createState() => _CalendarYearFieldState();
 }
 
-class _SearchMenuButtonState extends State<_SearchMenuButton> {
-  late final WidgetStatesController _statesController;
+class _CalendarYearFieldState extends State<_CalendarYearField> {
+  late final TextEditingController _controller;
+  late final FocusNode _focus;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _statesController = WidgetStatesController();
+    _controller = TextEditingController(text: '${widget.year}');
+    _focus = FocusNode()..addListener(_focusChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _CalendarYearField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.year != oldWidget.year && !_focus.hasFocus) {
+      _controller.text = '${widget.year}';
+      _error = null;
+    }
+  }
+
+  void _focusChanged() {
+    if (!_focus.hasFocus) _submit();
+  }
+
+  void _submit() {
+    final year = int.tryParse(_controller.text.trim());
+    if (year == null || year < 1 || year > 9999) {
+      setState(() => _error = 'Enter a year from 1 to 9999');
+      return;
+    }
+    setState(() => _error = null);
+    widget.onSubmitted(year);
   }
 
   @override
   void dispose() {
-    _statesController.dispose();
+    _focus
+      ..removeListener(_focusChanged)
+      ..dispose();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => _statesController.update(WidgetState.hovered, true),
-      onExit: (_) => _statesController.update(WidgetState.hovered, false),
-      child: IgnorePointer(
-        child: OutlinedButton.icon(
-          statesController: _statesController,
-          style: widget.style,
-          onPressed: () {},
-          icon: Icon(widget.icon, size: widget.iconSize),
-          label: Text(widget.label, style: widget.labelStyle),
+    return SizedBox(
+      width: MediaQuery.textScalerOf(context).scale(100) + 24,
+      child: Semantics(
+        label: widget.semanticLabel,
+        child: TextField(
+          controller: _controller,
+          focusNode: _focus,
+          keyboardType: TextInputType.number,
+          decoration: sharedFieldDecoration(
+            labelText: 'Year',
+            errorText: _error,
+          ),
+          onSubmitted: (_) => _submit(),
         ),
       ),
     );

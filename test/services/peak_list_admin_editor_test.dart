@@ -9,6 +9,10 @@ void main() {
       name: 'Abels',
       region: 'tasmania',
       colour: 1,
+      minLat: 0,
+      maxLat: 1,
+      minLng: 2,
+      maxLng: 3,
     );
 
     final result = PeakListAdminEditor.validateAndBuild(
@@ -22,6 +26,11 @@ void main() {
     expect(result.peakList!.name, 'Abels');
     expect(result.peakList!.region, 'tasmania');
     expect(result.peakList!.colour, 2);
+    expect(result.peakList!.minLat, 0);
+    expect(result.peakList!.maxLat, 1);
+    expect(result.peakList!.minLng, 2);
+    expect(result.peakList!.maxLng, 3);
+    expect(source.colour, 1);
     expect(PeakListAdminEditor.normalize(source).colour, '0x00000001');
   });
 }

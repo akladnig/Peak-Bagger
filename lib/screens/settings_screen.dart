@@ -2,8 +2,13 @@ import 'dart:async';
 import 'package:peak_bagger/services/mapping_data_store.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:peak_bagger/core/widgets/popup_keyboard_dismiss.dart';
+import 'package:peak_bagger/core/search_shortcuts.dart';
+import 'package:peak_bagger/widgets/open_route_service_api_key_dialog.dart';
+import 'package:peak_bagger/widgets/shared_dropdown.dart';
+import 'package:peak_bagger/widgets/shared_field_decoration.dart';
 import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'package:peak_bagger/core/number_formatters.dart';
 import 'package:peak_bagger/models/tasmap50k.dart';
@@ -65,6 +70,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final VoidCallback _routerListener;
   late final TextEditingController _localTopoBaseUrlController;
   String _lastSeededLocalTopoBaseUrl = '';
+  bool _localTopoDraftEdited = false;
 
   @override
   void initState() {
@@ -433,34 +439,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         const SizedBox(height: 4),
                         Text(_themeSchemeVariantLabel(themeSchemeVariant)),
                         const SizedBox(height: 8),
-                        DropdownButtonHideUnderline(
-                          child: DropdownButton<DynamicSchemeVariant>(
-                            key: const Key('theme-scheme-variant-dropdown'),
-                            value: themeSchemeVariant,
-                            isDense: true,
-                            isExpanded: true,
-                            onChanged: (value) {
-                              if (value == null) {
-                                return;
-                              }
-
-                              unawaited(
-                                ref
-                                    .read(themeSchemeVariantProvider.notifier)
-                                    .setThemeSchemeVariant(value),
-                              );
-                            },
-                            items: DynamicSchemeVariant.values
-                                .map(
-                                  (variant) => DropdownMenuItem(
-                                    value: variant,
-                                    child: Text(
-                                      _themeSchemeVariantLabel(variant),
-                                    ),
-                                  ),
-                                )
-                                .toList(growable: false),
-                          ),
+                        SharedDropdown<DynamicSchemeVariant>(
+                          key: const Key('theme-scheme-variant-dropdown'),
+                          value: themeSchemeVariant,
+                          label: 'Seeded Scheme Variant',
+                          onSelected: (value) {
+                            unawaited(
+                              ref
+                                  .read(themeSchemeVariantProvider.notifier)
+                                  .setThemeSchemeVariant(value),
+                            );
+                          },
+                          choices: DynamicSchemeVariant.values
+                              .map(
+                                (variant) => SharedDropdownChoice(
+                                  value: variant,
+                                  label: _themeSchemeVariantLabel(variant),
+                                ),
+                              )
+                              .toList(growable: false),
                         ),
                       ],
                     ),
@@ -751,46 +748,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _editOpenRouteServiceApiKey() async {
-    final controller = TextEditingController(
-      text: ref.read(openRouteServiceApiKeyProvider),
-    );
-    final shouldSave = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return PopupKeyboardDismiss(
-          onDismiss: () => Navigator.of(context).pop(false),
-          child: AlertDialog(
-            title: const Text('OpenRouteService API Key'),
-            content: TextField(
-              key: const Key('open-route-service-api-key-field'),
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'API key',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-            actions: [
-              FilledButton(
-                key: const Key('open-route-service-api-key-cancel'),
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                key: const Key('open-route-service-api-key-save'),
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-    if (shouldSave == true) {
-      await ref
-          .read(openRouteServiceApiKeyProvider.notifier)
-          .setApiKey(controller.text.trim());
-    }
+    if (!(ModalRoute.of(context)?.isCurrent ?? true)) return;
+    await showOpenRouteServiceApiKeyDialog(context);
   }
 
   Widget _buildLocalTopoSettingsSection(
@@ -812,12 +771,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               TextField(
                 key: const Key('local-topo-base-url-field'),
                 controller: _localTopoBaseUrlController,
-                decoration: const InputDecoration(
+                enabled: !localTopoSettings.isValidating,
+                keyboardType: TextInputType.url,
+                onChanged: (_) => _localTopoDraftEdited = true,
+                decoration: sharedFieldDecoration(
                   labelText: 'Local tile server base URL',
-                  hintText: 'http://127.0.0.1:8090',
-                  border: OutlineInputBorder(),
-                ),
+                  errorText:
+                      localTopoSettings.validationStatus ==
+                          LocalTopoValidationStatus.invalidUrlSyntax
+                      ? 'Enter a valid http or https base URL.'
+                      : null,
+                ).copyWith(hintText: 'http://127.0.0.1:8090'),
               ),
+              if (localTopoSettings.isValidating) ...[
+                const SizedBox(height: 8),
+                const LinearProgressIndicator(key: Key('local-topo-pending')),
+              ],
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -868,7 +837,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                localTopoSettings.hasSavedBaseUrl
+                !localTopoSettings.storageConfirmed
+                    ? 'Saved URL (last confirmed): ${localTopoSettings.savedBaseUrlText.isEmpty ? 'Empty' : localTopoSettings.savedBaseUrlText}'
+                    : localTopoSettings.hasSavedBaseUrl
                     ? 'Saved URL: ${localTopoSettings.savedBaseUrlText}'
                     : 'Saved URL: Empty',
                 key: const Key('local-topo-saved-url-text'),
@@ -893,6 +864,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   void _syncLocalTopoBaseUrlField(String savedBaseUrlText) {
+    if (_localTopoDraftEdited) return;
     final nextFieldText = savedBaseUrlText.isEmpty
         ? defaultLocalTopoBaseUrlText
         : savedBaseUrlText;
@@ -1833,6 +1805,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               label: 'Hampel window',
               value: value.hampelWindow,
               options: const [5, 7, 9, 11],
+              isInteractionAllowed: () {
+                final current = ref
+                    .read(gpxFilterSettingsProvider)
+                    .asData
+                    ?.value;
+                return current != null &&
+                    current.outlierFilter != GpxTrackOutlierFilter.none;
+              },
               onChanged: value.outlierFilter == GpxTrackOutlierFilter.none
                   ? null
                   : (selected) {
@@ -1870,6 +1850,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               label: 'Elevation window',
               value: value.elevationWindow,
               options: const [5, 7, 9],
+              isInteractionAllowed: () {
+                final current = ref
+                    .read(gpxFilterSettingsProvider)
+                    .asData
+                    ?.value;
+                return current != null &&
+                    current.elevationSmoother != GpxTrackElevationSmoother.none;
+              },
               onChanged:
                   value.elevationSmoother == GpxTrackElevationSmoother.none
                   ? null
@@ -1908,6 +1896,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               label: 'Position window',
               value: value.positionWindow,
               options: const [3, 5, 7],
+              isInteractionAllowed: () {
+                final current = ref
+                    .read(gpxFilterSettingsProvider)
+                    .asData
+                    ?.value;
+                return current != null &&
+                    current.positionSmoother != GpxTrackPositionSmoother.none;
+              },
               onChanged: value.positionSmoother == GpxTrackPositionSmoother.none
                   ? null
                   : (selected) {
@@ -2004,20 +2000,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required int value,
     required List<int> options,
     required ValueChanged<int?>? onChanged,
+    bool Function()? isInteractionAllowed,
   }) {
-    return DropdownButtonFormField<int>(
+    return SharedDropdown<int>(
       key: key,
-      initialValue: value,
-      decoration: InputDecoration(labelText: label),
-      items: options
+      value: value,
+      label: label,
+      enabled: onChanged != null,
+      isInteractionAllowed: isInteractionAllowed,
+      choices: options
           .map(
-            (option) => DropdownMenuItem<int>(
+            (option) => SharedDropdownChoice<int>(
               value: option,
-              child: Text(option.toString()),
+              label: option.toString(),
             ),
           )
           .toList(growable: false),
-      onChanged: onChanged,
+      onSelected: (selected) {
+        if (!(isInteractionAllowed?.call() ?? true)) return;
+        onChanged?.call(selected);
+      },
     );
   }
 
@@ -2029,19 +2031,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     required String Function(T value) labelBuilder,
     required ValueChanged<T?>? onChanged,
   }) {
-    return DropdownButtonFormField<T>(
+    return SharedDropdown<T>(
       key: key,
-      initialValue: value,
-      decoration: InputDecoration(labelText: label),
-      items: options
+      value: value,
+      label: label,
+      enabled: onChanged != null,
+      choices: options
           .map(
-            (option) => DropdownMenuItem<T>(
+            (option) => SharedDropdownChoice<T>(
               value: option,
-              child: Text(labelBuilder(option)),
+              label: labelBuilder(option),
             ),
           )
           .toList(growable: false),
-      onChanged: onChanged,
+      onSelected: (selected) => onChanged?.call(selected),
     );
   }
 
@@ -2107,6 +2110,7 @@ class _TileCacheSettingsScreenState
   Map<String, StoreStats> _allStats = {};
   bool _loadingStats = true;
   late final TextEditingController _mapSearchController;
+  final _mapSearchFocus = FocusNode(debugLabel: 'Tile Cache Search');
   Tasmap50k? _selectedMap;
   List<Tasmap50k> _mapSuggestions = const [];
   int _lastTasmapRevision = 0;
@@ -2118,6 +2122,7 @@ class _TileCacheSettingsScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    HardwareKeyboard.instance.addHandler(_handleTileCacheSearchShortcut);
     _mapSearchController = TextEditingController();
     _seedSelectedMap();
     _loadAllStats();
@@ -2146,7 +2151,10 @@ class _TileCacheSettingsScreenState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    HardwareKeyboard.instance.removeHandler(_handleTileCacheSearchShortcut);
     _mapSearchController.dispose();
+    _mapSearchFocus.dispose();
+    _routeObserver.unsubscribe(this);
     super.dispose();
   }
 
@@ -2249,6 +2257,7 @@ class _TileCacheSettingsScreenState
   }
 
   void _handleMapSearchChanged(String value) {
+    if (!_tileCacheInputAllowed) return;
     final repo = ref.read(tasmapRepositoryProvider);
     setState(() {
       _mapSuggestions = value.isEmpty ? const [] : repo.searchMaps(value);
@@ -2256,6 +2265,7 @@ class _TileCacheSettingsScreenState
   }
 
   void _selectMapSuggestion(Tasmap50k map) {
+    if (!_tileCacheInputAllowed) return;
     setState(() {
       _selectedMap = map;
       _mapSearchController.text = map.name;
@@ -2384,15 +2394,22 @@ class _TileCacheSettingsScreenState
           const SizedBox(height: 8),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              key: const Key('tile-cache-map-search-field'),
-              controller: _mapSearchController,
-              decoration: const InputDecoration(
-                labelText: 'Map',
-                hintText: 'Search Tasmap sheets',
-                border: OutlineInputBorder(),
+            child: Semantics(
+              label: 'Tile Cache map-sheet Search',
+              child: TextField(
+                key: const Key('tile-cache-map-search-field'),
+                controller: _mapSearchController,
+                focusNode: _mapSearchFocus,
+                enabled: !_isDownloading,
+                decoration: const InputDecoration(
+                  labelText: 'Search ⌘F',
+                  hintText: 'Search Tasmap sheets',
+                  prefixIcon: ExcludeSemantics(
+                    child: Icon(Icons.search, size: searchControlIconSize),
+                  ),
+                ),
+                onChanged: _handleMapSearchChanged,
               ),
-              onChanged: _handleMapSearchChanged,
             ),
           ),
           const SizedBox(height: 12),
@@ -2432,27 +2449,39 @@ class _TileCacheSettingsScreenState
                 ),
               ),
             ),
-          ListTile(
-            title: const Text('Min Zoom'),
-            trailing: DropdownButton<int>(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SharedDropdown<int>(
+              key: const Key('tile-cache-min-zoom'),
+              label: 'Min Zoom',
               value: _minZoom,
-              items: List.generate(19, (i) => i)
-                  .map((z) => DropdownMenuItem(value: z, child: Text('$z')))
+              enabled: !_isDownloading,
+              isInteractionAllowed: () => _tileCacheInputAllowed,
+              choices: List.generate(19, (i) => i)
+                  .map((z) => SharedDropdownChoice(value: z, label: '$z'))
                   .toList(),
-              onChanged: (z) {
-                if (z != null && z <= _maxZoom) setState(() => _minZoom = z);
+              onSelected: (z) {
+                if (_tileCacheInputAllowed && z <= _maxZoom) {
+                  setState(() => _minZoom = z);
+                }
               },
             ),
           ),
-          ListTile(
-            title: const Text('Max Zoom'),
-            trailing: DropdownButton<int>(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SharedDropdown<int>(
+              key: const Key('tile-cache-max-zoom'),
+              label: 'Max Zoom',
               value: _maxZoom,
-              items: List.generate(19, (i) => i)
-                  .map((z) => DropdownMenuItem(value: z, child: Text('$z')))
+              enabled: !_isDownloading,
+              isInteractionAllowed: () => _tileCacheInputAllowed,
+              choices: List.generate(19, (i) => i)
+                  .map((z) => SharedDropdownChoice(value: z, label: '$z'))
                   .toList(),
-              onChanged: (z) {
-                if (z != null && z >= _minZoom) setState(() => _maxZoom = z);
+              onSelected: (z) {
+                if (_tileCacheInputAllowed && z >= _minZoom) {
+                  setState(() => _maxZoom = z);
+                }
               },
             ),
           ),
@@ -2496,7 +2525,30 @@ class _TileCacheSettingsScreenState
     );
   }
 
+  bool _handleTileCacheSearchShortcut(KeyEvent event) {
+    if (!isFindShortcut(event) ||
+        !_tileCacheInputAllowed ||
+        !isSearchSurfaceActive(context) ||
+        !_mapSearchFocus.canRequestFocus) {
+      return false;
+    }
+    _mapSearchFocus.requestFocus();
+    _mapSearchController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _mapSearchController.text.length,
+    );
+    final fieldContext = _mapSearchFocus.context;
+    if (fieldContext != null) Scrollable.ensureVisible(fieldContext);
+    return true;
+  }
+
+  bool get _tileCacheInputAllowed =>
+      mounted &&
+      !_isDownloading &&
+      isSearchSurfaceActive(context, allowLocalHistory: true);
+
   Future<void> _startDownload() async {
+    if (!_tileCacheInputAllowed) return;
     setState(() {
       _isDownloading = true;
       _status = 'Starting download...';

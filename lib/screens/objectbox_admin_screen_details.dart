@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/models/peak.dart';
 import 'package:peak_bagger/models/contact.dart';
 import 'package:peak_bagger/models/peak_list.dart';
@@ -10,6 +11,54 @@ import 'package:peak_bagger/services/natural_feature_admin_editor.dart';
 import 'package:peak_bagger/services/peak_list_admin_editor.dart';
 import 'package:peak_bagger/services/route_admin_editor.dart';
 import 'package:peak_bagger/services/contact_admin_editor.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_read_only_value.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_form_field.dart';
+import 'package:peak_bagger/services/objectbox_admin_field_policy.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_edit_footer.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_save_scope.dart';
+import 'package:peak_bagger/widgets/shared_dropdown.dart';
+import 'package:peak_bagger/widgets/shared_field_decoration.dart';
+
+// Local state also protects standalone panes and callbacks retained before a
+// rebuild. The routed screen owns the app-visible Save/navigation lifetime.
+mixin _AdminSaveState<W extends StatefulWidget> on State<W> {
+  bool _localSavePending = false;
+  bool get _isSaving =>
+      _localSavePending || ObjectBoxAdminSaveScope.read(context);
+  set _isSaving(bool value) => _localSavePending = value;
+
+  Future<String?> _awaitSave(Future<String?> Function() action) async {
+    try {
+      return await action();
+    } catch (error, stackTrace) {
+      logObjectBoxAdminError(error, stackTrace, 'Admin Save failed');
+      return 'Could not save. Please retry or cancel.';
+    }
+  }
+}
+
+class _AdminDetailsDivider extends StatelessWidget {
+  const _AdminDetailsDivider({this.height});
+
+  final double? height;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final grid =
+        theme.extension<DataGridTheme>() ??
+        DataGridTheme.fromColorScheme(
+          theme.colorScheme,
+          theme.textTheme,
+          seedColor: theme.seedColor,
+        );
+    return Divider(
+      height: height,
+      thickness: grid.dividerThickness,
+      color: grid.dividerColor,
+    );
+  }
+}
 
 class ObjectBoxAdminDetailsPane extends StatelessWidget {
   const ObjectBoxAdminDetailsPane({
@@ -69,6 +118,12 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
 
     if (entity.name == 'Peak') {
       return _PeakAdminDetailsPane(
+        key: ValueKey((
+          'Peak',
+          row?.primaryKeyValue,
+          isCreatingPeak,
+          isCreatingPeak ? createOsmId : null,
+        )),
         row: row,
         entity: entity,
         createMode: isCreatingPeak,
@@ -81,6 +136,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
 
     if (entity.name == 'NaturalFeature' && naturalFeature != null) {
       return _NaturalFeatureAdminDetailsPane(
+        key: ValueKey(('NaturalFeature', row!.primaryKeyValue)),
         row: row!,
         entity: entity,
         naturalFeature: naturalFeature!,
@@ -93,6 +149,8 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
 
     if (entity.name == 'Contact' && (contact != null || isCreatingContact)) {
       return _ContactAdminDetailsPane(
+        key: ValueKey(('Contact', contact?.id, isCreatingContact)),
+        entity: entity,
         contact: contact ?? Contact(),
         createMode: isCreatingContact,
         onClose: onClose,
@@ -102,6 +160,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
 
     if (entity.name == 'Route' && route != null) {
       return _RouteAdminDetailsPane(
+        key: ValueKey(('Route', route!.id)),
         row: row,
         entity: entity,
         route: route!,
@@ -115,6 +174,7 @@ class ObjectBoxAdminDetailsPane extends StatelessWidget {
 
     if (entity.name == 'PeakList' && peakList != null) {
       return _PeakListAdminDetailsPane(
+        key: ValueKey(('PeakList', peakList!.peakListId)),
         row: row,
         entity: entity,
         peakList: peakList!,
@@ -162,8 +222,10 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    row == null ? 'Details' : title,
+                  child: ObjectBoxAdminReadOnlyValue(
+                    key: ValueKey(('title', entity.name, row?.primaryKeyValue)),
+                    label: entity.primaryNameField,
+                    text: row == null ? 'Details' : title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -176,12 +238,13 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
                   ),
                 IconButton(
                   key: const Key('objectbox-admin-details-close'),
+                  tooltip: 'Close',
                   onPressed: row == null ? null : onClose,
                   icon: const Icon(Icons.close),
                 ),
               ],
             ),
-            const Divider(),
+            const _AdminDetailsDivider(),
             if (row == null)
               const Expanded(
                 child: Center(
@@ -197,7 +260,7 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
                       key: const Key('objectbox-admin-details-list'),
                       itemCount: detailsFields.length,
                       separatorBuilder: (context, index) =>
-                          const Divider(height: 1),
+                          const _AdminDetailsDivider(height: 1),
                       itemBuilder: (context, index) {
                         final field = detailsFields[index];
                         final selectedRow = row!;
@@ -206,6 +269,7 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
                           dense: true,
                           title: Text(field.name),
                           subtitle: objectBoxAdminDetailsValue(
+                            recordId: selectedRow.primaryKeyValue,
                             entityName: entity.name,
                             fieldName: field.name,
                             label: field.name,
@@ -226,6 +290,7 @@ class _ObjectBoxAdminReadOnlyDetailsPane extends StatelessWidget {
 
 class _PeakAdminDetailsPane extends StatefulWidget {
   const _PeakAdminDetailsPane({
+    super.key,
     required this.row,
     required this.entity,
     required this.createMode,
@@ -247,7 +312,8 @@ class _PeakAdminDetailsPane extends StatefulWidget {
   State<_PeakAdminDetailsPane> createState() => _PeakAdminDetailsPaneState();
 }
 
-class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
+class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane>
+    with _AdminSaveState<_PeakAdminDetailsPane> {
   late Peak _peak;
   late final TextEditingController _nameController;
   late final TextEditingController _altNameController;
@@ -269,11 +335,10 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   late final TextEditingController _mgrs100kIdController;
   late final TextEditingController _eastingController;
   late final TextEditingController _northingController;
-  late final TextEditingController _gridZoneDesignatorController;
+  late String _gridZoneDesignator;
   late String _sourceOfTruth;
   bool _verified = false;
   bool _isEditing = false;
-  bool _isSaving = false;
   PeakAdminCoordinateSource? _activeCoordinateSource;
   String? _submitError;
   PeakAdminValidationResult _validation = const PeakAdminValidationResult(
@@ -303,16 +368,17 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     _mgrs100kIdController = TextEditingController();
     _eastingController = TextEditingController();
     _northingController = TextEditingController();
-    _gridZoneDesignatorController = TextEditingController();
     _syncFromRow();
   }
 
   @override
   void didUpdateWidget(covariant _PeakAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.row != widget.row ||
-        oldWidget.createMode != widget.createMode ||
-        oldWidget.createOsmId != widget.createOsmId) {
+    if (!_isSaving &&
+        (oldWidget.row?.primaryKeyValue != widget.row?.primaryKeyValue ||
+            (!_isEditing && oldWidget.row != widget.row) ||
+            oldWidget.createMode != widget.createMode ||
+            oldWidget.createOsmId != widget.createOsmId)) {
       _syncFromRow();
     }
   }
@@ -339,7 +405,6 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     _mgrs100kIdController.dispose();
     _eastingController.dispose();
     _northingController.dispose();
-    _gridZoneDesignatorController.dispose();
     super.dispose();
   }
 
@@ -371,8 +436,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _mgrs100kIdController.clear();
       _eastingController.clear();
       _northingController.clear();
-      _gridZoneDesignatorController.text =
-          PeakAdminEditor.fixedGridZoneDesignator;
+      _gridZoneDesignator = PeakAdminEditor.fixedGridZoneDesignator;
       _sourceOfTruth = Peak.sourceOfTruthOsm;
       _verified = false;
       _isEditing = true;
@@ -400,18 +464,18 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _mgrs100kIdController.text = form.mgrs100kId;
       _eastingController.text = form.easting;
       _northingController.text = form.northing;
-      _gridZoneDesignatorController.text = form.gridZoneDesignator;
+      _gridZoneDesignator = form.gridZoneDesignator;
       _sourceOfTruth = form.sourceOfTruth;
       _verified = form.verified;
       _isEditing = false;
       _activeCoordinateSource = null;
     }
-    _isSaving = false;
     _submitError = null;
     _validation = const PeakAdminValidationResult(fieldErrors: {});
   }
 
   void _startEditing() {
+    if (!mounted || _isSaving) return;
     setState(() {
       _isEditing = true;
       _activeCoordinateSource = null;
@@ -421,6 +485,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   void _markAsHwc() {
+    if (!mounted || _isSaving) return;
     setState(() {
       _sourceOfTruth = Peak.sourceOfTruthHwc;
     });
@@ -454,7 +519,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       latitude: _latitudeController.text,
       longitude: _longitudeController.text,
       region: _regionController.text,
-      gridZoneDesignator: _gridZoneDesignatorController.text,
+      gridZoneDesignator: _gridZoneDesignator,
       mgrs100kId: _mgrs100kIdController.text,
       easting: _eastingController.text,
       northing: _northingController.text,
@@ -464,6 +529,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   void _setVerified(bool? value) {
+    if (!mounted || _isSaving) return;
     setState(() {
       _verified = value ?? false;
     });
@@ -471,6 +537,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   void _updateValidation() {
+    if (!mounted || _isSaving) return;
     final validation = PeakAdminEditor.validateAndBuild(
       source: _peak,
       form: _currentFormState(),
@@ -485,6 +552,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   Future<void> _submit() async {
+    if (!mounted || _isSaving || !_isEditing) return;
     final validation = PeakAdminEditor.validateAndBuild(
       source: _peak,
       form: _currentFormState(),
@@ -504,7 +572,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
       _isSaving = true;
     });
 
-    final error = await widget.onPeakSubmit(validation.peak!);
+    final error = await _awaitSave(() => widget.onPeakSubmit(validation.peak!));
     if (!mounted) {
       return;
     }
@@ -512,6 +580,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     setState(() {
       _isSaving = false;
       if (error == null) {
+        if (!widget.createMode) _syncFromRow();
         _isEditing = false;
         _submitError = null;
       } else {
@@ -526,6 +595,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   void _handleLatLngChanged() {
+    if (!mounted || _isSaving) return;
     final form = _currentFormState();
     final shouldClear =
         _activeCoordinateSource != PeakAdminCoordinateSource.latLng;
@@ -552,6 +622,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   void _handleMgrsChanged() {
+    if (!mounted || _isSaving) return;
     final form = _currentFormState();
     final shouldClear =
         _activeCoordinateSource != PeakAdminCoordinateSource.mgrs;
@@ -575,6 +646,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
   }
 
   void _calculateCoordinates() {
+    if (!mounted) return;
     final coordinateSource = _activeCoordinateSource;
     if (coordinateSource == null || _isSaving) {
       return;
@@ -617,6 +689,20 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
     });
   }
 
+  void _close() {
+    if (!mounted || _isSaving) return;
+    widget.onClose();
+  }
+
+  void _cancelEditing() {
+    if (!mounted || _isSaving || !_isEditing) return;
+    if (widget.createMode) {
+      widget.onClose();
+    } else {
+      setState(_syncFromRow);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final title = widget.createMode
@@ -633,8 +719,14 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
+                  child: ObjectBoxAdminReadOnlyValue(
+                    key: ValueKey((
+                      'title',
+                      widget.entity.name,
+                      widget.row?.primaryKeyValue,
+                    )),
+                    label: widget.entity.primaryNameField,
+                    text: title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -644,26 +736,33 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
                     tooltip: 'View Peak on Main Map',
                     onPressed: _isSaving
                         ? null
-                        : () => widget.onViewPeakOnMap(_peakForMainMap()),
+                        : () {
+                            if (!mounted || _isSaving) return;
+                            widget.onViewPeakOnMap(_peakForMainMap());
+                          },
                     icon: const Icon(Icons.visibility_outlined),
                   ),
                 if (!_isEditing && !widget.createMode)
                   IconButton(
                     key: const Key('objectbox-admin-peak-edit'),
+                    tooltip: 'Edit',
                     onPressed: _isSaving ? null : _startEditing,
                     icon: const Icon(Icons.edit),
                   ),
                 IconButton(
                   key: const Key('objectbox-admin-details-close'),
-                  onPressed: _isSaving ? null : widget.onClose,
+                  tooltip: 'Close',
+                  onPressed: _isSaving ? null : _close,
                   icon: const Icon(Icons.close),
                 ),
               ],
             ),
-            const Divider(),
+            const _AdminDetailsDivider(),
             Expanded(
               child: _isEditing
                   ? _PeakEditForm(
+                      entity: widget.entity,
+                      recordId: _peak.id,
                       isSaving: _isSaving,
                       nameController: _nameController,
                       altNameController: _altNameController,
@@ -682,8 +781,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
                       latitudeController: _latitudeController,
                       longitudeController: _longitudeController,
                       regionController: _regionController,
-                      gridZoneDesignatorController:
-                          _gridZoneDesignatorController,
+                      gridZoneDesignator: _gridZoneDesignator,
                       mgrs100kIdController: _mgrs100kIdController,
                       eastingController: _eastingController,
                       northingController: _northingController,
@@ -700,6 +798,7 @@ class _PeakAdminDetailsPaneState extends State<_PeakAdminDetailsPane> {
                       onCalculate: _calculateCoordinates,
                       canCalculate: _activeCoordinateSource != null,
                       onSubmit: _submit,
+                      onCancel: _cancelEditing,
                     )
                   : _PeakReadOnlyDetails(
                       row: widget.row!,
@@ -744,6 +843,7 @@ class _PeakReadOnlyDetails extends StatelessWidget {
             dense: true,
             title: Text(title),
             subtitle: objectBoxAdminDetailsValue(
+              recordId: row.primaryKeyValue,
               entityName: row.values.containsKey(field.name)
                   ? entity.name
                   : null,
@@ -775,6 +875,7 @@ List<ObjectBoxAdminFieldDescriptor> _objectBoxAdminDetailsFields(
 
 class _RouteAdminDetailsPane extends StatefulWidget {
   const _RouteAdminDetailsPane({
+    super.key,
     required this.row,
     required this.entity,
     required this.route,
@@ -794,7 +895,8 @@ class _RouteAdminDetailsPane extends StatefulWidget {
   State<_RouteAdminDetailsPane> createState() => _RouteAdminDetailsPaneState();
 }
 
-class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
+class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane>
+    with _AdminSaveState<_RouteAdminDetailsPane> {
   late final TextEditingController _nameController;
   late final TextEditingController _descController;
   late final TextEditingController _colourController;
@@ -808,7 +910,6 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
   late final TextEditingController _highestElevationController;
   bool _visible = true;
   bool _isEditing = false;
-  bool _isSaving = false;
   String? _submitError;
   RouteAdminValidationResult _validation = const RouteAdminValidationResult(
     fieldErrors: {},
@@ -834,7 +935,10 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
   @override
   void didUpdateWidget(covariant _RouteAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.row != widget.row || oldWidget.route.id != widget.route.id) {
+    if (!_isSaving &&
+        (oldWidget.row?.primaryKeyValue != widget.row?.primaryKeyValue ||
+            (!_isEditing && oldWidget.row != widget.row) ||
+            oldWidget.route.id != widget.route.id)) {
       _syncFromRoute();
     }
   }
@@ -870,12 +974,12 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
     _highestElevationController.text = form.highestElevation;
     _visible = form.visible;
     _isEditing = false;
-    _isSaving = false;
     _submitError = null;
     _validation = const RouteAdminValidationResult(fieldErrors: {});
   }
 
   void _startEditing() {
+    if (!mounted || _isSaving) return;
     setState(() {
       _isEditing = true;
       _submitError = null;
@@ -900,6 +1004,7 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
   }
 
   void _updateValidation() {
+    if (!mounted || _isSaving) return;
     final validation = RouteAdminEditor.validateAndBuild(
       source: widget.route,
       form: _currentFormState(),
@@ -913,7 +1018,7 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
   }
 
   Future<void> _submit() async {
-    if (_isSaving) {
+    if (!mounted || _isSaving || !_isEditing) {
       return;
     }
 
@@ -933,7 +1038,8 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
       _isSaving = true;
     });
 
-    final error = await widget.onRouteSubmit(_currentFormState());
+    final form = _currentFormState();
+    final error = await _awaitSave(() => widget.onRouteSubmit(form));
     if (!mounted) {
       return;
     }
@@ -942,9 +1048,20 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
       _isSaving = false;
       _submitError = error;
       if (error == null) {
+        _syncFromRoute();
         _isEditing = false;
       }
     });
+  }
+
+  void _close() {
+    if (!mounted || _isSaving) return;
+    widget.onClose();
+  }
+
+  void _cancelEditing() {
+    if (!mounted || _isSaving || !_isEditing) return;
+    setState(_syncFromRoute);
   }
 
   @override
@@ -961,8 +1078,14 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
+                  child: ObjectBoxAdminReadOnlyValue(
+                    key: ValueKey((
+                      'title',
+                      widget.entity.name,
+                      widget.row?.primaryKeyValue,
+                    )),
+                    label: widget.entity.primaryNameField,
+                    text: title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -970,26 +1093,34 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
                   IconButton(
                     key: const Key('objectbox-admin-route-view-on-map'),
                     tooltip: 'View Route on Main Map',
-                    onPressed: _isSaving ? null : widget.onViewRouteOnMap,
+                    onPressed: _isSaving
+                        ? null
+                        : () {
+                            if (!mounted || _isSaving) return;
+                            widget.onViewRouteOnMap?.call();
+                          },
                     icon: const Icon(Icons.visibility_outlined),
                   ),
                 if (!_isEditing)
                   IconButton(
                     key: const Key('objectbox-admin-route-edit'),
+                    tooltip: 'Edit',
                     onPressed: _isSaving ? null : _startEditing,
                     icon: const Icon(Icons.edit),
                   ),
                 IconButton(
                   key: const Key('objectbox-admin-details-close'),
-                  onPressed: _isSaving ? null : widget.onClose,
+                  tooltip: 'Close',
+                  onPressed: _isSaving ? null : _close,
                   icon: const Icon(Icons.close),
                 ),
               ],
             ),
-            const Divider(),
+            const _AdminDetailsDivider(),
             Expanded(
               child: _isEditing
                   ? _RouteEditForm(
+                      entity: widget.entity,
                       route: widget.route,
                       isSaving: _isSaving,
                       nameController: _nameController,
@@ -1008,12 +1139,14 @@ class _RouteAdminDetailsPaneState extends State<_RouteAdminDetailsPane> {
                       validation: _validation,
                       onChanged: _updateValidation,
                       onVisibleChanged: (value) {
+                        if (!mounted || _isSaving) return;
                         setState(() {
                           _visible = value;
                         });
                         _updateValidation();
                       },
                       onSubmit: _submit,
+                      onCancel: _cancelEditing,
                     )
                   : _RouteReadOnlyDetails(
                       row: widget.row!,
@@ -1039,7 +1172,8 @@ class _RouteReadOnlyDetails extends StatelessWidget {
     return ListView.separated(
       key: const Key('objectbox-admin-details-list'),
       itemCount: detailsFields.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
+      separatorBuilder: (context, index) =>
+          const _AdminDetailsDivider(height: 1),
       itemBuilder: (context, index) {
         final field = detailsFields[index];
         final value = row.values[field.name];
@@ -1047,6 +1181,7 @@ class _RouteReadOnlyDetails extends StatelessWidget {
           dense: true,
           title: Text(field.name),
           subtitle: objectBoxAdminDetailsValue(
+            recordId: row.primaryKeyValue,
             entityName: entity.name,
             fieldName: field.name,
             label: field.name,
@@ -1060,6 +1195,7 @@ class _RouteReadOnlyDetails extends StatelessWidget {
 
 class _PeakListAdminDetailsPane extends StatefulWidget {
   const _PeakListAdminDetailsPane({
+    super.key,
     required this.row,
     required this.entity,
     required this.peakList,
@@ -1078,10 +1214,10 @@ class _PeakListAdminDetailsPane extends StatefulWidget {
       _PeakListAdminDetailsPaneState();
 }
 
-class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
+class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane>
+    with _AdminSaveState<_PeakListAdminDetailsPane> {
   late final TextEditingController _colourController;
   bool _isEditing = false;
-  bool _isSaving = false;
   String? _submitError;
   PeakListAdminValidationResult _validation =
       const PeakListAdminValidationResult(fieldErrors: {});
@@ -1096,9 +1232,12 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
   @override
   void didUpdateWidget(covariant _PeakListAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.row != widget.row ||
-        oldWidget.peakList.peakListId != widget.peakList.peakListId ||
-        oldWidget.peakList.colour != widget.peakList.colour) {
+    if (!_isSaving &&
+        (oldWidget.row?.primaryKeyValue != widget.row?.primaryKeyValue ||
+            (!_isEditing && oldWidget.row != widget.row) ||
+            oldWidget.peakList.peakListId != widget.peakList.peakListId ||
+            (!_isEditing &&
+                oldWidget.peakList.colour != widget.peakList.colour))) {
       _syncFromPeakList();
     }
   }
@@ -1113,12 +1252,12 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
     final form = PeakListAdminEditor.normalize(widget.peakList);
     _colourController.text = form.colour;
     _isEditing = false;
-    _isSaving = false;
     _submitError = null;
     _validation = const PeakListAdminValidationResult(fieldErrors: {});
   }
 
   void _startEditing() {
+    if (!mounted || _isSaving) return;
     setState(() {
       _isEditing = true;
       _submitError = null;
@@ -1130,6 +1269,7 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
   }
 
   void _updateValidation() {
+    if (!mounted || _isSaving) return;
     final validation = PeakListAdminEditor.validateAndBuild(
       source: widget.peakList,
       form: _currentFormState(),
@@ -1143,7 +1283,7 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
   }
 
   Future<void> _submit() async {
-    if (_isSaving) {
+    if (!mounted || _isSaving || !_isEditing) {
       return;
     }
 
@@ -1163,7 +1303,8 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
       _isSaving = true;
     });
 
-    final error = await widget.onPeakListSubmit(_currentFormState());
+    final form = _currentFormState();
+    final error = await _awaitSave(() => widget.onPeakListSubmit(form));
     if (!mounted) {
       return;
     }
@@ -1172,9 +1313,20 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
       _isSaving = false;
       _submitError = error;
       if (error == null) {
+        _syncFromPeakList();
         _isEditing = false;
       }
     });
+  }
+
+  void _close() {
+    if (!mounted || _isSaving) return;
+    widget.onClose();
+  }
+
+  void _cancelEditing() {
+    if (!mounted || _isSaving || !_isEditing) return;
+    setState(_syncFromPeakList);
   }
 
   @override
@@ -1191,28 +1343,37 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
+                  child: ObjectBoxAdminReadOnlyValue(
+                    key: ValueKey((
+                      'title',
+                      widget.entity.name,
+                      widget.row?.primaryKeyValue,
+                    )),
+                    label: widget.entity.primaryNameField,
+                    text: title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
                 if (!_isEditing)
                   IconButton(
                     key: const Key('objectbox-admin-peak-list-edit'),
+                    tooltip: 'Edit',
                     onPressed: _isSaving ? null : _startEditing,
                     icon: const Icon(Icons.edit),
                   ),
                 IconButton(
                   key: const Key('objectbox-admin-details-close'),
-                  onPressed: _isSaving ? null : widget.onClose,
+                  tooltip: 'Close',
+                  onPressed: _isSaving ? null : _close,
                   icon: const Icon(Icons.close),
                 ),
               ],
             ),
-            const Divider(),
+            const _AdminDetailsDivider(),
             Expanded(
               child: _isEditing
                   ? _PeakListEditForm(
+                      entity: widget.entity,
                       row: widget.row,
                       peakList: widget.peakList,
                       isSaving: _isSaving,
@@ -1221,6 +1382,7 @@ class _PeakListAdminDetailsPaneState extends State<_PeakListAdminDetailsPane> {
                       validation: _validation,
                       onChanged: _updateValidation,
                       onSubmit: _submit,
+                      onCancel: _cancelEditing,
                     )
                   : _PeakListReadOnlyDetails(
                       row: widget.row!,
@@ -1246,7 +1408,8 @@ class _PeakListReadOnlyDetails extends StatelessWidget {
     return ListView.separated(
       key: const Key('objectbox-admin-details-list'),
       itemCount: detailsFields.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
+      separatorBuilder: (context, index) =>
+          const _AdminDetailsDivider(height: 1),
       itemBuilder: (context, index) {
         final field = detailsFields[index];
         final value = row.values[field.name];
@@ -1254,6 +1417,7 @@ class _PeakListReadOnlyDetails extends StatelessWidget {
           dense: true,
           title: Text(field.name),
           subtitle: objectBoxAdminDetailsValue(
+            recordId: row.primaryKeyValue,
             entityName: entity.name,
             fieldName: field.name,
             label: field.name,
@@ -1267,6 +1431,7 @@ class _PeakListReadOnlyDetails extends StatelessWidget {
 
 class _PeakListEditForm extends StatelessWidget {
   const _PeakListEditForm({
+    required this.entity,
     required this.row,
     required this.peakList,
     required this.isSaving,
@@ -1275,8 +1440,10 @@ class _PeakListEditForm extends StatelessWidget {
     required this.validation,
     required this.onChanged,
     required this.onSubmit,
+    required this.onCancel,
   });
 
+  final ObjectBoxAdminEntityDescriptor entity;
   final ObjectBoxAdminRow? row;
   final PeakList peakList;
   final bool isSaving;
@@ -1285,6 +1452,7 @@ class _PeakListEditForm extends StatelessWidget {
   final PeakListAdminValidationResult validation;
   final VoidCallback onChanged;
   final VoidCallback onSubmit;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -1315,13 +1483,15 @@ class _PeakListEditForm extends StatelessWidget {
                 keyName: 'objectbox-admin-peak-list-region-read-only',
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'colour',
+                recordId: peakList.peakListId,
                 key: const Key('objectbox-admin-peak-list-colour'),
                 controller: colourController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Colour',
-                  border: const OutlineInputBorder(),
                   errorText: validation.fieldErrors['colour'],
                 ),
                 keyboardType: TextInputType.number,
@@ -1332,6 +1502,7 @@ class _PeakListEditForm extends StatelessWidget {
                 dense: true,
                 title: const Text('Membership Items'),
                 subtitle: objectBoxAdminDetailsValue(
+                  recordId: row?.primaryKeyValue,
                   entityName: 'PeakList',
                   fieldName: 'membershipItems',
                   label: 'membershipItems',
@@ -1346,10 +1517,11 @@ class _PeakListEditForm extends StatelessWidget {
           Text(submitError!, style: TextStyle(color: errorColor)),
         ],
         const SizedBox(height: 12),
-        FilledButton(
-          key: const Key('objectbox-admin-peak-list-save'),
-          onPressed: isSaving ? null : onSubmit,
-          child: Text(isSaving ? 'Saving...' : 'Save'),
+        ObjectBoxAdminEditFooter(
+          prefix: 'peak-list',
+          isSaving: isSaving,
+          onCancel: onCancel,
+          onSave: onSubmit,
         ),
       ],
     );
@@ -1360,20 +1532,18 @@ class _PeakListEditForm extends StatelessWidget {
     required String value,
     required String keyName,
   }) {
-    return TextFormField(
+    return ObjectBoxAdminReadOnlyFormValue(
       key: Key(keyName),
-      initialValue: value,
-      enabled: false,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-      ),
+      valueKey: ValueKey(('PeakList', peakList.peakListId, keyName)),
+      label: label,
+      text: value,
     );
   }
 }
 
 class _RouteEditForm extends StatelessWidget {
   const _RouteEditForm({
+    required this.entity,
     required this.route,
     required this.isSaving,
     required this.nameController,
@@ -1393,8 +1563,10 @@ class _RouteEditForm extends StatelessWidget {
     required this.onChanged,
     required this.onVisibleChanged,
     required this.onSubmit,
+    required this.onCancel,
   });
 
+  final ObjectBoxAdminEntityDescriptor entity;
   final app_route.Route route;
   final bool isSaving;
   final TextEditingController nameController;
@@ -1414,6 +1586,7 @@ class _RouteEditForm extends StatelessWidget {
   final VoidCallback onChanged;
   final ValueChanged<bool> onVisibleChanged;
   final VoidCallback onSubmit;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -1432,58 +1605,77 @@ class _RouteEditForm extends StatelessWidget {
                 keyName: 'objectbox-admin-route-id',
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'name',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-name'),
                 controller: nameController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Name',
-                  border: const OutlineInputBorder(),
                   errorText: validation.fieldErrors['name'],
                 ),
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'desc',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-desc'),
                 controller: descController,
                 enabled: !isSaving,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
-                ),
-                minLines: 2,
-                maxLines: 4,
+                decoration: const InputDecoration(labelText: 'Description'),
+                multiline: true,
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              SwitchListTile(
-                key: const Key('objectbox-admin-route-visible'),
-                title: const Text('Visible'),
-                value: visible,
-                onChanged: isSaving ? null : onVisibleChanged,
-              ),
+              if (objectBoxAdminPermitsInput(
+                entity,
+                'visible',
+                AdminFieldInput.boolean,
+              ))
+                SwitchListTile(
+                  key: const Key('objectbox-admin-route-visible'),
+                  title: const Text('Visible'),
+                  value: visible,
+                  onChanged: isSaving ? null : onVisibleChanged,
+                )
+              else
+                ListTile(
+                  key: const Key('objectbox-admin-route-visible'),
+                  title: const Text('Visible'),
+                  subtitle: ObjectBoxAdminDetailsValue(
+                    label: 'Visible',
+                    value: visible,
+                  ),
+                ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'colour',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-colour'),
                 controller: colourController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Colour',
-                  border: const OutlineInputBorder(),
                   errorText: validation.fieldErrors['colour'],
                 ),
                 keyboardType: TextInputType.number,
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'distance2d',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-distance2d'),
                 controller: distance2dController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Distance 2D',
-                  border: const OutlineInputBorder(),
                   errorText: validation.fieldErrors['distance2d'],
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
@@ -1492,13 +1684,15 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'distance3d',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-distance3d'),
                 controller: distance3dController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Distance 3D',
-                  border: const OutlineInputBorder(),
                   errorText: validation.fieldErrors['distance3d'],
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
@@ -1507,13 +1701,15 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'ascent',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-ascent'),
                 controller: ascentController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Ascent',
-                  border: const OutlineInputBorder(),
                   errorText: validation.fieldErrors['ascent'],
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
@@ -1522,13 +1718,15 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'descent',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-descent'),
                 controller: descentController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Descent',
-                  border: const OutlineInputBorder(),
                   errorText: validation.fieldErrors['descent'],
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
@@ -1537,62 +1735,74 @@ class _RouteEditForm extends StatelessWidget {
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'startElevation',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-start-elevation'),
                 controller: startElevationController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Start Elevation',
-                  border: const OutlineInputBorder(),
                   errorText: validation.fieldErrors['startElevation'],
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
+                  signed: true,
                 ),
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'endElevation',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-end-elevation'),
                 controller: endElevationController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'End Elevation',
-                  border: const OutlineInputBorder(),
                   errorText: validation.fieldErrors['endElevation'],
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
+                  signed: true,
                 ),
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'lowestElevation',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-lowest-elevation'),
                 controller: lowestElevationController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Lowest Elevation',
-                  border: const OutlineInputBorder(),
                   errorText: validation.fieldErrors['lowestElevation'],
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
+                  signed: true,
                 ),
                 onChanged: (_) => onChanged(),
               ),
               const SizedBox(height: 8),
-              TextFormField(
+              objectBoxAdminTextFormField(
+                entity: entity,
+                field: 'highestElevation',
+                recordId: route.id,
                 key: const Key('objectbox-admin-route-highest-elevation'),
                 controller: highestElevationController,
                 enabled: !isSaving,
-                decoration: InputDecoration(
+                decoration: sharedFieldDecoration(
                   labelText: 'Highest Elevation',
-                  border: const OutlineInputBorder(),
                   errorText: validation.fieldErrors['highestElevation'],
                 ),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
+                  signed: true,
                 ),
                 onChanged: (_) => onChanged(),
               ),
@@ -1601,6 +1811,7 @@ class _RouteEditForm extends StatelessWidget {
                 dense: true,
                 title: const Text('gpxRouteJson'),
                 subtitle: objectBoxAdminDetailsValue(
+                  recordId: route.id,
                   entityName: 'Route',
                   fieldName: 'gpxRouteJson',
                   label: 'gpxRouteJson',
@@ -1612,6 +1823,7 @@ class _RouteEditForm extends StatelessWidget {
                 dense: true,
                 title: const Text('displayRoutePointsByZoom'),
                 subtitle: objectBoxAdminDetailsValue(
+                  recordId: route.id,
                   entityName: 'Route',
                   fieldName: 'displayRoutePointsByZoom',
                   label: 'displayRoutePointsByZoom',
@@ -1626,10 +1838,11 @@ class _RouteEditForm extends StatelessWidget {
           Text(submitError!, style: TextStyle(color: errorColor)),
         ],
         const SizedBox(height: 12),
-        FilledButton(
-          key: const Key('objectbox-admin-route-save'),
-          onPressed: isSaving ? null : onSubmit,
-          child: Text(isSaving ? 'Saving...' : 'Save'),
+        ObjectBoxAdminEditFooter(
+          prefix: 'route',
+          isSaving: isSaving,
+          onCancel: onCancel,
+          onSave: onSubmit,
         ),
       ],
     );
@@ -1640,19 +1853,17 @@ class _RouteEditForm extends StatelessWidget {
     required String value,
     required String keyName,
   }) {
-    return TextFormField(
+    return ObjectBoxAdminReadOnlyFormValue(
       key: Key(keyName),
-      initialValue: value,
-      enabled: false,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-      ),
+      valueKey: ValueKey(('Route', route.id, keyName)),
+      label: label,
+      text: value,
     );
   }
 }
 
 Widget objectBoxAdminDetailsValue({
+  Object? recordId,
   String? entityName,
   String? fieldName,
   required String label,
@@ -1668,25 +1879,11 @@ Widget objectBoxAdminDetailsValue({
     value: value,
   );
 
-  if (entityName == 'GpxTrack' &&
-      (fieldName == 'gpxFile' ||
-          fieldName == 'filteredTrack' ||
-          fieldName == 'displayTrackPointsByZoom' ||
-          fieldName == 'elevationProfile')) {
-    return SelectableText(formattedValue, maxLines: 5);
-  }
-
-  if (entityName == 'Route' &&
-      (fieldName == 'gpxRouteJson' ||
-          fieldName == 'displayRoutePointsByZoom')) {
-    return SelectableText(formattedValue, maxLines: 5);
-  }
-
-  if (entityName != null && fieldName != null) {
-    return SelectableText(formattedValue);
-  }
-
-  return SelectableText(objectBoxAdminFormatValue(value));
+  return ObjectBoxAdminReadOnlyValue(
+    key: ValueKey((entityName, recordId, fieldName ?? label)),
+    label: label,
+    text: formattedValue,
+  );
 }
 
 class ObjectBoxAdminDetailsValue extends StatelessWidget {
@@ -1772,12 +1969,15 @@ String _objectBoxAdminDetailsTitle(
 
 class _ContactAdminDetailsPane extends StatefulWidget {
   const _ContactAdminDetailsPane({
+    super.key,
+    required this.entity,
     required this.contact,
     required this.createMode,
     required this.onClose,
     required this.onContactSubmit,
   });
 
+  final ObjectBoxAdminEntityDescriptor entity;
   final Contact contact;
   final bool createMode;
   final VoidCallback onClose;
@@ -1788,12 +1988,13 @@ class _ContactAdminDetailsPane extends StatefulWidget {
       _ContactAdminDetailsPaneState();
 }
 
-class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
+class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane>
+    with _AdminSaveState<_ContactAdminDetailsPane> {
   late final TextEditingController _firstNameController;
   late final TextEditingController _surnameController;
   late final TextEditingController _nicknameController;
   var _isEditing = false;
-  var _isSaving = false;
+  String? _submitError;
   ContactAdminValidationResult _validation = const ContactAdminValidationResult(
     fieldErrors: {},
   );
@@ -1810,8 +2011,10 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
   @override
   void didUpdateWidget(covariant _ContactAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.contact.id != widget.contact.id ||
-        oldWidget.createMode != widget.createMode) {
+    if (!_isSaving &&
+        (oldWidget.contact.id != widget.contact.id ||
+            oldWidget.createMode != widget.createMode ||
+            (!_isEditing && oldWidget.contact != widget.contact))) {
       _syncFromContact();
     }
   }
@@ -1835,12 +2038,14 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
     _surnameController.text = widget.contact.surname;
     _nicknameController.text = widget.contact.nickname;
     _isEditing = widget.createMode;
-    _isSaving = false;
+    _submitError = null;
     _validation = const ContactAdminValidationResult(fieldErrors: {});
   }
 
   void _validate() {
+    if (!mounted || _isSaving) return;
     setState(() {
+      _submitError = null;
       _validation = ContactAdminEditor.validateAndBuild(
         source: widget.contact,
         form: _currentForm(),
@@ -1849,6 +2054,7 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
   }
 
   void _cancelEditing() {
+    if (!mounted || _isSaving || !_isEditing) return;
     if (widget.createMode) {
       widget.onClose();
       return;
@@ -1857,7 +2063,7 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
   }
 
   Future<void> _submit() async {
-    if (_isSaving) {
+    if (!mounted || _isSaving || !_isEditing) {
       return;
     }
     final validation = ContactAdminEditor.validateAndBuild(
@@ -1870,16 +2076,24 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
     }
 
     setState(() => _isSaving = true);
-    final error = await widget.onContactSubmit(validation.contact!);
+    final error = await _awaitSave(
+      () => widget.onContactSubmit(validation.contact!),
+    );
     if (!mounted) {
       return;
     }
     setState(() {
       _isSaving = false;
+      _submitError = error;
       if (error == null) {
         _isEditing = false;
       }
     });
+  }
+
+  void _close() {
+    if (!mounted || _isSaving) return;
+    widget.onClose();
   }
 
   String get _title {
@@ -1907,35 +2121,46 @@ class _ContactAdminDetailsPaneState extends State<_ContactAdminDetailsPane> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    _title,
+                  child: ObjectBoxAdminReadOnlyValue(
+                    key: ValueKey(('title', 'Contact', widget.contact.id)),
+                    label: 'Contact',
+                    text: _title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
                 if (!_isEditing)
                   IconButton(
                     key: const Key('objectbox-admin-contact-edit'),
+                    tooltip: 'Edit',
                     onPressed: _isSaving
                         ? null
-                        : () => setState(() => _isEditing = true),
+                        : () {
+                            if (!mounted || _isSaving) return;
+                            setState(() => _isEditing = true);
+                          },
                     icon: const Icon(Icons.edit),
                   ),
                 IconButton(
                   key: const Key('objectbox-admin-details-close'),
-                  onPressed: _isSaving ? null : widget.onClose,
+                  tooltip: 'Close',
+                  onPressed: _isSaving ? null : _close,
                   icon: const Icon(Icons.close),
                 ),
               ],
             ),
-            const Divider(),
+            const _AdminDetailsDivider(),
             Expanded(
               child: _isEditing
                   ? _ContactEditForm(
+                      entity: widget.entity,
+                      contact: widget.contact,
+                      createMode: widget.createMode,
                       firstNameController: _firstNameController,
                       surnameController: _surnameController,
                       nicknameController: _nicknameController,
                       validation: _validation,
                       isSaving: _isSaving,
+                      submitError: _submitError,
                       onChanged: _validate,
                       onCancel: _cancelEditing,
                       onSubmit: _submit,
@@ -1969,7 +2194,13 @@ class _ContactReadOnlyDetails extends StatelessWidget {
           ListTile(
             dense: true,
             title: Text(entry.key),
-            subtitle: SelectableText(objectBoxAdminFormatValue(entry.value)),
+            subtitle: objectBoxAdminDetailsValue(
+              recordId: contact.id,
+              entityName: 'Contact',
+              fieldName: entry.key,
+              label: entry.key,
+              value: entry.value,
+            ),
           ),
       ],
     );
@@ -1978,21 +2209,29 @@ class _ContactReadOnlyDetails extends StatelessWidget {
 
 class _ContactEditForm extends StatelessWidget {
   const _ContactEditForm({
+    required this.entity,
+    required this.contact,
+    required this.createMode,
     required this.firstNameController,
     required this.surnameController,
     required this.nicknameController,
     required this.validation,
     required this.isSaving,
+    required this.submitError,
     required this.onChanged,
     required this.onCancel,
     required this.onSubmit,
   });
 
+  final ObjectBoxAdminEntityDescriptor entity;
+  final Contact contact;
+  final bool createMode;
   final TextEditingController firstNameController;
   final TextEditingController surnameController;
   final TextEditingController nicknameController;
   final ContactAdminValidationResult validation;
   final bool isSaving;
+  final String? submitError;
   final VoidCallback onChanged;
   final VoidCallback onCancel;
   final VoidCallback onSubmit;
@@ -2006,7 +2245,25 @@ class _ContactEditForm extends StatelessWidget {
           child: ListView(
             key: const Key('objectbox-admin-contact-edit-form'),
             children: [
+              ObjectBoxAdminReadOnlyFormValue(
+                key: const Key('objectbox-admin-contact-id'),
+                valueKey: ValueKey(('Contact', contact.id, 'id')),
+                label: 'id',
+                text:
+                    createMode &&
+                        contact.id == 0 &&
+                        entity.fields.any(
+                          (field) =>
+                              field.name == 'id' &&
+                              field.isPrimaryKey &&
+                              field.isGenerated,
+                        )
+                    ? 'Not yet assigned'
+                    : contact.id.toString(),
+              ),
+              const SizedBox(height: 8),
               _field(
+                field: 'firstName',
                 keyName: 'first-name',
                 label: 'First name',
                 controller: firstNameController,
@@ -2014,6 +2271,7 @@ class _ContactEditForm extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _field(
+                field: 'surname',
                 keyName: 'surname',
                 label: 'Surname',
                 controller: surnameController,
@@ -2021,6 +2279,7 @@ class _ContactEditForm extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               _field(
+                field: 'nickname',
                 keyName: 'nickname',
                 label: 'Nickname',
                 controller: nicknameController,
@@ -2029,37 +2288,37 @@ class _ContactEditForm extends StatelessWidget {
             ],
           ),
         ),
+        if (submitError != null)
+          Text(
+            submitError!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
         const SizedBox(height: 12),
-        OutlinedButton(
-          key: const Key('objectbox-admin-contact-cancel'),
-          onPressed: isSaving ? null : onCancel,
-          child: const Text('Cancel'),
-        ),
-        const SizedBox(height: 8),
-        FilledButton(
-          key: const Key('objectbox-admin-contact-save'),
-          onPressed: isSaving ? null : onSubmit,
-          child: Text(isSaving ? 'Saving...' : 'Save'),
+        ObjectBoxAdminEditFooter(
+          prefix: 'contact',
+          isSaving: isSaving,
+          onCancel: onCancel,
+          onSave: onSubmit,
         ),
       ],
     );
   }
 
   Widget _field({
+    required String field,
     required String keyName,
     required String label,
     required TextEditingController controller,
     required String? errorText,
   }) {
-    return TextFormField(
+    return objectBoxAdminTextFormField(
+      entity: entity,
+      field: field,
+      recordId: contact.id,
       key: Key('objectbox-admin-contact-$keyName'),
       controller: controller,
       enabled: !isSaving,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-        errorText: errorText,
-      ),
+      decoration: sharedFieldDecoration(labelText: label, errorText: errorText),
       onChanged: (_) => onChanged(),
     );
   }
@@ -2067,6 +2326,7 @@ class _ContactEditForm extends StatelessWidget {
 
 class _NaturalFeatureAdminDetailsPane extends StatefulWidget {
   const _NaturalFeatureAdminDetailsPane({
+    super.key,
     required this.row,
     required this.entity,
     required this.naturalFeature,
@@ -2090,11 +2350,11 @@ class _NaturalFeatureAdminDetailsPane extends StatefulWidget {
 }
 
 class _NaturalFeatureAdminDetailsPaneState
-    extends State<_NaturalFeatureAdminDetailsPane> {
+    extends State<_NaturalFeatureAdminDetailsPane>
+    with _AdminSaveState<_NaturalFeatureAdminDetailsPane> {
   late final Map<String, TextEditingController> _controllers;
   late String _sourceOfTruth;
   var _isEditing = false;
-  var _isSaving = false;
   NaturalFeatureAdminCoordinateSource? _coordinateSource;
   String? _submitError;
   NaturalFeatureAdminValidationResult _validation =
@@ -2112,8 +2372,9 @@ class _NaturalFeatureAdminDetailsPaneState
   @override
   void didUpdateWidget(covariant _NaturalFeatureAdminDetailsPane oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.naturalFeature.id != widget.naturalFeature.id ||
-        (oldWidget.row != widget.row && !_isEditing)) {
+    if (!_isSaving &&
+        (oldWidget.naturalFeature.id != widget.naturalFeature.id ||
+            (oldWidget.row != widget.row && !_isEditing))) {
       _syncFromFeature();
     }
   }
@@ -2157,7 +2418,6 @@ class _NaturalFeatureAdminDetailsPaneState
     _controller('northing').text = form.northing;
     _sourceOfTruth = form.sourceOfTruth;
     _isEditing = false;
-    _isSaving = false;
     _coordinateSource = null;
     _submitError = null;
     _validation = const NaturalFeatureAdminValidationResult(fieldErrors: {});
@@ -2184,6 +2444,7 @@ class _NaturalFeatureAdminDetailsPaneState
   bool get _isLocked => _isSaving || widget.mutationLocked;
 
   void _validate() {
+    if (!mounted || _isLocked) return;
     setState(() {
       _validation = NaturalFeatureAdminEditor.validateAndBuild(
         source: widget.naturalFeature,
@@ -2195,6 +2456,7 @@ class _NaturalFeatureAdminDetailsPaneState
   }
 
   void _handleLatLngChanged() {
+    if (!mounted || _isLocked) return;
     if (_coordinateSource != NaturalFeatureAdminCoordinateSource.latLng) {
       _controller('mgrs100kId').clear();
       _controller('easting').clear();
@@ -2205,6 +2467,7 @@ class _NaturalFeatureAdminDetailsPaneState
   }
 
   void _handleMgrsChanged() {
+    if (!mounted || _isLocked) return;
     if (_coordinateSource != NaturalFeatureAdminCoordinateSource.mgrs) {
       _controller('latitude').clear();
       _controller('longitude').clear();
@@ -2214,6 +2477,7 @@ class _NaturalFeatureAdminDetailsPaneState
   }
 
   void _calculateCoordinates() {
+    if (!mounted) return;
     final source = _coordinateSource;
     if (source == null || _isLocked) {
       return;
@@ -2242,7 +2506,7 @@ class _NaturalFeatureAdminDetailsPaneState
   }
 
   Future<void> _submit() async {
-    if (_isLocked) {
+    if (!mounted || _isLocked || !_isEditing) {
       return;
     }
     final validation = NaturalFeatureAdminEditor.validateAndBuild(
@@ -2259,8 +2523,8 @@ class _NaturalFeatureAdminDetailsPaneState
       return;
     }
     setState(() => _isSaving = true);
-    final error = await widget.onNaturalFeatureSubmit(
-      validation.naturalFeature!,
+    final error = await _awaitSave(
+      () => widget.onNaturalFeatureSubmit(validation.naturalFeature!),
     );
     if (!mounted) {
       return;
@@ -2269,9 +2533,20 @@ class _NaturalFeatureAdminDetailsPaneState
       _isSaving = false;
       _submitError = error;
       if (error == null) {
+        _syncFromFeature();
         _isEditing = false;
       }
     });
+  }
+
+  void _close() {
+    if (!mounted || _isSaving) return;
+    widget.onClose();
+  }
+
+  void _cancelEditing() {
+    if (!mounted || _isSaving || !_isEditing) return;
+    setState(_syncFromFeature);
   }
 
   @override
@@ -2286,8 +2561,14 @@ class _NaturalFeatureAdminDetailsPaneState
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    title,
+                  child: ObjectBoxAdminReadOnlyValue(
+                    key: ValueKey((
+                      'title',
+                      widget.entity.name,
+                      widget.row.primaryKeyValue,
+                    )),
+                    label: widget.entity.primaryNameField,
+                    text: title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -2296,41 +2577,53 @@ class _NaturalFeatureAdminDetailsPaneState
                   tooltip: 'View Natural Feature on Main Map',
                   onPressed: _isSaving
                       ? null
-                      : () => widget.onViewNaturalFeatureOnMap(
-                          widget.naturalFeature,
-                        ),
+                      : () {
+                          if (!mounted || _isSaving) return;
+                          widget.onViewNaturalFeatureOnMap(
+                            widget.naturalFeature,
+                          );
+                        },
                   icon: const Icon(Icons.visibility_outlined),
                 ),
                 if (!_isEditing)
                   IconButton(
                     key: const Key('objectbox-admin-natural-feature-edit'),
+                    tooltip: 'Edit',
                     onPressed: _isLocked
                         ? null
-                        : () => setState(() => _isEditing = true),
+                        : () {
+                            if (!mounted || _isLocked) return;
+                            setState(() => _isEditing = true);
+                          },
                     icon: const Icon(Icons.edit),
                   ),
                 IconButton(
                   key: const Key('objectbox-admin-details-close'),
-                  onPressed: _isSaving ? null : widget.onClose,
+                  tooltip: 'Close',
+                  onPressed: _isSaving ? null : _close,
                   icon: const Icon(Icons.close),
                 ),
               ],
             ),
-            const Divider(),
+            const _AdminDetailsDivider(),
             Expanded(
               child: _isEditing
                   ? _NaturalFeatureEditForm(
+                      entity: widget.entity,
                       feature: widget.naturalFeature,
                       controllers: _controllers,
                       sourceOfTruth: _sourceOfTruth,
                       validation: _validation,
                       submitError: _submitError,
                       locked: _isLocked,
+                      isInteractionAllowed: () => mounted && !_isLocked,
+                      isSaving: _isSaving,
                       canCalculate: _coordinateSource != null,
                       onChanged: _validate,
                       onLatLngChanged: _handleLatLngChanged,
                       onMgrsChanged: _handleMgrsChanged,
                       onSourceOfTruthChanged: (value) {
+                        if (!mounted || _isLocked) return;
                         setState(
                           () => _sourceOfTruth = value ?? _sourceOfTruth,
                         );
@@ -2338,6 +2631,7 @@ class _NaturalFeatureAdminDetailsPaneState
                       },
                       onCalculate: _calculateCoordinates,
                       onSubmit: _submit,
+                      onCancel: _cancelEditing,
                     )
                   : _NaturalFeatureReadOnlyDetails(
                       row: widget.row,
@@ -2365,7 +2659,8 @@ class _NaturalFeatureReadOnlyDetails extends StatelessWidget {
     return ListView.separated(
       key: const Key('objectbox-admin-details-list'),
       itemCount: entity.fields.length - 1,
-      separatorBuilder: (context, index) => const Divider(height: 1),
+      separatorBuilder: (context, index) =>
+          const _AdminDetailsDivider(height: 1),
       itemBuilder: (context, index) {
         final field = entity.fields
             .where((field) => !field.isPrimaryName)
@@ -2374,6 +2669,7 @@ class _NaturalFeatureReadOnlyDetails extends StatelessWidget {
           dense: true,
           title: Text(field.name),
           subtitle: objectBoxAdminDetailsValue(
+            recordId: row.primaryKeyValue,
             entityName: entity.name,
             fieldName: field.name,
             label: field.name,
@@ -2387,12 +2683,14 @@ class _NaturalFeatureReadOnlyDetails extends StatelessWidget {
 
 class _NaturalFeatureEditForm extends StatelessWidget {
   const _NaturalFeatureEditForm({
+    required this.entity,
     required this.feature,
     required this.controllers,
     required this.sourceOfTruth,
     required this.validation,
     required this.submitError,
     required this.locked,
+    required this.isInteractionAllowed,
     required this.canCalculate,
     required this.onChanged,
     required this.onLatLngChanged,
@@ -2400,14 +2698,18 @@ class _NaturalFeatureEditForm extends StatelessWidget {
     required this.onSourceOfTruthChanged,
     required this.onCalculate,
     required this.onSubmit,
+    required this.onCancel,
+    required this.isSaving,
   });
 
+  final ObjectBoxAdminEntityDescriptor entity;
   final NaturalFeature feature;
   final Map<String, TextEditingController> controllers;
   final String sourceOfTruth;
   final NaturalFeatureAdminValidationResult validation;
   final String? submitError;
   final bool locked;
+  final bool Function() isInteractionAllowed;
   final bool canCalculate;
   final VoidCallback onChanged;
   final VoidCallback onLatLngChanged;
@@ -2415,6 +2717,8 @@ class _NaturalFeatureEditForm extends StatelessWidget {
   final ValueChanged<String?> onSourceOfTruthChanged;
   final VoidCallback onCalculate;
   final VoidCallback onSubmit;
+  final VoidCallback onCancel;
+  final bool isSaving;
 
   @override
   Widget build(BuildContext context) {
@@ -2441,22 +2745,39 @@ class _NaturalFeatureEditForm extends StatelessWidget {
               _field('mgrs100kId', 'MGRS 100km identifier', onMgrsChanged),
               _field('easting', 'Easting', onMgrsChanged),
               _field('northing', 'Northing', onMgrsChanged),
-              DropdownButtonFormField<String>(
-                key: const Key(
-                  'objectbox-admin-natural-feature-source-of-truth',
-                ),
-                initialValue: sourceOfTruth,
-                decoration: InputDecoration(
-                  labelText: 'Source of truth',
-                  border: const OutlineInputBorder(),
+              if (objectBoxAdminPermitsInput(
+                entity,
+                'sourceOfTruth',
+                AdminFieldInput.sourceOfTruthSelector,
+              ))
+                SharedDropdown<String>(
+                  key: const Key(
+                    'objectbox-admin-natural-feature-source-of-truth',
+                  ),
+                  value: sourceOfTruth,
+                  label: 'Source of truth',
                   errorText: validation.fieldErrors['sourceOfTruth'],
+                  enabled: !locked,
+                  isInteractionAllowed: isInteractionAllowed,
+                  choices: const [
+                    SharedDropdownChoice(value: 'OSM', label: 'OSM'),
+                    SharedDropdownChoice(value: 'Manual', label: 'Manual'),
+                  ],
+                  onSelected: onSourceOfTruthChanged,
+                )
+              else
+                ObjectBoxAdminReadOnlyFormValue(
+                  key: const Key(
+                    'objectbox-admin-natural-feature-source-of-truth',
+                  ),
+                  valueKey: ValueKey((
+                    'NaturalFeature',
+                    feature.id,
+                    'sourceOfTruth',
+                  )),
+                  label: 'Source of truth',
+                  text: sourceOfTruth,
                 ),
-                items: const [
-                  DropdownMenuItem(value: 'OSM', child: Text('OSM')),
-                  DropdownMenuItem(value: 'Manual', child: Text('Manual')),
-                ],
-                onChanged: locked ? null : onSourceOfTruthChanged,
-              ),
             ].expand((widget) => [widget, const SizedBox(height: 8)]).toList(),
           ),
         ),
@@ -2474,29 +2795,32 @@ class _NaturalFeatureEditForm extends StatelessWidget {
           child: const Text('Calculate'),
         ),
         const SizedBox(height: 8),
-        FilledButton(
-          key: const Key('objectbox-admin-natural-feature-save'),
-          onPressed: locked ? null : onSubmit,
-          child: Text(locked ? 'Saving...' : 'Save'),
+        ObjectBoxAdminEditFooter(
+          prefix: 'natural-feature',
+          isSaving: isSaving,
+          locked: locked,
+          onCancel: onCancel,
+          onSave: onSubmit,
         ),
       ],
     );
   }
 
-  Widget _readOnly(String field, String value) => TextFormField(
-    key: Key('objectbox-admin-natural-feature-$field'),
-    initialValue: value,
-    enabled: false,
-    decoration: InputDecoration(
-      labelText: field,
-      border: const OutlineInputBorder(),
-    ),
-  );
+  Widget _readOnly(String field, String value) =>
+      ObjectBoxAdminReadOnlyFormValue(
+        key: Key('objectbox-admin-natural-feature-$field'),
+        valueKey: ValueKey(('NaturalFeature', feature.id, field)),
+        label: field,
+        text: value,
+      );
 
   Widget _field(String field, String label, VoidCallback changed) =>
-      TextFormField(
+      objectBoxAdminTextFormField(
+        entity: entity,
+        field: field,
+        recordId: feature.id,
         key: Key('objectbox-admin-natural-feature-${_fieldKey(field)}'),
-        controller: controllers[field],
+        controller: controllers[field]!,
         enabled: !locked,
         keyboardType: switch (field) {
           'latitude' || 'longitude' => const TextInputType.numberWithOptions(
@@ -2506,9 +2830,8 @@ class _NaturalFeatureEditForm extends StatelessWidget {
           'easting' || 'northing' => TextInputType.number,
           _ => TextInputType.text,
         },
-        decoration: InputDecoration(
+        decoration: sharedFieldDecoration(
           labelText: label,
-          border: const OutlineInputBorder(),
           errorText: validation.fieldErrors[field],
         ),
         onChanged: (_) => changed(),
@@ -2522,6 +2845,8 @@ class _NaturalFeatureEditForm extends StatelessWidget {
 
 class _PeakEditForm extends StatelessWidget {
   const _PeakEditForm({
+    required this.entity,
+    required this.recordId,
     required this.isSaving,
     required this.nameController,
     required this.altNameController,
@@ -2540,7 +2865,7 @@ class _PeakEditForm extends StatelessWidget {
     required this.latitudeController,
     required this.longitudeController,
     required this.regionController,
-    required this.gridZoneDesignatorController,
+    required this.gridZoneDesignator,
     required this.mgrs100kIdController,
     required this.eastingController,
     required this.northingController,
@@ -2557,8 +2882,11 @@ class _PeakEditForm extends StatelessWidget {
     required this.onCalculate,
     required this.canCalculate,
     required this.onSubmit,
+    required this.onCancel,
   });
 
+  final ObjectBoxAdminEntityDescriptor entity;
+  final int recordId;
   final bool isSaving;
   final TextEditingController nameController;
   final TextEditingController altNameController;
@@ -2577,7 +2905,7 @@ class _PeakEditForm extends StatelessWidget {
   final TextEditingController latitudeController;
   final TextEditingController longitudeController;
   final TextEditingController regionController;
-  final TextEditingController gridZoneDesignatorController;
+  final String gridZoneDesignator;
   final TextEditingController mgrs100kIdController;
   final TextEditingController eastingController;
   final TextEditingController northingController;
@@ -2594,6 +2922,7 @@ class _PeakEditForm extends StatelessWidget {
   final VoidCallback onCalculate;
   final bool canCalculate;
   final VoidCallback onSubmit;
+  final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -2609,82 +2938,95 @@ class _PeakEditForm extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildReadOnlyField(
-                  context,
                   label: 'id',
                   value: peakIdText,
                   keyName: 'objectbox-admin-peak-id',
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'name',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-name'),
                   controller: nameController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Name',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['name'],
                   ),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'altName',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-alt-name'),
                   controller: altNameController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Alt Name',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['altName'],
                   ),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'osmId',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-osm-id'),
                   controller: osmIdController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'osmId',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['osmId'],
                   ),
                   keyboardType: TextInputType.number,
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'peakbaggerPid',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-peakbagger-pid'),
                   controller: peakbaggerPidController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'PeakBagger PID',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['peakbaggerPid'],
                   ),
                   keyboardType: TextInputType.number,
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'elevation',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-elevation'),
                   controller: elevationController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Elevation',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['elevation'],
                   ),
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    signed: true,
+                  ),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'prominence',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-prominence'),
                   controller: prominenceController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Prominence',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['prominence'],
                   ),
                   keyboardType: const TextInputType.numberWithOptions(
@@ -2693,46 +3035,48 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'country',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-country'),
                   controller: countryController,
                   enabled: !isSaving,
-                  decoration: const InputDecoration(
-                    labelText: 'Country',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Country'),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'county',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-county'),
                   controller: countyController,
                   enabled: !isSaving,
-                  decoration: const InputDecoration(
-                    labelText: 'County',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'County'),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'range',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-range'),
                   controller: rangeController,
                   enabled: !isSaving,
-                  decoration: const InputDecoration(
-                    labelText: 'Range',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Range'),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'rating',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-rating'),
                   controller: ratingController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Rating',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['rating'],
                   ),
                   keyboardType: const TextInputType.numberWithOptions(
@@ -2741,153 +3085,188 @@ class _PeakEditForm extends StatelessWidget {
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'durationLabel',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-duration'),
                   controller: durationController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Peak duration',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['durationLabel'],
                   ),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'difficulty',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-difficulty'),
                   controller: difficultyController,
                   enabled: !isSaving,
-                  decoration: const InputDecoration(
-                    labelText: 'Difficulty',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Difficulty'),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'viaFerrata',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-via-ferrata'),
                   controller: viaFerrataController,
                   enabled: !isSaving,
-                  decoration: const InputDecoration(
-                    labelText: 'Via ferrata',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Via ferrata'),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'notes',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-notes'),
                   controller: notesController,
                   enabled: !isSaving,
-                  minLines: 3,
-                  maxLines: 5,
-                  keyboardType: TextInputType.multiline,
-                  decoration: const InputDecoration(
-                    labelText: 'Notes',
-                    border: OutlineInputBorder(),
-                  ),
+                  multiline: true,
+                  decoration: const InputDecoration(labelText: 'Notes'),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'latitude',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-latitude'),
                   controller: latitudeController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Latitude',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['latitude'],
                   ),
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
                   onChanged: (_) => onLatLngChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'longitude',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-longitude'),
                   controller: longitudeController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Longitude',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['longitude'],
                   ),
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
                   onChanged: (_) => onLatLngChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'region',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-region'),
                   controller: regionController,
                   enabled: !isSaving,
-                  decoration: const InputDecoration(
-                    labelText: 'Region',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Region'),
                   onChanged: (_) => onChanged(),
                 ),
                 const SizedBox(height: 8),
                 _buildReadOnlyField(
-                  context,
                   label: 'gridZoneDesignator',
-                  value: gridZoneDesignatorController.text,
+                  value: gridZoneDesignator,
                   keyName: 'objectbox-admin-peak-grid-zone-designator',
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'mgrs100kId',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-mgrs100k-id'),
                   controller: mgrs100kIdController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'MGRS 100km identifier',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['mgrs100kId'],
                   ),
                   onChanged: (_) => onMgrsChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'easting',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-easting'),
                   controller: eastingController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Easting',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['easting'],
                   ),
                   keyboardType: TextInputType.number,
                   onChanged: (_) => onMgrsChanged(),
                 ),
                 const SizedBox(height: 8),
-                TextFormField(
+                objectBoxAdminTextFormField(
+                  entity: entity,
+                  field: 'northing',
+                  recordId: recordId,
                   key: const Key('objectbox-admin-peak-northing'),
                   controller: northingController,
                   enabled: !isSaving,
-                  decoration: InputDecoration(
+                  decoration: sharedFieldDecoration(
                     labelText: 'Northing',
-                    border: const OutlineInputBorder(),
                     errorText: validation.fieldErrors['northing'],
                   ),
                   keyboardType: TextInputType.number,
                   onChanged: (_) => onMgrsChanged(),
                 ),
                 const SizedBox(height: 8),
-                CheckboxListTile(
-                  key: const Key('objectbox-admin-peak-verified'),
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Verified'),
-                  value: verified,
-                  onChanged: isSaving ? null : onVerifiedChanged,
-                  controlAffinity: ListTileControlAffinity.leading,
-                ),
+                if (objectBoxAdminPermitsInput(
+                  entity,
+                  'verified',
+                  AdminFieldInput.boolean,
+                ))
+                  CheckboxListTile(
+                    key: const Key('objectbox-admin-peak-verified'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Verified'),
+                    value: verified,
+                    onChanged: isSaving ? null : onVerifiedChanged,
+                    controlAffinity: ListTileControlAffinity.leading,
+                  )
+                else
+                  ListTile(
+                    key: const Key('objectbox-admin-peak-verified'),
+                    title: const Text('Verified'),
+                    subtitle: ObjectBoxAdminDetailsValue(
+                      label: 'Verified',
+                      value: verified,
+                    ),
+                  ),
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Expanded(
-                      child: Text(
-                        'Source of truth: $sourceOfTruth',
+                    SizedBox(
+                      width: double.infinity,
+                      child: ObjectBoxAdminReadOnlyFormValue(
                         key: const Key(
                           'objectbox-admin-peak-source-of-truth-label',
                         ),
+                        valueKey: ValueKey(('Peak', recordId, 'sourceOfTruth')),
+                        label: 'Source of truth',
+                        text: sourceOfTruth,
                       ),
                     ),
                     FilledButton(
@@ -2919,29 +3298,27 @@ class _PeakEditForm extends StatelessWidget {
           child: const Text('Calculate'),
         ),
         const SizedBox(height: 8),
-        FilledButton(
-          key: const Key('objectbox-admin-peak-submit'),
-          onPressed: isSaving ? null : onSubmit,
-          child: Text(isSaving ? 'Saving...' : 'Save'),
+        ObjectBoxAdminEditFooter(
+          prefix: 'peak',
+          saveSuffix: 'submit',
+          isSaving: isSaving,
+          onCancel: onCancel,
+          onSave: onSubmit,
         ),
       ],
     );
   }
 
-  Widget _buildReadOnlyField(
-    BuildContext context, {
+  Widget _buildReadOnlyField({
     required String label,
     required String value,
     required String keyName,
   }) {
-    return TextFormField(
+    return ObjectBoxAdminReadOnlyFormValue(
       key: Key(keyName),
-      initialValue: value,
-      enabled: false,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-      ),
+      valueKey: ValueKey(('Peak', recordId, keyName)),
+      label: label,
+      text: value,
     );
   }
 }

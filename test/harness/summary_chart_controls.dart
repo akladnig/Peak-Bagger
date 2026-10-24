@@ -11,6 +11,20 @@ enum SummaryTestView {
       this == line ? SummaryDisplayMode.line : SummaryDisplayMode.columns;
 }
 
+const sharedSummaryMenuKey = Key('shared-dropdown-menu');
+
+/// Capture the actual row gesture for same-frame lock/disposal regressions.
+VoidCallback summaryChoiceAction(WidgetTester tester, String key) => tester
+    .widget<GestureDetector>(
+      find
+          .descendant(
+            of: find.byKey(Key(key)),
+            matching: find.byType(GestureDetector),
+          )
+          .first,
+    )
+    .onTap!;
+
 Iterable<SummaryTestView> summaryTestViews(String kind) =>
     kind == 'time' ? SummaryTestView.values : SummaryTestView.values.take(2);
 

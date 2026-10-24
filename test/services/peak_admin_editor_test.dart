@@ -7,6 +7,44 @@ import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 
 void main() {
   group('PeakAdminEditor', () {
+    test(
+      'policy presentation leaves identity and legitimate derivations intact',
+      () {
+        final source = Peak(
+          id: 42,
+          osmId: 0,
+          name: 'Original',
+          latitude: -41.5,
+          longitude: 146.5,
+          durationMinutes: 120,
+          durationLabel: '2:00',
+        );
+        final result = PeakAdminEditor.validateAndBuild(
+          source: source,
+          form: PeakAdminEditor.normalize(source).copyWith(
+            name: 'Updated',
+            notes: 'Full\nnotes\nSENTINEL',
+            durationLabel: '3:30',
+          ),
+          coordinateSource: PeakAdminCoordinateSource.latLng,
+        );
+        expect(result.isValid, isTrue);
+        expect(result.peak!.id, 42);
+        expect(result.peak!.osmId, 0);
+        expect(result.peak!.durationMinutes, 210);
+        expect(result.peak!.sourceOfTruth, Peak.sourceOfTruthHwc);
+        expect(
+          result.peak!.gridZoneDesignator,
+          PeakMgrsConverter.fromLatLng(
+            const LatLng(-41.5, 146.5),
+          ).gridZoneDesignator,
+        );
+        expect(result.peak!.notes, 'Full\nnotes\nSENTINEL');
+        expect(source.name, 'Original');
+        expect(source.durationMinutes, 120);
+      },
+    );
+
     test('normalizes a peak into read-only draft values', () {
       final draft = PeakAdminEditor.normalize(
         Peak(

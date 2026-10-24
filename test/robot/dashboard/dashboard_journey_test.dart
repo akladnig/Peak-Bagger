@@ -10,6 +10,7 @@ import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/providers/dashboard_layout_provider.dart';
+import 'package:peak_bagger/providers/time_chart_type_provider.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/tasmap_provider.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
@@ -90,10 +91,10 @@ void main() {
     expect(robot.card('year-to-date'), findsOneWidget);
   });
 
-  testWidgets('dashboard journey exposes scoped distance controls', (
+  testWidgets('dashboard journey selects shared Period and Time menus', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'theme_mode': 'dark'});
 
     final robot = DashboardRobot(tester);
     final notifier = TestMapNotifier(
@@ -112,12 +113,14 @@ void main() {
 
     notifier.setTracks([
       _track(
-        10,
-        DateTime.utc(2026, 5, 15, 10),
-        segments: [
-          [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
-        ],
-      ),
+          10,
+          DateTime.utc(2026, 5, 15, 10),
+          segments: [
+            [const LatLng(-41.5, 146.5), const LatLng(-41.4, 146.6)],
+          ],
+        )
+        ..totalTimeMillis = 18000000
+        ..movingTime = 14400000,
     ]);
     await tester.pumpAndSettle();
 
@@ -136,6 +139,20 @@ void main() {
     expect(
       robot.summaryControl('distance', 'summary-mode-fab'),
       findsOneWidget,
+    );
+    await robot.selectSummaryPeriod('distance', 'Month');
+    await robot.selectSummaryPeriod('time', 'Month');
+    await robot.selectTimeChartType(TimeChartType.line);
+    final preferences = await SharedPreferences.getInstance();
+    expect(
+      preferences.getString(timeChartTypeStorageKey),
+      TimeChartType.line.storageId,
+    );
+    await robot.closeTimeMenuUnchanged();
+    expect(container.read(timeChartTypeProvider).selected, TimeChartType.line);
+    expect(
+      preferences.getString(timeChartTypeStorageKey),
+      TimeChartType.line.storageId,
     );
   });
 

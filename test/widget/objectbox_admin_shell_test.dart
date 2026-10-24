@@ -4,12 +4,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../harness/mapping_catalog_fixture.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+import 'package:peak_bagger/router.dart' as app_router;
+import 'package:peak_bagger/providers/objectbox_admin_save_provider.dart';
+import 'package:peak_bagger/providers/contact_provider.dart';
+import 'package:peak_bagger/providers/natural_feature_provider.dart';
+import 'package:peak_bagger/providers/route_repository_provider.dart';
+import 'package:peak_bagger/providers/objectbox_admin_delete_provider.dart';
+import 'package:peak_bagger/services/natural_feature_repository.dart';
+import 'package:peak_bagger/services/route_repository.dart';
+import 'package:peak_bagger/models/natural_feature.dart';
+import 'package:peak_bagger/models/route.dart' as app_route;
+import 'package:peak_bagger/services/contact_repository.dart';
+import 'package:peak_bagger/screens/objectbox_admin_screen.dart';
+import 'package:peak_bagger/widgets/side_menu.dart';
+import 'package:peak_bagger/widgets/shell_destination_keyboard.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:mgrs_dart/mgrs_dart.dart' as mgrs;
 import 'package:peak_bagger/app.dart';
 import 'package:peak_bagger/core/constants.dart';
 import 'package:peak_bagger/models/gpx_track.dart';
 import 'package:peak_bagger/models/peak.dart';
+import 'package:peak_bagger/models/contact.dart';
 import 'package:peak_bagger/models/peak_list.dart';
 import 'package:peak_bagger/models/peaks_bagged.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
@@ -24,6 +41,7 @@ import 'package:peak_bagger/services/peak_delete_guard.dart';
 import 'package:peak_bagger/services/peak_mgrs_converter.dart';
 import 'package:peak_bagger/services/peak_list_repository.dart';
 import 'package:peak_bagger/services/peak_repository.dart';
+import 'package:peak_bagger/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../harness/test_map_notifier.dart';
@@ -31,6 +49,964 @@ import '../harness/test_objectbox_admin_repository.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets(
+    'live Search preserves the sole editor through exclusion, zero matches, Cmd+F, Enter, clear and Save',
+    (tester) async {
+      final peaks = [
+        _buildPeak(id: 1, osmId: 101, name: 'Mt Ossa'),
+        _buildPeak(id: 2, osmId: 202, name: 'Anne'),
+      ];
+      final rows = {'Peak': peaks.map(_peakRow).toList()};
+      final repository = _MutablePeakRepository(peaks, rows);
+      await _pumpApp(
+        tester,
+        size: const Size(1280, 960),
+        repository: TestObjectBoxAdminRepository(
+          entities: [_peakEntity()],
+          rowsByEntity: rows,
+        ),
+        peakRepository: repository,
+      );
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mt Ossa').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+      await tester.pumpAndSettle();
+      final field = find.byKey(const Key('objectbox-admin-peak-name'));
+      await tester.enterText(field, 'Unsaved name');
+      final controller = tester.widget<TextFormField>(field).controller!;
+      final search = find.byKey(const Key('objectbox-admin-search-field'));
+      final searchWidget = tester.widget<TextField>(search);
+      expect(searchWidget.decoration!.labelText, 'Search ⌘F');
+      expect(searchWidget.decoration!.suffixIcon, isNull);
+      expect(
+        find.descendant(of: search, matching: find.byType(IconButton)),
+        findsNothing,
+      );
+      for (final query in ['Anne', 'Unsaved name', '', '  Mt Ossa  ']) {
+        await tester.enterText(search, query);
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextFormField>(field).controller,
+          same(controller),
+        );
+        expect(controller.text, 'Unsaved name');
+        if (query == 'Unsaved name') {
+          expect(find.text('No matches'), findsOneWidget);
+        }
+        final shellFocus = tester
+            .widget<Focus>(find.byKey(const Key('shell-destination-3-focus')))
+            .focusNode!;
+        shellFocus.requestFocus();
+        await tester.pump();
+        expect(shellFocus.hasFocus, true);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+        expect(searchWidget.focusNode!.hasFocus, true);
+        expect(
+          searchWidget.controller!.selection,
+          TextSelection(baseOffset: 0, extentOffset: query.length),
+        );
+        await tester.testTextInput.receiveAction(TextInputAction.done);
+        await tester.pumpAndSettle();
+        expect(controller.text, 'Unsaved name');
+      }
+      await tester.binding.setSurfaceSize(const Size(1920, 1200));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextFormField>(field).controller, same(controller));
+      await tester.tap(find.byKey(const Key('objectbox-admin-peak-submit')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const Key('objectbox-admin-peak-update-success-close')),
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ObjectBoxAdminScreen)),
+      );
+      expect(container.read(objectboxAdminProvider).rows, isEmpty);
+      expect(
+        container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+        1,
+      );
+      expect(repository.findById(1)?.name, 'Unsaved name');
+      expect(
+        find.byKey(const Key('objectbox-admin-peak-edit')),
+        findsOneWidget,
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
+    'deleting another Peak preserves excluded editor through Cancel, failure acknowledgement and success',
+    (tester) async {
+      final peaks = [
+        _buildPeak(id: 1, osmId: 101, name: 'Ossa'),
+        _buildPeak(id: 2, osmId: 202, name: 'Anne'),
+      ];
+      final rows = {'Peak': peaks.map(_peakRow).toList()};
+      final repository = _MutablePeakRepository(peaks, rows);
+      await _pumpApp(
+        tester,
+        size: const Size(1280, 960),
+        repository: TestObjectBoxAdminRepository(
+          entities: [_peakEntity()],
+          rowsByEntity: rows,
+        ),
+        peakRepository: repository,
+      );
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      final deleteOther = tester
+          .widget<IconButton>(
+            find.byKey(const Key('objectbox-admin-peak-delete-2')),
+          )
+          .onPressed!;
+      await tester.tap(find.text('Ossa').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+      await tester.pumpAndSettle();
+      final field = find.byKey(const Key('objectbox-admin-peak-name'));
+      await tester.enterText(field, 'Retained draft');
+      final controller = tester.widget<TextFormField>(field).controller!;
+      await tester.enterText(
+        find.byKey(const Key('objectbox-admin-search-field')),
+        '  no matches  ',
+      );
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ObjectBoxAdminScreen)),
+      );
+      for (final outcome in ['cancel', 'failure', 'success']) {
+        repository.deleteError = outcome == 'failure'
+            ? StateError('controlled removal failure')
+            : null;
+        deleteOther();
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(
+            Key(outcome == 'cancel' ? 'cancel-delete' : 'confirm-delete'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (outcome == 'failure') {
+          expect(container.read(objectboxAdminSaveProvider), isTrue);
+          await tester.tap(
+            find.byKey(const Key('objectbox-admin-delete-error-close')),
+          );
+          await tester.pumpAndSettle();
+        }
+        expect(container.read(objectboxAdminSaveProvider), isFalse);
+        expect(
+          container.read(objectboxAdminProvider).searchQuery,
+          '  no matches  ',
+        );
+        expect(
+          container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+          1,
+        );
+        expect(
+          tester.widget<TextFormField>(field).controller,
+          same(controller),
+        );
+        expect(controller.text, 'Retained draft');
+        expect(
+          repository.findById(2),
+          outcome == 'success' ? isNull : isNotNull,
+        );
+      }
+      expect(repository.saveCalls, 0);
+    },
+  );
+
+  testWidgets(
+    'Cmd+F excludes Schema, dropdown, modal and off-route Search without replay',
+    (tester) async {
+      await _pumpApp(tester, size: const Size(1280, 960));
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ObjectBoxAdminScreen)),
+      );
+      final search = tester.widget<TextField>(
+        find.byKey(const Key('objectbox-admin-search-field')),
+      );
+      Future<void> commandF() async {
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        await tester.pump();
+      }
+
+      await tester.tap(
+        find.byKey(const Key('objectbox-admin-entity-dropdown')),
+      );
+      await tester.pumpAndSettle();
+      await commandF();
+      expect(search.focusNode!.hasFocus, isFalse);
+      expect(find.byKey(const Key('shared-dropdown-menu')), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      final context = tester.element(find.byType(ObjectBoxAdminScreen));
+      final dialog = showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Dismiss child'),
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      await commandF();
+      expect(search.focusNode!.hasFocus, isFalse);
+      await tester.tap(find.text('Dismiss child'));
+      await dialog;
+      await tester.pumpAndSettle();
+      container
+          .read(objectboxAdminProvider.notifier)
+          .setMode(ObjectBoxAdminViewMode.schema);
+      await tester.pumpAndSettle();
+      await commandF();
+      expect(
+        container.read(objectboxAdminProvider).mode,
+        ObjectBoxAdminViewMode.schema,
+      );
+      expect(search.focusNode!.hasFocus, isFalse);
+      container
+          .read(objectboxAdminProvider.notifier)
+          .setMode(ObjectBoxAdminViewMode.data);
+      await tester.pumpAndSettle();
+      expect(search.focusNode!.hasFocus, isFalse);
+      await tester.tap(find.byKey(const Key('nav-settings')));
+      await tester.pumpAndSettle();
+      await commandF();
+      expect(app_router.router.state.uri.path, '/settings');
+      expect(search.focusNode!.hasFocus, isFalse);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  for (final entityName in [
+    'Peak',
+    'NaturalFeature',
+    'Contact',
+    'GpxTrack',
+    'Route',
+    'Waypoints',
+  ]) {
+    testWidgets(
+      '$entityName confirmation gates parent and retained shell before rebuild, with usable Cancel and no replay',
+      (tester) async {
+        final peak = _buildPeak(id: 1, osmId: 101, name: 'Selected');
+        final feature = NaturalFeature(
+          id: 1,
+          name: 'Selected',
+          tag: 'water',
+          latitude: -41.5,
+          longitude: 146.5,
+          osmId: 1,
+          osmType: 'way',
+        );
+        final contact = Contact(id: 1, firstName: 'Selected');
+        final track = _buildGpxTrack(id: 1, trackName: 'Selected');
+        final route = app_route.Route(id: 1, name: 'Selected');
+        final descriptor = ObjectBoxAdminRepositoryImpl()
+            .getEntities()
+            .singleWhere((e) => e.name == entityName);
+        final row = switch (entityName) {
+          'Peak' => peakToAdminRow(peak),
+          'NaturalFeature' => naturalFeatureToAdminRow(feature),
+          'Contact' => contactToAdminRow(contact),
+          'GpxTrack' => gpxTrackToAdminRow(track),
+          'Route' => routeToAdminRow(route),
+          _ => const ObjectBoxAdminRow(
+            primaryKeyValue: 1,
+            values: {'id': 1, 'name': 'Selected'},
+          ),
+        };
+        final browserRepository = TestObjectBoxAdminRepository(
+          entities: [descriptor],
+          rowsByEntity: {
+            entityName: [row],
+          },
+        );
+        await _pumpApp(
+          tester,
+          size: const Size(1280, 960),
+          repository: browserRepository,
+          peakRepository: PeakRepository.test(InMemoryPeakStorage([peak])),
+          naturalFeatureRepository: NaturalFeatureRepository.test(
+            InMemoryNaturalFeatureStorage([feature]),
+          ),
+          contactRepository: ContactRepository.test(
+            InMemoryContactStorage([contact]),
+          ),
+          gpxTrackRepository: _MutableGpxTrackRepository([track]),
+          routeRepository: RouteRepository.test(InMemoryRouteStorage([route])),
+        );
+        await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Selected').first);
+        await tester.pumpAndSettle();
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(ObjectBoxAdminScreen)),
+        );
+        final notifier = container.read(objectboxAdminProvider.notifier);
+        final search = tester.widget<TextField>(
+          find.byKey(const Key('objectbox-admin-search-field')),
+        );
+        final oldClose = tester
+            .widget<IconButton>(
+              find.byKey(const Key('objectbox-admin-details-close')),
+            )
+            .onPressed!;
+        final oldSideMenu = tester
+            .widget<SideMenu>(find.byType(SideMenu))
+            .onDestinationSelected;
+        final oldKeyboard = tester
+            .widget<ShellDestinationKeyboard>(
+              find.byType(ShellDestinationKeyboard),
+            )
+            .onActivate;
+        final prefix = switch (entityName) {
+          'NaturalFeature' => 'natural-feature',
+          'GpxTrack' => 'gpx-track',
+          _ => entityName.toLowerCase(),
+        };
+        final delete = tester
+            .widget<IconButton>(
+              find.byKey(Key('objectbox-admin-$prefix-delete-1')),
+            )
+            .onPressed!;
+        delete();
+        expect(container.read(objectboxAdminSaveProvider), isTrue);
+        delete();
+        search.onChanged!('blocked');
+        search.onSubmitted!('blocked');
+        oldClose();
+        notifier.clearSelection();
+        notifier.setMode(ObjectBoxAdminViewMode.schema);
+        await notifier.selectEntity(descriptor);
+        await notifier.toggleSort();
+        oldSideMenu(app_router.shellDestinations[4]);
+        oldKeyboard(0);
+        app_router.router.goNamed('settings');
+        app_router.router.push('/settings');
+        app_router.router.replace('/settings');
+        app_router.router.pushReplacement('/settings');
+        tester
+            .widget<StatefulNavigationShell>(
+              find.byType(StatefulNavigationShell),
+            )
+            .goBranch(4);
+        await tester.pumpAndSettle();
+        expect(app_router.router.state.uri.path, '/objectbox-admin');
+        expect(find.byKey(const Key('confirm-delete')), findsOneWidget);
+        expect(container.read(objectboxAdminProvider).searchQuery, isEmpty);
+        expect(
+          container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+          1,
+        );
+        expect(
+          tester
+              .widget<TextField>(
+                find.byKey(const Key('objectbox-admin-search-field')),
+              )
+              .enabled,
+          isFalse,
+        );
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
+        expect(search.focusNode!.hasFocus, isFalse);
+        await tester.tap(find.byKey(const Key('cancel-delete')));
+        await tester.pumpAndSettle();
+        expect(container.read(objectboxAdminSaveProvider), isFalse);
+        expect(
+          container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+          1,
+        );
+        expect(app_router.router.state.uri.path, '/objectbox-admin');
+        delete(); // usable again; child Escape cancels without closing parent
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(container.read(objectboxAdminSaveProvider), isFalse);
+        expect(
+          container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+          1,
+        );
+        final refresh = Completer<List<ObjectBoxAdminRow>>();
+        browserRepository.rowLoader = (_) => refresh.future;
+        delete();
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('confirm-delete')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(container.read(objectboxAdminSaveProvider), isTrue);
+        expect(container.read(objectboxAdminProvider).selectedRow, isNull);
+        oldSideMenu(app_router.shellDestinations[4]);
+        app_router.router.go('/settings');
+        refresh.complete([]);
+        await tester.pumpAndSettle();
+        expect(container.read(objectboxAdminSaveProvider), isFalse);
+        expect(container.read(objectboxAdminProvider).selectedRow, isNull);
+        expect(app_router.router.state.uri.path, '/objectbox-admin');
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
+  testWidgets(
+    'Track confirmed removal survives sync/read failures and Retry never deletes again',
+    (tester) async {
+      final track = _buildGpxTrack(id: 1, trackName: 'Removed');
+      final tracks = _MutableGpxTrackRepository([track]);
+      final descriptor = ObjectBoxAdminRepositoryImpl()
+          .getEntities()
+          .singleWhere((e) => e.name == 'GpxTrack');
+      var failRead = false;
+      Completer<List<ObjectBoxAdminRow>>? recoveryRead;
+      final repository = TestObjectBoxAdminRepository(entities: [descriptor])
+        ..rowLoader = (_) async {
+          if (recoveryRead != null) return recoveryRead.future;
+          if (failRead) throw StateError('Admin refresh');
+          return tracks._tracks.map(gpxTrackToAdminRow).toList();
+        };
+      await _pumpApp(
+        tester,
+        size: const Size(1280, 960),
+        repository: repository,
+        gpxTrackRepository: tracks,
+      );
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Removed').first);
+      await tester.pumpAndSettle();
+      tracks.remainingReadError = StateError('remaining Tracks / sync');
+      await tester.tap(
+        find.byKey(const Key('objectbox-admin-gpx-track-delete-1')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('confirm-delete')));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ObjectBoxAdminScreen)),
+      );
+      expect(tracks.findById(1), isNull);
+      expect(container.read(objectboxAdminProvider).selectedRow, isNull);
+      expect(
+        find.textContaining('Track deleted. Synchronisation'),
+        findsOneWidget,
+      );
+      final retry = find.byKey(const Key('objectbox-admin-delete-retry'));
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      expect(container.read(objectboxAdminSaveProvider), isFalse);
+      tracks.remainingReadError = null;
+      failRead = true;
+      await tester.tap(retry);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Track deleted. Refresh'), findsOneWidget);
+      final reads = tracks.readCalls;
+      failRead = false;
+      recoveryRead = Completer<List<ObjectBoxAdminRow>>();
+      final capturedRetry = tester.widget<FilledButton>(retry).onPressed!;
+      final oldSearch = tester.widget<TextField>(
+        find.byKey(const Key('objectbox-admin-search-field')),
+      );
+      capturedRetry();
+      expect(container.read(objectboxAdminSaveProvider), isTrue);
+      capturedRetry();
+      oldSearch.onChanged!('blocked recovery');
+      oldSearch.onSubmitted!('blocked recovery');
+      app_router.router.goNamed('settings');
+      app_router.router.pushReplacement('/settings');
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(container.read(objectboxAdminSaveProvider), isTrue);
+      expect(app_router.router.state.uri.path, '/objectbox-admin');
+      expect(container.read(objectboxAdminProvider).searchQuery, isEmpty);
+      recoveryRead.complete([]);
+      await tester.pumpAndSettle();
+      expect(tracks.deleteCalls, 1);
+      expect(tracks.readCalls, reads);
+      expect(container.read(objectboxAdminDeleteProvider), isEmpty);
+      expect(container.read(objectboxAdminProvider).selectedRow, isNull);
+      capturedRetry(); // already completed follow-up is not replayed
+      await tester.pumpAndSettle();
+      expect(tracks.deleteCalls, 1);
+      expect(tracks.readCalls, reads);
+      expect(app_router.router.state.uri.path, '/objectbox-admin');
+    },
+  );
+  testWidgets(
+    'multiple recovery messages remain scrollable at enlarged text without replacing the draft',
+    (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await _pumpApp(tester, size: const Size(1280, 960));
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Mt Ossa').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+      await tester.pumpAndSettle();
+      final field = find.byKey(const Key('objectbox-admin-peak-name'));
+      await tester.enterText(field, 'Retained feedback draft');
+      final controller = tester.widget<TextFormField>(field).controller!;
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ObjectBoxAdminScreen)),
+      );
+      final coordinator = container.read(objectboxAdminDeleteProvider.notifier);
+      for (var index = 0; index < 20; index++) {
+        await coordinator.run(
+          label: 'Fixture record $index',
+          confirm: () async => true,
+          remove: () async {},
+          didRemove: () {},
+          refresh: () async => throw StateError('controlled refresh'),
+          onFailure: (_, _) async {},
+        );
+      }
+      await tester.pumpAndSettle();
+      final last = find.byKey(const Key('objectbox-admin-delete-retry')).last;
+      await tester.ensureVisible(last);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(last).bottom, lessThanOrEqualTo(960));
+      expect(controller.text, 'Retained feedback draft');
+      expect(tester.widget<TextFormField>(field).controller, same(controller));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'programmatic calls are rejected before a completing Save can queue departure',
+    (tester) async {
+      await _pumpApp(tester, size: const Size(1280, 960));
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ObjectBoxAdminScreen)),
+      );
+      final shell = tester.widget<StatefulNavigationShell>(
+        find.byType(StatefulNavigationShell),
+      );
+      final attempts = <void Function()>[
+        () => app_router.router.go('/settings'),
+        () => app_router.router.goNamed('settings'),
+        () => app_router.router.push('/settings'),
+        () => app_router.router.pushNamed('settings'),
+        () => app_router.router.replace('/settings'),
+        () => app_router.router.pushReplacement('/settings'),
+        () => shell.goBranch(4),
+      ];
+      for (final attempt in attempts) {
+        final gate = Completer<String?>();
+        final save = container
+            .read(objectboxAdminSaveProvider.notifier)
+            .run(() => gate.future);
+        attempt();
+        gate.complete(); // no frame/route parse while pending
+        await save;
+        await tester.pumpAndSettle();
+        expect(app_router.router.state.uri.path, '/objectbox-admin');
+        expect(container.read(objectboxAdminSaveProvider), isFalse);
+      }
+      app_router.router.go('/settings');
+      await tester.pumpAndSettle();
+      expect(app_router.router.state.uri.path, '/settings');
+    },
+  );
+  testWidgets('pushed Admin back/pop reads Save gate before rebuild', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final peaks = [_buildPeak(id: 1, osmId: 101, name: 'Mt Ossa')];
+    final rows = {'Peak': peaks.map(_peakRow).toList()};
+    final repository = _MutablePeakRepository(peaks, rows, saveGate: gate);
+    await _pumpApp(
+      tester,
+      size: const Size(1280, 960),
+      repository: TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rows,
+      ),
+      peakRepository: repository,
+    );
+    app_router.router.push('/objectbox-admin');
+    await tester.pumpAndSettle();
+    expect(app_router.router.canPop(), isTrue);
+    await tester.tap(find.text('Mt Ossa').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+    await tester.pumpAndSettle();
+    final save = tester
+        .widget<FilledButton>(
+          find.byKey(const Key('objectbox-admin-peak-submit')),
+        )
+        .onPressed!;
+    save();
+    app_router.router.pop();
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(app_router.router.state.uri.path, '/objectbox-admin');
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(
+      find.byKey(const Key('objectbox-admin-peak-edit-form')),
+      findsOneWidget,
+    );
+    gate.complete();
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const Key('objectbox-admin-peak-update-success-close')),
+    );
+    await tester.pumpAndSettle();
+    expect(app_router.router.state.uri.path, '/objectbox-admin');
+    app_router.router.pop();
+    await tester.pumpAndSettle();
+    expect(app_router.router.state.uri.path, '/');
+    expect(repository.saveCalls, 1);
+  });
+  for (final name in ['Peak', 'Contact']) {
+    testWidgets('$name create Cancel abandons creation without writes', (
+      tester,
+    ) async {
+      final peaks = <Peak>[];
+      final rows = <String, List<ObjectBoxAdminRow>>{'Peak': [], 'Contact': []};
+      final peakRepository = _MutablePeakRepository(peaks, rows);
+      final contacts = _CountingContactRepository();
+      final entities = ObjectBoxAdminRepositoryImpl()
+          .getEntities()
+          .where((entity) => entity.name == name)
+          .toList();
+      await _pumpApp(
+        tester,
+        size: const Size(1280, 960),
+        repository: TestObjectBoxAdminRepository(
+          entities: entities,
+          rowsByEntity: rows,
+        ),
+        peakRepository: peakRepository,
+        contactRepository: contacts,
+      );
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      final prefix = name.toLowerCase();
+      await tester.tap(find.byKey(Key('objectbox-admin-$prefix-add')));
+      await tester.pumpAndSettle();
+      final field = find.byKey(
+        Key(
+          'objectbox-admin-$prefix-${name == 'Peak' ? 'name' : 'first-name'}',
+        ),
+      );
+      await tester.enterText(field, 'Abandoned creation');
+      await tester.tap(find.byKey(Key('objectbox-admin-$prefix-cancel')));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(Key('objectbox-admin-$prefix-edit-form')),
+        findsNothing,
+      );
+      expect(peakRepository.saveCalls, 0);
+      expect(contacts.saveCalls, 0);
+      await tester.tap(find.byKey(Key('objectbox-admin-$prefix-add')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextFormField>(field).controller!.text, isEmpty);
+    });
+  }
+  for (final fail in [false, true]) {
+    testWidgets(
+      'retained Admin branch blocks pending Save departure (${fail ? 'failure' : 'success'})',
+      (tester) async {
+        final gate = Completer<void>();
+        final peaks = [_buildPeak(id: 1, osmId: 101, name: 'Mt Ossa')];
+        final rows = {'Peak': peaks.map(_peakRow).toList()};
+        final repository = _MutablePeakRepository(peaks, rows, saveGate: gate);
+        await _pumpApp(
+          tester,
+          size: const Size(1280, 960),
+          repository: TestObjectBoxAdminRepository(
+            entities: [_peakEntity()],
+            rowsByEntity: rows,
+          ),
+          peakRepository: repository,
+        );
+        await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Mt Ossa').first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('objectbox-admin-peak-name')),
+          'Retained draft',
+        );
+        final pane = tester.state(find.byType(ObjectBoxAdminScreen));
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(ObjectBoxAdminScreen)),
+        );
+        final staleSideMenu = tester
+            .widget<SideMenu>(find.byType(SideMenu))
+            .onDestinationSelected;
+        final staleKeyboard = tester
+            .widget<ShellDestinationKeyboard>(
+              find.byType(ShellDestinationKeyboard),
+            )
+            .onActivate;
+        final staleCancel = tester
+            .widget<FilledButton>(
+              find.byKey(const Key('objectbox-admin-peak-cancel')),
+            )
+            .onPressed!;
+        final staleClose = tester
+            .widget<IconButton>(
+              find.byKey(const Key('objectbox-admin-details-close')),
+            )
+            .onPressed!;
+        final staleSearch = tester.widget<TextField>(
+          find.byKey(const Key('objectbox-admin-search-field')),
+        );
+        final staleSave = tester
+            .widget<FilledButton>(
+              find.byKey(const Key('objectbox-admin-peak-submit')),
+            )
+            .onPressed!;
+        staleSave();
+        expect(container.read(objectboxAdminSaveProvider), isTrue);
+        staleSearch.onChanged!('blocked before rebuild');
+        staleSearch.onSubmitted!('blocked before rebuild');
+        expect(container.read(objectboxAdminProvider).searchQuery, isEmpty);
+        staleSave();
+        staleCancel();
+        staleClose();
+        staleSideMenu(app_router.shellDestinations[4]);
+        staleKeyboard(0);
+        tester
+            .widget<StatefulNavigationShell>(
+              find.byType(StatefulNavigationShell),
+            )
+            .goBranch(4);
+        app_router.router.go('/settings');
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(
+          app_router.router.routerDelegate.currentConfiguration.uri.path,
+          '/objectbox-admin',
+        );
+        expect(repository.saveCalls, 1);
+        expect(
+          find.byKey(const Key('objectbox-admin-peak-edit-form')),
+          findsOneWidget,
+        );
+        expect(
+          _textFormFieldText(tester, 'objectbox-admin-peak-name'),
+          'Retained draft',
+        );
+        for (final key in [
+          'nav-dashboard',
+          'nav-map',
+          'nav-peak-lists',
+          'nav-settings',
+        ]) {
+          await tester.tap(find.byKey(Key(key)));
+          await tester.pump();
+          expect(
+            app_router.router.routerDelegate.currentConfiguration.uri.path,
+            '/objectbox-admin',
+          );
+        }
+        final settingsIcon = find.descendant(
+          of: find.byKey(const Key('nav-settings')),
+          matching: find.byIcon(Icons.settings),
+        );
+        Focus.of(tester.element(settingsIcon)).requestFocus();
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pump();
+        app_router.router.push('/settings');
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(
+          app_router.router.routerDelegate.currentConfiguration.uri.path,
+          '/objectbox-admin',
+        );
+        await tester.binding.handlePopRoute();
+        await tester.pump();
+        staleSearch.onChanged!('blocked after rebuild');
+        staleSearch.onSubmitted!('blocked after rebuild');
+        expect(container.read(objectboxAdminProvider).searchQuery, isEmpty);
+        staleCancel();
+        staleClose();
+        staleSave();
+        expect(
+          container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+          1,
+        );
+        expect(
+          identical(tester.state(find.byType(ObjectBoxAdminScreen)), pane),
+          isTrue,
+        );
+        expect(
+          _textFormFieldText(tester, 'objectbox-admin-peak-name'),
+          'Retained draft',
+        );
+        expect(repository.saveCalls, 1);
+        if (fail) {
+          gate.completeError(StateError('controlled save failure'));
+        } else {
+          gate.complete();
+        }
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(
+            Key(
+              'objectbox-admin-peak-${fail ? 'save-error' : 'update-success'}-close',
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(container.read(objectboxAdminSaveProvider), isFalse);
+        expect(
+          app_router.router.routerDelegate.currentConfiguration.uri.path,
+          '/objectbox-admin',
+        );
+        if (fail) {
+          expect(
+            _textFormFieldText(tester, 'objectbox-admin-peak-name'),
+            'Retained draft',
+          );
+          await tester.tap(
+            find.byKey(const Key('objectbox-admin-peak-cancel')),
+          );
+          await tester.pumpAndSettle();
+        }
+        expect(
+          container.read(objectboxAdminProvider).selectedRow?.primaryKeyValue,
+          1,
+        );
+        await tester.tap(find.byKey(const Key('nav-settings')));
+        await tester.pumpAndSettle();
+        expect(
+          app_router.router.routerDelegate.currentConfiguration.uri.path,
+          '/settings',
+        );
+        expect(
+          find.byType(ObjectBoxAdminScreen, skipOffstage: false),
+          findsOneWidget,
+        );
+        expect(container.read(objectboxAdminProvider).selectedRow, isNull);
+        expect(repository.saveCalls, 1);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+  }
+
+  testWidgets(
+    'idle retained-shell departure discards draft with no write and refreshes re-entry',
+    (tester) async {
+      final peaks = [_buildPeak(id: 1, osmId: 101, name: 'Mt Ossa')];
+      final rows = {'Peak': peaks.map(_peakRow).toList()};
+      final repository = _MutablePeakRepository(peaks, rows);
+      final browser = TestObjectBoxAdminRepository(
+        entities: [_peakEntity()],
+        rowsByEntity: rows,
+      );
+      await _pumpApp(
+        tester,
+        size: const Size(1280, 960),
+        repository: browser,
+        peakRepository: repository,
+      );
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      for (final programmatic in [false, true]) {
+        await tester.tap(find.text('Mt Ossa').first);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('objectbox-admin-peak-edit')));
+        await tester.pumpAndSettle();
+        final controller = tester
+            .widget<TextFormField>(
+              find.byKey(const Key('objectbox-admin-peak-name')),
+            )
+            .controller!;
+        await tester.enterText(
+          find.byKey(const Key('objectbox-admin-peak-name')),
+          'Abandoned draft',
+        );
+        final before = browser.loadRowsCallCount;
+        if (programmatic) {
+          app_router.router.go('/settings');
+        } else {
+          await tester.tap(find.byKey(const Key('nav-settings')));
+        }
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(
+            const Key('objectbox-admin-peak-edit-form'),
+            skipOffstage: false,
+          ),
+          findsNothing,
+        );
+        expect(() => controller.addListener(() {}), throwsFlutterError);
+        expect(repository.saveCalls, 0);
+        expect(repository.findById(1)?.name, 'Mt Ossa');
+        await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+        await tester.pumpAndSettle();
+        expect(browser.loadRowsCallCount, greaterThan(before));
+        expect(find.text('Abandoned draft'), findsNothing);
+      }
+    },
+  );
+  testWidgets(
+    'detail selection resources clean up across mode and routed re-entry',
+    (tester) async {
+      await _pumpApp(tester);
+      await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+      await tester.pumpAndSettle();
+      for (final transition in ['mode', 'route']) {
+        await tester.tap(find.text('Mt Ossa').first);
+        await tester.pumpAndSettle();
+        final areas = tester.widgetList<SelectionArea>(
+          find.descendant(
+            of: find.byKey(const Key('objectbox-admin-details-list')),
+            matching: find.byType(SelectionArea),
+          ),
+        );
+        final focuses = areas.map((area) => area.focusNode!).toList();
+        expect(focuses, isNotEmpty);
+        if (transition == 'mode') {
+          await tester.tap(find.text('Schema'));
+          await tester.pumpAndSettle();
+        } else {
+          await tester.tap(find.byKey(const Key('nav-map')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const Key('nav-objectbox-admin')));
+          await tester.pumpAndSettle();
+        }
+        for (final focus in focuses) {
+          expect(() => focus.addListener(() {}), throwsFlutterError);
+        }
+        if (transition == 'mode') {
+          await tester.tap(find.text('Data'));
+          await tester.pumpAndSettle();
+        }
+        expect(tester.takeException(), isNull);
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('admin shell opens from side menu', (tester) async {
     await _pumpApp(tester);
 
@@ -88,21 +1064,13 @@ void main() {
     expect(find.byKey(const Key('objectbox-admin-table')), findsOneWidget);
     expect(find.text('Mt Ossa'), findsOneWidget);
 
-    final dropdown = tester
-        .widget<DropdownButton<ObjectBoxAdminEntityDescriptor>>(
-          find.descendant(
-            of: find.byKey(const Key('objectbox-admin-entity-dropdown')),
-            matching: find.byType(
-              DropdownButton<ObjectBoxAdminEntityDescriptor>,
-            ),
-          ),
-        );
-    expect(dropdown.items, hasLength(1));
-    expect(dropdown.items!.single.value!.name, 'Peak');
-
     await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
     await tester.pumpAndSettle();
-
+    expect(find.byKey(const Key('shared-dropdown-menu')), findsOneWidget);
+    expect(
+      find.text('Peak'),
+      findsNWidgets(2),
+    ); // closed value and single option
     expect(tester.takeException(), isNull);
   });
 
@@ -152,17 +1120,14 @@ void main() {
     await container.read(objectboxAdminProvider.notifier).refresh();
     await tester.pumpAndSettle();
 
-    final dropdown = tester
-        .widget<DropdownButton<ObjectBoxAdminEntityDescriptor>>(
-          find.descendant(
-            of: find.byKey(const Key('objectbox-admin-entity-dropdown')),
-            matching: find.byType(
-              DropdownButton<ObjectBoxAdminEntityDescriptor>,
-            ),
-          ),
-        );
-    expect(dropdown.value, same(refreshedPeak));
-    expect(dropdown.items, hasLength(1));
+    expect(
+      container.read(objectboxAdminProvider).selectedEntity,
+      same(refreshedPeak),
+    );
+    expect(find.text('Refreshed Peak'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('objectbox-admin-entity-dropdown')));
+    await tester.pumpAndSettle();
+    expect(find.text('Refreshed Peak'), findsNWidgets(2));
     expect(find.text('Mt Ossa'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -201,10 +1166,26 @@ void main() {
       displayTrackPointsByZoomWidget,
       elevationProfileWidget,
     ]) {
-      expect(widget, isA<SelectableText>());
-      final text = widget as SelectableText;
-      expect(text.maxLines, 5);
-      expect(text.data, contains('line1'));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: MyTheme.dark,
+          home: Scaffold(body: SizedBox(width: 300, child: widget)),
+        ),
+      );
+      final scroll = tester.state<ScrollableState>(find.byType(Scrollable));
+      expect(scroll.position.viewportDimension, closeTo(5 * 20, .01));
+      expect(scroll.position.maxScrollExtent, greaterThan(0));
+      await tester.drag(
+        find.byType(SingleChildScrollView),
+        const Offset(0, -80),
+      );
+      await tester.pumpAndSettle();
+      expect(scroll.position.pixels, greaterThan(0));
+      expect(find.byType(SelectionArea), findsOneWidget);
+      expect(
+        find.text('line1\nline2\nline3\nline4\nline5\nline6'),
+        findsOneWidget,
+      );
     }
   });
 
@@ -702,7 +1683,7 @@ void main() {
         matching: find.byType(TextField),
       ),
     );
-    expect(notes.minLines, 3);
+    expect(notes.minLines, 1);
     expect(notes.maxLines, 5);
 
     await tester.enterText(
@@ -1514,6 +2495,13 @@ void main() {
       find.byKey(const Key('objectbox-admin-peak-details-durationMinutes')),
       findsOneWidget,
     );
+    // Content-sized controls can change the toolbar height. Reveal each lazy
+    // detail rather than assuming it was built beside the preceding one.
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('objectbox-admin-peak-details-durationLabel')),
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
     expect(
       find.byKey(const Key('objectbox-admin-peak-details-durationLabel')),
       findsOneWidget,
@@ -1690,6 +2678,24 @@ void main() {
 
     expect(find.text('Update Successful'), findsOneWidget);
     expect(find.text('New Peak updated.'), findsOneWidget);
+    // Creation replaced the pane, but its Save/outcome feedback still owns the
+    // shared gate. The replacement must not expose a newly unlocked editor.
+    expect(
+      tester
+          .widget<IconButton>(
+            find.byKey(const Key('objectbox-admin-peak-edit')),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<IconButton>(
+            find.byKey(const Key('objectbox-admin-details-close')),
+          )
+          .onPressed,
+      isNull,
+    );
 
     await tester.tap(
       find.byKey(const Key('objectbox-admin-peak-update-success-close')),
@@ -1710,6 +2716,14 @@ void main() {
       3,
     );
     expect(repository.findByOsmId(303)?.name, 'New Peak');
+    expect(
+      tester
+          .widget<IconButton>(
+            find.byKey(const Key('objectbox-admin-peak-edit')),
+          )
+          .onPressed,
+      isNotNull,
+    );
     expect(find.text('New Peak').last, findsOneWidget);
   });
 
@@ -1870,6 +2884,9 @@ Future<void> _pumpApp(
   List<ObjectBoxAdminEntityDescriptor>? entities,
   TestObjectBoxAdminRepository? repository,
   PeakRepository? peakRepository,
+  ContactRepository? contactRepository,
+  NaturalFeatureRepository? naturalFeatureRepository,
+  RouteRepository? routeRepository,
   PeakListRepository? peakListRepository,
   GpxTrackRepository? gpxTrackRepository,
   MapState? mapState,
@@ -1906,6 +2923,16 @@ Future<void> _pumpApp(
         peakRepositoryProvider.overrideWithValue(
           peakRepository ?? PeakRepository.test(InMemoryPeakStorage()),
         ),
+        contactRepositoryProvider.overrideWithValue(
+          contactRepository ?? _CountingContactRepository(),
+        ),
+        naturalFeatureRepositoryProvider.overrideWithValue(
+          naturalFeatureRepository ??
+              NaturalFeatureRepository.test(InMemoryNaturalFeatureStorage()),
+        ),
+        routeRepositoryProvider.overrideWithValue(
+          routeRepository ?? RouteRepository.test(InMemoryRouteStorage()),
+        ),
         peakListRepositoryProvider.overrideWithValue(
           peakListRepository ??
               PeakListRepository.test(InMemoryPeakListStorage()),
@@ -1922,7 +2949,7 @@ Future<void> _pumpApp(
     ),
   );
 
-  await tester.pump();
+  await tester.pumpAndSettle();
 }
 
 Peak _buildPeak({
@@ -1967,9 +2994,16 @@ class _MutableGpxTrackRepository extends GpxTrackRepository {
       super.test(InMemoryGpxTrackStorage());
 
   final List<GpxTrack> _tracks;
+  Object? remainingReadError;
+  int deleteCalls = 0;
+  int readCalls = 0;
 
   @override
-  List<GpxTrack> getAllTracks() => List<GpxTrack>.unmodifiable(_tracks);
+  List<GpxTrack> getAllTracks() {
+    readCalls++;
+    if (remainingReadError != null) throw remainingReadError!;
+    return List<GpxTrack>.unmodifiable(_tracks);
+  }
 
   @override
   GpxTrack? findById(int id) {
@@ -1983,6 +3017,7 @@ class _MutableGpxTrackRepository extends GpxTrackRepository {
 
   @override
   bool deleteTrack(int id) {
+    deleteCalls++;
     final previousLength = _tracks.length;
     _tracks.removeWhere((track) => track.gpxTrackId == id);
     return _tracks.length != previousLength;
@@ -1990,6 +3025,26 @@ class _MutableGpxTrackRepository extends GpxTrackRepository {
 }
 
 ObjectBoxAdminEntityDescriptor _peakEntity() {
+  final preview = _peakPreviewEntity();
+  final actual = ObjectBoxAdminRepositoryImpl().getEntities().singleWhere(
+    (entity) => entity.name == 'Peak',
+  );
+  return ObjectBoxAdminEntityDescriptor(
+    name: preview.name,
+    displayName: preview.displayName,
+    primaryKeyField: preview.primaryKeyField,
+    primaryNameField: preview.primaryNameField,
+    fields: preview.fields
+        .map(
+          (field) => actual.fields.singleWhere(
+            (candidate) => candidate.name == field.name,
+          ),
+        )
+        .toList(),
+  );
+}
+
+ObjectBoxAdminEntityDescriptor _peakPreviewEntity() {
   return const ObjectBoxAdminEntityDescriptor(
     name: 'Peak',
     displayName: 'Peak',
@@ -2187,6 +3242,16 @@ bool _isFilledButtonEnabled(WidgetTester tester, String key) {
   return tester.widget<FilledButton>(find.byKey(Key(key))).onPressed != null;
 }
 
+class _CountingContactRepository extends ContactRepository {
+  _CountingContactRepository() : super.test(InMemoryContactStorage());
+  int saveCalls = 0;
+  @override
+  Contact save(Contact contact) {
+    saveCalls++;
+    return super.save(contact);
+  }
+}
+
 class _MutablePeakRepository extends PeakRepository {
   _MutablePeakRepository(
     this._peaks,
@@ -2199,6 +3264,8 @@ class _MutablePeakRepository extends PeakRepository {
   final Map<String, List<ObjectBoxAdminRow>> _rowsByEntity;
   final PeakSaveResult Function(Peak peak)? saveResultBuilder;
   final Completer<void>? saveGate;
+  int saveCalls = 0;
+  Object? deleteError;
 
   @override
   List<Peak> getAllPeaks() => List<Peak>.unmodifiable(_peaks);
@@ -2225,6 +3292,7 @@ class _MutablePeakRepository extends PeakRepository {
 
   @override
   Future<PeakSaveResult> saveDetailed(Peak peak) async {
+    saveCalls++;
     await saveGate?.future;
 
     final index = _peaks.indexWhere((entry) => entry.id == peak.id);
@@ -2243,6 +3311,7 @@ class _MutablePeakRepository extends PeakRepository {
 
   @override
   Future<void> delete(int peakId) async {
+    if (deleteError != null) throw deleteError!;
     _peaks.removeWhere((peak) => peak.id == peakId);
     _syncRows();
   }

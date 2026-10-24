@@ -29,12 +29,116 @@ import 'package:peak_bagger/services/peaks_bagged_repository.dart';
 import 'package:peak_bagger/theme.dart';
 import 'package:peak_bagger/widgets/map_search_results_list.dart';
 import 'package:peak_bagger/widgets/map_search_popup.dart';
+import 'package:peak_bagger/widgets/shared_dropdown.dart';
 
 import '../harness/test_map_notifier.dart';
 import '../harness/test_tasmap_notifier.dart';
 import '../harness/test_tasmap_repository.dart';
 
 void main() {
+  testWidgets('Cmd+F opens active Map Search from shell navigation focus', (
+    tester,
+  ) async {
+    final notifier = TestMapNotifier(_mapStateWithPeaks());
+    await _pumpMapAppWithNotifier(tester, notifier);
+    await tester.pumpAndSettle();
+    final shellFocus = tester
+        .widget<Focus>(find.byKey(const Key('shell-destination-1-focus')))
+        .focusNode!;
+    shellFocus.requestFocus();
+    await tester.pump();
+    expect(shellFocus.hasFocus, true);
+    await _cmdF(tester);
+    await tester.pumpAndSettle();
+    expect(notifier.state.showPeakSearch, true);
+    expect(find.byKey(const Key('map-search-input')), findsOneWidget);
+  });
+  testWidgets(
+    'Cmd+F selects the raw query without resetting criteria or pending debounce',
+    (tester) async {
+      await _pumpMapApp(tester, _mapStateWithPeaks());
+      await _cmdF(tester);
+      await tester.pumpAndSettle();
+      final input = find.byKey(const Key('map-search-input'));
+      await tester.enterText(input, 'Bonnet');
+      await tester.pump(const Duration(milliseconds: 50));
+      final container = ProviderScope.containerOf(tester.element(input));
+      expect(container.read(mapProvider).searchPopupQuery, isEmpty);
+      final field = tester.widget<TextField>(input);
+      expect(field.decoration!.labelText, 'Search ⌘F');
+      expect(field.decoration!.hintText, 'Search Peaks');
+      await _cmdF(tester);
+      await tester.pump();
+      expect(field.controller!.text, 'Bonnet');
+      expect(
+        field.controller!.selection,
+        const TextSelection(baseOffset: 0, extentOffset: 6),
+      );
+      expect(container.read(mapProvider).searchPopupQuery, isEmpty);
+      await tester.pump(const Duration(milliseconds: 180));
+      expect(container.read(mapProvider).searchPopupQuery, 'Bonnet');
+      final categories = container.read(mapProvider).searchPopupCategories;
+      await tester.ensureVisible(
+        find.byKey(const Key('map-search-sort-button')),
+      );
+      await tester.tap(find.byKey(const Key('map-search-sort-button')));
+      await tester.pumpAndSettle();
+      await _cmdF(tester);
+      await tester.pump();
+      expect(field.focusNode!.hasFocus, isFalse);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('map-search-popup')), findsOneWidget);
+      expect(container.read(mapProvider).searchPopupCategories, categories);
+      await tester.tap(find.byKey(const Key('map-search-date-trigger')));
+      await tester.pumpAndSettle();
+      await _cmdF(tester);
+      await tester.pump();
+      expect(field.focusNode!.hasFocus, isFalse);
+      expect(find.byKey(const Key('map-search-date-picker')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Cmd+F does not open background Search behind a drawer, dialog or Save lock',
+    (tester) async {
+      final notifier = TestMapNotifier(_mapStateWithPeaks());
+      await _pumpMapAppWithNotifier(tester, notifier);
+      await tester.tap(find.byKey(const Key('show-basemaps-fab')));
+      await tester.pumpAndSettle();
+      await _cmdF(tester);
+      await tester.pump();
+      expect(notifier.state.showPeakSearch, isFalse);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      final context = tester.element(
+        find.byKey(const Key('map-interaction-region')),
+      );
+      final closed = showDialog<void>(
+        context: context,
+        builder: (_) => const AlertDialog(content: TextField(autofocus: true)),
+      );
+      await tester.pumpAndSettle();
+      await _cmdF(tester);
+      await tester.pump();
+      expect(notifier.state.showPeakSearch, isFalse);
+      Navigator.of(tester.element(find.byType(AlertDialog))).pop();
+      await closed;
+      await tester.pumpAndSettle();
+      notifier.state = notifier.state.copyWith(isSavingRoute: true);
+      // No rebuild: the action must read the current lock.
+      await _cmdF(tester);
+      await tester.pumpAndSettle();
+      expect(notifier.state.showPeakSearch, isFalse);
+      notifier.state = notifier.state.copyWith(isSavingRoute: false);
+      await tester.pumpAndSettle();
+      expect(notifier.state.showPeakSearch, isFalse);
+      await _cmdF(tester);
+      await tester.pumpAndSettle();
+      expect(notifier.state.showPeakSearch, isTrue);
+    },
+  );
+
   testWidgets('AppBar Search popup opens and closes', (tester) async {
     await _pumpMapApp(tester, _mapStateWithPeaks());
 
@@ -455,6 +559,7 @@ void main() {
     final focusNode = FocusNode();
     await tester.pumpWidget(
       MaterialApp(
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapSearchPopup(
             focusNode: focusNode,
@@ -520,6 +625,7 @@ void main() {
     final focusNode = FocusNode();
     await tester.pumpWidget(
       MaterialApp(
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapSearchPopup(
             focusNode: focusNode,
@@ -1300,24 +1406,15 @@ void main() {
 
     expect(container.read(mapProvider).searchPopupRegionKey, isNull);
 
-    final filterButton = tester.widget<OutlinedButton>(
-      find.descendant(
-        of: find.byKey(const Key('map-search-filter-trigger')),
-        matching: find.byType(OutlinedButton),
-      ),
+    final region = tester.widget<SharedDropdown<String>>(
+      find.byKey(const Key('map-search-filter-button')),
     );
-    expect(filterButton.style, isNotNull);
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('map-search-filter-trigger')),
-        matching: find.text('Filter'),
-      ),
-      findsOneWidget,
-    );
+    expect(region.label, 'Region');
+    expect(find.text('None'), findsWidgets);
   });
 
   testWidgets(
-    'region menu options stay manifest-driven and selected labels use compact names',
+    'region menu options stay manifest-driven and selected labels remain complete',
     (tester) async {
       await _pumpMapApp(tester, _mapStateWithPeaks());
 
@@ -1367,7 +1464,7 @@ void main() {
         container.read(mapProvider).searchPopupRegionKey,
         'italy-nord-est',
       );
-      expect(find.text('Italy NE'), findsOneWidget);
+      expect(find.text('Italy North East'), findsOneWidget);
     },
   );
 
@@ -1496,6 +1593,12 @@ Future<void> _pumpMapApp(
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
   await tester.pump(const Duration(milliseconds: 100));
+}
+
+Future<void> _cmdF(WidgetTester tester) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft, platform: 'macos');
+  await tester.sendKeyEvent(LogicalKeyboardKey.keyF, platform: 'macos');
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft, platform: 'macos');
 }
 
 Future<void> _pumpMapAppWithNotifier(
@@ -1792,7 +1895,7 @@ class _MapSearchResultsHarness extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      theme: MyTheme.light,
+      theme: MyTheme.dark,
       home: MediaQuery(
         data: MediaQueryData(textScaler: textScaler),
         child: Scaffold(

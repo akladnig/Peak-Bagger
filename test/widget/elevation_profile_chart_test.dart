@@ -58,7 +58,7 @@ void main() {
       find.byKey(const Key('elevation-profile-time-toggle')),
       findsOneWidget,
     );
-    final searchButtonTheme = MyTheme.light.extension<SearchButtonThemeData>()!;
+    final searchButtonTheme = MyTheme.dark.extension<SearchButtonThemeData>()!;
     _expectSearchButtonStyle(
       tester
           .widget<OutlinedButton>(
@@ -138,7 +138,7 @@ void main() {
           lineChart.data.lineBarsData.single.spots.first,
         ),
       ),
-      MyTheme.light.colorScheme.primaryContainer,
+      MyTheme.dark.colorScheme.primaryContainer,
     );
   });
 
@@ -159,7 +159,7 @@ void main() {
     expect(tooltip.text, '120 m\n0.0 km');
     expect(
       tooltip.textStyle.color,
-      MyTheme.light.colorScheme.onPrimaryContainer,
+      MyTheme.dark.colorScheme.onPrimaryContainer,
     );
 
     await tester.tap(find.byKey(const Key('elevation-profile-time-toggle')));
@@ -256,7 +256,7 @@ void main() {
     expect(timeButton.onPressed, isNull);
     _expectSearchButtonStyle(
       timeButton.style,
-      MyTheme.light.extension<SearchButtonThemeData>()!.styleFor(false),
+      MyTheme.dark.extension<SearchButtonThemeData>()!.styleFor(false),
       states: const {WidgetState.disabled},
     );
   });
@@ -400,7 +400,7 @@ Future<void> _pumpChart(
 }) async {
   await tester.pumpWidget(
     MaterialApp(
-      theme: MyTheme.light,
+      theme: MyTheme.dark,
       home: Scaffold(
         body: Center(
           child: SizedBox(

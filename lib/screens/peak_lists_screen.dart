@@ -21,6 +21,7 @@ import 'package:path/path.dart' as p;
 import '../core/constants.dart';
 import '../core/date_formatters.dart';
 import '../core/number_formatters.dart';
+import '../core/search_shortcuts.dart';
 import '../models/geo_areas.dart';
 import '../models/peak.dart';
 import '../models/peak_list.dart';
@@ -82,6 +83,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   GlobalKey<_MiniPeakMapState> _miniPeakMapKey = GlobalKey<_MiniPeakMapState>();
   final _screenFocusNode = FocusNode(debugLabel: 'peak-lists-screen');
   final _nameSearchController = TextEditingController();
+  final _nameSearchFocus = FocusNode(debugLabel: 'Peak List details Search');
   int? _selectedPeakListId;
   int? _selectedPeakId;
   _PeakListSortColumn _sortColumn = _PeakListSortColumn.percentage;
@@ -95,14 +97,35 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleSearchShortcut);
     _setSelectedPeakListId(widget.initialPeakListId);
   }
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);
+    _nameSearchFocus.dispose();
     _screenFocusNode.dispose();
     _nameSearchController.dispose();
     super.dispose();
+  }
+
+  bool _handleSearchShortcut(KeyEvent event) {
+    if (!isFindShortcut(event)) return false;
+    if (!mounted ||
+        _selectedPeakListId == null ||
+        !_nameSearchFocus.canRequestFocus ||
+        _nameSearchFocus.context == null ||
+        !isSearchSurfaceActive(context) ||
+        ref.read(peakListDetailsMetadataFilterProvider).isPopupVisible) {
+      return false;
+    }
+    _nameSearchFocus.requestFocus();
+    _nameSearchController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _nameSearchController.text.length,
+    );
+    return true;
   }
 
   @override
@@ -181,7 +204,9 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
       if (!mounted) {
         return;
       }
-      if ((route != null && !route.isCurrent) || _isEditableTextFocused()) {
+      if ((route != null &&
+              (!route.isCurrent || route.willHandlePopInternally)) ||
+          _isEditableTextFocused()) {
         if (route != null && !route.isCurrent) {
           ref.read(peakListDetailsMetadataFilterProvider.notifier).closePopup();
         }
@@ -269,6 +294,7 @@ class _PeakListsScreenState extends ConsumerState<PeakListsScreen> {
                         selectedSummaryRow: resolvedSelectedSummaryRow,
                         filteredPeakRows: filteredPeakRows,
                         nameSearchController: _nameSearchController,
+                        nameSearchFocus: _nameSearchFocus,
                         activeNameQuery: nameQuery.isNotEmpty,
                         metadataFilter: metadataFilter,
                         selectedPeakId: _selectedPeakId,
@@ -1376,22 +1402,18 @@ class _SummaryHeaderActions extends ConsumerWidget {
             disabledElevation: 0,
             mouseCursor: SystemMouseCursors.click,
             onPressed: () async {
-              await showDialog<bool>(
+              await showPeakListImportDialog(
                 context: context,
-                builder: (context) {
-                  return PeakListImportDialog(
-                    filePicker: filePicker,
-                    onImport:
-                        ({required String listName, required String csvPath}) {
-                          return _startBackgroundImport(
-                            ref,
-                            listName: listName,
-                            csvPath: csvPath,
-                          );
-                        },
-                    duplicateNameChecker: duplicateNameChecker,
-                  );
-                },
+                filePicker: filePicker,
+                onImport:
+                    ({required String listName, required String csvPath}) {
+                      return _startBackgroundImport(
+                        ref,
+                        listName: listName,
+                        csvPath: csvPath,
+                      );
+                    },
+                duplicateNameChecker: duplicateNameChecker,
               );
             },
             child: Icon(Icons.upload_file, color: fabForeground),
@@ -1937,6 +1959,7 @@ class _DetailsPane extends StatelessWidget {
     required this.selectedSummaryRow,
     required this.filteredPeakRows,
     required this.nameSearchController,
+    required this.nameSearchFocus,
     required this.activeNameQuery,
     required this.metadataFilter,
     required this.selectedPeakId,
@@ -1950,6 +1973,7 @@ class _DetailsPane extends StatelessWidget {
   final _PeakListSummaryRow? selectedSummaryRow;
   final List<_PeakDetailRow> filteredPeakRows;
   final TextEditingController nameSearchController;
+  final FocusNode nameSearchFocus;
   final bool activeNameQuery;
   final PeakListDetailsMetadataFilterState metadataFilter;
   final int? selectedPeakId;
@@ -1974,6 +1998,7 @@ class _DetailsPane extends StatelessWidget {
             title: title,
             hasSelectedList: summaryRow != null,
             nameSearchController: nameSearchController,
+            nameSearchFocus: nameSearchFocus,
             activeFilterCount: metadataFilter.activeFilterCount,
             onNameSearchChanged: onNameSearchChanged,
             onFilterPressed: onFilterPressed,
@@ -2012,6 +2037,7 @@ class _PeakListDetailsHeader extends StatelessWidget {
     required this.title,
     required this.hasSelectedList,
     required this.nameSearchController,
+    required this.nameSearchFocus,
     required this.activeFilterCount,
     required this.onNameSearchChanged,
     required this.onFilterPressed,
@@ -2021,6 +2047,7 @@ class _PeakListDetailsHeader extends StatelessWidget {
   final String title;
   final bool hasSelectedList;
   final TextEditingController nameSearchController;
+  final FocusNode nameSearchFocus;
   final int activeFilterCount;
   final ValueChanged<String> onNameSearchChanged;
   final VoidCallback onFilterPressed;
@@ -2028,7 +2055,6 @@ class _PeakListDetailsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final fabBackground = _fabBackgroundColor(context);
     final fabForeground = _fabForegroundColor(context);
     final filterLabel = switch (activeFilterCount) {
@@ -2039,14 +2065,27 @@ class _PeakListDetailsHeader extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final useCompactControls = constraints.maxWidth < 360;
-        final searchWidth = useCompactControls ? 132.0 : 160.0;
-        final filterWidth = useCompactControls ? 96.0 : 120.0;
+        final scaledFont = MediaQuery.textScalerOf(
+          context,
+        ).scale(searchControlFontSize);
+        final searchWidth = (72 + scaledFont * 8).clamp(
+          0.0,
+          constraints.maxWidth,
+        );
+        final filterWidth = (48 + scaledFont * 6).clamp(
+          0.0,
+          constraints.maxWidth,
+        );
 
-        return Row(
+        return Wrap(
           key: const Key('peak-lists-details-header'),
+          spacing: 8,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Expanded(
+            SizedBox(
+              width: (constraints.maxWidth - searchWidth - filterWidth - 72)
+                  .clamp(120.0, constraints.maxWidth),
               child: Tooltip(
                 message: title,
                 child: Text(
@@ -2058,46 +2097,37 @@ class _PeakListDetailsHeader extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            Tooltip(
-              message: 'Search Peaks',
+            Semantics(
+              label: 'Search selected Peak List peaks',
               child: SizedBox(
                 width: searchWidth,
                 child: TextField(
                   key: const Key('peak-lists-name-search'),
                   controller: nameSearchController,
+                  focusNode: nameSearchFocus,
                   enabled: hasSelectedList,
                   onChanged: onNameSearchChanged,
                   textInputAction: TextInputAction.search,
                   decoration: InputDecoration(
                     labelText: 'Search ⌘F',
                     hintText: 'Search Peaks',
-                    prefixIcon: const Icon(Icons.search),
-                    isDense: true,
-                    border: const OutlineInputBorder(),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: colorScheme.outlineVariant),
+                    prefixIcon: const ExcludeSemantics(
+                      child: Icon(Icons.search, size: searchControlIconSize),
                     ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
             SizedBox(
               width: filterWidth,
               child: OutlinedButton.icon(
                 key: const Key('peak-lists-metadata-filter-trigger'),
                 onPressed: hasSelectedList ? onFilterPressed : null,
                 icon: const Icon(Icons.filter_list),
-                label: Text(
-                  filterLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                ),
+                label: Text(filterLabel),
               ),
             ),
             if (hasSelectedList) ...[
-              const SizedBox(width: 8),
               LeftTooltipFab(
                 message: 'Add New Peak',
                 child: FloatingActionButton.small(
@@ -2148,20 +2178,24 @@ class _PeakListsMetadataFilterOverlay extends ConsumerWidget {
           ),
           Positioned(
             top: 16,
+            bottom: 16,
             right: 16,
             width: 360,
-            child: KeyedSubtree(
-              key: const Key('peak-lists-metadata-filter-popup'),
-              child: MapMetadataFilterPopup(
-                ratingFilter: metadataFilter.ratingFilter,
-                difficultyFilter: metadataFilter.difficultyFilter,
-                durationFilter: metadataFilter.durationFilter,
-                difficultyOptions: difficultyOptions,
-                onSelectRatingFilter: notifier.setRatingFilter,
-                onSelectDifficultyFilter: notifier.setDifficultyFilter,
-                onSelectDurationFilter: notifier.setDurationFilter,
-                onClearFilters: notifier.clearFilters,
-                onClose: notifier.closePopup,
+            child: Align(
+              alignment: Alignment.topRight,
+              child: KeyedSubtree(
+                key: const Key('peak-lists-metadata-filter-popup'),
+                child: MapMetadataFilterPopup(
+                  ratingFilter: metadataFilter.ratingFilter,
+                  difficultyFilter: metadataFilter.difficultyFilter,
+                  durationFilter: metadataFilter.durationFilter,
+                  difficultyOptions: difficultyOptions,
+                  onSelectRatingFilter: notifier.setRatingFilter,
+                  onSelectDifficultyFilter: notifier.setDifficultyFilter,
+                  onSelectDurationFilter: notifier.setDurationFilter,
+                  onClearFilters: notifier.clearFilters,
+                  onClose: notifier.closePopup,
+                ),
               ),
             ),
           ),

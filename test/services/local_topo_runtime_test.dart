@@ -8,6 +8,7 @@ import 'package:peak_bagger/screens/map_screen_layers.dart';
 import 'package:peak_bagger/services/local_topo_runtime.dart';
 import 'package:peak_bagger/services/region_manifest_catalog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../harness/controlled_preferences.dart';
 
 void main() {
   setUp(() {
@@ -21,6 +22,92 @@ void main() {
   tearDown(() {
     localTopoRuntime.resetForTesting();
   });
+
+  test(
+    'runtime requires confirmed writes and does not restore an incomplete validation',
+    () async {
+      final prefs = ControlledPreferences();
+      final runtime = LocalTopoRuntime();
+      final snapshot = LocalTopoCapabilitySnapshot.fromCapabilitiesResponse(
+        baseUrl: Uri.parse('http://127.0.0.1:8090'),
+        decoded: jsonDecode(
+          File(
+            'local_topo/tasmania/fixtures/capabilities.json',
+          ).readAsStringSync(),
+        ),
+      );
+      prefs.onWrite = (_, _) async => false;
+      await expectLater(
+        runtime.saveBaseUrl(
+          snapshot.baseUrl,
+          loadPreferences: () async => prefs,
+        ),
+        throwsStateError,
+      );
+      expect(runtime.savedBaseUrl, isNull);
+      prefs.onWrite = null;
+      await runtime.saveBaseUrl(
+        snapshot.baseUrl,
+        loadPreferences: () async => prefs,
+      );
+      await prefs.setString('local_topo_validation_status_v1', 'validating');
+      await runtime.saveValidatedSnapshot(
+        snapshot,
+        loadPreferences: () async => prefs,
+        activate: false,
+      );
+      expect(runtime.hasCapabilitySnapshot, isFalse);
+      await runtime.restore(loadPreferences: () async => prefs);
+      expect(runtime.hasCapabilitySnapshot, isFalse);
+      await prefs.setString(
+        'local_topo_validation_status_v1',
+        'live-validated',
+      );
+      await runtime.restore(loadPreferences: () async => prefs);
+      expect(runtime.hasCapabilitySnapshot, isTrue);
+      prefs.onWrite = (_, _) async => false;
+      await expectLater(
+        runtime.clearCapabilitySnapshot(loadPreferences: () async => prefs),
+        throwsStateError,
+      );
+      expect(runtime.hasCapabilitySnapshot, isFalse);
+    },
+  );
+
+  test(
+    'changing URL deactivates old runtime before failed snapshot cleanup',
+    () async {
+      final prefs = ControlledPreferences();
+      final runtime = LocalTopoRuntime();
+      final snapshot = LocalTopoCapabilitySnapshot.fromCapabilitiesResponse(
+        baseUrl: Uri.parse('http://127.0.0.1:8090'),
+        decoded: jsonDecode(
+          File(
+            'local_topo/tasmania/fixtures/capabilities.json',
+          ).readAsStringSync(),
+        ),
+      );
+      await runtime.saveValidatedSnapshot(
+        snapshot,
+        loadPreferences: () async => prefs,
+      );
+      prefs.onWrite = (key, _) async =>
+          key != localTopoCapabilitySnapshotPrefsKey;
+      await expectLater(
+        runtime.saveBaseUrl(
+          Uri.parse('http://127.0.0.1:8091'),
+          loadPreferences: () async => prefs,
+        ),
+        throwsStateError,
+      );
+      expect(runtime.savedBaseUrl.toString(), 'http://127.0.0.1:8091');
+      expect(runtime.hasCapabilitySnapshot, isFalse);
+      expect(
+        prefs.stored[localTileServerBaseUrlPrefsKey],
+        'http://127.0.0.1:8091',
+      );
+    },
+  );
 
   test(
     'local tile server base URL parser accepts only http and https roots',

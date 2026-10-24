@@ -4539,6 +4539,7 @@ class MapNotifier extends Notifier<MapState> {
 
   void setRouteDraftMode(RouteMode mode) {
     if (!state.isRouteDrafting ||
+        state.isSavingRoute ||
         state.routeDraftMode == mode ||
         state.routeDraftStage == RouteDraftStage.routingSegment) {
       return;
@@ -4561,7 +4562,9 @@ class MapNotifier extends Notifier<MapState> {
   }
 
   void setRouteDraftName(String value) {
-    if (!state.isRouteDrafting || state.routeDraftName == value) {
+    if (!state.isRouteDrafting ||
+        state.isSavingRoute ||
+        state.routeDraftName == value) {
       return;
     }
 

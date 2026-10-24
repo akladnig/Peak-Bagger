@@ -18,7 +18,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -55,7 +55,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -90,7 +90,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -139,7 +139,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -208,7 +208,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -259,7 +259,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -330,7 +330,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -383,7 +383,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -432,7 +432,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -482,7 +482,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -523,7 +523,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -567,7 +567,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(
             route: route,
@@ -615,7 +615,6 @@ void main() {
       naismithRecalculate,
       scarfRecalculate,
       speedDecrement,
-      speedField,
       speedIncrement,
     ]) {
       _expectCursor(tester, control, SystemMouseCursors.click);
@@ -623,7 +622,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: MapTrackInfoPanel(route: route, onClose: () {}),
         ),
@@ -638,11 +637,11 @@ void main() {
       naismithRecalculate,
       scarfRecalculate,
       speedDecrement,
-      speedField,
       speedIncrement,
     ]) {
       _expectCursor(tester, control, SystemMouseCursors.basic);
     }
+    expect(tester.widget<TextField>(speedField).enabled, isFalse);
     for (final control in [naismithInfo, scarfInfo]) {
       _expectCursor(tester, control, SystemMouseCursors.click);
     }
@@ -659,7 +658,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -687,7 +686,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -725,7 +724,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: StatefulBuilder(
             builder: (context, setState) {
@@ -800,7 +799,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -884,7 +883,9 @@ void main() {
       contentTheme.colorScheme.onSurface,
     );
     expect(
-      tester.widget<Text>(find.text('Walking Speed')).style?.color,
+      Theme.of(
+        tester.element(find.byKey(const Key('route-walking-speed-field'))),
+      ).inputDecorationTheme.labelStyle?.color,
       contentTheme.colorScheme.onSurface,
     );
     expect(
@@ -922,7 +923,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,
@@ -970,7 +971,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
         home: Scaffold(
           body: SizedBox(
             width: 600,

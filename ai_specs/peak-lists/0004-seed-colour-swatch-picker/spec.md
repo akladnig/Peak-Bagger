@@ -52,10 +52,15 @@ The settings screen replaces the palette selector with a horizontal seed-colour 
 
 ## Testing Strategy
 
+**2026-10-21 amendment:** test only My Seed Colour (`#7E47EB`, `baseColor`) in
+dark mode (`MyTheme.dark`), per `ai_specs/app-profile.md`. This supersedes older
+all-swatch/light-mode coverage in this Spec and its Work Items; runtime picker
+options remain unchanged.
+
 1. Use focused TDD for the settings UI and theme-state changes.
-2. Extend provider/theme tests to cover the default `My Seed Colour` seed colour, each supported swatch value, startup restore from a valid stored swatch id before first frame, persistence across rebuilds, removal of the legacy `theme_color_palette` preference during theme preference bootstrap/load, and fallback to `My Seed Colour` when the stored seed-colour value is missing or invalid. [L2]
-3. Extend `test/widget/settings_screen_theme_test.dart` to verify the palette dropdown is gone, the swatch row renders, the exact swatch labels exist, a restored stored swatch is shown as selected after preferences load, the selected swatch state updates, and tapping a swatch changes the persisted seed colour. [L1] [L2]
-4. Update `test/theme_test.dart` to verify that both light and dark app themes derive their seeded color schemes from the selected seed colour swatch rather than a fixed color constant, and that no manual non-seeded theme branch remains responsible for the active theme path. [L1] [L2]
+2. Extend provider/theme tests to cover My Seed Colour defaults, restore from its stored ID, persistence across rebuilds, legacy `theme_color_palette` cleanup and fallback to My Seed Colour for missing/invalid values. Do not select other swatches in tests. [L2; verification amended 2026-10-21]
+3. In `test/widget/settings_screen_theme_test.dart`, verify the palette dropdown is gone, the swatch row renders and My Seed Colour has the expected label, selected semantics, reachable target and persisted selection after tapping/rebuild. [L1] [L2; verification amended 2026-10-21]
+4. In `test/theme_test.dart`, verify the dark app theme derives its seeded scheme from My Seed Colour with the default vibrant variant and contrast 0.0. Do not add light-mode or alternate-seed derivation checks. [verification amended 2026-10-21]
 5. No robot journey coverage is required unless the final implementation introduces a new cross-screen flow; widget and provider tests are the expected split. [L1] [L2]
 6. Use deterministic shared-preferences fakes and stable widget selectors plus semantics for the swatches so widget tests can verify labels, selection state, and direct tapping reliably. [L2]
 

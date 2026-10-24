@@ -125,17 +125,19 @@ void main() {
       await tester.tap(_cardControl('summary-period-dropdown'));
       await tester.pumpAndSettle();
 
-      for (final item in tester.widgetList<MenuItemButton>(
-        find.byType(MenuItemButton),
+      for (final item in tester.widgetList<MouseRegion>(
+        find.descendant(
+          of: find.byKey(const Key('shared-dropdown-menu')),
+          matching: find.byType(MouseRegion),
+        ),
       )) {
-        expect(
-          item.style?.mouseCursor?.resolve(const <WidgetState>{}),
-          SystemMouseCursors.click,
-        );
+        if (item.cursor != MouseCursor.defer) {
+          expect(item.cursor, SystemMouseCursors.click);
+        }
       }
       await _expectCursorAt(
         tester,
-        find.byType(MenuItemButton).first,
+        find.byKey(const Key('distance-period-week')),
         SystemMouseCursors.click,
       );
 
@@ -352,7 +354,7 @@ void main() {
         ],
         now: DateTime(2026, 5, 31, 12),
         width: 560,
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
       );
 
       await _selectPeriod(tester, 'Month');
@@ -599,14 +601,12 @@ void main() {
       expect(tooltipTextWidgets, hasLength(3));
       expect(
         tooltipTextWidgets[1].style?.color,
-        lighten(
-          MyTheme.light.extension<ChartSeriesTheme>()!.primarySeriesColor,
-        ),
+        lighten(MyTheme.dark.extension<ChartSeriesTheme>()!.primarySeriesColor),
       );
       expect(
         tooltipTextWidgets[2].style?.color,
         lighten(
-          MyTheme.light.extension<ChartSeriesTheme>()!.secondarySeriesColor,
+          MyTheme.dark.extension<ChartSeriesTheme>()!.secondarySeriesColor,
         ),
       );
     });
@@ -638,7 +638,7 @@ void main() {
         ],
         now: DateTime(2026, 5, 31, 12),
         width: 560,
-        theme: MyTheme.light,
+        theme: MyTheme.dark,
       );
 
       await _selectPeriod(tester, 'Month');
@@ -712,7 +712,13 @@ void _expectControlCursor(WidgetTester tester, String key, MouseCursor cursor) {
     InkWell() => widget.mouseCursor,
     IconButton() => widget.mouseCursor,
     FloatingActionButton() => widget.mouseCursor,
-    _ => null,
+    _ =>
+      tester
+          .widgetList<MouseRegion>(
+            find.descendant(of: control, matching: find.byType(MouseRegion)),
+          )
+          .firstWhere((region) => region.cursor != MouseCursor.defer)
+          .cursor,
   };
   expect(actualCursor, cursor);
 }

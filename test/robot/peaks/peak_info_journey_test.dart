@@ -166,7 +166,7 @@ void main() {
 
     r.expectPeakPopupWithLines([
       'Bonnet Hill Summit',
-      'Height: 1234 m',
+      'Elevation: 1234 m',
       'Region: Tasmanian',
     ]);
     expect(r.container().read(mapProvider).isPeakInfoPinned, isTrue);
@@ -222,7 +222,7 @@ void main() {
 
     expect(r.peakInfoPopup, findsOneWidget);
     expect(find.text('Bonnet Hill'), findsOneWidget);
-    expect(find.text('Height: —'), findsOneWidget);
+    expect(find.text('Elevation: —'), findsOneWidget);
     expect(
       find.text(
         'MGRS: ${expected.gridZoneDesignator} ${expected.mgrs100kId} ${expected.easting} ${expected.northing}',
@@ -288,7 +288,7 @@ void main() {
     await r.clickPeak(6406);
     r.expectPeakPopupWithLines([
       'Bonnet Hill',
-      'Height: 1234 m',
+      'Elevation: 1234 m',
       'Map: Adamsons',
       'MGRS: 55G DM 80000 95000',
       'List: Abels',
@@ -342,7 +342,7 @@ void main() {
     await r.clickPeak(6406);
     r.expectPeakPopupWithLines([
       'Bonnet Hill',
-      'Height: 1234 m',
+      'Elevation: 1234 m',
       'Map: Adamsons',
       'MGRS: 55G DM 80000 95000',
       'Lists: Abels, HWC',
@@ -361,7 +361,7 @@ void main() {
     await r.clickPeak(6406);
     r.expectPeakPopupWithLines([
       'Bonnet Hill',
-      'Height: —',
+      'Elevation: —',
       'Region: Tasmanian',
     ]);
   });
@@ -460,7 +460,7 @@ void main() {
       await r.clickPeak(6406);
       r.expectPeakPopupWithLines([
         'Bonnet Hill',
-        'Height: 1234 m',
+        'Elevation: 1234 m',
         'My Ascents:',
         'Alpha Loop (16 May 2026)',
         'Beta Loop (15 May 2026)',

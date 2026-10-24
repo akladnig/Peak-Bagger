@@ -1,16 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:peak_bagger/core/constants.dart';
+import 'package:peak_bagger/core/search_shortcuts.dart';
 import 'package:peak_bagger/router.dart';
 import 'package:peak_bagger/providers/map_provider.dart';
 import 'package:peak_bagger/providers/objectbox_admin_provider.dart';
+import 'package:peak_bagger/providers/objectbox_admin_save_provider.dart';
+import 'package:peak_bagger/providers/objectbox_admin_delete_provider.dart';
 import 'package:peak_bagger/providers/peak_list_provider.dart';
 import 'package:peak_bagger/providers/peak_list_selection_provider.dart';
-import 'package:peak_bagger/models/waypoints.dart';
-import 'package:peak_bagger/main.dart';
 import 'package:peak_bagger/providers/peak_provider.dart';
 import 'package:peak_bagger/providers/background_jobs_provider.dart';
 import 'package:peak_bagger/providers/natural_feature_provider.dart';
@@ -29,6 +32,7 @@ import 'package:peak_bagger/models/natural_feature.dart';
 import 'package:peak_bagger/models/contact.dart';
 import 'package:peak_bagger/models/route.dart' as app_route;
 import 'package:peak_bagger/widgets/dialog_helpers.dart';
+import 'package:peak_bagger/widgets/objectbox_admin_save_scope.dart';
 
 class ObjectBoxAdminScreen extends ConsumerStatefulWidget {
   const ObjectBoxAdminScreen({super.key});
@@ -38,8 +42,16 @@ class ObjectBoxAdminScreen extends ConsumerStatefulWidget {
       _ObjectBoxAdminScreenState();
 }
 
-class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
+class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen>
+    implements PopEntry<Object?> {
+  // Unlike a build-time PopScope flag, this entry changes synchronously when a
+  // Save starts, so an immediate system back cannot pop a parent shell page.
+  @override
+  final ValueNotifier<bool> canPopNotifier = ValueNotifier(true);
+  ModalRoute<Object?>? _popRoute;
+  late final ProviderSubscription<bool> _saveSubscription;
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocus = FocusNode(debugLabel: 'Admin Search');
   final ScrollController _verticalController = ScrollController();
   final ScrollController _headerHorizontalController = ScrollController();
   final Map<String, ScrollController> _rowHorizontalControllers = {};
@@ -53,6 +65,13 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   @override
   void initState() {
     super.initState();
+    HardwareKeyboard.instance.addHandler(_handleSearchShortcut);
+    _saveSubscription = ref.listenManual(objectboxAdminSaveProvider, (
+      _,
+      saving,
+    ) {
+      canPopNotifier.value = !saving;
+    }, fireImmediately: true);
     _verticalController.addListener(_maybeLoadMore);
     _headerHorizontalController.addListener(
       () => _syncHorizontalScroll(_headerHorizontalController),
@@ -65,7 +84,28 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (_popRoute == route) return;
+    _popRoute?.unregisterPopEntry(this);
+    _popRoute = route;
+    _popRoute?.registerPopEntry(this);
+  }
+
+  @override
+  void onPopInvoked(bool didPop) {}
+
+  @override
+  void onPopInvokedWithResult(bool didPop, Object? result) {}
+
+  @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleSearchShortcut);
+    _searchFocus.dispose();
+    _saveSubscription.close();
+    _popRoute?.unregisterPopEntry(this);
+    canPopNotifier.dispose();
     router.routerDelegate.removeListener(_routerListener);
     _verticalController
       ..removeListener(_maybeLoadMore)
@@ -76,6 +116,30 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
     _searchController.dispose();
     super.dispose();
+  }
+
+  bool _handleSearchShortcut(KeyEvent event) {
+    if (!isFindShortcut(event)) return false;
+    if (!mounted || _savePending) return false;
+    final state = ref.read(objectboxAdminProvider);
+    if (state.mode != ObjectBoxAdminViewMode.data ||
+        state.selectedEntity == null ||
+        state.schemaError != null ||
+        !_searchFocus.canRequestFocus ||
+        !isSearchSurfaceActive(context)) {
+      return false;
+    }
+    final localRouter = GoRouter.maybeOf(context);
+    if (localRouter != null &&
+        localRouter.state.uri.path != '/objectbox-admin') {
+      return false;
+    }
+    _searchFocus.requestFocus();
+    _searchController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _searchController.text.length,
+    );
+    return true;
   }
 
   void _handleRouteChange() {
@@ -89,6 +153,18 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
 
     _lastRoutePath = currentPath;
+    if (currentPath != '/objectbox-admin') {
+      // The shell retains this screen. Departure still abandons its draft now,
+      // rather than merely hiding it until the next entry refresh.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _currentPath() == '/objectbox-admin') return;
+        setState(() {
+          _isCreatingPeak = false;
+          _isCreatingContact = false;
+        });
+        ref.read(objectboxAdminProvider.notifier).clearSelection();
+      });
+    }
     if (currentPath == '/objectbox-admin') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || _currentPath() != '/objectbox-admin') {
@@ -101,7 +177,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
 
   String? _currentPath() {
     try {
-      return router.routerDelegate.currentConfiguration.uri.path;
+      return router.state.uri.path;
     } catch (_) {
       return null;
     }
@@ -169,6 +245,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   Future<void> _exportSelectedGpxFile(ObjectBoxAdminRow row) async {
+    if (_savePending) return;
     try {
       final path = await ref
           .read(objectboxAdminRepositoryProvider)
@@ -189,7 +266,22 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
   }
 
-  Future<String?> _savePeak(Peak peak) async {
+  Future<String?> _savePeak(Peak peak) =>
+      _runSave(() => _performSavePeak(peak));
+
+  Future<String?> _saveNaturalFeature(NaturalFeature feature) =>
+      _runSave(() => _performSaveNaturalFeature(feature));
+
+  Future<String?> _saveContact(Contact contact) =>
+      _runSave(() => _performSaveContact(contact));
+
+  Future<String?> _saveRoute(RouteAdminFormState form) =>
+      _runSave(() => _performSaveRoute(form));
+
+  Future<String?> _savePeakList(PeakListAdminFormState form) =>
+      _runSave(() => _performSavePeakList(form));
+
+  Future<String?> _performSavePeak(Peak peak) async {
     final repository = ref.read(peakRepositoryProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
 
@@ -217,7 +309,9 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         return null;
       }
 
-      await notifier.refresh(keepSelectedRowPrimaryKey: result.peak.id);
+      await notifier.refreshAfterSave(
+        keepSelectedRowPrimaryKey: result.peak.id,
+      );
       if (!mounted) {
         return null;
       }
@@ -275,7 +369,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         BackgroundJobKind.refreshNaturalFeatures;
   }
 
-  Future<String?> _saveNaturalFeature(NaturalFeature feature) async {
+  Future<String?> _performSaveNaturalFeature(NaturalFeature feature) async {
     if (_naturalFeatureMutationsLocked) {
       return 'Natural features cannot be changed while refresh is running.';
     }
@@ -283,7 +377,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       final saved = ref.read(naturalFeatureRepositoryProvider).save(feature);
       await ref
           .read(objectboxAdminProvider.notifier)
-          .refresh(keepSelectedRowPrimaryKey: saved.id);
+          .refreshAfterSave(keepSelectedRowPrimaryKey: saved.id);
       if (!mounted) {
         return null;
       }
@@ -313,12 +407,12 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
   }
 
-  Future<String?> _saveContact(Contact contact) async {
+  Future<String?> _performSaveContact(Contact contact) async {
     try {
       final saved = ref.read(contactRepositoryProvider).save(contact);
       await ref
           .read(objectboxAdminProvider.notifier)
-          .refresh(keepSelectedRowPrimaryKey: saved.id);
+          .refreshAfterSave(keepSelectedRowPrimaryKey: saved.id);
       if (!mounted) {
         return null;
       }
@@ -331,72 +425,73 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   Future<void> _deleteContact(ObjectBoxAdminRow row) async {
-    final repository = ref.read(contactRepositoryProvider);
-    final contact = repository.findById(row.primaryKeyValue as int);
-    if (contact == null) {
-      return;
-    }
-    final displayName = contactDisplayName(contact);
-    final confirmed = await showDangerConfirmDialog(
-      context: context,
-      title: 'Delete Contact?',
-      message:
-          'This will permanently delete the ${displayName.isEmpty ? 'Contact' : displayName}. Do you want to proceed?',
-      cancelKey: 'cancel-delete',
-      cancelLabel: 'Cancel',
-      confirmKey: 'confirm-delete',
-      confirmLabel: 'Delete',
-    );
-    if (confirmed != true) {
-      return;
-    }
-    final selectedRow = ref.read(objectboxAdminProvider).selectedRow;
-    repository.delete(contact.id);
-    await ref
-        .read(objectboxAdminProvider.notifier)
-        .refresh(
-          keepSelectedRowPrimaryKey:
-              selectedRow?.primaryKeyValue == row.primaryKeyValue
-              ? null
-              : selectedRow?.primaryKeyValue,
+    await _coordinateDelete(
+      row,
+      'Contact',
+      () async {
+        final repository = ref.read(contactRepositoryProvider);
+        final contact = repository.findById(row.primaryKeyValue as int);
+        if (contact == null) {
+          return false;
+        }
+        final displayName = contactDisplayName(contact);
+        final confirmed = await showDangerConfirmDialog(
+          context: context,
+          title: 'Delete Contact?',
+          message:
+              'This will permanently delete the ${displayName.isEmpty ? 'Contact' : displayName}. Do you want to proceed?',
+          cancelKey: 'cancel-delete',
+          cancelLabel: 'Cancel',
+          confirmKey: 'confirm-delete',
+          confirmLabel: 'Delete',
         );
+        return confirmed == true;
+      },
+      () async {
+        if (!ref
+            .read(contactRepositoryProvider)
+            .delete(row.primaryKeyValue as int)) {
+          throw StateError('Contact was not removed');
+        }
+      },
+    );
   }
 
   Future<void> _deleteNaturalFeature(ObjectBoxAdminRow row) async {
-    if (_naturalFeatureMutationsLocked) {
-      return;
-    }
-    final repository = ref.read(naturalFeatureRepositoryProvider);
-    final feature = repository.findById(row.primaryKeyValue as int);
-    if (feature == null) {
-      return;
-    }
-    final confirmed = await showDangerConfirmDialog(
-      context: context,
-      title: 'Delete Natural Feature?',
-      message:
-          'This will permanently delete the ${feature.name}. Do you want to proceed?',
-      cancelKey: 'cancel-delete',
-      cancelLabel: 'Cancel',
-      confirmKey: 'confirm-delete',
-      confirmLabel: 'Delete',
-    );
-    if (confirmed != true || _naturalFeatureMutationsLocked) {
-      return;
-    }
-    final selectedRow = ref.read(objectboxAdminProvider).selectedRow;
-    repository.delete(feature.id);
-    await ref
-        .read(objectboxAdminProvider.notifier)
-        .refresh(
-          keepSelectedRowPrimaryKey:
-              selectedRow?.primaryKeyValue == row.primaryKeyValue
-              ? null
-              : selectedRow?.primaryKeyValue,
+    if (_naturalFeatureMutationsLocked) return;
+    await _coordinateDelete(
+      row,
+      'Natural Feature',
+      () async {
+        final repository = ref.read(naturalFeatureRepositoryProvider);
+        final feature = repository.findById(row.primaryKeyValue as int);
+        if (feature == null) {
+          return false;
+        }
+        final confirmed = await showDangerConfirmDialog(
+          context: context,
+          title: 'Delete Natural Feature?',
+          message:
+              'This will permanently delete the ${feature.name}. Do you want to proceed?',
+          cancelKey: 'cancel-delete',
+          cancelLabel: 'Cancel',
+          confirmKey: 'confirm-delete',
+          confirmLabel: 'Delete',
         );
+        return confirmed == true && !_naturalFeatureMutationsLocked;
+      },
+      () async {
+        if (!ref
+            .read(naturalFeatureRepositoryProvider)
+            .delete(row.primaryKeyValue as int)) {
+          throw StateError('Natural Feature was not removed');
+        }
+      },
+    );
   }
 
   void _viewGpxTrackOnMainMap(ObjectBoxAdminRow row) {
+    if (_savePending) return;
     final trackId = row.primaryKeyValue as int;
     final repository = ref.read(gpxTrackRepositoryProvider);
     final track = repository.findById(trackId);
@@ -409,6 +504,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   void _viewRouteOnMainMap(app_route.Route route) {
+    if (_savePending) return;
     final repository = ref.read(routeRepositoryProvider);
     if (repository.findById(route.id) == null) {
       return;
@@ -419,6 +515,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   void _viewPeakOnMainMap(Peak peak) {
+    if (_savePending) return;
     final location = LatLng(peak.latitude, peak.longitude);
     final mapNotifier = ref.read(mapProvider.notifier);
     mapNotifier.requestCameraMove(
@@ -429,6 +526,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   void _viewNaturalFeatureOnMainMap(NaturalFeature naturalFeature) {
+    if (_savePending) return;
     final location = LatLng(naturalFeature.latitude, naturalFeature.longitude);
     final mapNotifier = ref.read(mapProvider.notifier);
     mapNotifier.requestCameraMove(
@@ -439,99 +537,96 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   Future<void> _deletePeak(ObjectBoxAdminRow row) async {
-    final repository = ref.read(peakRepositoryProvider);
-    final guard = ref.read(peakDeleteGuardProvider);
-    final notifier = ref.read(objectboxAdminProvider.notifier);
-    final peak =
-        repository.findById(row.primaryKeyValue as int) ??
-        peakFromAdminRow(row);
-    final confirmed = await showDangerConfirmDialog(
-      context: context,
-      title: 'Delete Peak?',
-      message:
-          'This will permanently delete the ${peak.name}. Do you want to proceed?',
-      cancelKey: 'cancel-delete',
-      cancelLabel: 'Cancel',
-      confirmKey: 'confirm-delete',
-      confirmLabel: 'Delete',
-    );
+    await _coordinateDelete(
+      row,
+      'Peak',
+      () async {
+        final repository = ref.read(peakRepositoryProvider);
+        final guard = ref.read(peakDeleteGuardProvider);
+        final peak =
+            repository.findById(row.primaryKeyValue as int) ??
+            peakFromAdminRow(row);
+        final confirmed = await showDangerConfirmDialog(
+          context: context,
+          title: 'Delete Peak?',
+          message:
+              'This will permanently delete the ${peak.name}. Do you want to proceed?',
+          cancelKey: 'cancel-delete',
+          cancelLabel: 'Cancel',
+          confirmKey: 'confirm-delete',
+          confirmLabel: 'Delete',
+        );
 
-    if (confirmed != true) {
-      return;
-    }
+        if (confirmed != true || !mounted) {
+          return false;
+        }
 
-    final blockers = guard.check(peak);
-    if (!blockers.canDelete) {
-      if (!mounted) {
-        return;
-      }
+        final blockers = guard.check(peak);
+        if (!blockers.canDelete) {
+          if (!mounted) {
+            return false;
+          }
 
-      await showSingleActionDialog(
-        context: context,
-        title: 'Delete Blocked',
-        content: Text(_describeDeleteBlockers(blockers.blockers)),
-        closeKey: 'objectbox-admin-peak-delete-blocked-close',
-      );
-      return;
-    }
+          await showSingleActionDialog(
+            context: context,
+            title: 'Delete Blocked',
+            content: Text(_describeDeleteBlockers(blockers.blockers)),
+            closeKey: 'objectbox-admin-peak-delete-blocked-close',
+          );
+          return false;
+        }
 
-    final currentState = ref.read(objectboxAdminProvider);
-    final keepSelectedRowPrimaryKey =
-        currentState.selectedRow?.primaryKeyValue == row.primaryKeyValue
-        ? null
-        : currentState.selectedRow?.primaryKeyValue;
-
-    await repository.delete(peak.id);
-    ref.read(peakRevisionProvider.notifier).increment();
-    if (!mounted) {
-      return;
-    }
-
-    await notifier.refresh(
-      keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
+        return true;
+      },
+      () async {
+        await ref
+            .read(peakRepositoryProvider)
+            .delete(row.primaryKeyValue as int);
+        ref.read(peakRevisionProvider.notifier).increment();
+      },
     );
   }
 
   Future<void> _deleteGpxTrack(ObjectBoxAdminRow row) async {
-    final repository = ref.read(gpxTrackRepositoryProvider);
-    final notifier = ref.read(objectboxAdminProvider.notifier);
+    if (!mounted || _savePending) return;
     final mapNotifier = ref.read(mapProvider.notifier);
-    final trackId = row.primaryKeyValue as int;
-    final trackName =
-        repository.findById(trackId)?.trackName ??
-        (row.values['trackName']?.toString().trim().isNotEmpty == true
-            ? row.values['trackName']!.toString().trim()
-            : 'Track');
+    await _coordinateDelete(
+      row,
+      'Track',
+      () async {
+        final repository = ref.read(gpxTrackRepositoryProvider);
+        final trackId = row.primaryKeyValue as int;
+        final trackName =
+            repository.findById(trackId)?.trackName ??
+            (row.values['trackName']?.toString().trim().isNotEmpty == true
+                ? row.values['trackName']!.toString().trim()
+                : 'Track');
 
-    final confirmed = await showDangerConfirmDialog(
-      context: context,
-      title: 'Delete Track?',
-      message:
-          'This will permanently delete the $trackName. Do you want to proceed?',
-      cancelKey: 'cancel-delete',
-      cancelLabel: 'Cancel',
-      confirmKey: 'confirm-delete',
-      confirmLabel: 'Delete',
-    );
+        final confirmed = await showDangerConfirmDialog(
+          context: context,
+          title: 'Delete Track?',
+          message:
+              'This will permanently delete the $trackName. Do you want to proceed?',
+          cancelKey: 'cancel-delete',
+          cancelLabel: 'Cancel',
+          confirmKey: 'confirm-delete',
+          confirmLabel: 'Delete',
+        );
 
-    if (confirmed != true) {
-      return;
-    }
-
-    final currentState = ref.read(objectboxAdminProvider);
-    final keepSelectedRowPrimaryKey =
-        currentState.selectedRow?.primaryKeyValue == row.primaryKeyValue
-        ? null
-        : currentState.selectedRow?.primaryKeyValue;
-
-    repository.deleteTrack(trackId);
-    await mapNotifier.deleteTrack(trackId);
-    await notifier.refresh(
-      keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
+        return confirmed == true;
+      },
+      () async {
+        if (!ref
+            .read(gpxTrackRepositoryProvider)
+            .deleteTrack(row.primaryKeyValue as int)) {
+          throw StateError('Track was not removed');
+        }
+      },
+      followUp: () => mapNotifier.deleteTrack(row.primaryKeyValue as int),
     );
   }
 
-  Future<String?> _saveRoute(RouteAdminFormState form) async {
+  Future<String?> _performSaveRoute(RouteAdminFormState form) async {
     final repository = ref.read(routeRepositoryProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
     final currentState = ref.read(objectboxAdminProvider);
@@ -561,7 +656,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         return null;
       }
 
-      await notifier.refresh(keepSelectedRowPrimaryKey: savedRoute.id);
+      await notifier.refreshAfterSave(keepSelectedRowPrimaryKey: savedRoute.id);
       if (!mounted) {
         return null;
       }
@@ -593,7 +688,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     }
   }
 
-  Future<String?> _savePeakList(PeakListAdminFormState form) async {
+  Future<String?> _performSavePeakList(PeakListAdminFormState form) async {
     final repository = ref.read(peakListRepositoryProvider);
     final notifier = ref.read(objectboxAdminProvider.notifier);
     final currentState = ref.read(objectboxAdminProvider);
@@ -627,7 +722,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         return null;
       }
 
-      await notifier.refresh(
+      await notifier.refreshAfterSave(
         keepSelectedRowPrimaryKey: savedPeakList.peakListId,
       );
       if (!mounted) {
@@ -662,84 +757,108 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   Future<void> _deleteRoute(ObjectBoxAdminRow row) async {
-    final repository = ref.read(routeRepositoryProvider);
-    final notifier = ref.read(objectboxAdminProvider.notifier);
-    final routeId = row.primaryKeyValue as int;
-    final routeName =
-        repository.findById(routeId)?.name ??
-        (row.values['name']?.toString().trim().isNotEmpty == true
-            ? row.values['name']!.toString().trim()
-            : 'Route');
+    await _coordinateDelete(
+      row,
+      'Route',
+      () async {
+        final repository = ref.read(routeRepositoryProvider);
+        final routeId = row.primaryKeyValue as int;
+        final routeName =
+            repository.findById(routeId)?.name ??
+            (row.values['name']?.toString().trim().isNotEmpty == true
+                ? row.values['name']!.toString().trim()
+                : 'Route');
 
-    final confirmed = await showDangerConfirmDialog(
-      context: context,
-      title: 'Delete Route?',
-      message:
-          'This will permanently delete the $routeName. Do you want to proceed?',
-      cancelKey: 'cancel-delete',
-      cancelLabel: 'Cancel',
-      confirmKey: 'confirm-delete',
-      confirmLabel: 'Delete',
-    );
+        final confirmed = await showDangerConfirmDialog(
+          context: context,
+          title: 'Delete Route?',
+          message:
+              'This will permanently delete the $routeName. Do you want to proceed?',
+          cancelKey: 'cancel-delete',
+          cancelLabel: 'Cancel',
+          confirmKey: 'confirm-delete',
+          confirmLabel: 'Delete',
+        );
 
-    if (confirmed != true) {
-      return;
-    }
-
-    final currentState = ref.read(objectboxAdminProvider);
-    final keepSelectedRowPrimaryKey =
-        currentState.selectedRow?.primaryKeyValue == row.primaryKeyValue
-        ? null
-        : currentState.selectedRow?.primaryKeyValue;
-
-    repository.deleteRoute(routeId);
-    ref.read(routeRevisionProvider.notifier).increment();
-    if (!mounted) {
-      return;
-    }
-
-    await notifier.refresh(
-      keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey,
+        return confirmed == true;
+      },
+      () async {
+        if (!ref
+            .read(routeRepositoryProvider)
+            .deleteRoute(row.primaryKeyValue as int)) {
+          throw StateError('Route was not removed');
+        }
+        ref.read(routeRevisionProvider.notifier).increment();
+      },
     );
   }
 
   Future<void> _deleteWaypoint(ObjectBoxAdminRow row) async {
-    final waypointId = row.primaryKeyValue as int;
-    final waypointName =
-        row.values['name']?.toString().trim().isNotEmpty == true
-        ? row.values['name']!.toString().trim()
-        : 'Waypoint';
-    final confirmed = await showDangerConfirmDialog(
-      context: context,
-      title: 'Delete Waypoint?',
-      message:
-          'This will permanently delete the $waypointName. Do you want to proceed?',
-      cancelKey: 'cancel-delete',
-      cancelLabel: 'Cancel',
-      confirmKey: 'confirm-delete',
-      confirmLabel: 'Delete',
+    await _coordinateDelete(
+      row,
+      'Waypoint',
+      () async {
+        final waypointName =
+            row.values['name']?.toString().trim().isNotEmpty == true
+            ? row.values['name']!.toString().trim()
+            : 'Waypoint';
+        final confirmed = await showDangerConfirmDialog(
+          context: context,
+          title: 'Delete Waypoint?',
+          message:
+              'This will permanently delete the $waypointName. Do you want to proceed?',
+          cancelKey: 'cancel-delete',
+          cancelLabel: 'Cancel',
+          confirmKey: 'confirm-delete',
+          confirmLabel: 'Delete',
+        );
+
+        return confirmed == true;
+      },
+      () async {
+        if (!await ref
+            .read(objectboxAdminRepositoryProvider)
+            .deleteWaypoint(row.primaryKeyValue as int)) {
+          throw StateError('Waypoint was not removed');
+        }
+      },
     );
+  }
 
-    if (confirmed != true) {
-      return;
-    }
-
-    final currentState = ref.read(objectboxAdminProvider);
-    final keepSelectedRowPrimaryKey =
-        currentState.selectedRow?.primaryKeyValue == row.primaryKeyValue
-        ? null
-        : currentState.selectedRow?.primaryKeyValue;
-
-    final removed = objectboxStore.box<Waypoints>().remove(waypointId);
-    if (!removed || !mounted) {
-      return;
-    }
+  Future<void> _coordinateDelete(
+    ObjectBoxAdminRow row,
+    String label,
+    Future<bool> Function() confirm,
+    Future<void> Function() remove, {
+    Future<void> Function()? followUp,
+  }) async {
+    if (!mounted || _savePending) return;
+    final notifier = ref.read(objectboxAdminProvider.notifier);
     await ref
-        .read(objectboxAdminProvider.notifier)
-        .refresh(keepSelectedRowPrimaryKey: keepSelectedRowPrimaryKey);
+        .read(objectboxAdminDeleteProvider.notifier)
+        .run(
+          label: label,
+          confirm: confirm,
+          remove: remove,
+          didRemove: () => notifier.didDeleteRecord(row.primaryKeyValue!),
+          followUp: followUp,
+          refresh: notifier.refreshAfterDelete,
+          onFailure: (_, _) async {
+            if (!mounted) return;
+            await showSingleActionDialog(
+              context: context,
+              title: 'Delete Failed',
+              content: Text(
+                'Unable to delete $label. Your input has been retained. Close this message and try again.',
+              ),
+              closeKey: 'objectbox-admin-delete-error-close',
+            );
+          },
+        );
   }
 
   void _startCreatingPeak() {
+    if (_savePending) return;
     final notifier = ref.read(objectboxAdminProvider.notifier);
     setState(() {
       _isCreatingPeak = true;
@@ -748,6 +867,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
   }
 
   void _startCreatingContact() {
+    if (_savePending) return;
     setState(() => _isCreatingContact = true);
     ref.read(objectboxAdminProvider.notifier).clearSelection();
   }
@@ -783,6 +903,8 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
         ref.watch(backgroundJobsProvider).runningJob?.kind ==
         BackgroundJobKind.refreshNaturalFeatures;
     final notifier = ref.read(objectboxAdminProvider.notifier);
+    final savePending = ref.watch(objectboxAdminSaveProvider);
+    final recoveries = ref.watch(objectboxAdminDeleteProvider);
 
     if (_searchController.text != state.searchQuery) {
       _searchController.text = state.searchQuery;
@@ -791,68 +913,128 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       );
     }
 
-    return Scaffold(
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ObjectBoxAdminControls(
-              state: state,
-              searchController: _searchController,
-              onEntityChanged: (entity) {
-                if (entity == null) {
-                  return;
-                }
-                _searchController.clear();
-                if (_isCreatingPeak) {
-                  setState(() {
-                    _isCreatingPeak = false;
-                  });
-                }
-                if (_isCreatingContact) {
-                  setState(() => _isCreatingContact = false);
-                }
-                notifier.selectEntity(entity);
-              },
-              onModeChanged: (mode) {
-                if (_isCreatingPeak) {
-                  setState(() {
-                    _isCreatingPeak = false;
-                  });
-                }
-                if (_isCreatingContact) {
-                  setState(() => _isCreatingContact = false);
-                }
-                notifier.setMode(mode);
-              },
-              onSearchChanged: notifier.updateSearchQuery,
-              onSearchSubmitted: notifier.runSearch,
-              onSearchPressed: notifier.runSearch,
-              onAddPeakPressed: _startCreatingPeak,
-              onAddContactPressed: _startCreatingContact,
-              onSortPressed: notifier.toggleSort,
-              onExportPressed: state.selectedRow == null
-                  ? null
-                  : () => _exportSelectedGpxFile(state.selectedRow!),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 160),
-                child: _buildBody(
-                  context,
-                  state,
-                  notifier,
-                  naturalFeatureMutationsLocked,
+    return ObjectBoxAdminSaveScope(
+      pending: savePending,
+      isPending: () => _savePending,
+      child: Scaffold(
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ObjectBoxAdminControls(
+                state: state,
+                searchController: _searchController,
+                searchFocusNode: _searchFocus,
+                onEntityChanged: (entity) {
+                  if (_savePending || entity == null) {
+                    return;
+                  }
+                  _searchController.clear();
+                  if (_isCreatingPeak) {
+                    setState(() {
+                      _isCreatingPeak = false;
+                    });
+                  }
+                  if (_isCreatingContact) {
+                    setState(() => _isCreatingContact = false);
+                  }
+                  notifier.selectEntity(entity);
+                },
+                onModeChanged: (mode) {
+                  if (_savePending) return;
+                  if (_isCreatingPeak) {
+                    setState(() {
+                      _isCreatingPeak = false;
+                    });
+                  }
+                  if (_isCreatingContact) {
+                    setState(() => _isCreatingContact = false);
+                  }
+                  notifier.setMode(mode);
+                },
+                onSearchChanged: (query) {
+                  if (_savePending) {
+                    _searchController.text = ref
+                        .read(objectboxAdminProvider)
+                        .searchQuery;
+                    return;
+                  }
+                  notifier.updateSearchQuery(query);
+                },
+                onSearchSubmitted: notifier.runSearch,
+                onAddPeakPressed: _startCreatingPeak,
+                onAddContactPressed: _startCreatingContact,
+                onSortPressed: notifier.toggleSort,
+                onExportPressed: state.selectedRow == null
+                    ? null
+                    : () => _exportSelectedGpxFile(state.selectedRow!),
+                locked: savePending,
+              ),
+              const SizedBox(height: 16),
+              if (savePending)
+                const Text(
+                  'Admin operation in progress…',
+                  key: Key('objectbox-admin-operation-progress'),
+                ),
+              if (recoveries.isNotEmpty)
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(context).height / 4,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final recovery in recoveries)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  '${recovery.label} deleted. ${recovery.followUp != null ? 'Synchronisation' : 'Refresh'} is incomplete. Retry to finish; the record will not be deleted again.',
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              FilledButton(
+                                key: const Key('objectbox-admin-delete-retry'),
+                                onPressed: savePending
+                                    ? null
+                                    : () => ref
+                                          .read(
+                                            objectboxAdminDeleteProvider
+                                                .notifier,
+                                          )
+                                          .retry(recovery),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 160),
+                  child: _buildBody(
+                    context,
+                    state,
+                    notifier,
+                    naturalFeatureMutationsLocked,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+
+  bool get _savePending => ref.read(objectboxAdminSaveProvider);
+
+  Future<String?> _runSave(Future<String?> Function() action) =>
+      ref.read(objectboxAdminSaveProvider.notifier).run(action);
 
   Widget _buildBody(
     BuildContext context,
@@ -860,7 +1042,14 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     ObjectBoxAdminNotifier notifier,
     bool naturalFeatureMutationsLocked,
   ) {
-    if (state.entities.isEmpty) {
+    if (state.schemaError != null && state.selectedRow == null) {
+      return ObjectBoxAdminErrorState(
+        key: const Key('objectbox-admin-schema-error-state'),
+        message: state.schemaError!,
+        onRetry: notifier.refresh,
+      );
+    }
+    if (state.entities.isEmpty && state.selectedRow == null) {
       return const ObjectBoxAdminEmptyState(
         key: Key('objectbox-admin-empty-state'),
         title: 'No selectable entities',
@@ -868,28 +1057,35 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       );
     }
 
-    if (state.error != null) {
+    final entity = state.selectedEntity;
+    if (state.mode == ObjectBoxAdminViewMode.schema && entity != null) {
+      return ObjectBoxAdminSchemaView(entity: entity);
+    }
+
+    if (state.error != null &&
+        state.selectedRow == null &&
+        !_isCreatingPeak &&
+        !_isCreatingContact) {
       return ObjectBoxAdminErrorState(
         key: const Key('objectbox-admin-error-state'),
         message: state.error!,
+        onRetry: notifier.refresh,
       );
     }
 
-    if (state.isLoading) {
+    if (state.isLoading &&
+        state.selectedRow == null &&
+        !_isCreatingPeak &&
+        !_isCreatingContact) {
       return const ObjectBoxAdminLoadingState();
     }
 
-    final entity = state.selectedEntity;
     if (entity == null) {
       return const ObjectBoxAdminEmptyState(
         key: Key('objectbox-admin-empty-state'),
         title: 'No entity selected',
         message: 'Choose an entity to inspect its schema or rows.',
       );
-    }
-
-    if (state.mode == ObjectBoxAdminViewMode.schema) {
-      return ObjectBoxAdminSchemaView(entity: entity);
     }
 
     final isPeakCreateMode =
@@ -919,8 +1115,10 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                   _rowHorizontalControllerFor(entity, row),
               verticalController: _verticalController,
               canLoadMore: state.visibleRowCount < state.rows.length,
+              enabled: !_savePending,
               onSortPressed: notifier.toggleSort,
               onRowTap: (row) {
+                if (_savePending) return;
                 setState(() {
                   _isCreatingPeak = false;
                 });
@@ -940,6 +1138,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
               route: null,
               createOsmId: createOsmId,
               onClose: () {
+                if (_savePending) return;
                 setState(() {
                   _isCreatingPeak = false;
                 });
@@ -979,8 +1178,10 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
                   _rowHorizontalControllerFor(entity, row),
               verticalController: _verticalController,
               canLoadMore: state.visibleRowCount < state.rows.length,
+              enabled: !_savePending,
               onSortPressed: notifier.toggleSort,
               onRowTap: (row) {
+                if (_savePending) return;
                 setState(() => _isCreatingContact = false);
                 notifier.selectRow(row);
               },
@@ -1002,6 +1203,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
               isNaturalFeatureMutationLocked: false,
               createOsmId: 0,
               onClose: () {
+                if (_savePending) return;
                 setState(() => _isCreatingContact = false);
                 notifier.clearSelection();
               },
@@ -1020,7 +1222,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       );
     }
 
-    if (state.noMatches) {
+    if (state.noMatches && state.selectedRow == null) {
       return const ObjectBoxAdminEmptyState(
         key: Key('objectbox-admin-empty-state'),
         title: 'No matches',
@@ -1028,7 +1230,7 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
       );
     }
 
-    if (state.rows.isEmpty) {
+    if (state.rows.isEmpty && state.selectedRow == null) {
       return ObjectBoxAdminEmptyState(
         key: const Key('objectbox-admin-empty-state'),
         title: 'No rows',
@@ -1039,32 +1241,49 @@ class _ObjectBoxAdminScreenState extends ConsumerState<ObjectBoxAdminScreen> {
     return Row(
       children: [
         Expanded(
-          child: ObjectBoxAdminDataGrid(
-            key: const Key('objectbox-admin-table'),
-            entity: entity,
-            rows: state.visibleRows,
-            sortAscending: state.sortAscending,
-            selectedRow: state.selectedRow,
-            headerHorizontalController: _headerHorizontalController,
-            rowHorizontalControllerFor: (row) =>
-                _rowHorizontalControllerFor(entity, row),
-            verticalController: _verticalController,
-            canLoadMore: state.visibleRowCount < state.rows.length,
-            onSortPressed: notifier.toggleSort,
-            onRowTap: notifier.selectRow,
-            onDeletePressed: switch (entity.name) {
-              'Peak' => _deletePeak,
-              'NaturalFeature' => _deleteNaturalFeature,
-              'Contact' => _deleteContact,
-              'GpxTrack' => _deleteGpxTrack,
-              'Route' => _deleteRoute,
-              'Waypoints' => _deleteWaypoint,
-              _ => null,
-            },
-            deleteEnabled:
-                !naturalFeatureMutationsLocked ||
-                entity.name != 'NaturalFeature',
-          ),
+          child: state.error != null || state.schemaError != null
+              ? ObjectBoxAdminErrorState(
+                  message: state.schemaError ?? state.error!,
+                  onRetry: notifier.refresh,
+                )
+              : state.noMatches
+              ? const ObjectBoxAdminEmptyState(
+                  title: 'No matches',
+                  message: 'The current search returned no rows.',
+                )
+              : state.rows.isEmpty
+              ? const ObjectBoxAdminEmptyState(
+                  title: 'No rows',
+                  message: 'This entity has no stored rows yet.',
+                )
+              : ObjectBoxAdminDataGrid(
+                  key: const Key('objectbox-admin-table'),
+                  entity: entity,
+                  rows: state.visibleRows,
+                  sortAscending: state.sortAscending,
+                  selectedRow: state.selectedRow,
+                  headerHorizontalController: _headerHorizontalController,
+                  rowHorizontalControllerFor: (row) =>
+                      _rowHorizontalControllerFor(entity, row),
+                  verticalController: _verticalController,
+                  canLoadMore: state.visibleRowCount < state.rows.length,
+                  enabled: !_savePending,
+                  onSortPressed: notifier.toggleSort,
+                  onRowTap: notifier.selectRow,
+                  onDeletePressed: switch (entity.name) {
+                    'Peak' => _deletePeak,
+                    'NaturalFeature' => _deleteNaturalFeature,
+                    'Contact' => _deleteContact,
+                    'GpxTrack' => _deleteGpxTrack,
+                    'Route' => _deleteRoute,
+                    'Waypoints' => _deleteWaypoint,
+                    _ => null,
+                  },
+                  deleteEnabled:
+                      !_savePending &&
+                      (!naturalFeatureMutationsLocked ||
+                          entity.name != 'NaturalFeature'),
+                ),
         ),
         const SizedBox(width: 16),
         SizedBox(

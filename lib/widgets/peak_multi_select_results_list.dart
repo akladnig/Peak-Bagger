@@ -10,6 +10,7 @@ class PeakMultiSelectResultsList extends StatelessWidget {
     required this.searchQuery,
     required this.selectedPeakIds,
     this.readOnlySelectedPeakIds = const {},
+    this.enabled = true,
     required this.onSelectionChanged,
     required this.mapNameForPeak,
     super.key,
@@ -19,6 +20,7 @@ class PeakMultiSelectResultsList extends StatelessWidget {
   final String searchQuery;
   final Set<int> selectedPeakIds;
   final Set<int> readOnlySelectedPeakIds;
+  final bool enabled;
   final ValueChanged<Set<int>> onSelectionChanged;
   final String Function(Peak peak) mapNameForPeak;
 
@@ -79,7 +81,9 @@ class PeakMultiSelectResultsList extends StatelessWidget {
               final selected =
                   selectedPeakIds.contains(peak.osmId) || readOnlySelected;
               final canSelect =
-                  !readOnlySelected && (selected || !selectionLimitReached);
+                  enabled &&
+                  !readOnlySelected &&
+                  (selected || !selectionLimitReached);
               return _PeakSearchResultRow(
                 key: Key('peak-multi-select-row-${peak.osmId}'),
                 peak: peak,
@@ -215,10 +219,10 @@ class _PeakSearchResultRowState extends State<_PeakSearchResultRow> {
         ),
       );
     }
-    if (_isPressed) {
+    if (_isPressed && widget.canToggleSelection) {
       return BoxDecoration(color: dataGridTheme.pressedRowColor);
     }
-    if (_isHovered) {
+    if (_isHovered && widget.canToggleSelection) {
       return BoxDecoration(color: dataGridTheme.hoverColor);
     }
     return null;

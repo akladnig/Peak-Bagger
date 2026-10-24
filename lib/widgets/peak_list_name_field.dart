@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'shared_field_decoration.dart';
 
 class PeakListNameField extends StatelessWidget {
   const PeakListNameField({
@@ -22,7 +23,10 @@ class PeakListNameField extends StatelessWidget {
       key: fieldKey,
       controller: controller,
       enabled: enabled,
-      decoration: InputDecoration(labelText: 'List Name', errorText: errorText),
+      decoration: sharedFieldDecoration(
+        labelText: 'List Name',
+        errorText: errorText,
+      ),
       onChanged: onChanged,
     );
   }
